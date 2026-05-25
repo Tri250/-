@@ -2,14 +2,18 @@ import { useState } from 'react';
 import { User, Edit, History, Settings, Crown, Star, Heart, ChevronRight, Camera, X } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 
+interface ProfilePageProps {
+  onNavigate?: (page: string) => void;
+}
+
 const menuItems = [
-  { icon: History, label: '分析历史', description: '查看所有翻译记录' },
-  { icon: Settings, label: '设置', description: '隐私、通知等设置' },
-  { icon: Heart, label: '收藏', description: '收藏的精彩时刻' },
-  { icon: Star, label: '帮助与反馈', description: '使用帮助与问题反馈' },
+  { id: 'history', icon: History, label: '分析历史', description: '查看所有翻译记录' },
+  { id: 'settings', icon: Settings, label: '设置', description: '隐私、通知等设置' },
+  { id: 'favorites', icon: Heart, label: '收藏', description: '收藏的精彩时刻' },
+  { id: 'help', icon: Star, label: '帮助与反馈', description: '使用帮助与问题反馈' },
 ];
 
-export function ProfilePage() {
+export function ProfilePage({ onNavigate }: ProfilePageProps) {
   const { currentPet, analyses } = useAppStore();
   const [showEdit, setShowEdit] = useState(false);
   const [petName, setPetName] = useState(currentPet?.name || '');
@@ -147,9 +151,15 @@ export function ProfilePage() {
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           {menuItems.map((item) => {
             const Icon = item.icon;
+            const handleClick = () => {
+              if (item.id === 'settings' && onNavigate) {
+                onNavigate('settings');
+              }
+            };
             return (
               <button
-                key={item.label}
+                key={item.id}
+                onClick={handleClick}
                 className="w-full flex items-center gap-3 p-4 hover:bg-gray-50 transition-colors"
               >
                 <div className="w-10 h-10 rounded-full bg-purple-50 flex items-center justify-center">
