@@ -1,24 +1,224 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>My Trae Project</title>
-    <script type="module">
-      if (import.meta.hot?.on) {
-        import.meta.hot.on('vite:error', (error) => {
-          if (error.err) {
-            console.error(
-              [error.err.message, error.err.frame].filter(Boolean).join('\n'),
-            )
-          }
-        })
-      }
-    </script>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PawSync Pro - APK下载</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 50px;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+        
+        .app-icon {
+            font-size: 100px;
+            margin-bottom: 20px;
+        }
+        
+        h1 {
+            color: #333;
+            font-size: 32px;
+            margin-bottom: 15px;
+        }
+        
+        .subtitle {
+            color: #666;
+            font-size: 16px;
+            margin-bottom: 40px;
+            line-height: 1.8;
+        }
+        
+        .download-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 18px 50px;
+            border-radius: 50px;
+            text-decoration: none;
+            font-size: 20px;
+            font-weight: 700;
+            transition: all 0.3s;
+            margin: 10px;
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .download-button:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.6);
+        }
+        
+        .download-button:active {
+            transform: translateY(-2px);
+        }
+        
+        .info-section {
+            margin-top: 40px;
+            padding-top: 30px;
+            border-top: 2px solid #f0f0f0;
+        }
+        
+        .info-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            text-align: left;
+        }
+        
+        .info-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+        }
+        
+        .info-label {
+            font-size: 12px;
+            color: #999;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+        
+        .info-value {
+            font-size: 16px;
+            color: #333;
+            font-weight: 600;
+        }
+        
+        .install-guide {
+            margin-top: 40px;
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 15px;
+            text-align: left;
+        }
+        
+        .install-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+        }
+        
+        .install-steps {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .install-steps li {
+            padding: 10px 0;
+            color: #666;
+            font-size: 14px;
+            line-height: 1.8;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .install-steps li:last-child {
+            border-bottom: none;
+        }
+        
+        .install-steps li::before {
+            content: "✓ ";
+            color: #667eea;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        
+        .footer {
+            margin-top: 30px;
+            font-size: 12px;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="app-icon">🐾</div>
+        
+        <h1>PawSync Pro</h1>
+        
+        <p class="subtitle">
+            基于AI的宠物共情、健康守护与互动陪伴应用<br>
+            智能分析宠物情绪，守护宠物健康
+        </p>
+        
+        <a href="PawSyncPro.apk" class="download-button" download="PawSyncPro.apk">
+            ⬇️ 下载安装包 (APK)
+        </a>
+        
+        <div class="info-section">
+            <div class="info-title">📱 应用信息</div>
+            <div class="info-grid">
+                <div class="info-item">
+                    <div class="info-label">应用名称</div>
+                    <div class="info-value">PawSync Pro</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">包名</div>
+                    <div class="info-value">com.pawsync.pro</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">版本</div>
+                    <div class="info-value">1.0.0</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">文件大小</div>
+                    <div class="info-value">195 KB</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">权限需求</div>
+                    <div class="info-value">互联网访问</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">平台</div>
+                    <div class="info-value">Android 7.0+</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="install-guide">
+            <div class="install-title">📋 安装说明</div>
+            <ol class="install-steps">
+                <li>点击上方"下载安装包"按钮下载APK文件</li>
+                <li>将APK文件传输到您的Android手机</li>
+                <li>在手机设置中开启"允许未知来源应用"权限<br>
+                    <small style="color: #999;">(设置 → 安全 → 允许未知来源应用)</small>
+                </li>
+                <li>在手机文件管理器中找到APK文件并点击</li>
+                <li>按照提示完成安装</li>
+                <li>打开应用，开始使用PawSync Pro！</li>
+            </ol>
+        </div>
+        
+        <div class="footer">
+            PawSync Pro - 让AI连接你与宠物的心灵
+        </div>
+    </div>
+</body>
 </html>
