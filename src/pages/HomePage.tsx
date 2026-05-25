@@ -1,96 +1,275 @@
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { Bell, TrendingUp, Moon, ChevronRight } from 'lucide-react-native';
+import { useAppStore } from '../store/appStore';
 import { StatusCard } from '../components/StatusCard';
 import { QuickAction } from '../components/QuickAction';
-import { useAppStore } from '../store/appStore';
-import { Bell, ChevronRight, TrendingUp, Moon } from 'lucide-react';
-interface HomePageProps {
- onNavigate: (page: string) => void;
-}
-export function HomePage({ onNavigate }: HomePageProps) {
- const { currentPet, currentEmotion, healthScore, healthAlerts } = useAppStore();
- const lastActivity = '刚刚活跃';
- return (<div className="min-h-screen bg-gradient-to-b from-orange-50/50 via-white to-peach-50/30 pb-20">
- <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-lg border-b border-orange-100">
- <div className="max-w-md mx-auto px-4 py-4 flex items-center justify-between">
- <div>
- <h1 className="text-xl font-bold text-gray-800">PawSync Pro</h1>
- <p className="text-xs text-gray-400">爪印同频 · 守护版</p>
- </div>
- <button className="relative p-2 rounded-full hover:bg-gray-100 transition-colors">
- <Bell className="w-6 h-6 text-gray-600"/>
- {healthAlerts.length > 0 && (<span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>)}
- </button>
- </div>
- </header>
 
- <main className="max-w-md mx-auto px-4 py-5 space-y-5">
- <StatusCard petName={currentPet?.name || ''} emotion={currentEmotion} healthScore={healthScore} lastActivity={lastActivity}/>
+const HomePage: React.FC = () => {
+  const { currentPet, currentEmotion, healthScore, healthAlerts } = useAppStore();
+  const lastActivity = '刚刚活跃';
 
- <section>
- <h2 className="text-sm font-semibold text-gray-700 mb-3">快捷操作</h2>
- <QuickAction onAction={(action) => {
- if (action === 'record' || action === 'photo') {
- onNavigate('translator');
- }
- else if (action === 'health') {
- onNavigate('health');
- }
- else if (action === 'history') {
- onNavigate('profile');
- }
- }}/>
- </section>
+  const handleNavigate = (action: string) => {
+    console.log('Navigate to:', action);
+  };
 
- <section className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
- <div className="flex items-center justify-between mb-3">
- <div className="flex items-center gap-2">
- <TrendingUp className="w-5 h-5 text-green-500"/>
- <h2 className="text-sm font-semibold text-gray-700">健康趋势</h2>
- </div>
- <button className="text-xs text-orange-500 font-medium flex items-center gap-1 hover:text-orange-600">
- 查看详情 <ChevronRight className="w-4 h-4"/>
- </button>
- </div>
- <div className="flex items-end gap-2 h-20">
- {[65, 72, 68, 78, 82, 75, 88].map((height, index) => (<div key={index} className="flex-1 bg-gradient-to-t from-orange-400 to-peach-300 rounded-t-md transition-all duration-300 hover:from-orange-500 hover:to-peach-400" style={{ height: `${height}%` }}/>))}
- </div>
- <div className="flex justify-between mt-2 text-xs text-gray-400">
- <span>周一</span>
- <span>周三</span>
- <span>周五</span>
- <span>周日</span>
- </div>
- </section>
+  return (
+    <ScrollView style={styles.container}>
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.appName}>PawSync Pro</Text>
+          <Text style={styles.appSubtitle}>爪印同频 · 守护版</Text>
+        </View>
+        <TouchableOpacity style={styles.bellButton}>
+          <Bell size={24} color="#6b7280" />
+          {healthAlerts.length > 0 && (
+            <View style={styles.badge} />
+          )}
+        </TouchableOpacity>
+      </View>
 
- <section className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
- <div className="flex items-center justify-between mb-3">
- <div className="flex items-center gap-2">
- <Moon className="w-5 h-5 text-purple-500"/>
- <h2 className="text-sm font-semibold text-gray-700">离家守护</h2>
- </div>
- <button className="relative w-10 h-5 bg-gray-200 rounded-full transition-colors" onClick={() => onNavigate('health')}>
- <span className="absolute top-0.5 left-0.5 w-4 h-4 bg-orange-500 rounded-full shadow transition-transform"/>
- </button>
- </div>
- <p className="text-xs text-gray-500">守护模式已开启，小橘的异常行为将被实时监测</p>
- </section>
+      <View style={styles.mainContent}>
+        <StatusCard
+          petName={currentPet?.name || ''}
+          emotion={currentEmotion}
+          healthScore={healthScore}
+          lastActivity={lastActivity}
+        />
 
- {healthAlerts.length > 0 && (<section className="bg-gradient-to-r from-orange-50 to-peach-50 rounded-2xl p-4 border border-orange-100">
- <div className="flex items-start justify-between">
- <div className="flex items-center gap-2">
- <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
- <Bell className="w-4 h-4 text-red-500"/>
- </div>
- <div>
- <h3 className="text-sm font-semibold text-gray-700">健康提醒</h3>
- <p className="text-xs text-gray-500">{healthAlerts[0].message}</p>
- </div>
- </div>
- <button className="text-xs text-orange-500 font-medium" onClick={() => onNavigate('health')}>
- 查看
- </button>
- </div>
- </section>)}
- </main>
- </div>);
-}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>快捷操作</Text>
+          <QuickAction onAction={handleNavigate} />
+        </View>
 
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <View style={styles.cardTitleRow}>
+              <TrendingUp size={20} color="#22c55e" />
+              <Text style={styles.cardTitle}>健康趋势</Text>
+            </View>
+            <TouchableOpacity style={styles.cardLink}>
+              <Text style={styles.cardLinkText}>查看详情</Text>
+              <ChevronRight size={16} color="#f97316" />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.chartContainer}>
+            {[65, 72, 68, 78, 82, 75, 88].map((height, index) => (
+              <View
+                key={index}
+                style={[styles.chartBar, { height: `${height}%` }]}
+              />
+            ))}
+          </View>
+          <View style={styles.chartLabels}>
+            <Text style={styles.chartLabel}>周一</Text>
+            <Text style={styles.chartLabel}>周三</Text>
+            <Text style={styles.chartLabel}>周五</Text>
+            <Text style={styles.chartLabel}>周日</Text>
+          </View>
+        </View>
+
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <View style={styles.cardTitleRow}>
+              <Moon size={20} color="#a855f7" />
+              <Text style={styles.cardTitle}>离家守护</Text>
+            </View>
+            <TouchableOpacity style={styles.toggleButton}>
+              <View style={styles.toggleKnob} />
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.cardDescription}>
+            守护模式已开启，小橘的异常行为将被实时监测
+          </Text>
+        </View>
+
+        {healthAlerts.length > 0 && (
+          <View style={styles.alertCard}>
+            <View style={styles.alertContent}>
+              <View style={styles.alertIcon}>
+                <Bell size={16} color="#ef4444" />
+              </View>
+              <View>
+                <Text style={styles.alertTitle}>健康提醒</Text>
+                <Text style={styles.alertMessage}>{healthAlerts[0].message}</Text>
+              </View>
+            </View>
+            <TouchableOpacity>
+              <Text style={styles.alertLink}>查看</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+    </ScrollView>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#fff7ed',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#fef3c7',
+  },
+  appName: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1f2937',
+  },
+  appSubtitle: {
+    fontSize: 12,
+    color: '#9ca3af',
+    marginTop: 2,
+  },
+  bellButton: {
+    position: 'relative',
+    padding: 8,
+  },
+  badge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 8,
+    height: 8,
+    backgroundColor: '#ef4444',
+    borderRadius: 4,
+  },
+  mainContent: {
+    padding: 16,
+    gap: 16,
+  },
+  section: {
+    marginBottom: 8,
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    borderWidth: 1,
+    borderColor: '#f3f4f6',
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  cardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  cardTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  cardLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  cardLinkText: {
+    fontSize: 12,
+    color: '#f97316',
+    fontWeight: '500',
+  },
+  cardDescription: {
+    fontSize: 12,
+    color: '#6b7280',
+  },
+  chartContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 8,
+    height: 80,
+    marginBottom: 8,
+  },
+  chartBar: {
+    flex: 1,
+    backgroundColor: '#f97316',
+    borderRadius: 4,
+    minHeight: 4,
+  },
+  chartLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  chartLabel: {
+    fontSize: 10,
+    color: '#9ca3af',
+  },
+  toggleButton: {
+    width: 40,
+    height: 24,
+    backgroundColor: '#f97316',
+    borderRadius: 12,
+    padding: 2,
+  },
+  toggleKnob: {
+    width: 20,
+    height: 20,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+  },
+  alertCard: {
+    backgroundColor: '#fff7ed',
+    borderRadius: 16,
+    padding: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#fed7aa',
+  },
+  alertContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  alertIcon: {
+    width: 32,
+    height: 32,
+    backgroundColor: '#fee2e2',
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  alertTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  alertMessage: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 2,
+  },
+  alertLink: {
+    fontSize: 12,
+    color: '#f97316',
+    fontWeight: '500',
+  },
+});
+
+export { HomePage };

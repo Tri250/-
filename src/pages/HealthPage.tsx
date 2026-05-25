@@ -1,28 +1,29 @@
-import { useState } from 'react';
-import { Activity, AlertTriangle, Bell, Heart, Moon, Sun, Thermometer, ChevronRight, Shield } from 'lucide-react';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { Activity, AlertTriangle, Bell, Heart, Moon, Sun, Thermometer, ChevronRight, Shield } from 'lucide-react-native';
 import { useAppStore } from '../store/appStore';
 
 const alertTypeConfig = {
-  cough: { icon: Activity, label: '咳嗽', color: 'text-yellow-500', bgColor: 'bg-yellow-50' },
-  vomit: { icon: AlertTriangle, label: '呕吐', color: 'text-red-500', bgColor: 'bg-red-50' },
-  pain: { icon: Heart, label: '疼痛', color: 'text-purple-500', bgColor: 'bg-purple-50' },
-  abnormal: { icon: Bell, label: '异常', color: 'text-orange-500', bgColor: 'bg-orange-50' },
+  cough: { icon: Activity, label: '咳嗽', color: '#eab308', bgColor: '#fefce8' },
+  vomit: { icon: AlertTriangle, label: '呕吐', color: '#ef4444', bgColor: '#fee2e2' },
+  pain: { icon: Heart, label: '疼痛', color: '#a855f7', bgColor: '#f5f3ff' },
+  abnormal: { icon: Bell, label: '异常', color: '#f97316', bgColor: '#fff7ed' },
 };
 
 const severityConfig = {
-  low: { label: '轻微', color: 'text-green-500', bgColor: 'bg-green-100' },
-  medium: { label: '中等', color: 'text-yellow-500', bgColor: 'bg-yellow-100' },
-  high: { label: '严重', color: 'text-red-500', bgColor: 'bg-red-100' },
+  low: { label: '轻微', color: '#22c55e', bgColor: '#dcfce7' },
+  medium: { label: '中等', color: '#eab308', bgColor: '#fefce8' },
+  high: { label: '严重', color: '#ef4444', bgColor: '#fee2e2' },
 };
 
-export function HealthPage() {
+const HealthPage: React.FC = () => {
   const { healthAlerts, healthScore, currentPet } = useAppStore();
   const [nightMode, setNightMode] = useState(true);
 
   const healthMetrics = [
-    { label: '心率', value: '120', unit: 'bpm', icon: Heart, color: 'text-red-500', bgColor: 'bg-red-50' },
-    { label: '体温', value: '38.2', unit: '°C', icon: Thermometer, color: 'text-orange-500', bgColor: 'bg-orange-50' },
-    { label: '活动量', value: '85', unit: '%', icon: Activity, color: 'text-green-500', bgColor: 'bg-green-50' },
+    { label: '心率', value: '120', unit: 'bpm', icon: Heart, color: '#ef4444', bgColor: '#fee2e2' },
+    { label: '体温', value: '38.2', unit: '°C', icon: Thermometer, color: '#f97316', bgColor: '#fff7ed' },
+    { label: '活动量', value: '85', unit: '%', icon: Activity, color: '#22c55e', bgColor: '#dcfce7' },
   ];
 
   const dailyData = [
@@ -38,153 +39,506 @@ export function HealthPage() {
   const maxActivity = Math.max(...dailyData.map(d => d.activity));
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-green-50/50 via-white to-emerald-50/30 pb-20">
-      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-lg border-b border-green-100">
-        <div className="max-w-md mx-auto px-4 py-4">
-          <h1 className="text-xl font-bold text-gray-800 text-center">全天候健康哨兵</h1>
-          <p className="text-xs text-gray-400 text-center">守护 {currentPet?.name} 的健康</p>
-        </div>
-      </header>
+    <ScrollView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>全天候健康哨兵</Text>
+        <Text style={styles.subtitle}>守护 {currentPet?.name} 的健康</Text>
+      </View>
 
-      <main className="max-w-md mx-auto px-4 py-6 space-y-5">
-        <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl p-5 text-white shadow-lg">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <p className="text-green-100 text-sm">当前健康指数</p>
-              <p className="text-4xl font-bold mt-1">{healthScore}%</p>
-            </div>
-            <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center">
-              <Shield className="w-8 h-8" />
-            </div>
-          </div>
-          <div className="flex items-center gap-2 text-sm">
-            <span className="w-2 h-2 bg-green-300 rounded-full animate-pulse" />
-            <span className="text-green-100">监测中 · 数据更新于 2分钟前</span>
-          </div>
-        </div>
+      <View style={styles.mainContent}>
+        <View style={styles.healthScoreCard}>
+          <View style={styles.healthScoreContent}>
+            <View>
+              <Text style={styles.healthScoreLabel}>当前健康指数</Text>
+              <Text style={styles.healthScoreValue}>{healthScore}%</Text>
+            </View>
+            <View style={styles.healthScoreIcon}>
+              <Shield size={32} color="#fff" />
+            </View>
+          </View>
+          <View style={styles.healthScoreStatus}>
+            <View style={styles.statusDot} />
+            <Text style={styles.statusText}>监测中 · 数据更新于 2分钟前</Text>
+          </View>
+        </View>
 
-        <div className="grid grid-cols-3 gap-3">
+        <View style={styles.metricsGrid}>
           {healthMetrics.map((metric) => {
             const Icon = metric.icon;
             return (
-              <div key={metric.label} className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-                <div className={`w-10 h-10 rounded-full ${metric.bgColor} flex items-center justify-center mb-2`}>
-                  <Icon className={`w-5 h-5 ${metric.color}`} />
-                </div>
-                <p className="text-xs text-gray-400 mb-1">{metric.label}</p>
-                <p className="text-xl font-bold text-gray-800">{metric.value}<span className="text-xs font-normal text-gray-500 ml-1">{metric.unit}</span></p>
-              </div>
+              <View key={metric.label} style={styles.metricCard}>
+                <View style={[styles.metricIcon, { backgroundColor: metric.bgColor }]}>
+                  <Icon size={20} color={metric.color} />
+                </View>
+                <Text style={styles.metricLabel}>{metric.label}</Text>
+                <Text style={styles.metricValue}>
+                  {metric.value}
+                  <Text style={styles.metricUnit}>{metric.unit}</Text>
+                </Text>
+              </View>
             );
           })}
-        </div>
+        </View>
 
-        <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-gray-700">今日监测曲线</h2>
-            <div className="flex gap-1">
-              <span className="flex items-center gap-1 text-xs text-gray-500">
-                <span className="w-2 h-2 bg-red-400 rounded-full" /> 心率
-              </span>
-              <span className="flex items-center gap-1 text-xs text-gray-500">
-                <span className="w-2 h-2 bg-green-400 rounded-full" /> 活动
-              </span>
-            </div>
-          </div>
-          <div className="flex items-end gap-1 h-24">
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardTitle}>今日监测曲线</Text>
+            <View style={styles.cardLegend}>
+              <View style={styles.legendItem}>
+                <View style={styles.legendDotRed} />
+                <Text style={styles.legendText}>心率</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={styles.legendDotGreen} />
+                <Text style={styles.legendText}>活动</Text>
+              </View>
+            </View>
+          </View>
+          <View style={styles.chartContainer}>
             {dailyData.map((data, index) => (
-              <div key={index} className="flex-1 flex flex-col items-center gap-1">
-                <div className="w-full flex flex-col items-center gap-0.5">
-                  <div
-                    className="w-2 bg-red-400 rounded-t-sm transition-all duration-300"
-                    style={{ height: `${(data.heartRate / maxHeartRate) * 80}px` }}
+              <View key={index} style={styles.chartColumn}>
+                <View style={styles.chartBars}>
+                  <View
+                    style={[styles.chartBarRed, { height: `${(data.heartRate / maxHeartRate) * 80}%` }]}
                   />
-                  <div
-                    className="w-2 bg-green-400 rounded-t-sm transition-all duration-300"
-                    style={{ height: `${(data.activity / maxActivity) * 60}px` }}
+                  <View
+                    style={[styles.chartBarGreen, { height: `${(data.activity / maxActivity) * 60}%` }]}
                   />
-                </div>
-                <span className="text-xs text-gray-400">{data.time}</span>
-              </div>
+                </View>
+                <Text style={styles.chartLabel}>{data.time}</Text>
+              </View>
             ))}
-          </div>
-        </div>
+          </View>
+        </View>
 
-        <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <Moon className="w-5 h-5 text-purple-500" />
-              <h2 className="text-sm font-semibold text-gray-700">夜间监护模式</h2>
-            </div>
-            <button
-              onClick={() => setNightMode(!nightMode)}
-              className={`relative w-12 h-6 rounded-full transition-colors ${nightMode ? 'bg-purple-500' : 'bg-gray-200'}`}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <View style={styles.cardTitleRow}>
+              <Moon size={20} color="#a855f7" />
+              <Text style={styles.cardTitle}>夜间监护模式</Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => setNightMode(!nightMode)}
+              style={[styles.toggleButton, { backgroundColor: nightMode ? '#a855f7' : '#e5e7eb' }]}
             >
-              <span className={`absolute top-1 w-4 h-4 rounded-full shadow transition-transform ${nightMode ? 'left-7 bg-white' : 'left-1 bg-gray-400'}`} />
-            </button>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs ${nightMode ? 'bg-purple-100 text-purple-600' : 'bg-gray-100 text-gray-500'}`}>
-              {nightMode ? <Moon className="w-3 h-3" /> : <Sun className="w-3 h-3" />}
-              {nightMode ? '已开启' : '已关闭'}
-            </div>
-            <p className="text-xs text-gray-400 flex-1">
+              <View style={[styles.toggleKnob, { left: nightMode ? 20 : 2 }]} />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.nightModeContent}>
+            <View style={[styles.nightModeBadge, { backgroundColor: nightMode ? '#f5f3ff' : '#f3f4f6' }]}>
+              {nightMode ? (
+                <Moon size={12} color="#a855f7" />
+              ) : (
+                <Sun size={12} color="#9ca3af" />
+              )}
+              <Text style={[styles.nightModeText, { color: nightMode ? '#a855f7' : '#6b7280' }]}>
+                {nightMode ? '已开启' : '已关闭'}
+              </Text>
+            </View>
+            <Text style={styles.nightModeDescription}>
               {nightMode ? '夜间异常行为将被实时监测' : '夜间监测已关闭'}
-            </p>
-          </div>
-        </div>
+            </Text>
+          </View>
+        </View>
 
-        <section>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-gray-700">健康警报记录</h2>
-            <button className="text-xs text-green-500 font-medium flex items-center gap-1 hover:text-green-600">
-              全部 <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-          
+        <View>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>健康警报记录</Text>
+            <TouchableOpacity style={styles.sectionLink}>
+              <Text style={styles.sectionLinkText}>全部</Text>
+              <ChevronRight size={16} color="#22c55e" />
+            </TouchableOpacity>
+          </View>
+
           {healthAlerts.length > 0 ? (
-            <div className="space-y-3">
+            <View style={styles.alertList}>
               {healthAlerts.slice(0, 3).map((alert) => {
                 const typeConfig = alertTypeConfig[alert.type];
                 const severityConfigItem = severityConfig[alert.severity];
                 const Icon = typeConfig.icon;
                 return (
-                  <div key={alert.id} className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-full ${typeConfig.bgColor} flex items-center justify-center`}>
-                          <Icon className={`w-5 h-5 ${typeConfig.color}`} />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-gray-700">{typeConfig.label}</span>
-                            <span className={`px-2 py-0.5 rounded-full text-xs ${severityConfigItem.bgColor} ${severityConfigItem.color}`}>
+                  <View key={alert.id} style={styles.alertCard}>
+                    <View style={styles.alertContent}>
+                      <View style={[styles.alertIcon, { backgroundColor: typeConfig.bgColor }]}>
+                        <Icon size={20} color={typeConfig.color} />
+                      </View>
+                      <View style={styles.alertInfo}>
+                        <View style={styles.alertHeader}>
+                          <Text style={styles.alertType}>{typeConfig.label}</Text>
+                          <View style={[styles.severityBadge, { backgroundColor: severityConfigItem.bgColor }]}>
+                            <Text style={[styles.severityText, { color: severityConfigItem.color }]}>
                               {severityConfigItem.label}
-                            </span>
-                          </div>
-                          <p className="text-xs text-gray-500 mt-1">{alert.message}</p>
-                        </div>
-                      </div>
-                      <span className="text-xs text-gray-400">{alert.timestamp}</span>
-                    </div>
-                  </div>
+                            </Text>
+                          </View>
+                        </View>
+                        <Text style={styles.alertMessage}>{alert.message}</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.alertTime}>{alert.timestamp}</Text>
+                  </View>
                 );
               })}
-            </div>
+            </View>
           ) : (
-            <div className="bg-white rounded-xl p-8 text-center shadow-sm border border-gray-100">
-              <Shield className="w-12 h-12 text-green-400 mx-auto mb-3" />
-              <p className="text-sm text-gray-600">暂无健康警报</p>
-              <p className="text-xs text-gray-400 mt-1">{currentPet?.name} 状态良好</p>
-            </div>
+            <View style={styles.emptyAlert}>
+              <Shield size={48} color="#22c55e" />
+              <Text style={styles.emptyAlertTitle}>暂无健康警报</Text>
+              <Text style={styles.emptyAlertText}>{currentPet?.name} 状态良好</Text>
+            </View>
           )}
-        </section>
+        </View>
 
-        <div className="bg-gradient-to-r from-red-50 to-orange-50 rounded-xl p-4 border border-red-100">
-          <p className="text-xs text-gray-500 text-center">
-            ⚠️ <strong>免责声明</strong>：本结果为AI辅助分析，不构成医疗诊断，请以专业兽医意见为准
-          </p>
-        </div>
-      </main>
-    </div>
+        <View style={styles.disclaimerCard}>
+          <Text style={styles.disclaimerText}>
+            ⚠️ <Text style={styles.disclaimerBold}>免责声明</Text>：本结果为AI辅助分析，不构成医疗诊断，请以专业兽医意见为准
+          </Text>
+        </View>
+      </View>
+    </ScrollView>
   );
-}
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f0fdf4',
+  },
+  header: {
+    padding: 16,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#dcfce7',
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1f2937',
+  },
+  subtitle: {
+    fontSize: 12,
+    color: '#9ca3af',
+    marginTop: 2,
+  },
+  mainContent: {
+    padding: 16,
+    gap: 16,
+  },
+  healthScoreCard: {
+    backgroundColor: '#22c55e',
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+  },
+  healthScoreContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  healthScoreLabel: {
+    fontSize: 12,
+    color: '#86efac',
+  },
+  healthScoreValue: {
+    fontSize: 48,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginTop: 4,
+  },
+  healthScoreIcon: {
+    width: 64,
+    height: 64,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  healthScoreStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    backgroundColor: '#86efac',
+    borderRadius: 4,
+  },
+  statusText: {
+    fontSize: 12,
+    color: '#86efac',
+  },
+  metricsGrid: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  metricCard: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#f3f4f6',
+  },
+  metricIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  metricLabel: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginBottom: 4,
+  },
+  metricValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1f2937',
+  },
+  metricUnit: {
+    fontSize: 12,
+    fontWeight: 'normal',
+    color: '#9ca3af',
+    marginLeft: 2,
+  },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#f3f4f6',
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  cardTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  cardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  cardLegend: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  legendDotRed: {
+    width: 8,
+    height: 8,
+    backgroundColor: '#ef4444',
+    borderRadius: 4,
+  },
+  legendDotGreen: {
+    width: 8,
+    height: 8,
+    backgroundColor: '#22c55e',
+    borderRadius: 4,
+  },
+  legendText: {
+    fontSize: 10,
+    color: '#6b7280',
+  },
+  chartContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    height: 96,
+  },
+  chartColumn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  chartBars: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 4,
+    height: 80,
+    alignItems: 'flex-end',
+  },
+  chartBarRed: {
+    width: 8,
+    backgroundColor: '#ef4444',
+    borderRadius: 4,
+    minHeight: 4,
+  },
+  chartBarGreen: {
+    width: 8,
+    backgroundColor: '#22c55e',
+    borderRadius: 4,
+    minHeight: 4,
+  },
+  chartLabel: {
+    fontSize: 10,
+    color: '#9ca3af',
+    marginTop: 4,
+  },
+  toggleButton: {
+    width: 48,
+    height: 28,
+    borderRadius: 14,
+    padding: 2,
+  },
+  toggleKnob: {
+    position: 'absolute',
+    width: 24,
+    height: 24,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+  },
+  nightModeContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  nightModeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+  },
+  nightModeText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  nightModeDescription: {
+    fontSize: 12,
+    color: '#6b7280',
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  sectionLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  sectionLinkText: {
+    fontSize: 12,
+    color: '#22c55e',
+    fontWeight: '500',
+  },
+  alertList: {
+    gap: 12,
+  },
+  alertCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#f3f4f6',
+  },
+  alertContent: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 8,
+  },
+  alertIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  alertInfo: {
+    flex: 1,
+  },
+  alertHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  alertType: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  severityBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  severityText: {
+    fontSize: 10,
+    fontWeight: '500',
+  },
+  alertMessage: {
+    fontSize: 12,
+    color: '#6b7280',
+  },
+  alertTime: {
+    fontSize: 12,
+    color: '#9ca3af',
+    textAlign: 'right',
+  },
+  emptyAlert: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 32,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#f3f4f6',
+  },
+  emptyAlertTitle: {
+    fontSize: 14,
+    color: '#374151',
+    marginTop: 8,
+  },
+  emptyAlertText: {
+    fontSize: 12,
+    color: '#9ca3af',
+    marginTop: 4,
+  },
+  disclaimerCard: {
+    backgroundColor: '#fef2f2',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#fee2e2',
+  },
+  disclaimerText: {
+    fontSize: 12,
+    color: '#6b7280',
+    textAlign: 'center',
+    lineHeight: 1.5,
+  },
+  disclaimerBold: {
+    fontWeight: '600',
+    color: '#dc2626',
+  },
+});
+
+export { HealthPage };

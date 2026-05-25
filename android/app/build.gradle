@@ -1,0 +1,34 @@
+apply plugin: "com.android.application"
+apply plugin: "com.facebook.react"
+
+android {
+    ndkVersion rootProject.ext.ndkVersion
+
+    compileSdkVersion rootProject.ext.compileSdkVersion
+
+    namespace "com.pawsyncpro"
+    defaultConfig {
+        applicationId "com.pawsyncpro"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode 1
+        versionName "1.0.0"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled enableProguardInReleaseBuilds
+            proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+        }
+    }
+}
+
+dependencies {
+    implementation fileTree(dir: "libs", include: ["*.jar"])
+    implementation "com.facebook.react:react-native:+"
+    implementation "androidx.appcompat:appcompat:1.6.1"
+    implementation "com.facebook.react:react-native-safe-area-context:+"
+    implementation "com.facebook.react:react-native-screens:+"
+}
+
+def enableProguardInReleaseBuilds = false
