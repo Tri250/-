@@ -175,9 +175,10 @@ export function ProfilePage({ onNavigate }: ProfilePageProps) {
           })}
         </div>
 
-        <div className="text-center">
+        <div className="text-center space-y-2">
           <p className="text-xs text-gray-400">PawSync Pro v1.0.0</p>
-          <p className="text-xs text-gray-300 mt-1">爪印同频 · 守护版</p>
+          <p className="text-xs text-gray-300">带娃的小陈工</p>
+          <p className="text-xs text-gray-300">爪印同频 · 守护版</p>
         </div>
       </main>
     </div>

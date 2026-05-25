@@ -1,7 +1,8 @@
 {
-  "name": "workspace",
+  "name": "pawsync-pro",
+  "author": "带娃的小陈工",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
