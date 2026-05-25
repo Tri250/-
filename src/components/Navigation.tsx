@@ -1,4 +1,4 @@
-import { Home, MessageCircle, Heart, User, Settings } from 'lucide-react';
+import { Home, MessageCircle, Heart, User } from 'lucide-react';
 
 interface NavigationProps {
   currentPage: string;

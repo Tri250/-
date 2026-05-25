@@ -1,7 +1,8 @@
 {
-  "name": "workspace",
+  "name": "pawsync-pro",
+  "author": "带娃的小陈工",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,6 +12,9 @@
     "check": "tsc -b --noEmit"
   },
   "dependencies": {
+    "@capacitor/android": "^8.3.4",
+    "@capacitor/cli": "^8.3.4",
+    "@capacitor/core": "^8.3.4",
     "clsx": "^2.1.1",
     "lucide-react": "^0.511.0",
     "react": "^18.3.1",
