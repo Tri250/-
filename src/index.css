@@ -309,6 +309,88 @@ body {
   animation: spin-slow 3s linear infinite;
 }
 
+@keyframes soundwave {
+  0%, 100% {
+    transform: scaleY(0.6);
+    opacity: 0.4;
+  }
+  50% {
+    transform: scaleY(1.2);
+    opacity: 1;
+  }
+}
+
+.animate-soundwave {
+  animation: soundwave 0.8s ease-in-out infinite;
+  transform-origin: bottom;
+}
+
+@keyframes gradientShift {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.8;
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2.5s ease-in-out infinite;
+}
+
+@keyframes gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.animate-gradient-shift {
+  background-size: 200% 200%;
+  animation: gradient-shift 4s ease infinite;
+}
+
+@keyframes float-up-down {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+.animate-float-up-down {
+  animation: float-up-down 2s ease-in-out infinite;
+}
+
+@keyframes slide-in-left {
+  0% { transform: translateX(-50px); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+
+.animate-slide-in-left {
+  animation: slide-in-left 0.6s ease-out forwards;
+}
+
+@keyframes card-3d-hover {
+  0% { transform: perspective(1000px) rotateY(0deg) rotateX(0deg); }
+  100% { transform: perspective(1000px) rotateY(5deg) rotateX(5deg); }
+}
+
+.card-3d-hover {
+  transition: transform 0.5s ease;
+}
+
+.card-3d-hover:hover {
+  animation: card-3d-hover 0.5s ease forwards;
+}
+
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
