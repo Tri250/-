@@ -1,15 +1,16 @@
 import { useState, useRef } from 'react';
 import { Mic, MicOff, Image, Share2, RefreshCw, Sparkles } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
+import { Badge, GlassCard, GradientButton } from '../components/UIEnhancements';
 
 type EmotionType = 'happy' | 'anxious' | 'angry' | 'needs' | 'neutral';
 
 const emotionConfig = {
-  happy: { emoji: '😸', label: '开心', color: 'text-green-500', bgColor: 'bg-green-50' },
-  anxious: { emoji: '😰', label: '焦虑', color: 'text-yellow-500', bgColor: 'bg-yellow-50' },
-  angry: { emoji: '😾', label: '生气', color: 'text-red-500', bgColor: 'bg-red-50' },
-  needs: { emoji: '🥺', label: '有需求', color: 'text-blue-500', bgColor: 'bg-blue-50' },
-  neutral: { emoji: '😐', label: '平静', color: 'text-gray-500', bgColor: 'bg-gray-50' },
+  happy: { emoji: '😸', label: '开心', color: 'from-green-400 to-emerald-500', bgColor: 'bg-green-50', textColor: 'text-green-600' },
+  anxious: { emoji: '😰', label: '焦虑', color: 'from-yellow-400 to-orange-500', bgColor: 'bg-yellow-50', textColor: 'text-yellow-600' },
+  angry: { emoji: '😾', label: '生气', color: 'from-red-400 to-pink-500', bgColor: 'bg-red-50', textColor: 'text-red-600' },
+  needs: { emoji: '🥺', label: '有需求', color: 'from-blue-400 to-cyan-500', bgColor: 'bg-blue-50', textColor: 'text-blue-600' },
+  neutral: { emoji: '😐', label: '平静', color: 'from-gray-400 to-slate-500', bgColor: 'bg-gray-50', textColor: 'text-gray-600' },
 };
 
 const mockTranslations = {
@@ -96,7 +97,7 @@ export function TranslatorPage() {
           confidence: randomConfidence,
         },
       });
-    }, 1500);
+    }, 2000);
   };
 
   const handleShare = () => {
@@ -125,123 +126,164 @@ export function TranslatorPage() {
   const config = emotionConfig[emotion];
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-orange-50/50 via-white to-peach-50/30 pb-20">
-      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-lg border-b border-orange-100">
+    <div className="min-h-screen bg-gradient-to-br from-surface-50 via-white to-brand-50/30 pb-20">
+      <header className="sticky top-0 z-40 glass-effect border-b border-surface-200/50">
         <div className="max-w-md mx-auto px-4 py-4">
-          <h1 className="text-xl font-bold text-gray-800 text-center">AI 情感翻译机</h1>
-          <p className="text-xs text-gray-400 text-center">倾听 {currentPet?.name} 的心声</p>
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl gradient-brand flex items-center justify-center shadow-glow">
+              <Sparkles className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-surface-800 tracking-tight">AI 情感翻译机</h1>
+              <p className="text-xs text-surface-500">倾听 {currentPet?.name} 的心声</p>
+            </div>
+          </div>
         </div>
       </header>
 
       <main className="max-w-md mx-auto px-4 py-6 space-y-6">
-        <div className="flex justify-center gap-4">
+        <div className="flex justify-center gap-4 animate-fadeInUp">
           <button
             onClick={startRecording}
             disabled={isRecording || isAnalyzing}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-300 ${
-              isRecording || isAnalyzing
-                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                : 'bg-orange-500 text-white hover:bg-orange-600 shadow-lg hover:shadow-xl'
-            }`}
+            className={`
+              flex items-center gap-2 px-6 py-3 rounded-2xl transition-all duration-300
+              ${isRecording || isAnalyzing
+                ? 'bg-surface-100 text-surface-400 cursor-not-allowed'
+                : 'gradient-brand text-white shadow-glow hover:shadow-glow-lg hover:scale-105 active:scale-95'
+              }
+            `}
           >
             <Mic className="w-5 h-5" />
-            <span className="font-medium">录音翻译</span>
+            <span className="font-semibold">录音翻译</span>
           </button>
           <button
-            className="flex items-center gap-2 px-4 py-2 rounded-full bg-blue-500 text-white hover:bg-blue-600 shadow-lg hover:shadow-xl transition-all duration-300"
+            className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 active:scale-95"
           >
             <Image className="w-5 h-5" />
-            <span className="font-medium">拍照分析</span>
+            <span className="font-semibold">拍照分析</span>
           </button>
         </div>
 
-        <div className="relative flex justify-center">
+        <div className="relative flex justify-center py-12 animate-fadeInUp" style={{ animationDelay: '0.2s' }}>
           <button
             onClick={isRecording ? stopRecording : startRecording}
             disabled={isAnalyzing}
-            className={`w-32 h-32 rounded-full flex items-center justify-center transition-all duration-300 shadow-2xl ${
-              isRecording
-                ? 'bg-gradient-to-br from-red-400 to-red-600 animate-pulse scale-110'
+            className={`
+              w-40 h-40 rounded-full flex items-center justify-center transition-all duration-500 shadow-2xl
+              ${isRecording
+                ? 'bg-gradient-to-br from-red-400 to-red-600 animate-pulse scale-110 shadow-red-400/50'
                 : isAnalyzing
-                ? 'bg-gradient-to-br from-gray-300 to-gray-400'
-                : 'bg-gradient-to-br from-orange-400 to-peach-500 hover:scale-105'
-            }`}
+                ? 'bg-gradient-to-br from-surface-300 to-surface-400'
+                : 'bg-gradient-to-br from-brand-400 to-accent-500 hover:scale-105 shadow-brand-400/50'
+              }
+            `}
           >
             {isAnalyzing ? (
-              <RefreshCw className="w-12 h-12 text-white animate-spin" />
+              <RefreshCw className="w-16 h-16 text-white animate-spin" />
             ) : isRecording ? (
-              <MicOff className="w-14 h-14 text-white" />
+              <div className="flex flex-col items-center">
+                <MicOff className="w-16 h-16 text-white" />
+  
+              </div>
             ) : (
-              <Mic className="w-14 h-14 text-white" />
+              <div className="flex flex-col items-center">
+                <Mic className="w-16 h-16 text-white" />
+                <span className="text-white text-sm font-medium mt-2">点击录音</span>
+              </div>
             )}
           </button>
           
           {isRecording && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-48 h-48 rounded-full border-4 border-orange-300 animate-ping opacity-30" />
-              <div className="absolute w-40 h-40 rounded-full border-4 border-orange-400 animate-ping opacity-20" style={{ animationDelay: '0.2s' }} />
-              <div className="absolute w-32 h-32 rounded-full border-4 border-orange-500 animate-ping opacity-10" style={{ animationDelay: '0.4s' }} />
-            </div>
+            <>
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="w-56 h-56 rounded-full border-4 border-red-300 animate-ping opacity-30" />
+              </div>
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="w-48 h-48 rounded-full border-4 border-red-400 animate-ping opacity-20" style={{ animationDelay: '0.3s' }} />
+              </div>
+            </>
           )}
         </div>
 
         {isRecording && (
-          <div className="text-center">
-            <p className="text-gray-600 font-medium">{formatTime(recordingTime)}</p>
-            <p className="text-xs text-gray-400 mt-1">正在录音，点击结束</p>
+          <div className="text-center animate-fadeIn">
+            <p className="text-3xl font-bold text-surface-800 font-mono">{formatTime(recordingTime)}</p>
+            <p className="text-sm text-surface-500 mt-2">正在录音，点击结束</p>
           </div>
         )}
 
         {isAnalyzing && (
-          <div className="text-center">
-            <p className="text-gray-600 font-medium flex items-center justify-center gap-2">
-              <Sparkles className="w-5 h-5 text-orange-500 animate-spin" />
-              AI 正在分析中...
-            </p>
+          <div className="text-center animate-fadeIn">
+            <div className="flex items-center justify-center gap-3">
+              <Sparkles className="w-6 h-6 text-brand-500 animate-spin" />
+              <p className="text-lg font-semibold text-surface-700">AI 正在分析中...</p>
+              <Sparkles className="w-6 h-6 text-brand-500 animate-spin" />
+            </div>
+            <p className="text-sm text-surface-500 mt-2">请稍候，正在解读 {currentPet?.name} 的情绪</p>
           </div>
         )}
 
         {showResult && (
-          <div className="bg-white rounded-2xl p-5 shadow-lg border border-orange-100 animate-fadeIn">
-            <div className="flex items-center gap-2 mb-3">
-              <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${config.bgColor} ${config.color}`}>
-                {config.emoji} {config.label}
-              </span>
-              <span className="text-xs text-gray-400">置信度: {confidence}%</span>
-            </div>
-
-            <div className="relative bg-gradient-to-br from-orange-50 to-peach-50 rounded-xl p-4 mb-4">
-              <div className="absolute -top-2 left-4 w-0 h-0 border-l-8 border-r-8 border-b-8 border-transparent border-b-orange-50" />
-              <p className="text-gray-700 text-center leading-relaxed">{translation}</p>
-              <div className="flex justify-end mt-2">
-                <span className="text-xs text-gray-400">— {currentPet?.name}</span>
+          <GlassCard className="space-y-4 animate-scaleIn" glow>
+            <div className="flex items-center gap-3 mb-4">
+              <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${config.color} flex items-center justify-center text-3xl shadow-lg`}>
+                {config.emoji}
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className={`text-lg font-bold ${config.textColor}`}>{config.label}</span>
+                  <Badge variant="success" size="sm" dot>AI识别</Badge>
+                </div>
+                <p className="text-sm text-surface-500">置信度: <span className="font-bold text-surface-700">{confidence}%</span></p>
               </div>
             </div>
 
-            <div className="flex justify-center gap-4">
-              <button
-                onClick={handleRetry}
-                className="flex items-center gap-2 px-4 py-2 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
-              >
-                <RefreshCw className="w-4 h-4" />
-                <span className="text-sm font-medium">再录一次</span>
-              </button>
-              <button
-                onClick={handleShare}
-                className="flex items-center gap-2 px-4 py-2 rounded-full bg-orange-500 text-white hover:bg-orange-600 transition-colors"
-              >
-                <Share2 className="w-4 h-4" />
-                <span className="text-sm font-medium">分享</span>
-              </button>
+            <div className="relative bg-gradient-to-br from-brand-50 to-accent-50 rounded-2xl p-5 border border-brand-100">
+              <div className="absolute -top-3 left-6 w-0 h-0 border-l-8 border-r-8 border-b-8 border-transparent border-b-brand-50" />
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand-400 to-accent-500 flex items-center justify-center text-xl shadow-md">
+                  💬
+                </div>
+                <div className="flex-1">
+                  <p className="text-lg text-surface-700 leading-relaxed font-medium">{translation}</p>
+                  <div className="flex justify-end mt-2">
+                    <span className="text-sm text-surface-500">— {currentPet?.name}</span>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
+
+            <div className="flex justify-center gap-4 pt-2">
+              <GradientButton 
+                onClick={handleRetry}
+                variant="secondary"
+                size="md"
+                icon={<RefreshCw className="w-5 h-5" />}
+              >
+                再录一次
+              </GradientButton>
+              <GradientButton 
+                onClick={handleShare}
+                variant="primary"
+                size="md"
+                icon={<Share2 className="w-5 h-5" />}
+              >
+                分享
+              </GradientButton>
+            </div>
+          </GlassCard>
         )}
 
-        <div className="bg-gradient-to-r from-orange-50 to-peach-50 rounded-xl p-4 border border-orange-100">
-          <p className="text-xs text-gray-500 text-center">
-            💡 提示：请将麦克风靠近宠物，保持环境安静以获得更好的识别效果
-          </p>
-        </div>
+        <GlassCard className="text-center space-y-3">
+          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-400 to-cyan-500 mx-auto flex items-center justify-center shadow-glow">
+            <Sparkles className="w-8 h-8 text-white" />
+          </div>
+          <div>
+            <h3 className="font-bold text-surface-800 mb-1">使用提示</h3>
+            <p className="text-sm text-surface-500">请将麦克风靠近宠物，保持环境安静以获得更好的识别效果</p>
+          </div>
+        </GlassCard>
       </main>
     </div>
   );
