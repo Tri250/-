@@ -22,3 +22,27 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Android SDK - 单独管理，不需要加入仓库
+android-sdk/
+
+# Gradle
+.gradle/
+gradle/
+*/.gradle/
+
+# Build outputs - 单独管理
+output/
+tmp/
+build/
+
+# Cordova
+cordova-build/
+
+# Download pages
+download.html
+index.html
+manual_build_apk.sh
+build_apk.py
+
+# Web server logs
