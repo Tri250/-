@@ -60,9 +60,12 @@ export function HomePage({ onNavigate }: HomePageProps) {
       <main className="max-w-md mx-auto px-4 py-6 space-y-6 animate-fadeInUp relative z-10">
         <StatusCard 
           petName={currentPet?.name || ''} 
+          petType="cat"
           emotion="happy"
           healthScore={88} 
           lastActivity="刚刚活跃"
+          daysTogether={127}
+          memoryCount={45}
         />
 
         <section>
