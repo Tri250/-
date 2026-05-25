@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { Mic, MicOff, Image, Share2, RefreshCw, Sparkles } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 
