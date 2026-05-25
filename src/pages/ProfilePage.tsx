@@ -168,6 +168,10 @@ export function ProfilePage() {
         <div className="text-center">
           <p className="text-xs text-gray-400">PawSync Pro v1.0.0</p>
           <p className="text-xs text-gray-300 mt-1">爪印同频 · 守护版</p>
+          <div className="mt-4 px-4 py-3 bg-gradient-to-r from-orange-50 to-cyan-50 rounded-xl border border-orange-100/50">
+            <p className="text-xs text-gray-600 font-medium">开发者：带娃的小陈工</p>
+            <p className="text-[10px] text-gray-400 mt-1">专注AI驱动的宠物关爱 · 2026</p>
+          </div>
         </div>
       </main>
     </div>
