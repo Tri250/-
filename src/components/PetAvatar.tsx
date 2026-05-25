@@ -66,16 +66,47 @@ export function PetAvatar({ petName, petType, emotion, size = 'md', isOnline = t
     xl: 'w-28 h-28 text-5xl'
   };
 
+  const sizesGlow = {
+    sm: '-inset-2',
+    md: '-inset-3',
+    lg: '-inset-4',
+    xl: '-inset-6'
+  };
+
+  const sizesOrb = {
+    sm: '-inset-4',
+    md: '-inset-6',
+    lg: '-inset-8',
+    xl: '-inset-10'
+  };
+
   const colors = petColors[petType];
   const initial = petName.charAt(0).toUpperCase();
 
   return (
     <div className="relative group">
-      {/* 外层发光光环 */}
+      {/* 外层3D发光光环 */}
       <div className={`
-        absolute inset-0 bg-gradient-to-br ${colors.primary} 
-        rounded-full blur-xl opacity-40
-        animate-pulse-soft group-hover:opacity-70 transition-opacity
+        absolute ${sizesGlow[size]} bg-gradient-to-br ${colors.primary} 
+        rounded-full blur-2xl opacity-30
+        animate-breathing-glow
+        group-hover:opacity-50 transition-opacity duration-500
+      `} />
+
+      {/* 中层脉冲光环 */}
+      <div className={`
+        absolute ${sizesOrb[size]} bg-gradient-to-br ${colors.secondary} 
+        rounded-full blur-3xl opacity-20
+        animate-pulse-ring
+        group-hover:opacity-40 transition-opacity duration-500
+      `} />
+
+      {/* 主体内发光层 */}
+      <div className={`
+        absolute inset-0 bg-gradient-to-br ${colors.primary}
+        rounded-full blur-xl opacity-50
+        animate-aurora-flow
+        group-hover:opacity-70 transition-opacity duration-500
       `} />
 
       {/* 主体头像容器 */}
@@ -86,12 +117,19 @@ export function PetAvatar({ petName, petType, emotion, size = 'md', isOnline = t
         flex items-center justify-center
         transform transition-all duration-500
         group-hover:scale-105 group-hover:rotate-3
-        animate-float
+        animate-elastic-scale
+        ring-4 ring-white/30
       `}>
         {/* 内层渐变效果 */}
         <div className={`
           absolute inset-1 bg-gradient-to-br ${colors.fur}
-          rounded-full opacity-30
+          rounded-full opacity-40
+        `} />
+
+        {/* 高光效果 */}
+        <div className={`
+          absolute inset-0 bg-gradient-to-br from-white/30 via-transparent to-transparent
+          rounded-full
         `} />
 
         {/* 宠物文字首字母 */}
@@ -104,7 +142,7 @@ export function PetAvatar({ petName, petType, emotion, size = 'md', isOnline = t
         </span>
 
         {/* 宠物类型图标装饰 */}
-        <div className="absolute bottom-0 right-0 bg-white rounded-full p-1 shadow-lg">
+        <div className="absolute bottom-0 right-0 bg-white rounded-full p-1 shadow-lg animate-bounce-in">
           <span className="text-sm">
             {petType === 'dog' ? '🐕' : petType === 'cat' ? '🐈' : '🐾'}
           </span>
@@ -112,7 +150,7 @@ export function PetAvatar({ petName, petType, emotion, size = 'md', isOnline = t
 
         {/* 在线状态指示器 */}
         {isOnline && (
-          <div className="absolute -top-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-3 border-white shadow-lg animate-pulse">
+          <div className="absolute -top-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-3 border-white shadow-lg animate-pulse-ring">
             <div className="absolute inset-0 bg-green-400 rounded-full animate-ping opacity-30" />
           </div>
         )}
@@ -124,8 +162,8 @@ export function PetAvatar({ petName, petType, emotion, size = 'md', isOnline = t
       </div>
 
       {/* 宠物名字悬停显示 */}
-      <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-        <div className="bg-slate-800 text-white text-xs px-2 py-1 rounded-full shadow-lg whitespace-nowrap">
+      <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all duration-500 pointer-events-none">
+        <div className="bg-gradient-to-r from-slate-800 to-slate-900 text-white text-xs px-3 py-1.5 rounded-full shadow-xl animate-bounce-in whitespace-nowrap border border-slate-700/50">
           {petName}
         </div>
       </div>
