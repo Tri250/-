@@ -1,3 +1,5 @@
+import { useState, useMemo, useCallback } from 'react';
+import { memo } from 'react';
 import { StatusCard } from '../components/StatusCard';
 import { QuickAction } from '../components/QuickAction';
 import { useAppStore } from '../store/appStore';
@@ -6,17 +8,13 @@ import { Badge, GlassCard, GradientButton, PulseDot } from '../components/UIEnha
 import { BrandLogo, BrandLogoText, BrandBadge } from '../components/Brand';
 import { TechParticles, TechDivider } from '../components/TechEffects';
 import { AuroraBackground, AnimatedGradientText, PulseGlow } from '../components/SoundWaveEffects';
-import { useState } from 'react';
 
 interface HomePageProps {
- onNavigate: (page: string) => void;
+  onNavigate: (page: string) => void;
 }
 
-export function HomePage({ onNavigate }: HomePageProps) {
-  const { currentPet, healthAlerts } = useAppStore();
-  const [isProtectionEnabled, setIsProtectionEnabled] = useState(true);
-  
-  const weeklyHealthData = [
+const WeeklyHealthChart = memo(function WeeklyHealthChart() {
+  const weeklyHealthData = useMemo(() => [
     { day: '周一', score: 65, trend: 'up' },
     { day: '周二', score: 72, trend: 'up' },
     { day: '周三', score: 68, trend: 'down' },
@@ -24,9 +22,184 @@ export function HomePage({ onNavigate }: HomePageProps) {
     { day: '周五', score: 82, trend: 'up' },
     { day: '周六', score: 85, trend: 'up' },
     { day: '周日', score: 88, trend: 'up' },
-  ];
+  ], []);
 
-  const maxScore = Math.max(...weeklyHealthData.map(d => d.score));
+  const maxScore = useMemo(() => 
+    Math.max(...weeklyHealthData.map(d => d.score)),
+    [weeklyHealthData]
+  );
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-end gap-2 h-36 pb-2">
+        {weeklyHealthData.map((item, index) => (
+          <div key={index} className="flex-1 flex flex-col items-center gap-2 group">
+            <div 
+              className="w-full rounded-t-xl transition-all duration-700 ease-out group-hover:scale-105 shadow-lg"
+              style={{ 
+                height: `${(item.score / maxScore) * 100}%`,
+                background: item.score >= 80 
+                  ? 'linear-gradient(to top, #10b981, #34d399)'
+                  : item.score >= 60
+                  ? 'linear-gradient(to top, #f59e0b, #fbbf24)'
+                  : 'linear-gradient(to top, #ef4444, #f87171)',
+                boxShadow: item.score >= 80 ? '0 4px 12px rgba(16, 185, 129, 0.3)' : '0 2px 8px rgba(0,0,0,0.1)'
+              }}
+            />
+            <div className="text-xs font-black text-slate-500 group-hover:text-slate-700 transition-colors">
+              {item.day}
+            </div>
+            <div className="text-lg font-black text-slate-700">
+              {item.score}
+            </div>
+            <div className={`w-4 h-4 rounded-full flex items-center justify-center ${
+              item.trend === 'up' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
+            }`}>
+              {item.trend === 'up' ? (
+                <TrendingUp className="w-3 h-3" />
+              ) : (
+                <TrendingDown className="w-3 h-3" />
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+      
+      <TechDivider className="my-2" />
+      
+      <div className="grid grid-cols-3 gap-3 pt-2">
+        <div className="text-center p-3 rounded-xl bg-gradient-to-br from-green-50 to-emerald-50 border border-green-100/50 card-3d-hover">
+          <div className="text-2xl font-black text-green-600">+12%</div>
+          <div className="text-[10px] font-semibold text-green-700 mt-1">周环比</div>
+        </div>
+        <div className="text-center p-3 rounded-xl bg-gradient-to-br from-blue-50 to-cyan-50 border border-blue-100/50 card-3d-hover">
+          <div className="text-2xl font-black text-blue-600">7天</div>
+          <div className="text-[10px] font-semibold text-blue-700 mt-1">数据周期</div>
+        </div>
+        <div className="text-center p-3 rounded-xl bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-100/50 card-3d-hover">
+          <div className="text-2xl font-black text-purple-600">优</div>
+          <div className="text-[10px] font-semibold text-purple-700 mt-1">健康评级</div>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+const ProtectionModeCard = memo(function ProtectionModeCard({ 
+  currentPetName, 
+  onToggle 
+}: { 
+  currentPetName: string; 
+  onToggle: () => void; 
+}) {
+  const [isEnabled, setIsEnabled] = useState(true);
+  
+  const handleToggle = useCallback(() => {
+    setIsEnabled(!isEnabled);
+    onToggle();
+  }, [isEnabled, onToggle]);
+
+  return (
+    <GlassCard className="space-y-4 border-l-4 border-purple-500 card-3d-hover">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center shadow-xl shadow-purple-400/40 animate-bounce-soft">
+            <Shield className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h3 className="font-black text-slate-800">离家守护模式</h3>
+            <p className="text-xs text-slate-500 font-semibold">AI 全天候异常行为检测</p>
+          </div>
+        </div>
+        <button
+          onClick={handleToggle}
+          className={`relative w-16 h-8 rounded-full transition-all duration-500 ${
+            isEnabled 
+              ? 'bg-gradient-to-r from-purple-500 to-pink-500 shadow-xl shadow-purple-400/40' 
+              : 'bg-slate-200'
+          }`}
+        >
+          <span 
+            className={`absolute top-1 w-6 h-6 bg-white rounded-full shadow-xl transition-all duration-500 ${
+              isEnabled ? 'left-9' : 'left-1'
+            }`} 
+          />
+        </button>
+      </div>
+      
+      {isEnabled && (
+        <div className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl border border-purple-100/50">
+          <div className="flex items-start gap-3">
+            <PulseDot className="w-3 h-3 bg-purple-500" />
+            <div className="flex-1">
+              <p className="text-sm font-black text-purple-700 mb-1">守护模式已激活</p>
+              <p className="text-xs text-purple-600 leading-relaxed">
+                {currentPetName} 的所有行为数据正在被 AI 深度分析，异常将立即通知
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+    </GlassCard>
+  );
+});
+
+const HealthAlertCard = memo(function HealthAlertCard({ 
+  alert, 
+  onNavigate 
+}: { 
+  alert: any; 
+  onNavigate: () => void; 
+}) {
+  return (
+    <PulseGlow>
+      <GlassCard className="space-y-4 border-l-4 border-orange-500">
+        <div className="flex items-start gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center shadow-xl shadow-orange-400/40 animate-bounce-soft">
+            <Bell className="w-7 h-7 text-white" />
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-2">
+              <h3 className="font-black text-slate-800 text-lg">健康提醒</h3>
+              <Badge variant="warning" size="sm">新通知</Badge>
+            </div>
+            <p className="text-sm text-slate-600 leading-relaxed">{alert.message}</p>
+            <div className="flex items-center gap-3 mt-3">
+              <GradientButton 
+                onClick={onNavigate}
+                variant="primary"
+                size="sm"
+              >
+                立即处理
+              </GradientButton>
+              <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                <Calendar className="w-3.5 h-3.5" />
+                {alert.timestamp}
+              </div>
+            </div>
+          </div>
+        </div>
+      </GlassCard>
+    </PulseGlow>
+  );
+});
+
+export const HomePage = memo(function HomePage({ onNavigate }: HomePageProps) {
+  const { currentPet, healthAlerts } = useAppStore();
+  
+  const handleQuickAction = useCallback((action: string) => {
+    if (action === 'record' || action === 'photo') {
+      onNavigate('translator');
+    } else if (action === 'health') {
+      onNavigate('health');
+    } else if (action === 'history') {
+      onNavigate('profile');
+    }
+  }, [onNavigate]);
+
+  const handleProtectionToggle = useCallback(() => {
+    // 可以添加更多逻辑
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-orange-50/30 relative overflow-hidden">
@@ -76,15 +249,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
             </h2>
             <BrandBadge>AI 驱动</BrandBadge>
           </div>
-          <QuickAction onAction={(action) => {
-            if (action === 'record' || action === 'photo') {
-              onNavigate('translator');
-            } else if (action === 'health') {
-              onNavigate('health');
-            } else if (action === 'history') {
-              onNavigate('profile');
-            }
-          }}/>
+          <QuickAction onAction={handleQuickAction}/>
         </section>
 
         <GlassCard className="space-y-5 card-3d-hover">
@@ -106,132 +271,19 @@ export function HomePage({ onNavigate }: HomePageProps) {
             </button>
           </div>
           
-          <div className="space-y-4">
-            <div className="flex items-end gap-2 h-36 pb-2">
-              {weeklyHealthData.map((item, index) => (
-                <div key={index} className="flex-1 flex flex-col items-center gap-2 group">
-                  <div 
-                    className="w-full rounded-t-xl transition-all duration-700 ease-out group-hover:scale-105 shadow-lg"
-                    style={{ 
-                      height: `${(item.score / maxScore) * 100}%`,
-                      background: item.score >= 80 
-                        ? 'linear-gradient(to top, #10b981, #34d399)'
-                        : item.score >= 60
-                        ? 'linear-gradient(to top, #f59e0b, #fbbf24)'
-                        : 'linear-gradient(to top, #ef4444, #f87171)',
-                      boxShadow: item.score >= 80 ? '0 4px 12px rgba(16, 185, 129, 0.3)' : '0 2px 8px rgba(0,0,0,0.1)'
-                    }}
-                  />
-                  <div className="text-xs font-black text-slate-500 group-hover:text-slate-700 transition-colors">
-                    {item.day}
-                  </div>
-                  <div className="text-lg font-black text-slate-700">
-                    {item.score}
-                  </div>
-                  <div className={`w-4 h-4 rounded-full flex items-center justify-center ${
-                    item.trend === 'up' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
-                  }`}>
-                    {item.trend === 'up' ? (
-                      <TrendingUp className="w-3 h-3" />
-                    ) : (
-                      <TrendingDown className="w-3 h-3" />
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-            
-            <TechDivider className="my-2" />
-            
-            <div className="grid grid-cols-3 gap-3 pt-2">
-              <div className="text-center p-3 rounded-xl bg-gradient-to-br from-green-50 to-emerald-50 border border-green-100/50 card-3d-hover">
-                <div className="text-2xl font-black text-green-600">+12%</div>
-                <div className="text-[10px] font-semibold text-green-700 mt-1">周环比</div>
-              </div>
-              <div className="text-center p-3 rounded-xl bg-gradient-to-br from-blue-50 to-cyan-50 border border-blue-100/50 card-3d-hover">
-                <div className="text-2xl font-black text-blue-600">7天</div>
-                <div className="text-[10px] font-semibold text-blue-700 mt-1">数据周期</div>
-              </div>
-              <div className="text-center p-3 rounded-xl bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-100/50 card-3d-hover">
-                <div className="text-2xl font-black text-purple-600">优</div>
-                <div className="text-[10px] font-semibold text-purple-700 mt-1">健康评级</div>
-              </div>
-            </div>
-          </div>
+          <WeeklyHealthChart />
         </GlassCard>
 
-        <GlassCard className="space-y-4 border-l-4 border-purple-500 card-3d-hover">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center shadow-xl shadow-purple-400/40 animate-bounce-soft">
-                <Shield className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h3 className="font-black text-slate-800">离家守护模式</h3>
-                <p className="text-xs text-slate-500 font-semibold">AI 全天候异常行为检测</p>
-              </div>
-            </div>
-            <button
-              onClick={() => setIsProtectionEnabled(!isProtectionEnabled)}
-              className={`relative w-16 h-8 rounded-full transition-all duration-500 ${
-                isProtectionEnabled 
-                  ? 'bg-gradient-to-r from-purple-500 to-pink-500 shadow-xl shadow-purple-400/40' 
-                  : 'bg-slate-200'
-              }`}
-            >
-              <span 
-                className={`absolute top-1 w-6 h-6 bg-white rounded-full shadow-xl transition-all duration-500 ${
-                  isProtectionEnabled ? 'left-9' : 'left-1'
-                }`} 
-              />
-            </button>
-          </div>
-          
-          {isProtectionEnabled && (
-            <div className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl border border-purple-100/50">
-              <div className="flex items-start gap-3">
-                <PulseDot className="w-3 h-3 bg-purple-500" />
-                <div className="flex-1">
-                  <p className="text-sm font-black text-purple-700 mb-1">守护模式已激活</p>
-                  <p className="text-xs text-purple-600 leading-relaxed">
-                    {currentPet?.name} 的所有行为数据正在被 AI 深度分析，异常将立即通知
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-        </GlassCard>
+        <ProtectionModeCard 
+          currentPetName={currentPet?.name || ''}
+          onToggle={handleProtectionToggle}
+        />
 
         {healthAlerts.length > 0 && (
-          <PulseGlow>
-            <GlassCard className="space-y-4 border-l-4 border-orange-500">
-              <div className="flex items-start gap-4">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center shadow-xl shadow-orange-400/40 animate-bounce-soft">
-                  <Bell className="w-7 h-7 text-white" />
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <h3 className="font-black text-slate-800 text-lg">健康提醒</h3>
-                    <Badge variant="warning" size="sm">新通知</Badge>
-                  </div>
-                  <p className="text-sm text-slate-600 leading-relaxed">{healthAlerts[0].message}</p>
-                  <div className="flex items-center gap-3 mt-3">
-                    <GradientButton 
-                      onClick={() => onNavigate('health')}
-                      variant="primary"
-                      size="sm"
-                    >
-                      立即处理
-                    </GradientButton>
-                    <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                      <Calendar className="w-3.5 h-3.5" />
-                      {healthAlerts[0].timestamp}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </GlassCard>
-          </PulseGlow>
+          <HealthAlertCard 
+            alert={healthAlerts[0]}
+            onNavigate={() => onNavigate('health')}
+          />
         )}
 
         <GlassCard className="text-center space-y-5 pt-4 pb-6 card-3d-hover">
@@ -265,4 +317,4 @@ export function HomePage({ onNavigate }: HomePageProps) {
       </main>
     </div>
   );
-}
+});

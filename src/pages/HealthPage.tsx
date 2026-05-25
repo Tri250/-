@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useMemo, useCallback } from 'react';
+import { memo } from 'react';
 import { Activity, AlertTriangle, Bell, Heart, Moon, Sun, Thermometer, ChevronRight, Shield } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 
@@ -15,27 +16,149 @@ const severityConfig = {
   high: { label: '严重', color: 'text-red-500', bgColor: 'bg-red-100' },
 };
 
-export function HealthPage() {
-  const { healthAlerts, healthScore, currentPet } = useAppStore();
-  const [nightMode, setNightMode] = useState(true);
-
-  const healthMetrics = [
+const HealthMetrics = memo(function HealthMetrics() {
+  const healthMetrics = useMemo(() => [
     { label: '心率', value: '120', unit: 'bpm', icon: Heart, color: 'text-red-500', bgColor: 'bg-red-50' },
     { label: '体温', value: '38.2', unit: '°C', icon: Thermometer, color: 'text-orange-500', bgColor: 'bg-orange-50' },
     { label: '活动量', value: '85', unit: '%', icon: Activity, color: 'text-green-500', bgColor: 'bg-green-50' },
-  ];
+  ], []);
 
-  const dailyData = [
+  return (
+    <div className="grid grid-cols-3 gap-3">
+      {healthMetrics.map((metric) => {
+        const Icon = metric.icon;
+        return (
+          <div key={metric.label} className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+            <div className={`w-10 h-10 rounded-full ${metric.bgColor} flex items-center justify-center mb-2`}>
+              <Icon className={`w-5 h-5 ${metric.color}`} />
+            </div>
+            <p className="text-xs text-gray-400 mb-1">{metric.label}</p>
+            <p className="text-xl font-bold text-gray-800">{metric.value}<span className="text-xs font-normal text-gray-500 ml-1">{metric.unit}</span></p>
+          </div>
+        );
+      })}
+    </div>
+  );
+});
+
+const DailyChart = memo(function DailyChart() {
+  const dailyData = useMemo(() => [
     { time: '00:00', heartRate: 110, activity: 20 },
     { time: '04:00', heartRate: 105, activity: 15 },
     { time: '08:00', heartRate: 125, activity: 70 },
     { time: '12:00', heartRate: 120, activity: 85 },
     { time: '16:00', heartRate: 115, activity: 60 },
     { time: '20:00', heartRate: 118, activity: 45 },
-  ];
+  ], []);
 
-  const maxHeartRate = Math.max(...dailyData.map(d => d.heartRate));
-  const maxActivity = Math.max(...dailyData.map(d => d.activity));
+  const maxHeartRate = useMemo(() => 
+    Math.max(...dailyData.map(d => d.heartRate)),
+    [dailyData]
+  );
+  
+  const maxActivity = useMemo(() => 
+    Math.max(...dailyData.map(d => d.activity)),
+    [dailyData]
+  );
+
+  return (
+    <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-sm font-semibold text-gray-700">今日监测曲线</h2>
+        <div className="flex gap-1">
+          <span className="flex items-center gap-1 text-xs text-gray-500">
+            <span className="w-2 h-2 bg-red-400 rounded-full" /> 心率
+          </span>
+          <span className="flex items-center gap-1 text-xs text-gray-500">
+            <span className="w-2 h-2 bg-green-400 rounded-full" /> 活动
+          </span>
+        </div>
+      </div>
+      <div className="flex items-end gap-1 h-24">
+        {dailyData.map((data, index) => (
+          <div key={index} className="flex-1 flex flex-col items-center gap-1">
+            <div className="w-full flex flex-col items-center gap-0.5">
+              <div
+                className="w-2 bg-red-400 rounded-t-sm transition-all duration-300"
+                style={{ height: `${(data.heartRate / maxHeartRate) * 80}px` }}
+              />
+              <div
+                className="w-2 bg-green-400 rounded-t-sm transition-all duration-300"
+                style={{ height: `${(data.activity / maxActivity) * 60}px` }}
+              />
+            </div>
+            <span className="text-xs text-gray-400">{data.time}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+});
+
+const NightModeCard = memo(function NightModeCard() {
+  const [nightMode, setNightMode] = useState(true);
+  
+  const toggleNightMode = useCallback(() => {
+    setNightMode(!nightMode);
+  }, [nightMode]);
+
+  return (
+    <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Moon className="w-5 h-5 text-purple-500" />
+          <h2 className="text-sm font-semibold text-gray-700">夜间监护模式</h2>
+        </div>
+        <button
+          onClick={toggleNightMode}
+          className={`relative w-12 h-6 rounded-full transition-colors ${nightMode ? 'bg-purple-500' : 'bg-gray-200'}`}
+        >
+          <span className={`absolute top-1 w-4 h-4 rounded-full shadow transition-transform ${nightMode ? 'left-7 bg-white' : 'left-1 bg-gray-400'}`} />
+        </button>
+      </div>
+      <div className="flex items-center gap-3">
+        <div className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs ${nightMode ? 'bg-purple-100 text-purple-600' : 'bg-gray-100 text-gray-500'}`}>
+          {nightMode ? <Moon className="w-3 h-3" /> : <Sun className="w-3 h-3" />}
+          {nightMode ? '已开启' : '已关闭'}
+        </div>
+        <p className="text-xs text-gray-400 flex-1">
+          {nightMode ? '夜间异常行为将被实时监测' : '夜间监测已关闭'}
+        </p>
+      </div>
+    </div>
+  );
+});
+
+const HealthAlertItem = memo(function HealthAlertItem({ alert }: { alert: any }) {
+  const typeConfig = alertTypeConfig[alert.type];
+  const severityConfigItem = severityConfig[alert.severity];
+  const Icon = typeConfig.icon;
+  
+  return (
+    <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+      <div className="flex items-start justify-between">
+        <div className="flex items-center gap-3">
+          <div className={`w-10 h-10 rounded-full ${typeConfig.bgColor} flex items-center justify-center`}>
+            <Icon className={`w-5 h-5 ${typeConfig.color}`} />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-gray-700">{typeConfig.label}</span>
+              <span className={`px-2 py-0.5 rounded-full text-xs ${severityConfigItem.bgColor} ${severityConfigItem.color}`}>
+                {severityConfigItem.label}
+              </span>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">{alert.message}</p>
+          </div>
+        </div>
+        <span className="text-xs text-gray-400">{alert.timestamp}</span>
+      </div>
+    </div>
+  );
+});
+
+export const HealthPage = memo(function HealthPage() {
+  const { healthAlerts, healthScore, currentPet } = useAppStore();
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-green-50/50 via-white to-emerald-50/30 pb-20">
@@ -63,75 +186,9 @@ export function HealthPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-3">
-          {healthMetrics.map((metric) => {
-            const Icon = metric.icon;
-            return (
-              <div key={metric.label} className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-                <div className={`w-10 h-10 rounded-full ${metric.bgColor} flex items-center justify-center mb-2`}>
-                  <Icon className={`w-5 h-5 ${metric.color}`} />
-                </div>
-                <p className="text-xs text-gray-400 mb-1">{metric.label}</p>
-                <p className="text-xl font-bold text-gray-800">{metric.value}<span className="text-xs font-normal text-gray-500 ml-1">{metric.unit}</span></p>
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-gray-700">今日监测曲线</h2>
-            <div className="flex gap-1">
-              <span className="flex items-center gap-1 text-xs text-gray-500">
-                <span className="w-2 h-2 bg-red-400 rounded-full" /> 心率
-              </span>
-              <span className="flex items-center gap-1 text-xs text-gray-500">
-                <span className="w-2 h-2 bg-green-400 rounded-full" /> 活动
-              </span>
-            </div>
-          </div>
-          <div className="flex items-end gap-1 h-24">
-            {dailyData.map((data, index) => (
-              <div key={index} className="flex-1 flex flex-col items-center gap-1">
-                <div className="w-full flex flex-col items-center gap-0.5">
-                  <div
-                    className="w-2 bg-red-400 rounded-t-sm transition-all duration-300"
-                    style={{ height: `${(data.heartRate / maxHeartRate) * 80}px` }}
-                  />
-                  <div
-                    className="w-2 bg-green-400 rounded-t-sm transition-all duration-300"
-                    style={{ height: `${(data.activity / maxActivity) * 60}px` }}
-                  />
-                </div>
-                <span className="text-xs text-gray-400">{data.time}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <Moon className="w-5 h-5 text-purple-500" />
-              <h2 className="text-sm font-semibold text-gray-700">夜间监护模式</h2>
-            </div>
-            <button
-              onClick={() => setNightMode(!nightMode)}
-              className={`relative w-12 h-6 rounded-full transition-colors ${nightMode ? 'bg-purple-500' : 'bg-gray-200'}`}
-            >
-              <span className={`absolute top-1 w-4 h-4 rounded-full shadow transition-transform ${nightMode ? 'left-7 bg-white' : 'left-1 bg-gray-400'}`} />
-            </button>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs ${nightMode ? 'bg-purple-100 text-purple-600' : 'bg-gray-100 text-gray-500'}`}>
-              {nightMode ? <Moon className="w-3 h-3" /> : <Sun className="w-3 h-3" />}
-              {nightMode ? '已开启' : '已关闭'}
-            </div>
-            <p className="text-xs text-gray-400 flex-1">
-              {nightMode ? '夜间异常行为将被实时监测' : '夜间监测已关闭'}
-            </p>
-          </div>
-        </div>
+        <HealthMetrics />
+        <DailyChart />
+        <NightModeCard />
 
         <section>
           <div className="flex items-center justify-between mb-3">
@@ -143,32 +200,9 @@ export function HealthPage() {
           
           {healthAlerts.length > 0 ? (
             <div className="space-y-3">
-              {healthAlerts.slice(0, 3).map((alert) => {
-                const typeConfig = alertTypeConfig[alert.type];
-                const severityConfigItem = severityConfig[alert.severity];
-                const Icon = typeConfig.icon;
-                return (
-                  <div key={alert.id} className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-full ${typeConfig.bgColor} flex items-center justify-center`}>
-                          <Icon className={`w-5 h-5 ${typeConfig.color}`} />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-gray-700">{typeConfig.label}</span>
-                            <span className={`px-2 py-0.5 rounded-full text-xs ${severityConfigItem.bgColor} ${severityConfigItem.color}`}>
-                              {severityConfigItem.label}
-                            </span>
-                          </div>
-                          <p className="text-xs text-gray-500 mt-1">{alert.message}</p>
-                        </div>
-                      </div>
-                      <span className="text-xs text-gray-400">{alert.timestamp}</span>
-                    </div>
-                  </div>
-                );
-              })}
+              {healthAlerts.slice(0, 3).map((alert) => (
+                <HealthAlertItem key={alert.id} alert={alert} />
+              ))}
             </div>
           ) : (
             <div className="bg-white rounded-xl p-8 text-center shadow-sm border border-gray-100">
@@ -187,4 +221,4 @@ export function HealthPage() {
       </main>
     </div>
   );
-}
+});
