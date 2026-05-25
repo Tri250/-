@@ -7,8 +7,14 @@ buildscript {
         ndkVersion = "25.1.8937393"
     }
     repositories {
+        maven { url 'https://mirrors.cloud.tencent.com/nexus/repository/maven-public/' }
+        maven { url 'https://mirrors.huaweicloud.com/repository/maven/' }
+        maven { url 'https://maven.aliyun.com/repository/google' }
+        maven { url 'https://maven.aliyun.com/repository/central' }
+        maven { url 'https://maven.aliyun.com/repository/public' }
         maven { url "$rootDir/../node_modules/react-native/android" }
         mavenCentral()
+        google()
     }
     dependencies {
         classpath("com.android.tools.build:gradle:8.4.0")
@@ -18,9 +24,15 @@ buildscript {
 
 allprojects {
     repositories {
-        mavenCentral()
+        maven { url 'https://mirrors.cloud.tencent.com/nexus/repository/maven-public/' }
+        maven { url 'https://mirrors.huaweicloud.com/repository/maven/' }
+        maven { url 'https://maven.aliyun.com/repository/google' }
+        maven { url 'https://maven.aliyun.com/repository/central' }
+        maven { url 'https://maven.aliyun.com/repository/public' }
         mavenLocal()
         maven { url "$rootDir/../node_modules/react-native/android" }
         maven { url "$rootDir/../node_modules/jsc-android/dist" }
+        mavenCentral()
+        google()
     }
 }
