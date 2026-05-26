@@ -1,299 +1,304 @@
-// ============================================
-// PawSync Pro - HomePage.tsx
-//
-// 作者: 带娃的小陈工
-// 日期: 2026-05-26
-// 描述: 应用首页，展示宠物状态和快捷操作
-// ============================================
-
-import { StatusCard } from '../components/StatusCard';
-import { QuickAction } from '../components/QuickAction';
+import React from 'react';
+import { 
+  ChevronRight, 
+  Heart, 
+  Bot, 
+  FileText, 
+  BookOpen, 
+  Calendar, 
+  TrendingUp, 
+  Activity,
+  Star,
+  Clock,
+  ArrowUpRight
+} from 'lucide-react';
+import { Card, Button, ProgressRing, Badge } from '../components/DesignSystem';
 import { useAppStore } from '../store/appStore';
-import { Bell, ChevronRight, TrendingUp, Moon, Camera, Monitor, Heart } from 'lucide-react';
-import { useCameraStore } from '../store/cameraStore';
-import { Card } from '../components/ui/Card';
-import { Badge } from '../components/ui/Badge';
-import { useState, useEffect } from 'react';
+import { useBondStore } from '../store/bondStore';
+import { usePetStore } from '../store/petStore';
+import { useReminderStore } from '../store/reminderStore';
+import { useHealthRecordStore } from '../store/healthRecordStore';
 
 interface HomePageProps {
   onNavigate: (page: string) => void;
 }
 
-function AnimatedEmoji({ emotion }: { emotion: string }) {
-  const [bounce, setBounce] = useState(false);
+export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
+  const { currentPet, currentEmotion, healthScore } = useAppStore();
+  const { metrics, badges, totalPoints, streakDays } = useBondStore();
+  const unlockedBadges = badges.filter(b => b.isUnlocked).length;
+  const { pets, currentPetId, setCurrentPet } = usePetStore();
+  const { getUpcomingReminders } = useReminderStore();
+  const { getFilteredRecords } = useHealthRecordStore();
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setBounce(true);
-      setTimeout(() => setBounce(false), 500);
-    }, 3000);
-    return () => clearInterval(interval);
-  }, []);
+  const upcomingReminders = currentPetId ? getUpcomingReminders(currentPetId, 3) : [];
+  const recentRecords = currentPetId ? getFilteredRecords(currentPetId).slice(0, 3) : [];
 
-  const emojiMap: Record<string, string> = {
-    happy: '😸',
-    curious: '🤔',
-    anxious: '😰',
-    angry: '😾',
-    needs: '🥺',
-    neutral: '😐',
+  const quickActions = [
+    {
+      icon: Bot,
+      label: 'AI健康顾问',
+      description: '随时咨询',
+      color: 'from-primary-500 to-primary-600',
+      page: 'ai-consultant',
+    },
+    {
+      icon: FileText,
+      label: '健康记录',
+      description: '记录状态',
+      color: 'from-blue-500 to-blue-600',
+      page: 'health-records',
+    },
+    {
+      icon: Heart,
+      label: '情绪翻译',
+      description: '读懂毛孩',
+      color: 'from-pink-500 to-pink-600',
+      page: 'translator',
+    },
+    {
+      icon: BookOpen,
+      label: '健康手册',
+      description: '专业知识',
+      color: 'from-green-500 to-green-600',
+      page: 'health-manual',
+    },
+    {
+      icon: Calendar,
+      label: '智能提醒',
+      description: '重要日程',
+      color: 'from-purple-500 to-purple-600',
+      page: 'reminders',
+    },
+    {
+      icon: TrendingUp,
+      label: '健康数据',
+      description: '趋势分析',
+      color: 'from-warning-500 to-warning-600',
+      page: 'health-analytics',
+    },
+  ];
+
+  const getEmotionEmoji = (emotion: string) => {
+    const map: Record<string, string> = {
+      happy: '😸',
+      curious: '🤔',
+      anxious: '😰',
+      angry: '😾',
+      needs: '🥺',
+    };
+    return map[emotion] || '😐';
   };
 
   return (
-    <span className={`text-6xl ${bounce ? 'animate-bounce' : ''}`}>
-      {emojiMap[emotion] || '😐'}
-    </span>
-  );
-}
-
-function HealthTrendChart() {
-  const data = [65, 72, 68, 78, 82, 75, 88];
-  const maxValue = Math.max(...data);
-  
-  return (
-    <div className="space-y-4">
-      <div className="flex items-end gap-2 h-24">
-        {data.map((value, index) => {
-          const height = (value / maxValue) * 100;
-          const isToday = index === data.length - 1;
-          
-          return (
-            <div key={index} className="flex-1 flex flex-col items-center gap-2">
-              <div className="w-full flex flex-col items-center justify-end" style={{ height: '80px' }}>
-                <div
-                  className={`w-full rounded-t-lg transition-all duration-500 ${
-                    isToday 
-                      ? 'bg-gradient-to-t from-orange-500 to-peach-400 shadow-lg shadow-orange-200' 
-                      : 'bg-gradient-to-t from-orange-300 to-peach-200'
-                  }`}
-                  style={{ 
-                    height: `${height}%`,
-                    animationDelay: `${index * 0.1}s`
-                  }}
-                />
-              </div>
-              <span className={`text-xs ${isToday ? 'font-bold text-orange-500' : 'text-gray-400'}`}>
-                {['一', '二', '三', '四', '五', '六', '日'][index]}
-              </span>
+    <div className="min-h-screen bg-neutral-50 pb-24">
+      {/* Header with Gradient */}
+      <header className="bg-gradient-to-br from-primary-500 via-primary-500 to-primary-600 text-white relative overflow-hidden">
+        {/* Decorative Elements */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/3" />
+        
+        <div className="max-w-md mx-auto px-4 pt-6 pb-12 relative z-10">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h1 className="text-xl font-bold flex items-center gap-2">
+                <Heart className="w-6 h-6 fill-current" />
+                PawSync Pro
+              </h1>
+              <p className="text-xs text-white/80 mt-1">温暖守护 · 陪伴成长</p>
             </div>
-          );
-        })}
-      </div>
-      
-      <div className="flex items-center justify-between text-sm">
-        <div className="flex items-center gap-2">
-          <TrendingUp className="w-4 h-4 text-green-500" />
-          <span className="text-gray-600">本周趋势</span>
-        </div>
-        <Badge color="green" size="small">+12%</Badge>
-      </div>
-    </div>
-  );
-}
-
-function AlertBanner({ alert, onClick }: { alert: any; onClick: () => void }) {
-  return (
-    <Card 
-      variant="gradient" 
-      padding="medium" 
-      onClick={onClick}
-      className="cursor-pointer hover:scale-102 transition-transform"
-    >
-      <div className="flex items-center gap-4">
-        <div className="relative">
-          <div className="w-14 h-14 rounded-full bg-gradient-to-br from-red-100 to-red-200 flex items-center justify-center">
-            <Bell className="w-7 h-7 text-red-500" />
+            <button 
+              className="p-2 rounded-full bg-white/20 backdrop-blur hover:bg-white/30 transition-all"
+              onClick={() => onNavigate('health')}
+            >
+              <div className="w-6 h-6" />
+            </button>
           </div>
-          <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full animate-pulse" />
-        </div>
-        
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-sm font-semibold text-gray-800">健康提醒</span>
-            <Badge color="red" size="small">重要</Badge>
+
+          {/* Pet Selector */}
+          <div className="flex gap-3 mb-6 overflow-x-auto pb-2">
+            {pets.map((pet) => (
+              <button
+                key={pet.id}
+                onClick={() => setCurrentPet(pet.id)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all ${
+                  pet.id === currentPetId
+                    ? 'bg-white/30 backdrop-blur border border-white/30'
+                    : 'bg-white/10 hover:bg-white/20'
+                }`}
+              >
+                <div className="w-8 h-8 rounded-full overflow-hidden bg-white/20">
+                  {pet.avatar ? (
+                    <img src={pet.avatar} alt={pet.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-lg">
+                      {pet.type === 'dog' ? '🐕' : '🐱'}
+                    </div>
+                  )}
+                </div>
+                <span className="text-sm font-medium whitespace-nowrap">{pet.name}</span>
+              </button>
+            ))}
+            <button 
+              className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 transition-all"
+              onClick={() => onNavigate('pets')}
+            >
+              <div className="w-8 h-8 rounded-full border-2 border-dashed border-white/50 flex items-center justify-center">
+                <div className="w-4 h-4" />
+              </div>
+              <span className="text-sm font-medium">添加</span>
+            </button>
           </div>
-          <p className="text-sm text-gray-600 leading-relaxed">
-            {alert.message}
-          </p>
-          <p className="text-xs text-gray-400 mt-1">
-            {alert.time || '刚刚'}
-          </p>
-        </div>
-        
-        <button className="px-4 py-2 bg-white rounded-full text-sm font-medium text-orange-500 hover:bg-orange-50 transition-colors shadow-sm">
-          查看
-        </button>
-      </div>
-    </Card>
-  );
-}
 
-export function HomePage({ onNavigate }: HomePageProps) {
-  const { currentPet, currentEmotion, healthScore, healthAlerts } = useAppStore();
-  const { devices, loadDevices } = useCameraStore();
-  const lastActivity = '刚刚活跃';
-
-  useEffect(() => {
-    loadDevices();
-  }, [loadDevices]);
-
-  const onlineDevices = devices.filter(d => d.status === 'online').length;
-
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-orange-50/50 via-white to-peach-50/30 pb-20">
-      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-lg border-b border-orange-100">
-        <div className="max-w-md mx-auto px-4 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-              <Heart className="w-6 h-6 text-orange-500" />
-              PawSync Pro
-            </h1>
-            <p className="text-xs text-gray-400">爪印同频 · 守护版</p>
+          {/* Bond Score & Quick Stats */}
+          <div className="flex items-center gap-6">
+            <ProgressRing 
+              progress={metrics.overall} 
+              size={120} 
+              strokeWidth={12}
+              label="亲密度"
+            />
+            <div className="flex-1 space-y-3">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <Star className="w-4 h-4 text-yellow-300" />
+                  <span className="text-sm">{unlockedBadges} 徽章</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-blue-200" />
+                  <span className="text-sm">{streakDays} 天</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 bg-white/20 rounded-full h-2">
+                  <div 
+                    className="bg-yellow-400 h-full rounded-full transition-all duration-1000 ease-out"
+                    style={{ width: `${Math.min((totalPoints / 2000) * 100, 100)}%` }}
+                  />
+                </div>
+                <span className="text-xs">{totalPoints} 积分</span>
+              </div>
+            </div>
           </div>
-          <button 
-            className="relative p-2 rounded-full hover:bg-gray-100 transition-colors"
-            onClick={() => onNavigate('health')}
-          >
-            <Bell className="w-6 h-6 text-gray-600"/>
-            {healthAlerts.length > 0 && (
-              <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse" />
-            )}
-          </button>
         </div>
       </header>
 
-      <main className="max-w-md mx-auto px-4 py-5 space-y-5">
-        <StatusCard 
-          petName={currentPet?.name || ''} 
-          emotion={currentEmotion} 
-          healthScore={healthScore} 
-          lastActivity={lastActivity}
-        />
-
-        <div className="grid grid-cols-2 gap-3">
-          <Card 
-            variant="gradient" 
-            padding="large"
-            onClick={() => onNavigate('camera')}
-            className="cursor-pointer hover:scale-102 transition-transform"
-          >
-            <div className="flex flex-col items-center text-center space-y-3">
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-orange-400 to-peach-500 flex items-center justify-center shadow-lg">
-                <Camera className="w-8 h-8 text-white" />
+      <main className="max-w-md mx-auto px-4 -mt-8 space-y-5">
+        {/* Status Card */}
+        <div className="animate-slide-up" style={{ animationDelay: '0.1s' }}>
+          <Card variant="elevated" padding="lg">
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary-100 to-primary-200 flex items-center justify-center animate-bounce-gentle">
+                <span className="text-3xl">{getEmotionEmoji(currentEmotion)}</span>
               </div>
-              <div>
-                <h3 className="font-bold text-gray-800 text-lg mb-1">设备管理</h3>
-                <p className="text-sm text-gray-500">
-                  {devices.length} 个设备 · {onlineDevices} 在线
-                </p>
+              <div className="flex-1">
+                <h3 className="font-bold text-neutral-800">{currentPet?.name}</h3>
+                <p className="text-sm text-neutral-500 capitalize">{currentEmotion}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-xs text-neutral-400">健康评分</span>
+                  <div className="flex items-center gap-1">
+                    <div className="w-20 bg-neutral-200 rounded-full h-2">
+                      <div 
+                        className="bg-success-500 h-full rounded-full transition-all duration-500"
+                        style={{ width: `${healthScore}%` }}
+                      />
+                    </div>
+                    <span className="text-xs font-medium text-success-600">{healthScore}</span>
+                  </div>
+                </div>
               </div>
-            </div>
-          </Card>
-
-          <Card 
-            variant="gradient" 
-            padding="large"
-            onClick={() => onNavigate('monitor')}
-            className={`cursor-pointer hover:scale-102 transition-transform ${
-              onlineDevices === 0 ? 'opacity-60' : ''
-            }`}
-          >
-            <div className="flex flex-col items-center text-center space-y-3">
-              <div className={`w-16 h-16 rounded-full flex items-center justify-center shadow-lg ${
-                onlineDevices > 0 
-                  ? 'bg-gradient-to-br from-purple-400 to-violet-500' 
-                  : 'bg-gradient-to-br from-gray-300 to-gray-400'
-              }`}>
-                <Monitor className="w-8 h-8 text-white" />
-              </div>
-              <div>
-                <h3 className="font-bold text-gray-800 text-lg mb-1">实时监控</h3>
-                <p className="text-sm text-gray-500">
-                  {onlineDevices > 0 ? '点击开始监控' : '暂无设备在线'}
-                </p>
-              </div>
+              <Badge variant="success" size="sm">正常</Badge>
             </div>
           </Card>
         </div>
 
-        <section>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-base font-semibold text-gray-700 flex items-center gap-2">
-              <span className="text-xl">✨</span>
-              快捷操作
-            </h2>
-            <button 
-              className="text-xs text-orange-500 font-medium flex items-center gap-1 hover:text-orange-600 transition-colors"
-              onClick={() => onNavigate('translator')}
+        {/* Quick Actions Grid */}
+        <div className="grid grid-cols-3 gap-3 animate-slide-up" style={{ animationDelay: '0.2s' }}>
+          {quickActions.map((action, index) => (
+            <button
+              key={action.page}
+              onClick={() => onNavigate(action.page)}
+              className="col-span-1"
+              style={{ animationDelay: `${0.2 + index * 0.05}s` }}
             >
-              查看全部 <ChevronRight className="w-4 h-4"/>
+              <Card className="text-center h-full">
+                <div className={`w-12 h-12 mx-auto rounded-2xl bg-gradient-to-r ${action.color} flex items-center justify-center mb-3 shadow-md`}>
+                  <action.icon className="w-6 h-6 text-white" />
+                </div>
+                <h4 className="font-semibold text-sm text-neutral-800 mb-1">{action.label}</h4>
+                <p className="text-xs text-neutral-500">{action.description}</p>
+              </Card>
             </button>
-          </div>
-          <QuickAction onAction={(action) => {
-            if (action === 'record' || action === 'photo') {
-              onNavigate('translator');
-            }
-            else if (action === 'health') {
-              onNavigate('health');
-            }
-            else if (action === 'history') {
-              onNavigate('profile');
-            }
-          }}/>
-        </section>
+          ))}
+        </div>
 
-        <section className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-green-500" />
-              <h2 className="text-base font-semibold text-gray-700">健康趋势</h2>
-            </div>
-            <button 
-              className="text-xs text-orange-500 font-medium flex items-center gap-1 hover:text-orange-600 transition-colors"
-              onClick={() => onNavigate('health')}
-            >
-              查看详情 <ChevronRight className="w-4 h-4"/>
-            </button>
+        {/* Upcoming Reminders */}
+        {upcomingReminders.length > 0 && (
+          <div className="animate-slide-up" style={{ animationDelay: '0.3s' }}>
+            <Card className="p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-neutral-800 flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-primary-500" />
+                  即将到来
+                </h3>
+                <button 
+                  className="text-xs text-primary-500 font-medium flex items-center gap-1"
+                  onClick={() => onNavigate('reminders')}
+                >
+                  全部
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="space-y-3">
+                {upcomingReminders.map((reminder, index) => (
+                  <div 
+                    key={reminder.id}
+                    className="flex items-center gap-3 p-3 bg-neutral-50 rounded-xl hover:bg-neutral-100 transition-colors"
+                  >
+                    <div className="w-2 h-2 rounded-full bg-primary-500 animate-pulse" />
+                    <div className="flex-1">
+                      <h4 className="font-medium text-sm text-neutral-800">{reminder.title}</h4>
+                      <p className="text-xs text-neutral-500">{reminder.date} {reminder.time}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
           </div>
-          <HealthTrendChart />
-        </section>
+        )}
 
-        <section className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <Moon className="w-5 h-5 text-purple-500" />
-              <h2 className="text-base font-semibold text-gray-700">离家守护</h2>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" className="sr-only peer" defaultChecked />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-orange-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-orange-400 peer-checked:to-peach-500"></div>
-            </label>
+        {/* Recent Records */}
+        {recentRecords.length > 0 && (
+          <div className="animate-slide-up" style={{ animationDelay: '0.4s' }}>
+            <Card className="p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-neutral-800 flex items-center gap-2">
+                  <Activity className="w-5 h-5 text-green-500" />
+                  最近记录
+                </h3>
+                <button 
+                  className="text-xs text-primary-500 font-medium flex items-center gap-1"
+                  onClick={() => onNavigate('health-records')}
+                >
+                  更多
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="space-y-3">
+                {recentRecords.map((record, index) => (
+                  <div 
+                    key={record.id}
+                    className="p-3 bg-neutral-50 rounded-xl hover:bg-neutral-100 transition-colors cursor-pointer"
+                  >
+                    <h4 className="font-medium text-sm text-neutral-800">{record.title}</h4>
+                    <p className="text-xs text-neutral-500 mt-1 line-clamp-2">{record.content}</p>
+                  </div>
+                ))}
+              </div>
+            </Card>
           </div>
-          <p className="text-sm text-gray-500 leading-relaxed">
-            守护模式已开启，{currentPet?.name || '小橘'}的异常行为将被实时监测
-          </p>
-          <div className="mt-3 flex items-center gap-2 text-xs text-gray-400">
-            <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-            <span>正在守护中</span>
-          </div>
-        </section>
-
-        {healthAlerts.length > 0 && (
-          <section className="space-y-3">
-            <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-              <span className="text-xl">🔔</span>
-              待处理提醒
-            </h2>
-            {healthAlerts.slice(0, 2).map((alert, index) => (
-              <AlertBanner 
-                key={index} 
-                alert={alert} 
-                onClick={() => onNavigate('health')}
-              />
-            ))}
-          </section>
         )}
       </main>
     </div>
   );
-}
+};
