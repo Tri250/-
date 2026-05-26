@@ -1,11 +1,11 @@
-import React, { useEffect, useState, useCallback, useRef, memo, useMemo } from 'react';
+import React, { useEffect, useState, useRef, memo, useMemo } from 'react';
 import { Mic, MicOff, Sparkles, Brain } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 import { Badge, GlassCard, GradientButton } from '../components/UIEnhancements';
 import { BrandLogo, BrandBadge } from '../components/Brand';
 import { TechParticles, AnalysisParticles, NeuralNetwork } from '../components/TechEffects';
 import { AuroraBackground, AnimatedGradientText } from '../components/SoundWaveEffects';
-import { useStableInterval, useBatchState } from '../hooks/usePerformanceOptimized';
+import { useStableInterval } from '../hooks/usePerformanceOptimized';
 import { sanitizeString } from '../lib/security';
 
 interface VoiceWaveProps {
@@ -234,19 +234,14 @@ export const TranslatorPage = memo(function TranslatorPage() {
     isRecording ? 1000 : null
   );
 
-  const startRecording = useCallback(() => {
+  const startRecording = () => {
     if (isRecording || isAnalyzing) return;
     setIsRecording(true);
     setRecordingTime(0);
     setShowResult(false);
-  }, [isRecording, isAnalyzing]);
+  };
 
-  const stopRecording = useCallback(() => {
-    if (!isRecording) return;
-    setIsRecording(false);
-  }, [isRecording]);
-
-  const analyzeVoice = useCallback(() => {
+  const analyzeVoice = () => {
     setIsAnalyzing(true);
     setShowResult(false);
     setAnalysisPhase(0);
@@ -288,13 +283,16 @@ export const TranslatorPage = memo(function TranslatorPage() {
         },
       });
     }, 2500);
-  }, [emotions, mockTranslations, currentPet, addAnalysis, setCurrentEmotion]);
+  };
 
-  useEffect(() => {
-    if (!isRecording && recordingTime > 0 && !isAnalyzing) {
+  const stopRecording = () => {
+    if (!isRecording) return;
+    setIsRecording(false);
+    // 直接调用分析功能
+    setTimeout(() => {
       analyzeVoice();
-    }
-  }, [isRecording, recordingTime, isAnalyzing, analyzeVoice]);
+    }, 100);
+  };
 
   useEffect(() => {
     return () => {
@@ -303,11 +301,11 @@ export const TranslatorPage = memo(function TranslatorPage() {
     };
   }, []);
 
-  const formatTime = useCallback((seconds: number) => {
+  const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  }, []);
+  };
 
   const emotionStyle = useMemo(() => {
     const styles: Record<string, { bg: string; text: string; border: string }> = {
@@ -342,12 +340,12 @@ export const TranslatorPage = memo(function TranslatorPage() {
     return labels[emotion] || '平静';
   }, [emotion]);
 
-  const resetResult = useCallback(() => {
+  const resetResult = () => {
     setShowResult(false);
     setEmotion('neutral');
     setTranslation('');
     setConfidence(0);
-  }, []);
+  };
 
   const recordingDisplay = useMemo(() => {
     if (!isRecording) return null;
