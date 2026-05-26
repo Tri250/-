@@ -7,7 +7,6 @@ import {
   BarChart3,
   Zap,
   FileText,
-  Mic,
   Activity
 } from 'lucide-react';
 import { Card, Button, Badge } from '../components/DesignSystem';
@@ -53,15 +52,8 @@ export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }
     await sendAIMessage(currentConsultationId, question);
   };
 
-  const handleGenerateReport = (period: '7d' | '30d' | '90d') => {
-    if (currentPetId) {
-      // 生成报告
-    }
-  };
-
   return (
     <div className="min-h-screen bg-neutral-50 flex flex-col">
-      {/* Header */}
       <header className="bg-white border-b border-neutral-200 px-4 py-4 sticky top-0 z-30">
         <div className="max-w-md mx-auto flex items-center gap-4">
           <button 
@@ -92,7 +84,6 @@ export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }
         </div>
       </header>
 
-      {/* Quick Actions */}
       <div className="bg-white border-b border-neutral-100 px-4 py-3">
         <div className="max-w-md mx-auto">
           <div className="flex gap-2 overflow-x-auto pb-1">
@@ -118,20 +109,16 @@ export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }
         </div>
       </div>
 
-      {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-4">
         <div className="max-w-md mx-auto space-y-4">
-          {/* Welcome Message */}
           {messages.length === 0 && (
-            <div className="text-center py-8 animate-scale-in">
+            <div className="text-center py-8">
               <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-primary-100 to-primary-200 flex items-center justify-center mb-4">
                 <Bot className="w-8 h-8 text-primary-600" />
               </div>
               <h2 className="font-semibold text-neutral-800 mb-2">你好！我是AI健康顾问</h2>
-              <p className="text-sm text-neutral-500 mb-6">
-                我可以帮你解答关于宠物健康的问题，提供专业建议</p>
+              <p className="text-sm text-neutral-500 mb-6">我可以帮你解答关于宠物健康的问题，提供专业建议</p>
               
-              {/* Quick Questions */}
               <div className="space-y-2">
                 {QUICK_QUESTIONS.map((question, index) => (
                   <button
@@ -146,11 +133,10 @@ export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }
             </div>
           )}
 
-          {/* Message List */}
           {messages.map((message, index) => (
             <div 
               key={message.id}
-              className={`flex gap-3 animate-slide-up ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
               style={{ animationDelay: `${index * 0.05}s` }}
             >
               {message.role === 'assistant' && (
@@ -158,16 +144,12 @@ export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }
                   <Bot className="w-4 h-4 text-white" />
                 </div>
               )}
-              <div 
-                className={`max-w-[80%] ${message.role === 'user' ? 'order-first' : 'order-last'}`}
-              >
-                <div 
-                  className={`px-4 py-3 rounded-2xl ${
-                    message.role === 'user'
-                      ? 'bg-gradient-to-r from-primary-500 to-primary-600 text-white rounded-tr-md'
-                      : 'bg-white border border-neutral-200 text-neutral-800 rounded-tl-md'
-                  }`}
-                >
+              <div className={`max-w-[80%] ${message.role === 'user' ? 'order-first' : 'order-last'}`}>
+                <div className={`px-4 py-3 rounded-2xl ${
+                  message.role === 'user'
+                    ? 'bg-gradient-to-r from-primary-500 to-primary-600 text-white rounded-tr-md'
+                    : 'bg-white border border-neutral-200 text-neutral-800 rounded-tl-md'
+                }`}>
                   <p className="text-sm leading-relaxed">{message.content}</p>
                 </div>
               </div>
@@ -177,11 +159,10 @@ export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }
                 </div>
               )}
             </div>
-          )}
+          ))}
 
-          {/* Typing Indicator */}
           {isTyping && (
-            <div className="flex gap-3 animate-slide-up">
+            <div className="flex gap-3">
               <div className="w-8 h-8 rounded-full bg-gradient-to-r from-primary-500 to-primary-600 flex items-center justify-center">
                 <Bot className="w-4 h-4 text-white" />
               </div>
@@ -198,7 +179,6 @@ export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }
         </div>
       </div>
 
-      {/* Input Area */}
       <div className="bg-white border-t border-neutral-200 px-4 py-3">
         <div className="max-w-md mx-auto">
           <div className="flex items-end gap-2">
