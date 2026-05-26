@@ -1,0 +1,56 @@
+# PawSync Pro 3.0 - Git Configuration
+#
+# 作者: 带娃的小陈工
+# 日期: 2026-05-26
+
+# 自动检测文件类型
+* text=auto
+
+# 源代码文件
+*.ts text
+*.tsx text
+*.js text
+*.jsx text
+*.css text
+*.scss text
+*.json text
+*.md text
+
+# 图片文件
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.svg text
+*.ico binary
+
+# 二进制文件
+*.pdf binary
+*.zip binary
+*.gz binary
+*.tar binary
+*.mp4 binary
+*.mp3 binary
+*.wav binary
+
+# 忽略文件
+.gitignore text
+.gitattributes text
+
+# 行尾规范化
+*.ts text eol=lf
+*.tsx text eol=lf
+*.js text eol=lf
+*.jsx text eol=lf
+*.css text eol=lf
+*.scss text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+
+# 不进行行尾规范化的文件
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
