@@ -31,7 +31,7 @@ import {
   EyeOff,
   X,
   AlertTriangle,
-  Record,
+  Circle,
   Download,
   Share2,
   Filter
@@ -301,7 +301,7 @@ export function CameraMonitorComponent({ cameras, autoConnect = true }: CameraMo
 
                   {isRecording && (
                     <span className="px-3 py-1.5 bg-red-500/80 text-white rounded-full text-xs flex items-center gap-1">
-                      <Record className="w-3 h-3" />
+                      <Circle className="w-3 h-3 fill-current" />
                       录制中
                     </span>
                   )}
@@ -370,7 +370,7 @@ export function CameraMonitorComponent({ cameras, autoConnect = true }: CameraMo
                           : 'bg-white/20 text-white hover:bg-white/30'
                       }`}
                     >
-                      <Record className={`w-6 h-6 ${isRecording ? 'animate-pulse' : ''}`} />
+                      <Circle className={`w-6 h-6 fill-current ${isRecording ? 'animate-pulse' : ''}`} />
                     </motion.button>
 
                     {/* 双向语音 */}
