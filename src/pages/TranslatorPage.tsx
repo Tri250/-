@@ -1,15 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
-import { Mic, MicOff, Image, Share2, RefreshCw, Sparkles } from 'lucide-react';
+import { Mic, MicOff, Image, Share2, RefreshCw, Sparkles, Heart } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { Badge } from '../components/ui/Badge';
 
 type EmotionType = 'happy' | 'anxious' | 'angry' | 'needs' | 'neutral';
 
 const emotionConfig = {
-  happy: { emoji: '😸', label: '开心', color: 'text-green-500', bgColor: 'bg-green-50' },
-  anxious: { emoji: '😰', label: '焦虑', color: 'text-yellow-500', bgColor: 'bg-yellow-50' },
-  angry: { emoji: '😾', label: '生气', color: 'text-red-500', bgColor: 'bg-red-50' },
-  needs: { emoji: '🥺', label: '有需求', color: 'text-blue-500', bgColor: 'bg-blue-50' },
-  neutral: { emoji: '😐', label: '平静', color: 'text-gray-500', bgColor: 'bg-gray-50' },
+  happy: { emoji: '😸', label: '开心', color: 'text-green-500', bgColor: 'bg-green-50', gradient: 'from-green-400 to-emerald-500' },
+  anxious: { emoji: '😰', label: '焦虑', color: 'text-yellow-500', bgColor: 'bg-yellow-50', gradient: 'from-yellow-400 to-amber-500' },
+  angry: { emoji: '😾', label: '生气', color: 'text-red-500', bgColor: 'bg-red-50', gradient: 'from-red-400 to-rose-500' },
+  needs: { emoji: '🥺', label: '有需求', color: 'text-blue-500', bgColor: 'bg-blue-50', gradient: 'from-blue-400 to-indigo-500' },
+  neutral: { emoji: '😐', label: '平静', color: 'text-gray-500', bgColor: 'bg-gray-50', gradient: 'from-gray-400 to-slate-500' },
 };
 
 const mockTranslations = {
@@ -40,6 +43,55 @@ const mockTranslations = {
   ],
 };
 
+function PawPrintIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 100 100" fill="currentColor">
+      <ellipse cx="50" cy="65" rx="25" ry="20" />
+      <ellipse cx="25" cy="35" rx="10" ry="12" />
+      <ellipse cx="45" cy="25" rx="8" ry="10" />
+      <ellipse cx="65" cy="25" rx="8" ry="10" />
+      <ellipse cx="80" cy="35" rx="10" ry="12" />
+    </svg>
+  );
+}
+
+function SoundWave({ active, color }: { active: boolean; color: string }) {
+  const bars = [1, 2, 3, 4, 5, 6, 7];
+  
+  return (
+    <div className="flex items-end justify-center gap-1 h-16">
+      {bars.map((_, index) => (
+        <div
+          key={index}
+          className={`w-1.5 rounded-full transition-all ${active ? 'animate-pulse' : ''}`}
+          style={{
+            height: active ? `${20 + Math.random() * 60}%` : '20%',
+            backgroundColor: active ? color : '#d1d5db',
+            animationDelay: `${index * 0.1}s`,
+            animationDuration: '0.8s',
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function EmotionMeter({ confidence }: { confidence: number }) {
+  return (
+    <div className="relative h-3 bg-gray-100 rounded-full overflow-hidden">
+      <div
+        className="h-full bg-gradient-to-r from-orange-400 to-peach-500 rounded-full transition-all duration-1000 ease-out"
+        style={{ width: `${confidence}%` }}
+      />
+      <div className="absolute inset-0 flex items-center justify-center">
+        <span className="text-xs font-bold text-gray-700 drop-shadow-sm">
+          置信度 {confidence}%
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export function TranslatorPage() {
   const { currentPet, addAnalysis, setCurrentEmotion } = useAppStore();
   const [isRecording, setIsRecording] = useState(false);
@@ -49,24 +101,49 @@ export function TranslatorPage() {
   const [confidence, setConfidence] = useState(0);
   const [recordingTime, setRecordingTime] = useState(0);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [audioLevel, setAudioLevel] = useState(0);
   const timerRef = useRef<number | null>(null);
+  const animationRef = useRef<number | null>(null);
 
   const emotions: EmotionType[] = ['happy', 'anxious', 'angry', 'needs', 'neutral'];
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (animationRef.current) cancelAnimationFrame(animationRef.current);
+    };
+  }, []);
 
   const startRecording = () => {
     setIsRecording(true);
     setRecordingTime(0);
+    
     timerRef.current = window.setInterval(() => {
       setRecordingTime((prev) => prev + 1);
     }, 1000);
+
+    const simulateAudioLevel = () => {
+      if (!isRecording) return;
+      setAudioLevel(Math.random() * 100);
+      animationRef.current = requestAnimationFrame(simulateAudioLevel);
+    };
+    simulateAudioLevel();
   };
 
   const stopRecording = () => {
     setIsRecording(false);
+    setAudioLevel(0);
+    
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
+    
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+      animationRef.current = null;
+    }
+    
     analyzeVoice();
   };
 
@@ -128,120 +205,170 @@ export function TranslatorPage() {
     <div className="min-h-screen bg-gradient-to-b from-orange-50/50 via-white to-peach-50/30 pb-20">
       <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-lg border-b border-orange-100">
         <div className="max-w-md mx-auto px-4 py-4">
-          <h1 className="text-xl font-bold text-gray-800 text-center">AI 情感翻译机</h1>
+          <h1 className="text-xl font-bold text-gray-800 text-center flex items-center justify-center gap-2">
+            <Heart className="w-5 h-5 text-orange-500" />
+            AI 情感翻译机
+          </h1>
           <p className="text-xs text-gray-400 text-center">倾听 {currentPet?.name} 的心声</p>
         </div>
       </header>
 
       <main className="max-w-md mx-auto px-4 py-6 space-y-6">
         <div className="flex justify-center gap-4">
-          <button
+          <Button
             onClick={startRecording}
             disabled={isRecording || isAnalyzing}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-300 ${
-              isRecording || isAnalyzing
-                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                : 'bg-orange-500 text-white hover:bg-orange-600 shadow-lg hover:shadow-xl'
-            }`}
+            icon={<Mic className="w-5 h-5" />}
+            className={isRecording || isAnalyzing ? 'opacity-50 cursor-not-allowed' : ''}
           >
-            <Mic className="w-5 h-5" />
-            <span className="font-medium">录音翻译</span>
-          </button>
-          <button
-            className="flex items-center gap-2 px-4 py-2 rounded-full bg-blue-500 text-white hover:bg-blue-600 shadow-lg hover:shadow-xl transition-all duration-300"
+            录音翻译
+          </Button>
+          <Button
+            variant="secondary"
+            icon={<Image className="w-5 h-5" />}
           >
-            <Image className="w-5 h-5" />
-            <span className="font-medium">拍照分析</span>
-          </button>
+            拍照分析
+          </Button>
         </div>
 
-        <div className="relative flex justify-center">
+        <div className="flex flex-col items-center gap-6">
           <button
             onClick={isRecording ? stopRecording : startRecording}
             disabled={isAnalyzing}
-            className={`w-32 h-32 rounded-full flex items-center justify-center transition-all duration-300 shadow-2xl ${
-              isRecording
-                ? 'bg-gradient-to-br from-red-400 to-red-600 animate-pulse scale-110'
-                : isAnalyzing
-                ? 'bg-gradient-to-br from-gray-300 to-gray-400'
-                : 'bg-gradient-to-br from-orange-400 to-peach-500 hover:scale-105'
-            }`}
+            className={`
+              relative w-36 h-36 rounded-full flex items-center justify-center 
+              transition-all duration-300 shadow-2xl
+              ${isAnalyzing ? 'bg-gradient-to-br from-gray-300 to-gray-400 cursor-not-allowed' : ''}
+              ${isRecording ? 'bg-gradient-to-br from-red-400 to-red-600 scale-110' : ''}
+              ${!isRecording && !isAnalyzing ? 'bg-gradient-to-br from-orange-400 to-peach-500 hover:scale-105' : ''}
+            `}
+            aria-label={isRecording ? '停止录音' : '开始录音'}
           >
             {isAnalyzing ? (
-              <RefreshCw className="w-12 h-12 text-white animate-spin" />
+              <Sparkles className="w-14 h-14 text-white animate-spin" />
             ) : isRecording ? (
               <MicOff className="w-14 h-14 text-white" />
             ) : (
-              <Mic className="w-14 h-14 text-white" />
+              <PawPrintIcon className="w-16 h-16 text-white" />
+            )}
+
+            {isRecording && (
+              <>
+                <div className="absolute inset-0 rounded-full">
+                  <div className="absolute inset-0 rounded-full border-4 border-red-300 animate-ping opacity-40" />
+                  <div className="absolute inset-0 rounded-full border-4 border-red-400 animate-ping opacity-30" style={{ animationDelay: '0.3s' }} />
+                  <div className="absolute inset-0 rounded-full border-4 border-red-500 animate-ping opacity-20" style={{ animationDelay: '0.6s' }} />
+                </div>
+              </>
             )}
           </button>
-          
+
           {isRecording && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-48 h-48 rounded-full border-4 border-orange-300 animate-ping opacity-30" />
-              <div className="absolute w-40 h-40 rounded-full border-4 border-orange-400 animate-ping opacity-20" style={{ animationDelay: '0.2s' }} />
-              <div className="absolute w-32 h-32 rounded-full border-4 border-orange-500 animate-ping opacity-10" style={{ animationDelay: '0.4s' }} />
+            <div className="text-center space-y-3">
+              <div className="flex items-center justify-center gap-3">
+                <Heart className="w-5 h-5 text-red-500 animate-pulse" />
+                <p className="text-gray-600 font-medium text-lg">
+                  宝贝正在说话呢...
+                </p>
+                <Heart className="w-5 h-5 text-red-500 animate-pulse" />
+              </div>
+              
+              <p className="text-2xl font-bold text-gray-800">
+                {formatTime(recordingTime)}
+              </p>
+              
+              <SoundWave active={isRecording} color={config.color.split('-')[1]} />
+
+              <p className="text-xs text-gray-400">
+                点击按钮结束录音
+              </p>
+            </div>
+          )}
+
+          {isAnalyzing && (
+            <div className="text-center space-y-3">
+              <div className="flex items-center justify-center gap-3">
+                <Sparkles className="w-6 h-6 text-orange-500 animate-pulse" />
+                <p className="text-gray-600 font-medium text-lg">
+                  AI正在倾听...
+                </p>
+                <Sparkles className="w-6 h-6 text-orange-500 animate-pulse" />
+              </div>
+              <p className="text-sm text-gray-400">
+                正在分析宝贝的情绪
+              </p>
             </div>
           )}
         </div>
 
-        {isRecording && (
-          <div className="text-center">
-            <p className="text-gray-600 font-medium">{formatTime(recordingTime)}</p>
-            <p className="text-xs text-gray-400 mt-1">正在录音，点击结束</p>
-          </div>
-        )}
-
-        {isAnalyzing && (
-          <div className="text-center">
-            <p className="text-gray-600 font-medium flex items-center justify-center gap-2">
-              <Sparkles className="w-5 h-5 text-orange-500 animate-spin" />
-              AI 正在分析中...
-            </p>
-          </div>
-        )}
-
         {showResult && (
-          <div className="bg-white rounded-2xl p-5 shadow-lg border border-orange-100 animate-fadeIn">
-            <div className="flex items-center gap-2 mb-3">
-              <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${config.bgColor} ${config.color}`}>
-                {config.emoji} {config.label}
-              </span>
-              <span className="text-xs text-gray-400">置信度: {confidence}%</span>
+          <Card variant="gradient" padding="large" className="animate-fadeIn">
+            <div className="text-center mb-4">
+              <Badge color={config.color.includes('green') ? 'green' : config.color.includes('yellow') ? 'yellow' : config.color.includes('red') ? 'red' : config.color.includes('blue') ? 'blue' : 'gray'} size="medium">
+                <span className="text-xl mr-1">{config.emoji}</span>
+                {config.label}
+              </Badge>
             </div>
 
-            <div className="relative bg-gradient-to-br from-orange-50 to-peach-50 rounded-xl p-4 mb-4">
-              <div className="absolute -top-2 left-4 w-0 h-0 border-l-8 border-r-8 border-b-8 border-transparent border-b-orange-50" />
-              <p className="text-gray-700 text-center leading-relaxed">{translation}</p>
-              <div className="flex justify-end mt-2">
-                <span className="text-xs text-gray-400">— {currentPet?.name}</span>
+            <div className="relative bg-white/80 backdrop-blur-sm rounded-2xl p-6 mb-4 shadow-inner">
+              <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-8 border-r-8 border-b-8 border-transparent border-b-white/80" />
+              
+              <p className="text-gray-700 text-center text-lg leading-relaxed font-medium">
+                "{translation}"
+              </p>
+              
+              <div className="flex justify-center mt-4">
+                <span className="text-sm text-gray-400">— {currentPet?.name}</span>
               </div>
             </div>
 
-            <div className="flex justify-center gap-4">
-              <button
+            <div className="mb-6">
+              <p className="text-xs text-gray-500 text-center mb-2">情感置信度</p>
+              <EmotionMeter confidence={confidence} />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <Button
+                variant="secondary"
+                size="small"
+                icon={<RefreshCw className="w-4 h-4" />}
                 onClick={handleRetry}
-                className="flex items-center gap-2 px-4 py-2 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
               >
-                <RefreshCw className="w-4 h-4" />
-                <span className="text-sm font-medium">再录一次</span>
-              </button>
-              <button
+                再听一次
+              </Button>
+              <Button
+                size="small"
+                icon={<Share2 className="w-4 h-4" />}
                 onClick={handleShare}
-                className="flex items-center gap-2 px-4 py-2 rounded-full bg-orange-500 text-white hover:bg-orange-600 transition-colors"
               >
-                <Share2 className="w-4 h-4" />
-                <span className="text-sm font-medium">分享</span>
+                分享心情
+              </Button>
+            </div>
+
+            <div className="flex justify-center gap-4 text-xs text-gray-400">
+              <button className="hover:text-orange-500 transition-colors">
+                💾 保存记录
+              </button>
+              <button className="hover:text-orange-500 transition-colors">
+                💬 社区讨论
               </button>
             </div>
-          </div>
+          </Card>
         )}
 
-        <div className="bg-gradient-to-r from-orange-50 to-peach-50 rounded-xl p-4 border border-orange-100">
-          <p className="text-xs text-gray-500 text-center">
-            💡 提示：请将麦克风靠近宠物，保持环境安静以获得更好的识别效果
-          </p>
-        </div>
+        <Card variant="default" padding="medium">
+          <div className="flex items-start gap-3">
+            <div className="text-2xl">💡</div>
+            <div>
+              <p className="text-sm text-gray-600 mb-1">
+                <strong>小贴士</strong>
+              </p>
+              <p className="text-xs text-gray-500">
+                请将麦克风靠近宝贝，保持环境安静，这样AI能更准确地理解宝贝的心情哦~
+              </p>
+            </div>
+          </div>
+        </Card>
       </main>
     </div>
   );

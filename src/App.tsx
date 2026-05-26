@@ -4,6 +4,8 @@ import { HomePage } from './pages/HomePage';
 import { TranslatorPage } from './pages/TranslatorPage';
 import { HealthPage } from './pages/HealthPage';
 import { ProfilePage } from './pages/ProfilePage';
+import { CameraPage } from './pages/CameraPage';
+import { MonitorPage } from './pages/MonitorPage';
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState('home');
@@ -18,6 +20,10 @@ export default function App() {
         return <HealthPage />;
       case 'profile':
         return <ProfilePage />;
+      case 'camera':
+        return <CameraPage />;
+      case 'monitor':
+        return <MonitorPage />;
       default:
         return <HomePage onNavigate={setCurrentPage} />;
     }
