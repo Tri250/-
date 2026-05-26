@@ -1,3 +1,11 @@
+// ============================================
+// PawSync Pro - MonitorPage.tsx
+//
+// 作者: 带娃的小陈工
+// 日期: 2026-05-26
+// 描述: 实时监控和录制管理页面
+// ============================================
+
 import { useEffect, useState } from 'react';
 import { Monitor, Camera, AlertTriangle, History, Settings, Maximize2, Minimize2, Mic, MicOff, Volume2, VolumeX, Wifi } from 'lucide-react';
 import { LiveStream } from '../components/monitor/LiveStream';

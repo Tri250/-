@@ -1,3 +1,11 @@
+// ============================================
+// PawSync Pro - emotionService.ts
+//
+// 作者: 带娃的小陈工
+// 日期: 2026-05-26
+// 描述: 情感分析服务，包含宠物情感识别和翻译
+// ============================================
+
 import type { EmotionAnalysis, EmotionDashboard, EmotionDimension, EmotionWaveform, PrimaryEmotion, VoiceAnalysis } from '../types/emotion';
 
 const MOCK_DELAY = 1000;

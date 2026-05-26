@@ -1,3 +1,11 @@
+// ============================================
+// PawSync Pro - HomePage.tsx
+//
+// 作者: 带娃的小陈工
+// 日期: 2026-05-26
+// 描述: 应用首页，展示宠物状态和快捷操作
+// ============================================
+
 import { StatusCard } from '../components/StatusCard';
 import { QuickAction } from '../components/QuickAction';
 import { useAppStore } from '../store/appStore';

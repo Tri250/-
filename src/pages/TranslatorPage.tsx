@@ -1,3 +1,11 @@
+// ============================================
+// PawSync Pro - TranslatorPage.tsx
+// 
+// 作者: 带娃的小陈工
+// 日期: 2026-05-26
+// 描述: AI情感翻译页面
+// ============================================
+
 import { useState, useEffect, useRef } from 'react';
 import { Mic, MicOff, Image, Share2, RefreshCw, Sparkles, Heart } from 'lucide-react';
 import { useAppStore } from '../store/appStore';

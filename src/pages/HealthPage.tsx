@@ -1,3 +1,11 @@
+// ============================================
+// PawSync Pro - HealthPage.tsx
+//
+// 作者: 带娃的小陈工
+// 日期: 2026-05-26
+// 描述: 宠物健康监测和护理指导页面
+// ============================================
+
 import { useState } from 'react';
 import { Activity, AlertTriangle, Bell, Heart, Moon, Sun, Thermometer, ChevronRight, Shield, Utensils, Scissors, Zap, BookOpen, Star } from 'lucide-react';
 import { useAppStore } from '../store/appStore';

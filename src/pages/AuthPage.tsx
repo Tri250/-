@@ -1,3 +1,11 @@
+// ============================================
+// PawSync Pro - AuthPage.tsx
+//
+// 作者: 带娃的小陈工
+// 日期: 2026-05-26
+// 描述: 用户登录和注册页面
+// ============================================
+
 import { useState } from 'react';
 import { Mail, Lock, User, Eye, EyeOff, ArrowRight, PawPrint } from 'lucide-react';
 import { Button } from '../components/ui/Button';

@@ -1,3 +1,11 @@
+// ============================================
+// PawSync Pro - App.tsx
+// 
+// 作者: 带娃的小陈工
+// 日期: 2026-05-26
+// 描述: 应用主入口组件
+// ============================================
+
 import { useState } from 'react';
 import { Navigation } from './components/Navigation';
 import { HomePage } from './pages/HomePage';
