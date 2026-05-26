@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useAppStore } from '../../store/appStore';
 
 describe('AppStore', () => {
@@ -115,7 +115,7 @@ describe('AppStore', () => {
         breed: '黑猫',
         age: 3,
         avatarUrl: '',
-        type: 'cat',
+        type: 'cat' as const,
       };
       
       useAppStore.getState().setCurrentPet(newPet);
@@ -135,7 +135,7 @@ describe('AppStore', () => {
         breed: '金毛',
         age: 1,
         avatarUrl: '',
-        type: 'dog',
+        type: 'dog' as const,
       });
       
       const store = useAppStore.getState();
@@ -149,7 +149,7 @@ describe('AppStore', () => {
         breed: '泰迪',
         age: 2,
         avatarUrl: '',
-        type: 'dog',
+        type: 'dog' as const,
       });
       
       const store = useAppStore.getState();

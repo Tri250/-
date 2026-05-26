@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { monitorService } from '../../services/monitorService';
 
 describe('MonitorService', () => {
@@ -9,13 +9,15 @@ describe('MonitorService', () => {
   describe('startMonitoring - 开始监控', () => {
     it('应该成功启动监控', async () => {
       const result = await monitorService.startMonitoring('cam-001', {
-        quality: 'high',
+        quality: '1080p',
         motionDetection: true,
         audioEnabled: true,
+        nightVision: false,
+        eventRecording: true,
       });
       
       expect(result.isActive).toBe(true);
-      expect(result.streamQuality).toBe('high');
+      expect(result.streamQuality).toBe('1080p');
       expect(result.eventDetection.abnormalBehavior).toBe(true);
       expect(result.eventDetection.emotionalChange).toBe(true);
       expect(result.eventDetection.dangerApproach).toBe(true);
@@ -26,6 +28,8 @@ describe('MonitorService', () => {
         quality: 'auto',
         motionDetection: false,
         audioEnabled: false,
+        nightVision: false,
+        eventRecording: false,
       });
       
       expect(result.eventDetection.abnormalBehavior).toBe(false);
@@ -35,9 +39,11 @@ describe('MonitorService', () => {
   describe('stopMonitoring - 停止监控', () => {
     it('应该成功停止监控', async () => {
       await monitorService.startMonitoring('cam-001', {
-        quality: 'high',
+        quality: '1080p',
         motionDetection: true,
         audioEnabled: true,
+        nightVision: false,
+        eventRecording: true,
       });
       
       const result = await monitorService.stopMonitoring('cam-001');
@@ -62,9 +68,11 @@ describe('MonitorService', () => {
 
     it('监控启动后状态应该为true', async () => {
       await monitorService.startMonitoring('cam-001', {
-        quality: 'high',
+        quality: '1080p',
         motionDetection: true,
         audioEnabled: true,
+        nightVision: false,
+        eventRecording: true,
       });
       
       const status = await monitorService.getMonitoringStatus('cam-001');
@@ -181,7 +189,7 @@ describe('MonitorService', () => {
   describe('updateStreamConfig - 更新流配置', () => {
     it('应该成功更新流配置', async () => {
       const result = await monitorService.updateStreamConfig('cam-001', {
-        quality: 'low',
+        quality: '480p',
       });
       expect(result).toBe(true);
     });

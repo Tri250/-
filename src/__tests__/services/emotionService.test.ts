@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { emotionService } from '../../services/emotionService';
 import type { PrimaryEmotion } from '../../types/emotion';
 
@@ -65,8 +65,13 @@ describe('EmotionService', () => {
 
   describe('analyzeEmotion - 图像情感分析', () => {
     it('应该返回有效的图像分析结果', async () => {
-      const imageData = { width: 100, height: 100, data: new Uint8ClampedArray(40000) };
-      const result = await emotionService.analyzeEmotion(imageData);
+      const imageData = { 
+        width: 100, 
+        height: 100, 
+        data: new Uint8ClampedArray(40000),
+        colorSpace: 'srgb' as const
+      };
+      const result = await emotionService.analyzeEmotion(imageData as unknown as ImageData);
       
       expect(result).toHaveProperty('id');
       expect(result).toHaveProperty('primaryEmotion');
@@ -75,8 +80,13 @@ describe('EmotionService', () => {
     });
 
     it('应该设置正确的来源类型', async () => {
-      const imageData = { width: 100, height: 100, data: new Uint8ClampedArray(40000) };
-      const result = await emotionService.analyzeEmotion(imageData);
+      const imageData = { 
+        width: 100, 
+        height: 100, 
+        data: new Uint8ClampedArray(40000),
+        colorSpace: 'srgb' as const
+      };
+      const result = await emotionService.analyzeEmotion(imageData as unknown as ImageData);
       
       expect(result.source).toBe('image');
     });

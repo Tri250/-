@@ -21,9 +21,15 @@
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": false,
     "noUncheckedSideEffectImports": false,
-    "forceConsistentCasingInFileNames": false
+    "forceConsistentCasingInFileNames": false,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    },
+    "types": ["vitest/globals"]
   },
   "include": [
-    "src"
+    "src",
+    "src/__tests__"
   ]
 }

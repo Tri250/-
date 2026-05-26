@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
 import { useCameraStore } from '../../store/cameraStore';
 import { cameraManager } from '../../services/cameraService';
 
@@ -13,11 +13,16 @@ vi.mock('../../services/cameraService', () => ({
 describe('CameraStore', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (cameraManager.getAllDevices as vi.Mock).mockResolvedValue([]);
+    (cameraManager.getAllDevices as Mock).mockResolvedValue([]);
   });
 
   afterEach(() => {
-    useCameraStore.persist?.clearStorage?.();
+    const store = useCameraStore as { persist?: { clearStorage?: () => void } };
+    try {
+      store.persist?.clearStorage?.();
+    } catch {
+      // ignore
+    }
   });
 
   describe('Initial State - 初始状态', () => {
@@ -38,9 +43,9 @@ describe('CameraStore', () => {
   describe('loadDevices - 加载设备', () => {
     it('应该加载设备列表', async () => {
       const mockDevices = [
-        { id: 'cam-001', name: '测试设备', status: 'online' as const },
+        { id: 'cam-001', name: '测试设备', status: 'online' as const, brand: 'xiaomi' as const, model: 'test', streamUrl: 'https://example.com/stream' },
       ];
-      (cameraManager.getAllDevices as vi.Mock).mockResolvedValue(mockDevices);
+      (cameraManager.getAllDevices as Mock).mockResolvedValue(mockDevices);
       
       await useCameraStore.getState().loadDevices();
       const store = useCameraStore.getState();
@@ -50,7 +55,7 @@ describe('CameraStore', () => {
     });
 
     it('加载失败时应该设置错误', async () => {
-      (cameraManager.getAllDevices as vi.Mock).mockRejectedValue(new Error('Failed to load'));
+      (cameraManager.getAllDevices as Mock).mockRejectedValue(new Error('Failed to load'));
       
       await useCameraStore.getState().loadDevices();
       const store = useCameraStore.getState();
@@ -62,7 +67,7 @@ describe('CameraStore', () => {
 
   describe('selectDevice - 选择设备', () => {
     it('应该选择指定的设备', () => {
-      const device = { id: 'cam-001', name: '测试设备', status: 'online' as const };
+      const device = { id: 'cam-001', name: '测试设备', status: 'online' as const, brand: 'xiaomi' as const, model: 'test', streamUrl: 'https://example.com/stream' };
       
       useCameraStore.getState().selectDevice(device);
       const store = useCameraStore.getState();
@@ -73,7 +78,7 @@ describe('CameraStore', () => {
 
   describe('addDevice - 添加设备', () => {
     it('应该添加设备到列表', () => {
-      const device = { id: 'cam-002', name: '新设备', status: 'online' as const };
+      const device = { id: 'cam-002', name: '新设备', status: 'online' as const, brand: 'xiaomi' as const, model: 'test', streamUrl: 'https://example.com/stream' };
       
       useCameraStore.getState().addDevice(device);
       const store = useCameraStore.getState();
@@ -84,9 +89,9 @@ describe('CameraStore', () => {
 
   describe('removeDevice - 删除设备', () => {
     it('应该成功删除设备', async () => {
-      const device = { id: 'cam-001', name: '测试设备', status: 'online' as const };
+      const device = { id: 'cam-001', name: '测试设备', status: 'online' as const, brand: 'xiaomi' as const, model: 'test', streamUrl: 'https://example.com/stream' };
       useCameraStore.getState().addDevice(device);
-      (cameraManager.removeDevice as vi.Mock).mockResolvedValue(true);
+      (cameraManager.removeDevice as Mock).mockResolvedValue(true);
       
       await useCameraStore.getState().removeDevice(device.id);
       const store = useCameraStore.getState();
@@ -95,7 +100,7 @@ describe('CameraStore', () => {
     });
 
     it('删除失败时应该设置错误', async () => {
-      (cameraManager.removeDevice as vi.Mock).mockRejectedValue(new Error('Failed to remove'));
+      (cameraManager.removeDevice as Mock).mockRejectedValue(new Error('Failed to remove'));
       
       await useCameraStore.getState().removeDevice('cam-001');
       const store = useCameraStore.getState();
@@ -110,13 +115,13 @@ describe('CameraStore', () => {
         id: 'cam-paired', 
         name: '配对设备', 
         status: 'online' as const,
-        brand: 'xiaomi',
+        brand: 'xiaomi' as const,
         model: 'TEST-MODEL',
         streamUrl: 'https://example.com/stream',
         thumbnailUrl: 'https://example.com/thumb',
         lastOnline: new Date().toISOString(),
       };
-      (cameraManager.pairDevice as vi.Mock).mockResolvedValue(pairedDevice);
+      (cameraManager.pairDevice as Mock).mockResolvedValue(pairedDevice);
       
       const result = await useCameraStore.getState().pairDevice('xiaomi', 'TEST-MODEL', '测试设备');
       
@@ -127,7 +132,7 @@ describe('CameraStore', () => {
     });
 
     it('配对失败时应该设置错误', async () => {
-      (cameraManager.pairDevice as vi.Mock).mockRejectedValue(new Error('Pairing failed'));
+      (cameraManager.pairDevice as Mock).mockRejectedValue(new Error('Pairing failed'));
       
       await expect(
         useCameraStore.getState().pairDevice('xiaomi', 'TEST-MODEL')
@@ -141,14 +146,14 @@ describe('CameraStore', () => {
 
   describe('setStreamQuality - 设置流质量', () => {
     it('应该设置流质量', () => {
-      useCameraStore.getState().setStreamQuality('high');
+      useCameraStore.getState().setStreamQuality('1080p');
       const store = useCameraStore.getState();
       
-      expect(store.streamQuality).toBe('high');
+      expect(store.streamQuality).toBe('1080p');
     });
 
     it('应该接受所有有效的质量值', () => {
-      const qualities: ('low' | 'medium' | 'high' | 'auto')[] = ['low', 'medium', 'high', 'auto'];
+      const qualities: ('auto' | '1080p' | '720p' | '480p')[] = ['auto', '1080p', '720p', '480p'];
       
       qualities.forEach(quality => {
         useCameraStore.getState().setStreamQuality(quality);
@@ -159,7 +164,7 @@ describe('CameraStore', () => {
 
   describe('updateDeviceStatus - 更新设备状态', () => {
     it('应该更新指定设备的状态', () => {
-      const device = { id: 'cam-001', name: '测试设备', status: 'online' as const };
+      const device = { id: 'cam-001', name: '测试设备', status: 'online' as const, brand: 'xiaomi' as const, model: 'test', streamUrl: 'https://example.com/stream' };
       useCameraStore.getState().addDevice(device);
       
       useCameraStore.getState().updateDeviceStatus(device.id, 'offline');

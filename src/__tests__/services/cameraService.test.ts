@@ -204,7 +204,7 @@ describe('CameraService', () => {
 
     it('不支持的品牌应该抛出错误', async () => {
       await expect(
-        cameraManager.pairDevice({ brand: 'unknown' as any, deviceCode: 'TEST' })
+        cameraManager.pairDevice({ brand: 'unknown' as 'xiaomi', deviceCode: 'TEST' })
       ).rejects.toThrow('Unsupported brand');
     });
   });
@@ -216,8 +216,9 @@ describe('CameraService', () => {
       
       vi.useFakeTimers();
       const promise = cameraManager.updateStream(device.id, { 
-        quality: 'high',
-        audioEnabled: true 
+        quality: '1080p',
+        audioEnabled: true,
+        nightVision: false 
       });
       vi.advanceTimersByTime(300);
       const result = await promise;
@@ -228,7 +229,7 @@ describe('CameraService', () => {
 
     it('不存在的设备应该返回false', async () => {
       vi.useFakeTimers();
-      const promise = cameraManager.updateStream('non-existent', { quality: 'high' });
+      const promise = cameraManager.updateStream('non-existent', { quality: '1080p', audioEnabled: false, nightVision: false });
       vi.advanceTimersByTime(300);
       const result = await promise;
       vi.useRealTimers();
