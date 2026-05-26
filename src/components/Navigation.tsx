@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Heart, BookOpen, Calendar, User, Bot, FileText, TrendingUp, GraduationCap } from 'lucide-react';
+import { Home, BookOpen, Calendar, Bot, FileText } from 'lucide-react';
 
 interface NavigationProps {
   currentPage: string;
@@ -18,7 +18,7 @@ export const Navigation: React.FC<NavigationProps> = ({ currentPage, onNavigate 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-neutral-200 px-4 py-3 z-40">
       <div className="max-w-md mx-auto flex justify-around items-center">
-        {navItems.map((item, index) => {
+        {navItems.map((item) => {
           const isActive = currentPage === item.id;
           const Icon = item.icon;
           

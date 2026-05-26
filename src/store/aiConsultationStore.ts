@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { AIConsultation, AIMessage, TrendReport, QUICK_QUESTIONS } from '../types/ai-consultation';
+import { aiConsultationService } from '../services/aiConsultationService';
 
 interface AIConsultationStore {
   consultations: AIConsultation[];
@@ -11,7 +12,7 @@ interface AIConsultationStore {
   // Actions
   createConsultation: (petId: string, type: AIConsultation['type'], title: string) => string;
   addMessage: (consultationId: string, message: Omit<AIMessage, 'id' | 'createdAt'>) => void;
-  sendAIMessage: (consultationId: string, content: string) => Promise<void>;
+  sendAIMessage: (consultationId: string, content: string, petType?: string) => Promise<void>;
   setCurrentConsultation: (id: string | null) => void;
   
   generateReport: (petId: string, period: '7d' | '30d' | '90d') => void;
@@ -59,8 +60,7 @@ export const useAIConsultationStore = create<AIConsultationStore>((set, get) => 
     }));
   },
 
-  sendAIMessage: async (consultationId, content) => {
-    // 添加用户消息
+  sendAIMessage: async (consultationId, content, petType) => {
     get().addMessage(consultationId, {
       role: 'user',
       content,
@@ -68,21 +68,11 @@ export const useAIConsultationStore = create<AIConsultationStore>((set, get) => 
 
     set({ isTyping: true });
 
-    // 模拟AI思考和回复
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
-    // 模拟AI回复
-    const aiResponses = [
-      '根据您描述的情况，建议先观察24小时。如果症状持续或加重，请及时就医。',
-      '这是一个常见的问题，通常有以下几种处理方法...',
-      '从症状来看，可能是以下原因导致的。建议您...',
-      '感谢您的咨询！根据您提供的信息，我的建议是...',
-    ];
-    const randomResponse = aiResponses[Math.floor(Math.random() * aiResponses.length)];
+    const aiResponse = await aiConsultationService.sendMessage(consultationId, content, petType);
 
     get().addMessage(consultationId, {
-      role: 'assistant',
-      content: randomResponse,
+      role: aiResponse.role,
+      content: aiResponse.content,
     });
 
     set({ isTyping: false });

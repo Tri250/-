@@ -24,11 +24,12 @@ import { AIConsultantPage } from './pages/AIConsultantPage';
 import { HealthRecordsPage } from './pages/HealthRecordsPage';
 import { HealthManualPage } from './pages/HealthManualPage';
 import { RemindersPage } from './pages/RemindersPage';
+import { UserProfilePage } from './pages/UserProfilePage';
 import { useAppStore } from './store/appStore';
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState('home');
-  const { isAuthenticated, isOnboardingComplete, login, register, completeOnboarding } = useAppStore();
+  const { isAuthenticated, isOnboardingComplete, completeOnboarding } = useAppStore();
 
   const handleAuthSuccess = () => {
     // 认证成功，状态已在store中更新
@@ -78,6 +79,8 @@ export default function App() {
         return <CameraPage />;
       case 'monitor':
         return <MonitorPage />;
+      case 'user-profile':
+        return <UserProfilePage onNavigate={setCurrentPage} />;
       default:
         return <HomePage onNavigate={setCurrentPage} />;
     }

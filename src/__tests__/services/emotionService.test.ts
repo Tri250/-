@@ -1,230 +1,211 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { emotionService } from '../../services/emotionService';
+import type { PrimaryEmotion } from '../../types/emotion';
 
 describe('EmotionService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  describe('analyzeVoice - 模拟语音情感分析', () => {
+  describe('analyzeVoice - 语音情感分析', () => {
     it('应该返回有效的分析结果', async () => {
-      const mockAnalyzeVoice = vi.fn().mockResolvedValue({
-        emotion: 'happy',
-        translation: '宝贝今天很开心呢！',
-        confidence: 92,
-        intensity: 85,
-        subEmotions: ['好奇', '兴奋'],
-      });
-
-      const result = await mockAnalyzeVoice({
-        petId: 'pet-1',
-        audioData: new ArrayBuffer(1024),
-      });
-
-      expect(result).toHaveProperty('emotion');
+      const audioData = new Float32Array(1024);
+      const result = await emotionService.analyzeVoice(audioData);
+      
+      expect(result).toHaveProperty('id');
+      expect(result).toHaveProperty('primaryEmotion');
       expect(result).toHaveProperty('translation');
       expect(result).toHaveProperty('confidence');
       expect(result).toHaveProperty('intensity');
       expect(result).toHaveProperty('subEmotions');
+      expect(result).toHaveProperty('context');
+      expect(result).toHaveProperty('createdAt');
+      expect(result).toHaveProperty('source');
     });
 
-    it('应该返回开心情感类型', async () => {
-      const mockAnalyzeVoice = vi.fn().mockResolvedValue({
-        emotion: 'happy',
-        translation: '测试翻译',
-        confidence: 90,
-      });
-
-      const result = await mockAnalyzeVoice({ petId: 'pet-1', audioData: new ArrayBuffer(1024) });
+    it('应该返回有效的情感类型', async () => {
+      const audioData = new Float32Array(1024);
+      const result = await emotionService.analyzeVoice(audioData);
       
-      expect(result.emotion).toBe('happy');
-    });
-
-    it('应该返回焦虑情感类型', async () => {
-      const mockAnalyzeVoice = vi.fn().mockResolvedValue({
-        emotion: 'anxious',
-        translation: '宝贝有些焦虑',
-        confidence: 88,
-      });
-
-      const result = await mockAnalyzeVoice({ petId: 'pet-1', audioData: new ArrayBuffer(1024) });
-      
-      expect(result.emotion).toBe('anxious');
-    });
-
-    it('应该返回生气的情感类型', async () => {
-      const mockAnalyzeVoice = vi.fn().mockResolvedValue({
-        emotion: 'angry',
-        translation: '宝贝很生气',
-        confidence: 95,
-      });
-
-      const result = await mockAnalyzeVoice({ petId: 'pet-1', audioData: new ArrayBuffer(1024) });
-      
-      expect(result.emotion).toBe('angry');
-    });
-
-    it('应该返回有需求的情感类型', async () => {
-      const mockAnalyzeVoice = vi.fn().mockResolvedValue({
-        emotion: 'needs',
-        translation: '宝贝有需求',
-        confidence: 87,
-      });
-
-      const result = await mockAnalyzeVoice({ petId: 'pet-1', audioData: new ArrayBuffer(1024) });
-      
-      expect(result.emotion).toBe('needs');
-    });
-
-    it('应该返回平静的情感类型', async () => {
-      const mockAnalyzeVoice = vi.fn().mockResolvedValue({
-        emotion: 'neutral',
-        translation: '宝贝很平静',
-        confidence: 91,
-      });
-
-      const result = await mockAnalyzeVoice({ petId: 'pet-1', audioData: new ArrayBuffer(1024) });
-      
-      expect(result.emotion).toBe('neutral');
+      const validEmotions: PrimaryEmotion[] = ['happy', 'curious', 'anxious', 'angry', 'needs', 'calm', 'excited', 'safe'];
+      expect(validEmotions).toContain(result.primaryEmotion);
     });
 
     it('置信度应该在0-100之间', async () => {
-      const mockAnalyzeVoice = vi.fn().mockImplementation(async () => {
-        const confidence = Math.floor(Math.random() * 100);
-        return {
-          emotion: 'happy',
-          translation: '测试',
-          confidence,
-        };
-      });
-
-      for (let i = 0; i < 10; i++) {
-        const result = await mockAnalyzeVoice({ petId: 'pet-1', audioData: new ArrayBuffer(1024) });
-        expect(result.confidence).toBeGreaterThanOrEqual(0);
-        expect(result.confidence).toBeLessThanOrEqual(100);
-      }
+      const audioData = new Float32Array(1024);
+      const result = await emotionService.analyzeVoice(audioData);
+      
+      expect(result.confidence).toBeGreaterThanOrEqual(0);
+      expect(result.confidence).toBeLessThanOrEqual(100);
     });
 
-    it('应该处理网络错误', async () => {
-      const mockAnalyzeVoice = vi.fn().mockRejectedValue(new Error('网络错误'));
-
-      await expect(
-        mockAnalyzeVoice({ petId: 'pet-1', audioData: new ArrayBuffer(1024) })
-      ).rejects.toThrow('网络错误');
+    it('强度应该在0-100之间', async () => {
+      const audioData = new Float32Array(1024);
+      const result = await emotionService.analyzeVoice(audioData);
+      
+      expect(result.intensity).toBeGreaterThanOrEqual(0);
+      expect(result.intensity).toBeLessThanOrEqual(100);
     });
 
-    it('应该处理超时', async () => {
-      const mockAnalyzeVoice = vi.fn().mockRejectedValue(new Error('请求超时'));
+    it('应该设置正确的来源类型', async () => {
+      const audioData = new Float32Array(1024);
+      const result = await emotionService.analyzeVoice(audioData);
+      
+      expect(result.source).toBe('voice');
+    });
 
-      await expect(
-        mockAnalyzeVoice({ petId: 'pet-1', audioData: new ArrayBuffer(1024) })
-      ).rejects.toThrow('请求超时');
+    it('应该包含上下文信息', async () => {
+      const audioData = new Float32Array(1024);
+      const result = await emotionService.analyzeVoice(audioData);
+      
+      expect(result.context).toHaveProperty('timeContext');
+      expect(result.context).toHaveProperty('locationContext');
     });
   });
 
-  describe('analyzeImage - 模拟图像情感分析', () => {
+  describe('analyzeEmotion - 图像情感分析', () => {
     it('应该返回有效的图像分析结果', async () => {
-      const mockAnalyzeImage = vi.fn().mockResolvedValue({
-        emotion: 'happy',
-        translation: '宝贝看起来很开心',
-        confidence: 89,
-      });
-
-      const result = await mockAnalyzeImage({
-        petId: 'pet-1',
-        imageData: new ArrayBuffer(2048),
-      });
-
-      expect(result).toHaveProperty('emotion');
+      const imageData = { 
+        width: 100, 
+        height: 100, 
+        data: new Uint8ClampedArray(40000),
+        colorSpace: 'srgb' as const
+      };
+      const result = await emotionService.analyzeEmotion(imageData as unknown as ImageData);
+      
+      expect(result).toHaveProperty('id');
+      expect(result).toHaveProperty('primaryEmotion');
       expect(result).toHaveProperty('translation');
       expect(result).toHaveProperty('confidence');
     });
 
-    it('应该处理无效的图像数据', async () => {
-      const mockAnalyzeImage = vi.fn().mockRejectedValue(new Error('无效的图像数据'));
-
-      await expect(
-        mockAnalyzeImage({ petId: 'pet-1', imageData: null })
-      ).rejects.toThrow('无效的图像数据');
+    it('应该设置正确的来源类型', async () => {
+      const imageData = { 
+        width: 100, 
+        height: 100, 
+        data: new Uint8ClampedArray(40000),
+        colorSpace: 'srgb' as const
+      };
+      const result = await emotionService.analyzeEmotion(imageData as unknown as ImageData);
+      
+      expect(result.source).toBe('image');
     });
   });
 
-  describe('getEmotionHistory - 获取情感历史', () => {
-    it('应该返回历史记录列表', async () => {
-      const mockHistory = vi.fn().mockResolvedValue([
-        {
-          id: '1',
-          emotion: 'happy',
-          timestamp: '2024-01-15T10:00:00Z',
-        },
-        {
-          id: '2',
-          emotion: 'anxious',
-          timestamp: '2024-01-15T11:00:00Z',
-        },
-      ]);
-
-      const result = await mockHistory({ petId: 'pet-1', limit: 10 });
-
-      expect(result).toHaveLength(2);
-      expect(result[0]).toHaveProperty('id');
-      expect(result[0]).toHaveProperty('emotion');
-      expect(result[0]).toHaveProperty('timestamp');
+  describe('getDashboard - 获取仪表盘数据', () => {
+    it('应该返回有效的仪表盘数据', async () => {
+      const dashboard = await emotionService.getDashboard();
+      
+      expect(dashboard).toHaveProperty('centralEmotion');
+      expect(dashboard).toHaveProperty('intensity');
+      expect(dashboard).toHaveProperty('confidence');
+      expect(dashboard).toHaveProperty('dimensions');
+      expect(dashboard).toHaveProperty('recentHistory');
+      expect(dashboard).toHaveProperty('trends');
     });
 
-    it('应该支持分页', async () => {
-      const mockHistory = vi.fn().mockResolvedValue([]);
-
-      await mockHistory({ petId: 'pet-1', limit: 5, offset: 10 });
-
-      expect(mockHistory).toHaveBeenCalledWith(
-        expect.objectContaining({ offset: 10 })
-      );
+    it('维度应该包含正确的属性', async () => {
+      const dashboard = await emotionService.getDashboard();
+      
+      expect(dashboard.dimensions).toHaveProperty('excitement');
+      expect(dashboard.dimensions).toHaveProperty('anxiety');
+      expect(dashboard.dimensions).toHaveProperty('affection');
+      expect(dashboard.dimensions).toHaveProperty('curiosity');
     });
 
-    it('应该过滤情感类型', async () => {
-      const mockHistory = vi.fn().mockResolvedValue([]);
-
-      await mockHistory({ petId: 'pet-1', emotion: 'happy' });
-
-      expect(mockHistory).toHaveBeenCalledWith(
-        expect.objectContaining({ emotion: 'happy' })
-      );
+    it('趋势方向应该是有效的值', async () => {
+      const dashboard = await emotionService.getDashboard();
+      
+      expect(['up', 'down', 'stable']).toContain(dashboard.trends.direction);
     });
   });
 
-  describe('getEmotionStatistics - 获取情感统计', () => {
-    it('应该返回统计数据', async () => {
-      const mockStats = vi.fn().mockResolvedValue({
-        totalCount: 100,
-        emotionDistribution: {
-          happy: 45,
-          anxious: 20,
-          angry: 5,
-          needs: 15,
-          neutral: 15,
-        },
-        averageConfidence: 87.5,
-      });
-
-      const result = await mockStats({ petId: 'pet-1', period: 'week' });
-
-      expect(result).toHaveProperty('totalCount');
-      expect(result).toHaveProperty('emotionDistribution');
-      expect(result).toHaveProperty('averageConfidence');
+  describe('getEmotionDimensions - 获取情感维度', () => {
+    it('应该返回情感维度列表', async () => {
+      const dimensions = await emotionService.getEmotionDimensions();
+      
+      expect(Array.isArray(dimensions)).toBe(true);
+      expect(dimensions.length).toBe(4);
     });
 
-    it('应该支持不同时间段', async () => {
-      const mockStats = vi.fn().mockResolvedValue({
-        totalCount: 0,
-        emotionDistribution: {},
-        averageConfidence: 0,
+    it('维度应该包含正确的属性', async () => {
+      const dimensions = await emotionService.getEmotionDimensions();
+      const dimension = dimensions[0];
+      
+      expect(dimension).toHaveProperty('name');
+      expect(dimension).toHaveProperty('value');
+      expect(dimension).toHaveProperty('label');
+      expect(dimension).toHaveProperty('icon');
+      expect(dimension).toHaveProperty('color');
+    });
+
+    it('维度值应该在0-100之间', async () => {
+      const dimensions = await emotionService.getEmotionDimensions();
+      
+      dimensions.forEach(dim => {
+        expect(dim.value).toBeGreaterThanOrEqual(0);
+        expect(dim.value).toBeLessThanOrEqual(100);
       });
+    });
+  });
 
-      await mockStats({ petId: 'pet-1', period: 'month' });
+  describe('getWaveformData - 获取波形数据', () => {
+    it('应该返回正确数量的波形样本', async () => {
+      const waveform = await emotionService.getWaveformData(5);
+      
+      expect(waveform.length).toBe(50);
+    });
 
-      expect(mockStats).toHaveBeenCalledWith(
-        expect.objectContaining({ period: 'month' })
-      );
+    it('波形数据应该包含正确的属性', async () => {
+      const waveform = await emotionService.getWaveformData(1);
+      const sample = waveform[0];
+      
+      expect(sample).toHaveProperty('timestamp');
+      expect(sample).toHaveProperty('amplitude');
+      expect(sample).toHaveProperty('frequency');
+    });
+  });
+
+  describe('getRecentAnalyses - 获取最近分析记录', () => {
+    it('应该返回分析记录列表', async () => {
+      const analyses = await emotionService.getRecentAnalyses();
+      
+      expect(Array.isArray(analyses)).toBe(true);
+    });
+
+    it('应该支持限制返回数量', async () => {
+      const analyses = await emotionService.getRecentAnalyses(3);
+      
+      expect(analyses.length).toBeLessThanOrEqual(3);
+    });
+
+    it('新分析应该排在前面', async () => {
+      const audioData = new Float32Array(1024);
+      const newAnalysis = await emotionService.analyzeVoice(audioData);
+      
+      const analyses = await emotionService.getRecentAnalyses();
+      expect(analyses[0].id).toBe(newAnalysis.id);
+    });
+  });
+
+  describe('getEmotionConfig - 获取情感配置', () => {
+    it('应该返回所有情感类型的配置', () => {
+      const emotions: PrimaryEmotion[] = ['happy', 'curious', 'anxious', 'angry', 'needs', 'calm', 'excited', 'safe'];
+      
+      emotions.forEach(emotion => {
+        const config = emotionService.getEmotionConfig(emotion);
+        expect(config).toHaveProperty('emoji');
+        expect(config).toHaveProperty('label');
+        expect(config).toHaveProperty('color');
+      });
+    });
+
+    it('应该返回正确的emoji', () => {
+      const happyConfig = emotionService.getEmotionConfig('happy');
+      expect(happyConfig.emoji).toBe('😸');
+      
+      const calmConfig = emotionService.getEmotionConfig('calm');
+      expect(calmConfig.emoji).toBe('😌');
     });
   });
 });
