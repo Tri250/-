@@ -2,155 +2,374 @@
 ```mermaid
 flowchart TB
     subgraph Frontend
-        A[React App] --> B[Components]
-        A --> C[Pages]
-        A --> D[State Management]
-        A --> E[API Clients]
+        A["React Application"] --> B["Design System"]
+        A --> C["Pages & Components"]
+        A --> D["State Management (Zustand)"]
+        A --> E["Animation System"]
+        B --> B1["Color Tokens"]
+        B --> B2["Typography Scale"]
+        B --> B3["Component Library"]
+        C --> C1["Home Dashboard"]
+        C --> C2["Emotion Translator"]
+        C --> C3["Training Center"]
+        C --> C4["Health Guardian"]
+        C --> C5["Services Hub"]
+        C --> C6["Profile"]
+        D --> D1["App Store"]
+        D --> D2["Bond Store"]
+        D --> D3["Training Store"]
+        D --> D4["Insurance Store"]
+        D --> D5["Medical Store"]
     end
     
-    subgraph Backend
-        F[Express API] --> G[AI Services]
-        F --> H[Auth Service]
-        F --> I[Database]
+    subgraph Animation
+        F["CSS Animations"] --> F1["Keyframes"]
+        F --> F2["Transitions"]
+        G["Micro-interactions"] --> G1["Hover Effects"]
+        G --> G2["Press Feedback"]
+        G --> G3["Scroll Triggers"]
     end
     
-    subgraph External Services
-        J[LLM API]
-        K[Speech Recognition]
-        L[Image Processing]
-    end
-    
-    B --> F
-    G --> J
-    G --> K
-    G --> L
+    C -.-> F
+    C -.-> G
 ```
 
 ## 2. Technology Description
-- Frontend: React@18 + TypeScript + TailwindCSS@3 + Vite
-- Backend: Express@4 + TypeScript
-- Database: SQLite (development) / PostgreSQL (production)
-- State Management: Zustand
-- Routing: React Router DOM
-- Icons: Lucide React
-- Audio: Web Audio API
-- Image: Canvas API
+- **Frontend**: React@18 + TypeScript + Vite
+- **Styling**: Tailwind CSS@3 with custom design tokens
+- **Icons**: Lucide React
+- **State Management**: Zustand
+- **Animations**: CSS Keyframes + React Transition Patterns
+- **Build Tool**: Vite
+- **Package Manager**: npm (pnpm fallback)
 
 ## 3. Route Definitions
-| Route | Purpose | Component |
-|-------|---------|-----------|
-| / | Home dashboard | HomePage |
-| /translator | AI voice translator | TranslatorPage |
-| /health | Health monitoring | HealthPage |
-| /profile | Pet profile | ProfilePage |
-| /settings | App settings | SettingsPage |
+| Route | Purpose |
+|-------|---------|
+| / | Home Dashboard with bond score & quick actions |
+| /translator | Emotion translator & voice recording |
+| /training | Training courses & progress tracking |
+| /health | Health monitoring & alerts |
+| /services | Services hub (insurance + medical) |
+| /insurance | Insurance plans & policy management |
+| /medical | Medical consultation & symptom checker |
+| /profile | Pet profile & achievements |
 
-## 4. API Definitions
+## 4. Design System Architecture
 
-### 4.1 Auth Endpoints
-| Method | Endpoint | Purpose |
-|--------|----------|---------|
-| POST | /api/auth/register | Register new user |
-| POST | /api/auth/login | Login user |
-| GET | /api/auth/me | Get current user |
+### 4.1 Design Tokens
+```typescript
+// Color Palette
+const colors = {
+  primary: {
+    50: '#FFF7F0',
+    100: '#FFEBD8',
+    200: '#FFD3AB',
+    300: '#FFB473',
+    400: '#FF8E3D',
+    500: '#FF6B00',
+    600: '#E85800',
+    700: '#BF4500',
+    800: '#993700',
+    900: '#7D2E00',
+  },
+  secondary: {
+    50: '#F0F9FF',
+    100: '#D8EEFC',
+    200: '#ABDCF9',
+    300: '#73C6F3',
+    400: '#3DAEEC',
+    500: '#0E9CE5',
+    600: '#0C80C7',
+    700: '#0A659E',
+    800: '#08507F',
+    900: '#074167',
+  },
+  success: {
+    50: '#F0FDF4',
+    100: '#D8F9E3',
+    200: '#ABF2C7',
+    300: '#73E6A3',
+    400: '#3DD87C',
+    500: '#10B981',
+    600: '#059669',
+    700: '#047857',
+    800: '#065F46',
+    900: '#064E3B',
+  },
+  warning: {
+    50: '#FFFBEB',
+    100: '#FEF3C7',
+    200: '#FDE68A',
+    300: '#FCD34D',
+    400: '#FBBF24',
+    500: '#F59E0B',
+    600: '#D97706',
+    700: '#B45309',
+    800: '#92400E',
+    900: '#78350F',
+  },
+  danger: {
+    50: '#FEF2F2',
+    100: '#FEE2E2',
+    200: '#FECACA',
+    300: '#FCA5A5',
+    400: '#F87171',
+    500: '#EF4444',
+    600: '#DC2626',
+    700: '#B91C1C',
+    800: '#991B1B',
+    900: '#7F1D1D',
+  },
+  purple: {
+    50: '#F5F3FF',
+    100: '#EDE9FE',
+    200: '#DDD6FE',
+    300: '#C4B5FD',
+    400: '#A78BFA',
+    500: '#8B5CF6',
+    600: '#7C3AED',
+    700: '#6D28D9',
+    800: '#5B21B6',
+    900: '#4C1D95',
+  },
+  neutral: {
+    50: '#F9FAFB',
+    100: '#F3F4F6',
+    200: '#E5E7EB',
+    300: '#D1D5DB',
+    400: '#9CA3AF',
+    500: '#6B7280',
+    600: '#4B5563',
+    700: '#374151',
+    800: '#1F2937',
+    900: '#111827',
+  }
+}
 
-### 4.2 Pet Endpoints
-| Method | Endpoint | Purpose |
-|--------|----------|---------|
-| GET | /api/pets | Get user's pets |
-| POST | /api/pets | Create new pet profile |
-| GET | /api/pets/:id | Get pet details |
-| PUT | /api/pets/:id | Update pet profile |
-| DELETE | /api/pets/:id | Delete pet |
+// Typography Scale
+const typography = {
+  display: 'text-3xl font-bold tracking-tight',
+  h1: 'text-2xl font-bold',
+  h2: 'text-xl font-semibold',
+  h3: 'text-lg font-semibold',
+  body: 'text-base',
+  small: 'text-sm',
+  caption: 'text-xs',
+}
 
-### 4.3 Analysis Endpoints
-| Method | Endpoint | Purpose |
-|--------|----------|---------|
-| POST | /api/analyze/voice | Analyze voice emotion |
-| POST | /api/analyze/image | Analyze image |
-| GET | /api/analyze/history | Get analysis history |
+// Spacing Scale (4px increments)
+const spacing = {
+  xs: '0.25rem',
+  sm: '0.5rem',
+  md: '1rem',
+  lg: '1.5rem',
+  xl: '2rem',
+  '2xl': '3rem',
+}
 
-## 5. Data Model
-
-### 5.1 ER Diagram
-```mermaid
-erDiagram
-    USER ||--o{ PET : has
-    PET ||--o{ ANALYSIS : has
-    
-    USER {
-        id UUID PK
-        email VARCHAR
-        password_hash VARCHAR
-        name VARCHAR
-        created_at TIMESTAMP
-        updated_at TIMESTAMP
-    }
-    
-    PET {
-        id UUID PK
-        user_id UUID FK
-        name VARCHAR
-        breed VARCHAR
-        age INT
-        avatar_url VARCHAR
-        created_at TIMESTAMP
-        updated_at TIMESTAMP
-    }
-    
-    ANALYSIS {
-        id UUID PK
-        pet_id UUID FK
-        type VARCHAR
-        result JSON
-        confidence FLOAT
-        created_at TIMESTAMP
-    }
+// Border Radius Scale
+const borderRadius = {
+  sm: '0.5rem',
+  md: '0.75rem',
+  lg: '1rem',
+  xl: '1.5rem',
+  '2xl': '2rem',
+  full: '9999px',
+}
 ```
 
-### 5.2 DDL Statements
-```sql
-CREATE TABLE users (
-    id TEXT PRIMARY KEY,
-    email TEXT UNIQUE NOT NULL,
-    password_hash TEXT NOT NULL,
-    name TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+### 4.2 Animation System
+```typescript
+// Animation Keyframes
+const animations = {
+  fadeIn: `
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+  `,
+  slideUp: `
+    @keyframes slideUp {
+      from { 
+        opacity: 0; 
+        transform: translateY(20px); 
+      }
+      to { 
+        opacity: 1; 
+        transform: translateY(0); 
+      }
+    }
+  `,
+  scaleIn: `
+    @keyframes scaleIn {
+      from { 
+        opacity: 0; 
+        transform: scale(0.95); 
+      }
+      to { 
+        opacity: 1; 
+        transform: scale(1); 
+      }
+    }
+  `,
+  pulse: `
+    @keyframes pulse {
+      0%, 100% { 
+        opacity: 1; 
+        transform: scale(1); 
+      }
+      50% { 
+        opacity: 0.8; 
+        transform: scale(1.05); 
+      }
+    }
+  `,
+  breathe: `
+    @keyframes breathe {
+      0%, 100% { 
+        transform: scale(1); 
+      }
+      50% { 
+        transform: scale(1.03); 
+      }
+    }
+  `,
+  ripple: `
+    @keyframes ripple {
+      0% { 
+        transform: scale(0.8); 
+        opacity: 1; 
+      }
+      100% { 
+        transform: scale(2.5); 
+        opacity: 0; 
+      }
+    }
+  `,
+  shimmer: `
+    @keyframes shimmer {
+      0% { 
+        background-position: -200% 0; 
+      }
+      100% { 
+        background-position: 200% 0; 
+      }
+    }
+  `
+}
 
-CREATE TABLE pets (
-    id TEXT PRIMARY KEY,
-    user_id TEXT REFERENCES users(id),
-    name TEXT NOT NULL,
-    breed TEXT,
-    age INTEGER,
-    avatar_url TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE analyses (
-    id TEXT PRIMARY KEY,
-    pet_id TEXT REFERENCES pets(id),
-    type TEXT NOT NULL,
-    result TEXT NOT NULL,
-    confidence REAL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+// Easing Functions
+const easing = {
+  easeOutCubic: 'cubic-bezier(0.22, 0.61, 0.36, 1)',
+  easeOutBack: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+  easeOutElastic: 'cubic-bezier(0.5, 1.5, 0.5, 1)',
+}
 ```
 
-## 6. Security Considerations
-- JWT authentication with refresh tokens
-- Password hashing with bcrypt
-- HTTPS only
-- CORS configuration
-- Rate limiting
-- Input validation
-- Sensitive data encryption
+### 4.3 Component Architecture
+```typescript
+// Base Card Component
+interface CardProps {
+  variant?: 'default' | 'gradient' | 'outlined' | 'elevated'
+  padding?: 'none' | 'sm' | 'md' | 'lg' | 'xl'
+  hover?: boolean
+  children: React.ReactNode
+  className?: string
+}
 
-## 7. Performance Requirements
-- Emotion translation response < 2 seconds
-- Health anomaly detection < 1 second
-- Optimized for mobile with lazy loading
-- Caching strategy for frequent requests
+// Button Component
+interface ButtonProps {
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost'
+  size?: 'sm' | 'md' | 'lg' | 'xl'
+  fullWidth?: boolean
+  loading?: boolean
+  icon?: React.ReactNode
+  children: React.ReactNode
+  className?: string
+  onClick?: () => void
+}
+
+// Badge Component
+interface BadgeProps {
+  variant?: 'default' | 'primary' | 'success' | 'warning' | 'danger'
+  size?: 'sm' | 'md' | 'lg'
+  children: React.ReactNode
+}
+
+// Progress Ring Component
+interface ProgressRingProps {
+  progress: number
+  size?: number
+  strokeWidth?: number
+  color?: string
+  showValue?: boolean
+  label?: string
+}
+```
+
+## 5. State Management (Zustand Stores)
+
+### 5.1 App Store
+- Authentication state
+- Current pet profile
+- Navigation state
+- UI preferences
+
+### 5.2 Bond Store
+- Bond score metrics (understanding, companionship, care, growth)
+- Daily activities log
+- Badges and achievements
+- Total points
+- Streak tracking
+
+### 5.3 Training Store
+- Training courses
+- Current session
+- Progress tracking
+- Training records
+- Statistics
+
+### 5.4 Insurance Store
+- Insurance plans
+- User policies
+- Claims history
+- Selected plan
+
+### 5.5 Medical Store
+- Symptoms list
+- Consultation history
+- Appointments
+- Medical records
+
+## 6. Animation Patterns
+
+### 6.1 Page Transitions
+```typescript
+// Staggered reveal for page elements
+const staggeredDelay = (index: number) => `${index * 50}ms`
+```
+
+### 6.2 Card Animations
+- Hover: translateY(-2px), shadow-lg
+- Press: scale(0.97)
+- Enter: slideUp + fadeIn (300ms)
+
+### 6.3 Progress Animations
+- SVG circle stroke-dashoffset
+- Smooth transition over 1.5 seconds
+- Ease-out cubic timing
+
+### 6.4 Button Interactions
+- Tap: scale 0.97
+- Release: scale 1.03 then 1
+- Ripple effect from center
+- Shadow change on hover
+
+## 7. Performance Optimizations
+- CSS will-change for animated properties
+- transform: translateZ(0) for GPU acceleration
+- Virtual lists for long content
+- Debounced scroll handlers
+- Lazy loading components
+- SVG icon optimization

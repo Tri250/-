@@ -69,6 +69,18 @@ export default {
           800: '#991B1B',
           900: '#7F1D1D',
         },
+        purple: {
+          50: '#F5F3FF',
+          100: '#EDE9FE',
+          200: '#DDD6FE',
+          300: '#C4B5FD',
+          400: '#A78BFA',
+          500: '#8B5CF6',
+          600: '#7C3AED',
+          700: '#6D28D9',
+          800: '#5B21B6',
+          900: '#4C1D95',
+        },
         emotion: {
           happy: '#FFB400',
           excited: '#FF6B00',
@@ -100,11 +112,15 @@ export default {
         }
       },
       animation: {
-        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-        'bounce-gentle': 'bounce 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'pulse-slow': 'pulse 3s cubic-bezier(0.22, 0.61, 0.36, 1) infinite',
+        'bounce-gentle': 'bounce 2s cubic-bezier(0.22, 0.61, 0.36, 1) infinite',
         'fade-in': 'fadeIn 0.5s ease-out',
-        'slide-up': 'slideUp 0.3s ease-out',
-        'scale-in': 'scaleIn 0.3s ease-out',
+        'slide-up': 'slideUp 0.4s cubic-bezier(0.22, 0.61, 0.36, 1)',
+        'scale-in': 'scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+        'breathe': 'breathe 3s ease-in-out infinite',
+        'ripple': 'ripple 0.8s ease-out',
+        'shimmer': 'shimmer 2s linear infinite',
+        'float': 'float 6s ease-in-out infinite',
       },
       keyframes: {
         fadeIn: {
@@ -118,8 +134,43 @@ export default {
         scaleIn: {
           '0%': { transform: 'scale(0.95)', opacity: '0' },
           '100%': { transform: 'scale(1)', opacity: '1' },
-        }
-      }
+        },
+        breathe: {
+          '0%, 100%': { transform: 'scale(1)' },
+          '50%': { transform: 'scale(1.03)' },
+        },
+        ripple: {
+          '0%': { transform: 'scale(0.8)', opacity: '1' },
+          '100%': { transform: 'scale(2.5)', opacity: '0' },
+        },
+        shimmer: {
+          '0%': { backgroundPosition: '-200% 0' },
+          '100%': { backgroundPosition: '200% 0' },
+        },
+        float: {
+          '0%, 100%': { transform: 'translateY(0px)' },
+          '50%': { transform: 'translateY(-10px)' },
+        },
+      },
+      boxShadow: {
+        'soft': '0 2px 8px rgba(0, 0, 0, 0.06)',
+        'card': '0 4px 20px rgba(0, 0, 0, 0.08)',
+        'elevated': '0 8px 30px rgba(0, 0, 0, 0.12)',
+        'glow-primary': '0 0 20px rgba(255, 107, 0, 0.3)',
+        'glow-purple': '0 0 20px rgba(139, 92, 246, 0.3)',
+      },
+      backgroundImage: {
+        'gradient-primary': 'linear-gradient(135deg, #FF6B00 0%, #FF8E3D 100%)',
+        'gradient-primary-light': 'linear-gradient(135deg, #FFB473 0%, #FFD3AB 100%)',
+        'gradient-secondary': 'linear-gradient(135deg, #0E9CE5 0%, #3DAEEC 100%)',
+        'gradient-success': 'linear-gradient(135deg, #10B981 0%, #3DD87C 100%)',
+        'gradient-warning': 'linear-gradient(135deg, #F59E0B 0%, #FBBF24 100%)',
+        'gradient-purple': 'linear-gradient(135deg, #8B5CF6 0%, #A78BFA 100%)',
+        'gradient-glass': 'linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.7) 100%)',
+      },
+      backdropBlur: {
+        xs: '2px',
+      },
     },
   },
   plugins: [],
