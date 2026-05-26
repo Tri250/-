@@ -364,6 +364,34 @@
   animation: colorShift 5s linear infinite;
 }
 
+/* 23. 向上滑入动画（用于模态框） */
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+.animate-slide-up {
+  animation: slideUp 0.3s var(--ease-out) forwards;
+}
+
+/* 24. ping 扩散动画（用于录音按钮） */
+@keyframes ping {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  75%, 100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+.animate-ping {
+  animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
 /* 性能优化 - GPU加速提示 */
 .gpu-accelerated {
   will-change: transform, opacity;

@@ -4,15 +4,17 @@ import { useAppStore } from '../store/appStore';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
+import { EmotionIcons } from '../components/icons/EmotionIcons';
+import { ShareModal } from '../components/ShareModal';
 
 type EmotionType = 'happy' | 'anxious' | 'angry' | 'needs' | 'neutral';
 
 const emotionConfig = {
-  happy: { emoji: '😸', label: '开心', color: 'text-green-500', bgColor: 'bg-green-50', gradient: 'from-green-400 to-emerald-500' },
-  anxious: { emoji: '😰', label: '焦虑', color: 'text-yellow-500', bgColor: 'bg-yellow-50', gradient: 'from-yellow-400 to-amber-500' },
-  angry: { emoji: '😾', label: '生气', color: 'text-red-500', bgColor: 'bg-red-50', gradient: 'from-red-400 to-rose-500' },
-  needs: { emoji: '🥺', label: '有需求', color: 'text-blue-500', bgColor: 'bg-blue-50', gradient: 'from-blue-400 to-indigo-500' },
-  neutral: { emoji: '😐', label: '平静', color: 'text-gray-500', bgColor: 'bg-gray-50', gradient: 'from-gray-400 to-slate-500' },
+  happy: { label: '开心', color: 'text-green-500', bgColor: 'bg-green-50', gradient: 'from-green-400 to-emerald-500' },
+  anxious: { label: '焦虑', color: 'text-yellow-500', bgColor: 'bg-yellow-50', gradient: 'from-yellow-400 to-amber-500' },
+  angry: { label: '生气', color: 'text-red-500', bgColor: 'bg-red-50', gradient: 'from-red-400 to-rose-500' },
+  needs: { label: '有需求', color: 'text-blue-500', bgColor: 'bg-blue-50', gradient: 'from-blue-400 to-indigo-500' },
+  neutral: { label: '平静', color: 'text-gray-500', bgColor: 'bg-gray-50', gradient: 'from-gray-400 to-slate-500' },
 };
 
 const mockTranslations = {
@@ -96,6 +98,7 @@ export function TranslatorPage() {
   const { currentPet, addAnalysis, setCurrentEmotion } = useAppStore();
   const [isRecording, setIsRecording] = useState(false);
   const [showResult, setShowResult] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
   const [emotion, setEmotion] = useState<EmotionType>('neutral');
   const [translation, setTranslation] = useState('');
   const [confidence, setConfidence] = useState(0);
@@ -177,13 +180,7 @@ export function TranslatorPage() {
   };
 
   const handleShare = () => {
-    const text = `【PawSync Pro】${currentPet?.name}说："${translation}"`;
-    if (navigator.share) {
-      navigator.share({ title: `${currentPet?.name}的心声`, text });
-    } else {
-      navigator.clipboard.writeText(text);
-      alert('已复制到剪贴板');
-    }
+    setShowShareModal(true);
   };
 
   const handleRetry = () => {
@@ -305,7 +302,12 @@ export function TranslatorPage() {
           <Card variant="gradient" padding="large" className="animate-fadeIn">
             <div className="text-center mb-4">
               <Badge color={config.color.includes('green') ? 'green' : config.color.includes('yellow') ? 'yellow' : config.color.includes('red') ? 'red' : config.color.includes('blue') ? 'blue' : 'gray'} size="medium">
-                <span className="text-xl mr-1">{config.emoji}</span>
+                <span className="inline-flex mr-1">
+                  {(() => {
+                    const IconComponent = EmotionIcons[emotion];
+                    return <IconComponent size={28} />;
+                  })()}
+                </span>
                 {config.label}
               </Badge>
             </div>
@@ -370,6 +372,14 @@ export function TranslatorPage() {
           </div>
         </Card>
       </main>
+      
+      <ShareModal
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        title={`${currentPet?.name}的心情`}
+        content={translation}
+        petName={currentPet?.name}
+      />
     </div>
   );
 }

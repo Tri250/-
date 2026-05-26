@@ -6,9 +6,31 @@ import { HealthPage } from './pages/HealthPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { CameraPage } from './pages/CameraPage';
 import { MonitorPage } from './pages/MonitorPage';
+import { AuthPage } from './pages/AuthPage';
+import { OnboardingPage } from './pages/OnboardingPage';
+import { useAppStore } from './store/appStore';
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState('home');
+  const { isAuthenticated, isOnboardingComplete, login, register, completeOnboarding } = useAppStore();
+
+  const handleAuthSuccess = () => {
+    // 认证成功，状态已在store中更新
+  };
+
+  const handleOnboardingComplete = () => {
+    completeOnboarding();
+  };
+
+  // 未登录显示认证页面
+  if (!isAuthenticated) {
+    return <AuthPage onSuccess={handleAuthSuccess} />;
+  }
+
+  // 已登录但未完成引导，显示引导页面
+  if (!isOnboardingComplete) {
+    return <OnboardingPage onComplete={handleOnboardingComplete} />;
+  }
 
   const renderPage = () => {
     switch (currentPage) {

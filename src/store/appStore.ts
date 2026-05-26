@@ -1,11 +1,21 @@
 import { create } from 'zustand';
 
+export interface User {
+  id: string;
+  email: string;
+  username: string;
+  avatarUrl?: string;
+  isPremium: boolean;
+  createdAt: string;
+}
+
 export interface Pet {
   id: string;
   name: string;
   breed: string;
   age: number;
   avatarUrl: string;
+  type: 'cat' | 'dog' | 'other';
 }
 
 export interface Analysis {
@@ -29,7 +39,19 @@ export interface HealthAlert {
   timestamp: string;
 }
 
+export interface CareTip {
+  id: string;
+  category: 'feeding' | 'exercise' | 'grooming' | 'health' | 'behavior';
+  title: string;
+  content: string;
+  petType?: 'cat' | 'dog' | 'all';
+  priority: 'high' | 'medium' | 'low';
+}
+
 interface AppState {
+  user: User | null;
+  isAuthenticated: boolean;
+  isOnboardingComplete: boolean;
   pets: Pet[];
   currentPet: Pet | null;
   analyses: Analysis[];
@@ -37,7 +59,14 @@ interface AppState {
   currentEmotion: 'happy' | 'anxious' | 'angry' | 'needs' | 'neutral';
   healthScore: number;
   isRecording: boolean;
+  careTips: CareTip[];
+  setUser: (user: User | null) => void;
+  login: (email: string, password: string) => Promise<boolean>;
+  register: (email: string, password: string, username: string) => Promise<boolean>;
+  logout: () => void;
+  completeOnboarding: () => void;
   setCurrentPet: (pet: Pet) => void;
+  addPet: (pet: Omit<Pet, 'id'>) => void;
   addAnalysis: (analysis: Omit<Analysis, 'id' | 'createdAt'>) => void;
   addHealthAlert: (alert: Omit<HealthAlert, 'id'>) => void;
   setIsRecording: (isRecording: boolean) => void;
@@ -46,6 +75,9 @@ interface AppState {
 }
 
 export const useAppStore = create<AppState>((set) => ({
+  user: null,
+  isAuthenticated: true, // 临时设为 true 方便测试
+  isOnboardingComplete: true, // 临时设为 true 方便测试
   pets: [
     {
       id: '1',
@@ -53,6 +85,7 @@ export const useAppStore = create<AppState>((set) => ({
       breed: '橘猫',
       age: 2,
       avatarUrl: '',
+      type: 'cat',
     },
   ],
   currentPet: {
@@ -61,6 +94,7 @@ export const useAppStore = create<AppState>((set) => ({
     breed: '橘猫',
     age: 2,
     avatarUrl: '',
+    type: 'cat',
   },
   analyses: [],
   healthAlerts: [
@@ -76,7 +110,79 @@ export const useAppStore = create<AppState>((set) => ({
   currentEmotion: 'happy',
   healthScore: 92,
   isRecording: false,
+  careTips: [
+    {
+      id: '1',
+      category: 'feeding',
+      title: '定时定量喂食',
+      content: '成年猫每天需要2-3次定时喂食，保持规律的饮食习惯有助于消化系统健康。',
+      petType: 'cat',
+      priority: 'high',
+    },
+    {
+      id: '2',
+      category: 'health',
+      title: '定期体检',
+      content: '建议每年带宠物进行一次全面体检，及时发现潜在健康问题。',
+      petType: 'all',
+      priority: 'high',
+    },
+    {
+      id: '3',
+      category: 'grooming',
+      title: '毛发护理',
+      content: '定期梳理毛发可以促进血液循环，减少掉毛和毛球问题。',
+      petType: 'cat',
+      priority: 'medium',
+    },
+    {
+      id: '4',
+      category: 'exercise',
+      title: '每日互动玩耍',
+      content: '每天花15-30分钟与宠物互动玩耍，保持身心健康和良好的关系。',
+      petType: 'all',
+      priority: 'high',
+    },
+    {
+      id: '5',
+      category: 'behavior',
+      title: '观察异常行为',
+      content: '注意宠物的行为变化，如食欲不振、过度舔毛等可能是健康问题的信号。',
+      petType: 'all',
+      priority: 'medium',
+    },
+  ],
+  setUser: (user) => set({ user, isAuthenticated: !!user }),
+  login: async (email, password) => {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    const mockUser: User = {
+      id: '1',
+      email,
+      username: email.split('@')[0],
+      isPremium: false,
+      createdAt: new Date().toISOString(),
+    };
+    set({ user: mockUser, isAuthenticated: true });
+    return true;
+  },
+  register: async (email, password, username) => {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    const mockUser: User = {
+      id: Date.now().toString(),
+      email,
+      username,
+      isPremium: false,
+      createdAt: new Date().toISOString(),
+    };
+    set({ user: mockUser, isAuthenticated: true, isOnboardingComplete: false });
+    return true;
+  },
+  logout: () => set({ user: null, isAuthenticated: false, isOnboardingComplete: false }),
+  completeOnboarding: () => set({ isOnboardingComplete: true }),
   setCurrentPet: (pet) => set({ currentPet: pet }),
+  addPet: (pet) => set((state) => ({
+    pets: [...state.pets, { ...pet, id: Date.now().toString() }],
+  })),
   addAnalysis: (analysis) => set((state) => ({
     analyses: [...state.analyses, {
       ...analysis,
