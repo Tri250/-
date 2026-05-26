@@ -10,6 +10,11 @@ export default defineConfig({
     sourcemap: 'hidden',
     outDir: 'dist',
   },
+  server: {
+    watch: {
+      ignored: ['**/android-sdk/**', '**/node_modules/**', '**/coverage/**']
+    }
+  },
   plugins: [
     react({
       babel: {

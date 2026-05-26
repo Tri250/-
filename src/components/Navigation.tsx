@@ -1,3 +1,11 @@
+// ============================================
+// PawSync Pro - Navigation.tsx
+//
+// 作者: 带娃的小陈工
+// 日期: 2026-05-26
+// 描述: 底部导航栏组件
+// ============================================
+
 import { Home, MessageCircle, Heart, User, Settings } from 'lucide-react';
 
 interface NavigationProps {
