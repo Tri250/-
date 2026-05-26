@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useMemo, memo } from 'react';
+import React, { useEffect, useRef, useMemo, memo, useCallback } from 'react';
 import { useAnimationFrame } from '../hooks/useAnimationFrame';
 
 interface Particle {
@@ -64,13 +64,13 @@ const ParticleCanvas = memo(function ParticleCanvas({
       canvas.width = width;
       canvas.height = height;
       containerSizeRef.current = { width, height };
-      initParticles.current();
+      initParticles();
     });
     
     resizeObserver.observe(canvas);
     
     return () => resizeObserver.disconnect();
-  }, []);
+  }, [initParticles]);
 
   useAnimationFrame(
     (deltaTime) => {

@@ -1,6 +1,6 @@
 import { useState, useMemo, memo, useCallback } from 'react';
 import { Edit, History, Settings, Crown, Star, Heart, ChevronRight, Camera, X } from 'lucide-react';
-import { useAppStore } from '../store/appStore';
+import { useAppStore, Analysis } from '../store/appStore';
 
 // Memoize menu items for performance
 const menuItems = [
@@ -45,7 +45,7 @@ const MenuItem = memo(function MenuItem({
 const RecentAnalysisItem = memo(function RecentAnalysisItem({ 
   analysis 
 }: { 
-  analysis: ReturnType<typeof useAppStore>['analyses'][0] 
+  analysis: Analysis 
 }) {
   return (
     <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">

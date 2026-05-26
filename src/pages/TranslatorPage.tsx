@@ -230,7 +230,7 @@ export const TranslatorPage = memo(function TranslatorPage() {
   const [state, setState] = useBatchState({
     isRecording: false,
     showResult: false,
-    emotion: 'neutral' as const,
+    emotion: 'neutral' as 'happy' | 'anxious' | 'angry' | 'needs' | 'neutral',
     translation: '',
     confidence: 0,
     recordingTime: 0,

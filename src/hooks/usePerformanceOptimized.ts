@@ -313,7 +313,9 @@ export function useSafeEffect(
       const cleanup = effect();
       return () => {
         try {
-          cleanup?.();
+          if (typeof cleanup === 'function') {
+            cleanup();
+          }
         } catch (error) {
           console.error('Error in effect cleanup:', error);
           errorHandler?.(error as Error);
