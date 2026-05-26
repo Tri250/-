@@ -46,3 +46,6 @@ manual_build_apk.sh
 build_apk.py
 
 # Web server logs
+
+# Coverage reports
+coverage/
