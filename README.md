@@ -1,79 +1,49 @@
 # PawSync Pro
 
-## 🐾 项目简介
+AI驱动的宠物情感翻译与健康管理平台
 
-PawSync Pro - AI驱动的宠物情感翻译与健康监测应用，让您与毛孩子心意相通！
+## 📋 项目简介
 
-**作者**: 带娃的小陈工  
-**版本**: 1.0.0  
-**日期**: 2026-05-26
-
----
-
-## ✨ 核心功能
-
-### 🎤 AI 情感翻译
-- 动物主题的可爱情感图标（猫咪造型）
-- 实时语音分析和翻译
-- 支持多种情绪识别（开心、焦虑、生气、需要、平静）
-
-### 💪 健康监测与护理
-- 实时健康指标监测
-- 分类化护理指导（饮食、运动、美容、健康、行为）
-- 宠物专属健康建议
-
-### 📱 用户认证系统
-- 完整的注册/登录流程
-- 新用户引导界面
-- 个人资料管理
-
-### 🔗 分享与推荐
-- 一键分享到社交平台
-- 邀请好友得会员奖励
-- 精美的分享界面
-
----
-
-## 🛠️ 技术栈
-
-- **前端框架**: React 18 + TypeScript
-- **构建工具**: Vite 6
-- **移动框架**: Capacitor 8
-- **状态管理**: Zustand
-- **样式方案**: Tailwind CSS
-- **图标库**: Lucide React
-- **测试框架**: Vitest
-- **代码规范**: ESLint
-
----
-
-## 📂 项目结构
-
-```
-/workspace/
-├── src/
-│   ├── components/        # 组件目录
-│   │   ├── animations/    # 动画组件
-│   │   ├── camera/        # 相机相关组件
-│   │   ├── emotion/       # 情感分析组件
-│   │   ├── icons/         # 图标组件
-│   │   ├── monitor/       # 监控组件
-│   │   └── ui/            # UI基础组件
-│   ├── pages/             # 页面组件
-│   ├── services/          # 服务层
-│   ├── store/             # 状态管理
-│   ├── styles/            # 样式文件
-│   └── App.tsx            # 应用入口
-├── android/               # Android 项目
-├── public/                # 静态资源
-└── package.json           # 项目配置
-```
-
----
+PawSync Pro 是一个专业的宠物健康管理应用，提供宠物档案管理、健康记录、AI健康顾问、智能提醒等功能。
 
 ## 🚀 快速开始
 
-### Web 开发预览
+### 前置要求
+
+- Node.js 18+
+- npm 或 yarn
+
+### 安装与运行
+
+#### 1. 后端设置
+
+```bash
+cd backend
+
+# 安装依赖
+npm install
+
+# 复制环境变量
+cp .env.example .env
+
+# 生成 Prisma 客户端
+npm run db:generate
+
+# 推送数据库架构
+npm run db:push
+
+# 播种演示数据（可选）
+npm run db:seed
+
+# 启动开发服务器
+npm run dev
+```
+
+后端将运行在 http://localhost:3000
+
+#### 2. 前端设置
+
+在项目根目录下：
 
 ```bash
 # 安装依赖
@@ -83,81 +53,158 @@ npm install
 npm run dev
 ```
 
-访问 http://localhost:5175 查看应用。
+前端将运行在 http://localhost:5173
 
-### 构建 APK
+## 📁 项目结构
+
+```
+.
+├── backend/
+│   ├── prisma/
+│   │   ├── schema.prisma    # 数据库模型
+│   │   └── seed.ts          # 数据库种子
+│   ├── src/
+│   │   ├── config/
+│   │   ├── lib/
+│   │   ├── middleware/
+│   │   ├── routes/
+│   │   └── index.ts
+│   ├── package.json
+│   └── tsconfig.json
+├── src/
+│   ├── components/
+│   ├── lib/
+│   ├── pages/
+│   ├── store/
+│   └── types/
+└── package.json
+```
+
+## 🔌 API 接口文档
+
+### 认证接口
+
+- `POST /api/auth/register` - 用户注册
+- `POST /api/auth/login` - 用户登录
+- `GET /api/auth/me` - 获取当前用户
+- `PUT /api/auth/me` - 更新用户信息
+
+### 宠物管理
+
+- `GET /api/pets` - 获取宠物列表
+- `POST /api/pets` - 创建宠物
+- `GET /api/pets/:id` - 获取宠物详情
+- `PUT /api/pets/:id` - 更新宠物
+- `DELETE /api/pets/:id` - 删除宠物
+- `GET /api/pets/:id/vaccines` - 疫苗记录
+- `POST /api/pets/:id/vaccines` - 添加疫苗
+- `GET /api/pets/:id/checkups` - 体检记录
+- `POST /api/pets/:id/checkups` - 添加体检
+- `GET /api/pets/:id/growth` - 成长记录
+- `POST /api/pets/:id/growth` - 添加成长记录
+
+### 健康记录
+
+- `GET /api/health-records` - 获取记录列表
+- `POST /api/health-records` - 创建记录
+- `GET /api/health-records/search` - 搜索记录
+- `GET /api/health-records/:id` - 获取记录详情
+- `PUT /api/health-records/:id` - 更新记录
+- `DELETE /api/health-records/:id` - 删除记录
+
+### 智能提醒
+
+- `GET /api/reminders` - 获取提醒列表
+- `GET /api/reminders/upcoming` - 即将到期提醒
+- `POST /api/reminders` - 创建提醒
+- `GET /api/reminders/:id` - 获取提醒详情
+- `PUT /api/reminders/:id` - 更新提醒
+- `DELETE /api/reminders/:id` - 删除提醒
+- `POST /api/reminders/:id/complete` - 标记完成
+
+### 健康手册
+
+- `GET /api/manuals` - 获取手册列表
+- `GET /api/manuals/search` - 搜索手册
+- `GET /api/manuals/:id` - 获取手册详情
+- `GET /api/manuals/bookmarks` - 我的书签
+- `POST /api/manuals/:id/bookmark` - 添加书签
+- `DELETE /api/manuals/:id/bookmark` - 取消书签
+
+### AI功能
+
+- `POST /api/ai/chat` - AI对话
+- `GET /api/ai/conversations/:petId` - 获取对话历史
+- `POST /api/ai/generate-report` - 生成健康报告
+
+## 👤 演示账号
+
+- **邮箱**: demo@pawsync.pro
+- **密码**: password123
+
+## 🛠️ 开发命令
+
+### 后端
 
 ```bash
-# 构建 Web 应用
+cd backend
+
+# 开发模式
+npm run dev
+
+# 构建
 npm run build
 
-# 同步到 Android
-npx cap sync android
-
-# 构建 APK
-cd android
-gradle assembleDebug
+# 数据库管理
+npm run db:generate  # 生成 Prisma 客户端
+npm run db:push      # 推送架构
+npm run db:seed      # 播种数据
+npm run db:studio    # 打开 Prisma Studio
 ```
 
-APK 文件位置: `android/app/build/outputs/apk/debug/app-debug.apk`
-
-详细构建说明请查看: [LOCAL_BUILD_GUIDE.md](LOCAL_BUILD_GUIDE.md)
-
----
-
-## 📱 主要功能页面
-
-1. **首页** - 宠物概况与健康指数
-2. **翻译页** - AI情感翻译功能
-3. **健康页** - 健康监测与护理建议
-4. **相机页** - 宠物拍照与录像
-5. **监控页** - 实时监控功能
-6. **个人资料** - 用户信息与推荐系统
-
----
-
-## 🎨 设计特色
-
-- 温暖的配色方案（橙色主色调）
-- 流畅的交互动画
-- 可爱的动物主题图标
-- 响应式设计，适配各种设备
-- 无障碍友好的界面
-
----
-
-## 🧪 测试
-
-项目包含完整的测试套件：
+### 前端
 
 ```bash
-# 运行测试
-npm run test
+# 开发模式
+npm run dev
 
-# 测试覆盖率
-npm run test:coverage
+# 构建
+npm run build
+
+# 预览
+npm run preview
 ```
 
----
+## 🎯 核心功能
 
-## 📝 作者信息
+1. **宠物档案管理** - 多宠物支持，详细信息记录
+2. **健康记录** - 多种格式记录，标签分类，时间线展示
+3. **AI健康顾问** - 智能对话，健康分析，报告生成
+4. **智能提醒** - 多类型提醒，自定义周期，及时通知
+5. **健康手册** - 专业知识库，分类检索，书签收藏
+6. **数据可视化** - 健康趋势，成长曲线，统计分析
 
-**作者**: 带娃的小陈工  
-**项目**: PawSync Pro  
-**版本**: 1.0.0
+## 📊 技术栈
 
----
+### 前端
+- React 18
+- TypeScript
+- Vite
+- Tailwind CSS
+- Zustand (状态管理)
+
+### 后端
+- Node.js
+- Express
+- TypeScript
+- Prisma (ORM)
+- SQLite (开发) / PostgreSQL (生产)
+- JWT (认证)
+
+## 🐛 问题反馈
+
+如有问题，请提交 Issue。
 
 ## 📄 许可证
 
-© 2026 带娃的小陈工. All rights reserved.
-
----
-
-## 🐾 致谢
-
-感谢所有为这个项目做出贡献的人和可爱的毛孩子们！
-
----
-
-**Made with ❤️ by 带娃的小陈工**
+MIT License
