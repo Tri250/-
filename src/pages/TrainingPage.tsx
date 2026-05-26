@@ -7,7 +7,7 @@
 // ============================================
 
 import { useState } from 'react';
-import { GraduationCap, Play, CheckCircle, Clock, Award, ChevronRight, Star, Lock } from 'lucide-react';
+import { GraduationCap, Play, CheckCircle, Clock, Award, ChevronRight, Star } from 'lucide-react';
 import { useTrainingStore } from '../store/trainingStore';
 import { useBondStore } from '../store/bondStore';
 
@@ -122,9 +122,9 @@ export function TrainingPage() {
                       {getDifficultyLabel(course.difficulty)}
                     </span>
                     {course.isPremium && (
-                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700 flex items-center gap-1">
+                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-700 flex items-center gap-1">
                         <Star className="w-3 h-3" />
-                        会员
+                        精选
                       </span>
                     )}
                   </div>
@@ -173,19 +173,11 @@ export function TrainingPage() {
               {/* Action Button */}
               <button
                 onClick={() => handleStartCourse(course.id)}
-                disabled={course.isPremium}
                 className={`w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all ${
-                  course.isPremium
-                    ? 'bg-neutral-100 text-neutral-400 cursor-not-allowed'
-                    : 'bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]'
+                  'bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]'
                 }`}
               >
-                {course.isPremium ? (
-                  <>
-                    <Lock className="w-5 h-5" />
-                    会员专享
-                  </>
-                ) : course.progress > 0 ? (
+                {course.progress > 0 ? (
                   <>
                     <Play className="w-5 h-5" />
                     继续训练

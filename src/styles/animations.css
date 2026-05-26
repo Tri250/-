@@ -1,4 +1,5 @@
-/* PawSync Pro - 动画系统 */
+/* PawSync Pro - 高性能动画系统（60fps优化版） */
+/* 作者: 带娃的小陈工 */
 /* 动画时长变量 */
 :root {
   --duration-instant: 100ms;
@@ -16,34 +17,45 @@
   --ease-smooth: cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
+/* 核心性能优化 - GPU加速所有动画 */
+*, *::before, *::after {
+  /* 强制硬件加速 */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
 /* 1. 淡入动画 */
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translate3d(0, 10px, 0);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translate3d(0, 0, 0);
   }
 }
 .animate-fade-in {
   animation: fadeIn var(--duration-normal) var(--ease-out) forwards;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
 }
 
 /* 2. 呼吸动画（用于录音按钮） */
 @keyframes breathe {
   0%, 100% {
-    transform: scale(1);
+    transform: translate3d(0, 0, 0) scale(1);
     opacity: 0.8;
   }
   50% {
-    transform: scale(1.05);
+    transform: translate3d(0, 0, 0) scale(1.05);
     opacity: 1;
   }
 }
 .animate-breathe {
   animation: breathe 2s var(--ease-in-out) infinite;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
 }
 
 /* 3. 脉冲动画（用于在线状态） */
@@ -65,138 +77,156 @@
 /* 4. 心跳动画（用于情感翻译） */
 @keyframes heartbeat {
   0%, 100% {
-    transform: scale(1);
+    transform: translate3d(0, 0, 0) scale(1);
   }
   14% {
-    transform: scale(1.1);
+    transform: translate3d(0, 0, 0) scale(1.1);
   }
   28% {
-    transform: scale(1);
+    transform: translate3d(0, 0, 0) scale(1);
   }
   42% {
-    transform: scale(1.1);
+    transform: translate3d(0, 0, 0) scale(1.1);
   }
   70% {
-    transform: scale(1);
+    transform: translate3d(0, 0, 0) scale(1);
   }
 }
 .animate-heartbeat {
   animation: heartbeat 1.5s var(--ease-in-out) infinite;
+  will-change: transform;
+  backface-visibility: hidden;
 }
 
 /* 5. 摇晃动画（用于警告） */
 @keyframes shake {
   0%, 100% {
-    transform: translateX(0);
+    transform: translate3d(0, 0, 0);
   }
   10%, 30%, 50%, 70%, 90% {
-    transform: translateX(-5px);
+    transform: translate3d(-5px, 0, 0);
   }
   20%, 40%, 60%, 80% {
-    transform: translateX(5px);
+    transform: translate3d(5px, 0, 0);
   }
 }
 .animate-shake {
   animation: shake 0.8s var(--ease-in-out);
+  will-change: transform;
+  backface-visibility: hidden;
 }
 
 /* 6. 弹跳动画（用于成功反馈） */
 @keyframes bounce {
   0%, 100% {
-    transform: translateY(0);
+    transform: translate3d(0, 0, 0);
   }
   50% {
-    transform: translateY(-10px);
+    transform: translate3d(0, -10px, 0);
   }
 }
 .animate-bounce-once {
   animation: bounce 0.6s var(--ease-bounce);
+  will-change: transform;
+  backface-visibility: hidden;
 }
 
 /* 7. 旋转加载动画 */
 @keyframes spin {
   from {
-    transform: rotate(0deg);
+    transform: translate3d(0, 0, 0) rotate(0deg);
   }
   to {
-    transform: rotate(360deg);
+    transform: translate3d(0, 0, 0) rotate(360deg);
   }
 }
 .animate-spin {
   animation: spin 1s linear infinite;
+  will-change: transform;
+  backface-visibility: hidden;
 }
 
 /* 8. 波纹扩散动画（用于录音） */
 @keyframes ripple {
   0% {
-    transform: scale(1);
+    transform: translate3d(0, 0, 0) scale(1);
     opacity: 0.5;
   }
   100% {
-    transform: scale(2);
+    transform: translate3d(0, 0, 0) scale(2);
     opacity: 0;
   }
 }
 .animate-ripple {
   animation: ripple 1.5s var(--ease-out) infinite;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
 }
 
 /* 9. 滑入动画 */
 @keyframes slideInRight {
   from {
-    transform: translateX(100%);
+    transform: translate3d(100%, 0, 0);
     opacity: 0;
   }
   to {
-    transform: translateX(0);
+    transform: translate3d(0, 0, 0);
     opacity: 1;
   }
 }
 .animate-slide-in-right {
   animation: slideInRight var(--duration-normal) var(--ease-out);
+  will-change: transform, opacity;
+  backface-visibility: hidden;
 }
 
 @keyframes slideInLeft {
   from {
-    transform: translateX(-100%);
+    transform: translate3d(-100%, 0, 0);
     opacity: 0;
   }
   to {
-    transform: translateX(0);
+    transform: translate3d(0, 0, 0);
     opacity: 1;
   }
 }
 .animate-slide-in-left {
   animation: slideInLeft var(--duration-normal) var(--ease-out);
+  will-change: transform, opacity;
+  backface-visibility: hidden;
 }
 
 @keyframes slideInUp {
   from {
-    transform: translateY(100%);
+    transform: translate3d(0, 100%, 0);
     opacity: 0;
   }
   to {
-    transform: translateY(0);
+    transform: translate3d(0, 0, 0);
     opacity: 1;
   }
 }
 .animate-slide-in-up {
   animation: slideInUp var(--duration-normal) var(--ease-out);
+  will-change: transform, opacity;
+  backface-visibility: hidden;
 }
 
 /* 10. 缩放弹入动画 */
 @keyframes scaleIn {
   from {
-    transform: scale(0.8);
+    transform: translate3d(0, 0, 0) scale(0.8);
     opacity: 0;
   }
   to {
-    transform: scale(1);
+    transform: translate3d(0, 0, 0) scale(1);
     opacity: 1;
   }
 }
 .animate-scale-in {
   animation: scaleIn var(--duration-normal) var(--ease-bounce);
+  will-change: transform, opacity;
+  backface-visibility: hidden;
 }
 
 /* 11. 渐变流动动画（用于背景） */
@@ -227,32 +257,37 @@
 }
 .animate-blink {
   animation: blink 2s var(--ease-in-out) infinite;
+  will-change: opacity;
 }
 
 /* 13. 浮动动画 */
 @keyframes float {
   0%, 100% {
-    transform: translateY(0);
+    transform: translate3d(0, 0, 0);
   }
   50% {
-    transform: translateY(-5px);
+    transform: translate3d(0, -5px, 0);
   }
 }
 .animate-float {
   animation: float 3s var(--ease-in-out) infinite;
+  will-change: transform;
+  backface-visibility: hidden;
 }
 
 /* 14. 缩放脉冲动画 */
 @keyframes scalePulse {
   0%, 100% {
-    transform: scale(1);
+    transform: translate3d(0, 0, 0) scale(1);
   }
   50% {
-    transform: scale(1.05);
+    transform: translate3d(0, 0, 0) scale(1.05);
   }
 }
 .animate-scale-pulse {
   animation: scalePulse 2s var(--ease-in-out) infinite;
+  will-change: transform;
+  backface-visibility: hidden;
 }
 
 /* 15. 渐变发光动画 */
@@ -287,15 +322,17 @@
 @keyframes slideFadeIn {
   from {
     opacity: 0;
-    transform: translateX(-20px);
+    transform: translate3d(-20px, 0, 0);
   }
   to {
     opacity: 1;
-    transform: translateX(0);
+    transform: translate3d(0, 0, 0);
   }
 }
 .animate-slide-fade-in {
   animation: slideFadeIn var(--duration-normal) var(--ease-out) forwards;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
 }
 
 /* 18. 延迟淡入动画 */
@@ -308,47 +345,53 @@
 /* 19. 滑入向下动画 */
 @keyframes slideInDown {
   from {
-    transform: translateY(-100%);
+    transform: translate3d(0, -100%, 0);
     opacity: 0;
   }
   to {
-    transform: translateY(0);
+    transform: translate3d(0, 0, 0);
     opacity: 1;
   }
 }
 .animate-slide-in-down {
   animation: slideInDown var(--duration-normal) var(--ease-out);
+  will-change: transform, opacity;
+  backface-visibility: hidden;
 }
 
 /* 20. 淡出动画 */
 @keyframes fadeOut {
   from {
     opacity: 1;
-    transform: translateY(0);
+    transform: translate3d(0, 0, 0);
   }
   to {
     opacity: 0;
-    transform: translateY(-10px);
+    transform: translate3d(0, -10px, 0);
   }
 }
 .animate-fade-out {
   animation: fadeOut var(--duration-normal) var(--ease-in);
+  will-change: transform, opacity;
+  backface-visibility: hidden;
 }
 
 /* 21. 旋转缩放动画 */
 @keyframes rotateScale {
   0% {
-    transform: rotate(0deg) scale(1);
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
   }
   50% {
-    transform: rotate(180deg) scale(1.1);
+    transform: translate3d(0, 0, 0) rotate(180deg) scale(1.1);
   }
   100% {
-    transform: rotate(360deg) scale(1);
+    transform: translate3d(0, 0, 0) rotate(360deg) scale(1);
   }
 }
 .animate-rotate-scale {
   animation: rotateScale 2s var(--ease-in-out) infinite;
+  will-change: transform;
+  backface-visibility: hidden;
 }
 
 /* 22. 渐变颜色动画 */
@@ -367,36 +410,53 @@
 /* 23. 向上滑入动画（用于模态框） */
 @keyframes slideUp {
   from {
-    transform: translateY(100%);
+    transform: translate3d(0, 100%, 0);
   }
   to {
-    transform: translateY(0);
+    transform: translate3d(0, 0, 0);
   }
 }
 .animate-slide-up {
   animation: slideUp 0.3s var(--ease-out) forwards;
+  will-change: transform;
+  backface-visibility: hidden;
 }
 
 /* 24. ping 扩散动画（用于录音按钮） */
 @keyframes ping {
   0% {
-    transform: scale(1);
+    transform: translate3d(0, 0, 0) scale(1);
     opacity: 1;
   }
   75%, 100% {
-    transform: scale(1.5);
+    transform: translate3d(0, 0, 0) scale(1.5);
     opacity: 0;
   }
 }
 .animate-ping {
   animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
 }
 
-/* 性能优化 - GPU加速提示 */
+/* 性能优化 - GPU加速工具类 */
 .gpu-accelerated {
   will-change: transform, opacity;
-  transform: translateZ(0);
+  transform: translate3d(0, 0, 0);
   backface-visibility: hidden;
+  perspective: 1000px;
+  -webkit-perspective: 1000px;
+}
+
+/* 强制GPU加速 */
+.hardware-accelerate {
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+}
+
+/* 性能优化 - 避免重绘 */
+.contain-layout {
+  contain: layout paint size;
 }
 
 /* 响应式动画 - 尊重用户偏好 */
@@ -407,5 +467,23 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
+  
+  .animate-breathe,
+  .animate-pulse-indicator,
+  .animate-heartbeat,
+  .animate-float,
+  .animate-scale-pulse,
+  .animate-glow,
+  .animate-ping,
+  .animate-blink {
+    animation: none !important;
+  }
+}
+
+/* 高性能滚动优化 */
+html {
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
 }

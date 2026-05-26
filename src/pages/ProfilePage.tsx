@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { User, Edit, History, Settings, Crown, Star, Heart, ChevronRight, Camera, X, Gift } from 'lucide-react';
+import { User, Edit, History, Settings, Star, Heart, ChevronRight, Camera, X, Gift } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 import { ReferralProgram } from '../components/ReferralProgram';
 
 const menuItems = [
-  { icon: Gift, label: '邀请好友', description: '邀请得会员奖励' },
+  { icon: Gift, label: '邀请好友', description: '分享给爱宠的朋友' },
   { icon: History, label: '分析历史', description: '查看所有翻译记录' },
   { icon: Settings, label: '设置', description: '隐私、通知等设置' },
   { icon: Heart, label: '收藏', description: '收藏的精彩时刻' },
@@ -92,8 +92,8 @@ export function ProfilePage() {
               </div>
               <div className="flex items-center gap-1 mt-2">
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100 text-purple-600 text-xs">
-                  <Crown className="w-3 h-3" />
-                  Pro会员
+                  <Star className="w-3 h-3" />
+                  守护使者
                 </span>
               </div>
             </div>

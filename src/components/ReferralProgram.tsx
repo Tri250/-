@@ -12,9 +12,9 @@ export function ReferralProgram({ className }: ReferralProgramProps) {
   const referralCode = 'PAW' + Math.random().toString(36).substring(2, 8).toUpperCase();
 
   const benefits = [
-    { icon: Gift, title: '双方都得', desc: '邀请好友注册，各得7天会员' },
-    { icon: Users, title: '多邀多得', desc: '每成功邀请1人，奖励累加' },
-    { icon: Zap, title: '立即到账', desc: '好友完成注册，奖励即时到账' },
+    { icon: Gift, title: '分享快乐', desc: '邀请好友一起关爱宠物' },
+    { icon: Users, title: '共同成长', desc: '和朋友一起学习养宠知识' },
+    { icon: Zap, title: '解锁成就', desc: '邀请好友获得专属徽章' },
   ];
 
   const handleCopyCode = async () => {
@@ -33,7 +33,7 @@ export function ReferralProgram({ className }: ReferralProgramProps) {
         <div className="w-16 h-16 bg-gradient-to-br from-orange-400 to-peach-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
           <Gift className="w-8 h-8 text-white" />
         </div>
-        <h3 className="text-xl font-bold text-gray-800">邀请好友得会员</h3>
+        <h3 className="text-xl font-bold text-gray-800">邀请好友一起养宠</h3>
         <p className="text-sm text-gray-500 mt-1">好东西要和好朋友分享</p>
       </div>
 

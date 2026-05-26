@@ -40,7 +40,7 @@ const mockPlans: InsurancePlan[] = [
     reimbursementPercentage: 80,
     annualLimit: 20000,
     isPopular: true,
-    features: ['全面医疗保障', '健康体检', '牙科护理', '手术保障', 'VIP 通道']
+    features: ['全面医疗保障', '健康体检', '牙科护理', '手术保障', '优先通道']
   },
   {
     id: '3',

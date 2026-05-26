@@ -9,11 +9,34 @@ export default defineConfig({
   build: {
     sourcemap: 'hidden',
     outDir: 'dist',
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom'],
+          'router': ['react-router-dom'],
+          'state': ['zustand'],
+          'ui': ['lucide-react', 'clsx', 'tailwind-merge'],
+        }
+      }
+    },
+    chunkSizeWarningLimit: 1000,
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true,
+      }
+    }
   },
   server: {
     watch: {
       ignored: ['**/android-sdk/**', '**/node_modules/**', '**/coverage/**']
-    }
+    },
+    host: '0.0.0.0'
+  },
+  optimizeDeps: {
+    include: ['react', 'react-dom', 'react-router-dom', 'zustand', 'lucide-react'],
+    exclude: []
   },
   plugins: [
     react({
