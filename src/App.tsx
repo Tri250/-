@@ -24,6 +24,9 @@ import { AIConsultantPage } from './pages/AIConsultantPage';
 import { HealthRecordsPage } from './pages/HealthRecordsPage';
 import { HealthManualPage } from './pages/HealthManualPage';
 import { RemindersPage } from './pages/RemindersPage';
+import { AdvancedHealthPage } from './pages/AdvancedHealthPage';
+import { BondEmotionPage } from './pages/BondEmotionPage';
+import { CameraMonitorPage } from './pages/CameraMonitorPage';
 import { useAppStore } from './store/appStore';
 
 export default function App() {
@@ -78,6 +81,12 @@ export default function App() {
         return <CameraPage />;
       case 'monitor':
         return <MonitorPage />;
+      case 'advanced-health':
+        return <AdvancedHealthPage />;
+      case 'bond-emotion':
+        return <BondEmotionPage />;
+      case 'camera-monitor':
+        return <CameraMonitorPage />;
       default:
         return <HomePage onNavigate={setCurrentPage} />;
     }
