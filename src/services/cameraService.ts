@@ -30,6 +30,69 @@ const brandCapabilities: Record<string, DeviceCapability> = {
     supportsNightVision: true,
     maxResolution: '1920x1080',
   },
+  ezviz: {
+    brand: 'ezviz',
+    supports1080p: true,
+    supports720p: true,
+    supports480p: true,
+    supportsAudio: true,
+    supportsNightVision: true,
+    maxResolution: '2560x1440',
+  },
+  tplink: {
+    brand: 'tplink',
+    supports1080p: true,
+    supports720p: true,
+    supports480p: true,
+    supportsAudio: true,
+    supportsNightVision: true,
+    maxResolution: '1920x1080',
+  },
+  hikvision: {
+    brand: 'hikvision',
+    supports1080p: true,
+    supports720p: true,
+    supports480p: true,
+    supportsAudio: true,
+    supportsNightVision: true,
+    maxResolution: '3840x2160',
+  },
+  dahua: {
+    brand: 'dahua',
+    supports1080p: true,
+    supports720p: true,
+    supports480p: true,
+    supportsAudio: true,
+    supportsNightVision: true,
+    maxResolution: '3840x2160',
+  },
+  yi: {
+    brand: 'yi',
+    supports1080p: true,
+    supports720p: true,
+    supports480p: true,
+    supportsAudio: true,
+    supportsNightVision: true,
+    maxResolution: '1920x1080',
+  },
+  sony: {
+    brand: 'sony',
+    supports1080p: true,
+    supports720p: true,
+    supports480p: true,
+    supportsAudio: true,
+    supportsNightVision: false,
+    maxResolution: '3840x2160',
+  },
+  panasonic: {
+    brand: 'panasonic',
+    supports1080p: true,
+    supports720p: true,
+    supports480p: true,
+    supportsAudio: true,
+    supportsNightVision: true,
+    maxResolution: '1920x1080',
+  },
 };
 
 class CameraManager {
@@ -219,16 +282,34 @@ class CameraManager {
       await this.simulateDelay(delay);
     }
 
-    switch (config.brand) {
-      case 'xiaomi':
-        return this.connectXiaomi(config.deviceCode);
-      case 'huawei':
-        return this.connectHuawei(config.deviceCode);
-      case 'honor':
-        return this.connectHonor(config.deviceCode);
-      default:
-        throw new Error(`Unsupported brand: ${config.brand}`);
-    }
+    const brandNames: Record<string, string> = {
+      xiaomi: '小米',
+      huawei: '华为',
+      honor: '荣耀',
+      ezviz: '萤石',
+      tplink: 'TP-Link',
+      hikvision: '海康威视',
+      dahua: '大华',
+      yi: '小蚁',
+      sony: '索尼',
+      panasonic: '松下',
+    };
+
+    const newDevice: CameraDevice = {
+      id: `cam-${Date.now()}`,
+      brand: config.brand,
+      model: config.deviceCode,
+      name: config.deviceName || `${brandNames[config.brand] || config.brand}摄像头`,
+      status: 'online',
+      streamUrl: `https://example.com/stream/${config.deviceCode}`,
+      thumbnailUrl: `https://picsum.photos/400/300?random=${Date.now()}`,
+      lastOnline: new Date().toISOString(),
+      location: config.location,
+    };
+
+    this.devices.push(newDevice);
+    this.notifyConnection(newDevice);
+    return newDevice;
   }
 
   async updateStream(deviceId: string, options: StreamOptions): Promise<boolean> {

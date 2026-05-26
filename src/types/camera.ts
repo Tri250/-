@@ -1,4 +1,4 @@
-export type CameraBrand = 'xiaomi' | 'huawei' | 'honor';
+export type CameraBrand = 'xiaomi' | 'huawei' | 'honor' | 'ezviz' | 'tplink' | 'hikvision' | 'dahua' | 'yi' | 'sony' | 'panasonic';
 
 export type CameraStatus = 'online' | 'offline' | 'connecting' | 'error';
 

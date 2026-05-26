@@ -24,6 +24,7 @@ import { AIConsultantPage } from './pages/AIConsultantPage';
 import { HealthRecordsPage } from './pages/HealthRecordsPage';
 import { HealthManualPage } from './pages/HealthManualPage';
 import { RemindersPage } from './pages/RemindersPage';
+import { UserProfilePage } from './pages/UserProfilePage';
 import { useAppStore } from './store/appStore';
 
 export default function App() {
@@ -78,6 +79,8 @@ export default function App() {
         return <CameraPage />;
       case 'monitor':
         return <MonitorPage />;
+      case 'user-profile':
+        return <UserProfilePage onNavigate={setCurrentPage} />;
       default:
         return <HomePage onNavigate={setCurrentPage} />;
     }
