@@ -1,51 +1,67 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+
+# Environment
+.env.local
+.env.production
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
 # Logs
-logs
 *.log
 npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
+# Testing
+coverage/
 
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
+# OS
 .DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+Thumbs.db
 
-# Android SDK - 单独管理，不需要加入仓库
-android-sdk/
+# Android builds
+*.apk
+*.aab
+*.keystore
+*.jks
+
+# Zip files
+*.zip
+
+# Temporary files
+*.tmp
+*.temp
+
+# Backend
+backend/node_modules/
+backend/dist/
 
 # Gradle
 .gradle/
-gradle/
-*/.gradle/
-
-# Build outputs - 单独管理
-output/
-tmp/
 build/
 
+# Android SDK (large binary files)
+android-sdk/
+
 # Cordova
-cordova-build/
+cordova-build/platforms/
+cordova-build/plugins/
 
-# Download pages
-download.html
-index.html
-manual_build_apk.sh
-build_apk.py
+# Final build (use CI/CD instead)
+final-build/
 
-# Web server logs
+# Simple Android app duplicates
+simple-android-app/
 
-# Coverage reports
-coverage/
+# Output directory
+output/
+
+# Releases
+releases/

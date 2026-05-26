@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   ChevronLeft, 
   Calendar, 
@@ -12,7 +12,7 @@ import {
   Activity,
   Star
 } from 'lucide-react';
-import { Card, EmptyState } from '../components/DesignSystem';
+import { Card, Button, EmptyState } from '../components/DesignSystem';
 import { useReminderStore } from '../store/reminderStore';
 import { usePetStore } from '../store/petStore';
 import { REMINDER_TYPES } from '../types/reminder';
@@ -22,13 +22,14 @@ interface RemindersPageProps {
 }
 
 export const RemindersPage: React.FC<RemindersPageProps> = ({ onNavigate }) => {
-  const { selectedType, viewMode, getFilteredReminders, getUpcomingReminders, setSelectedType, setViewMode, toggleComplete } = useReminderStore();
+  const { reminders, selectedType, viewMode, getFilteredReminders, getUpcomingReminders, setSelectedType, setViewMode, toggleComplete } = useReminderStore();
   const { currentPetId } = usePetStore();
 
   const filteredReminders = currentPetId ? getFilteredReminders(currentPetId) : [];
   const upcomingReminders = currentPetId ? getUpcomingReminders(currentPetId, 5) : [];
 
   const getIconForType = (type: string) => {
+    const typeConfig = REMINDER_TYPES.find(t => t.id === type);
     switch (type) {
       case 'vaccine': return Syringe;
       case 'deworming': return Droplets;
@@ -122,7 +123,7 @@ export const RemindersPage: React.FC<RemindersPageProps> = ({ onNavigate }) => {
             {REMINDER_TYPES.map((type) => (
               <button
                 key={type.id}
-                onClick={() => setSelectedType(type.id as 'vaccine' | 'deworming' | 'checkup' | 'bath' | 'brush_teeth' | 'medicine' | 'grooming')}
+                onClick={() => setSelectedType(type.id as any)}
                 className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
                   selectedType === type.id
                     ? 'bg-purple-500 text-white'
@@ -147,7 +148,7 @@ export const RemindersPage: React.FC<RemindersPageProps> = ({ onNavigate }) => {
                 即将到来
               </h2>
               <div className="space-y-3">
-                {upcomingReminders.map((reminder) => {
+                {upcomingReminders.map((reminder, index) => {
                   const Icon = getIconForType(reminder.type);
                   const typeConfig = REMINDER_TYPES.find(t => t.id === reminder.type);
                   return (
@@ -210,7 +211,7 @@ export const RemindersPage: React.FC<RemindersPageProps> = ({ onNavigate }) => {
               />
             ) : (
               <div className="space-y-3">
-                {filteredReminders.map((reminder) => {
+                {filteredReminders.map((reminder, index) => {
                   const Icon = getIconForType(reminder.type);
                   const typeConfig = REMINDER_TYPES.find(t => t.id === reminder.type);
                   return (

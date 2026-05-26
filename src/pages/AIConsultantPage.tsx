@@ -43,13 +43,13 @@ export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }
     
     const text = inputText;
     setInputText('');
-    await sendAIMessage(currentConsultationId, text, currentPet?.type);
+    await sendAIMessage(currentConsultationId, text);
   };
 
   const handleQuickQuestion = async (question: string) => {
     if (!currentConsultationId) return;
     setInputText('');
-    await sendAIMessage(currentConsultationId, question, currentPet?.type);
+    await sendAIMessage(currentConsultationId, question);
   };
 
   return (

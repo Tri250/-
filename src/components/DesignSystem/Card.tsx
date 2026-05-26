@@ -7,7 +7,6 @@ interface CardProps {
   children: React.ReactNode;
   className?: string;
   onClick?: () => void;
-  style?: React.CSSProperties;
 }
 
 export const Card: React.FC<CardProps> = ({
@@ -17,7 +16,6 @@ export const Card: React.FC<CardProps> = ({
   children,
   className = '',
   onClick,
-  style,
 }) => {
   const baseClasses = 'rounded-2xl border border-neutral-100 transition-all duration-300';
   
@@ -50,7 +48,6 @@ export const Card: React.FC<CardProps> = ({
         ${className}
       `}
       onClick={onClick}
-      style={style}
     >
       {children}
     </div>
