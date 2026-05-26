@@ -16,6 +16,10 @@ import { CameraPage } from './pages/CameraPage';
 import { MonitorPage } from './pages/MonitorPage';
 import { AuthPage } from './pages/AuthPage';
 import { OnboardingPage } from './pages/OnboardingPage';
+import { TrainingPage } from './pages/TrainingPage';
+import { ServicesPage } from './pages/ServicesPage';
+import { InsurancePage } from './pages/InsurancePage';
+import { MedicalPage } from './pages/MedicalPage';
 import { useAppStore } from './store/appStore';
 
 export default function App() {
@@ -48,6 +52,14 @@ export default function App() {
         return <TranslatorPage />;
       case 'health':
         return <HealthPage />;
+      case 'training':
+        return <TrainingPage />;
+      case 'services':
+        return <ServicesPage onNavigate={setCurrentPage} />;
+      case 'insurance':
+        return <InsurancePage />;
+      case 'medical':
+        return <MedicalPage />;
       case 'profile':
         return <ProfilePage />;
       case 'camera':
@@ -60,7 +72,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-neutral-50">
       {renderPage()}
       <Navigation currentPage={currentPage} onNavigate={setCurrentPage} />
     </div>
