@@ -91,13 +91,24 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
       page: 'reminders',
     },
     {
-      icon: TrendingUp,
-      label: '健康数据',
-      description: '趋势分析',
+      icon: Activity,
+      label: '实时监控',
+      description: '守护安全',
       color: 'from-orange-500 to-orange-600',
-      page: 'health-analytics',
+      page: 'monitor',
     },
   ];
+
+  const bondMilestones = [
+    { id: 1, date: '2024-03-15', title: '相遇第一天', description: '在宠物店第一次见到小橘', emoji: '👋', achieved: true },
+    { id: 2, date: '2024-03-20', title: '回家纪念日', description: '小橘正式成为家庭成员', emoji: '🏠', achieved: true },
+    { id: 3, date: '2024-04-01', title: '第一次互动', description: '小橘第一次主动蹭蹭', emoji: '❤️', achieved: true },
+    { id: 4, date: '2024-04-15', title: '健康检查', description: '第一次带小橘去体检', emoji: '🏥', achieved: true },
+    { id: 5, date: '2024-05-01', title: '户外探索', description: '第一次带小橘出门散步', emoji: '🌳', achieved: false },
+    { id: 6, date: '2024-06-01', title: '百日纪念', description: '与小橘相处一百天', emoji: '🎂', achieved: false },
+  ];
+
+  const upcomingMilestones = bondMilestones.filter(m => !m.achieved).slice(0, 3);
 
   // 切换卡片可见性
   const toggleCardVisibility = (cardId: CardType) => {
@@ -181,39 +192,58 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
         );
 
       case 'reminders':
-        return upcomingReminders.length > 0 ? (
+        return (
           <div key={cardConfig.id} className="animate-slide-up" style={{ animationDelay: `${delay}s` }}>
             <Card className="p-5">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold text-neutral-800 flex items-center gap-2">
-                  <Calendar className="w-5 h-5 text-primary-500" />
-                  即将到来
+                  <Heart className="w-5 h-5 text-pink-500" />
+                  情感里程碑
                 </h3>
-                <button 
-                  className="text-xs text-primary-500 font-medium flex items-center gap-1"
-                  onClick={() => onNavigate('reminders')}
-                >
-                  全部
-                  <ChevronRight className="w-4 h-4" />
-                </button>
+                <span className="text-xs text-neutral-500">
+                  {bondMilestones.filter(m => m.achieved).length}/{bondMilestones.length} 已达成
+                </span>
               </div>
               <div className="space-y-3">
-                {upcomingReminders.map((reminder) => (
-                  <div 
-                    key={reminder.id}
-                    className="flex items-center gap-3 p-3 bg-neutral-50 rounded-xl hover:bg-neutral-100 transition-colors"
-                  >
-                    <div className="w-2 h-2 rounded-full bg-primary-500 animate-pulse" />
-                    <div className="flex-1">
-                      <h4 className="font-medium text-sm text-neutral-800">{reminder.title}</h4>
-                      <p className="text-xs text-neutral-500">{reminder.date} {reminder.time}</p>
+                {upcomingMilestones.length > 0 ? (
+                  upcomingMilestones.map((milestone) => (
+                    <div 
+                      key={milestone.id}
+                      className="flex items-center gap-3 p-3 bg-gradient-to-r from-pink-50 to-orange-50 rounded-xl hover:from-pink-100 hover:to-orange-100 transition-colors"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-white shadow-md flex items-center justify-center text-xl">
+                        {milestone.emoji}
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-medium text-sm text-neutral-800">{milestone.title}</h4>
+                        <p className="text-xs text-neutral-500">{milestone.description}</p>
+                      </div>
+                      <div className="text-xs text-neutral-400">{milestone.date}</div>
                     </div>
+                  ))
+                ) : (
+                  <div className="text-center py-6">
+                    <Heart className="w-10 h-10 text-pink-300 mx-auto mb-2" />
+                    <p className="text-sm text-neutral-500">所有里程碑都已达成！</p>
                   </div>
-                ))}
+                )}
+              </div>
+              {/* 进度条 */}
+              <div className="mt-4">
+                <div className="flex items-center justify-between text-xs text-neutral-500 mb-1">
+                  <span>情感成长进度</span>
+                  <span>{Math.round((bondMilestones.filter(m => m.achieved).length / bondMilestones.length) * 100)}%</span>
+                </div>
+                <div className="h-2 bg-gradient-to-r from-pink-200 to-orange-200 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-gradient-to-r from-pink-500 to-orange-500 rounded-full transition-all duration-1000"
+                    style={{ width: `${(bondMilestones.filter(m => m.achieved).length / bondMilestones.length) * 100}%` }}
+                  />
+                </div>
               </div>
             </Card>
           </div>
-        ) : null;
+        );
 
       case 'recent_records':
         return recentRecords.length > 0 ? (
@@ -250,26 +280,69 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
       case 'bond_metrics':
         return (
           <div key={cardConfig.id} className="animate-slide-up" style={{ animationDelay: `${delay}s` }}>
-            <Card className="p-5">
+            <Card className="p-5 bg-gradient-to-br from-pink-50 via-white to-orange-50">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold text-neutral-800 flex items-center gap-2">
-                  <Star className="w-5 h-5 text-yellow-500" />
-                  亲密度
+                  <Heart className="w-5 h-5 text-pink-500 fill-pink-500" />
+                  与{currentPet?.name}的羁绊
                 </h3>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-neutral-500">
-                    {streakDays} 天
-                  </span>
+                <div className="flex items-center gap-1 px-2 py-1 bg-white rounded-full shadow-sm">
+                  <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                  <span className="text-xs text-neutral-600">连续 {streakDays} 天</span>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-primary-600">{unlockedBadges}</div>
+              
+              {/* 主亲密度展示 */}
+              <div className="flex items-center gap-4 mb-4">
+                <div className="relative">
+                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-pink-400 to-orange-400 flex items-center justify-center shadow-lg">
+                    <span className="text-3xl">💖</span>
+                  </div>
+                  <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-yellow-400 flex items-center justify-center text-xs font-bold shadow-md">
+                    {metrics.overall}%
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-sm text-neutral-600">当前亲密度</span>
+                    <span className="px-2 py-0.5 bg-pink-100 text-pink-600 rounded-full text-xs font-medium">
+                      {metrics.overall >= 80 ? '亲密无间' : metrics.overall >= 60 ? '感情深厚' : metrics.overall >= 40 ? '渐入佳境' : '初识阶段'}
+                    </span>
+                  </div>
+                  <div className="h-2 bg-neutral-200 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-pink-500 to-orange-500 rounded-full transition-all duration-1000 ease-out"
+                      style={{ width: `${metrics.overall}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* 详细指标 */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="text-center p-2 bg-white rounded-xl shadow-sm">
+                  <div className="text-lg font-bold text-pink-500">{unlockedBadges}</div>
                   <div className="text-xs text-neutral-500">已获徽章</div>
                 </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-orange-500">{totalPoints}</div>
-                  <div className="text-xs text-neutral-500">积分</div>
+                <div className="text-center p-2 bg-white rounded-xl shadow-sm">
+                  <div className="text-lg font-bold text-orange-500">{totalPoints}</div>
+                  <div className="text-xs text-neutral-500">爱心积分</div>
+                </div>
+                <div className="text-center p-2 bg-white rounded-xl shadow-sm">
+                  <div className="text-lg font-bold text-primary-500">{badges.length - unlockedBadges}</div>
+                  <div className="text-xs text-neutral-500">待解锁</div>
+                </div>
+              </div>
+
+              {/* 互动建议 */}
+              <div className="mt-4 p-3 bg-white/80 rounded-xl">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-neutral-600">💡 今日建议：</span>
+                  <span className="text-sm text-neutral-700">
+                    {metrics.overall < 60 ? '多陪' + (currentPet?.name || '宠物') + '玩耍互动吧！' : 
+                     metrics.overall < 80 ? '给' + (currentPet?.name || '宠物') + '一个温暖的拥抱~' : 
+                     '你们的感情真的很棒！继续保持！'}
+                  </span>
                 </div>
               </div>
             </Card>

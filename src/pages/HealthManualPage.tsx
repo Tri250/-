@@ -288,15 +288,24 @@ export const HealthManualPage: React.FC<HealthManualPageProps> = ({ onNavigate }
                   </div>
                 </div>
 
-                <div className="prose prose-sm max-w-none">
-                  {selectedManual.content.map((section, index) => (
-                    <div key={index} className="mb-6">
-                      {section.title && (
-                        <h3 className="text-base font-semibold text-gray-800 mb-2">{index + 1}. {section.title}</h3>
-                      )}
-                      <p className="text-gray-600 leading-relaxed">{section.content}</p>
-                    </div>
-                  ))}
+                <div className="whitespace-pre-line">
+                  {selectedManual.content.split('\n').map((line, index) => {
+                    if (line.startsWith('# ')) {
+                      return <h2 key={index} className="text-xl font-bold text-gray-800 mb-4 mt-6">{line.replace('# ', '')}</h2>;
+                    } else if (line.startsWith('## ')) {
+                      return <h3 key={index} className="text-lg font-semibold text-gray-800 mb-3 mt-4">{line.replace('## ', '')}</h3>;
+                    } else if (line.startsWith('### ')) {
+                      return <h4 key={index} className="text-base font-semibold text-gray-700 mb-2 mt-3">{line.replace('### ', '')}</h4>;
+                    } else if (line.startsWith('- ')) {
+                      return <p key={index} className="text-gray-600 leading-relaxed pl-4 mb-1">{line}</p>;
+                    } else if (line.startsWith('❌ ') || line.startsWith('✅ ')) {
+                      return <p key={index} className="text-gray-600 leading-relaxed mb-1">{line}</p>;
+                    } else if (line.trim() === '') {
+                      return <br key={index} />;
+                    } else {
+                      return <p key={index} className="text-gray-600 leading-relaxed mb-2">{line}</p>;
+                    }
+                  })}
                 </div>
 
                 <div className="mt-6 flex gap-3">
