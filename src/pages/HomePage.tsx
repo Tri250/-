@@ -195,8 +195,8 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
                       <div className={`w-12 h-12 mx-auto rounded-2xl bg-gradient-to-r ${action.color} flex items-center justify-center mb-3 shadow-md`}>
                         <action.icon className="w-6 h-6 text-white" />
                       </div>
-                      <h4 className="font-semibold text-sm text-neutral-800 mb-1">{action.label}</h4>
-                      <p className="text-xs text-neutral-500">{action.description}</p>
+                      <h4 className="font-semibold text-sm text-neutral-800 mb-1 leading-none truncate">{action.label}</h4>
+                      <p className="text-xs text-neutral-500 leading-tight line-clamp-1">{action.description}</p>
                     </div>
                   </div>
                 ))}
