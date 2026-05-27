@@ -144,8 +144,8 @@ export default {
         elevated: '0 8px 24px rgba(0, 0, 0, 0.12)',
         dropdown: '0 10px 40px rgba(0, 0, 0, 0.15)',
         glow: '0 0 20px rgba(74, 144, 217, 0.3)',
-        glow-purple: '0 0 20px rgba(108, 92, 231, 0.3)',
-        glow-success: '0 0 20px rgba(0, 184, 148, 0.3)',
+        'glow-purple': '0 0 20px rgba(108, 92, 231, 0.3)',
+        'glow-success': '0 0 20px rgba(0, 184, 148, 0.3)',
         glass: '0 4px 30px rgba(0, 0, 0, 0.1)',
       },
       backdropBlur: {

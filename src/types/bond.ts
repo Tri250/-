@@ -206,3 +206,57 @@ export interface EmotionTrend {
   emotions: Record<string, number>;
   highlights: string[];
 }
+
+export interface BondMetrics {
+  understanding: number;
+  companionship: number;
+  care: number;
+  growth: number;
+  overall: number;
+}
+
+export interface DailyActivity {
+  id: string;
+  type: 'translation' | 'training' | 'health_check' | 'play' | 'feed' | 'photo' | 'video';
+  description: string;
+  points: number;
+  timestamp: string;
+}
+
+export interface Badge {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  category: string;
+  isUnlocked: boolean;
+  unlockedAt?: Date;
+  requirement: string;
+}
+
+export interface Achievement {
+  id: string;
+  name: string;
+  description: string;
+  type: 'milestone' | 'streak' | 'collection';
+  progress: number;
+  target: number;
+  isCompleted: boolean;
+  completedAt?: Date;
+  rewardPoints: number;
+}
+
+export interface BondStore {
+  metrics: BondMetrics;
+  dailyActivities: DailyActivity[];
+  badges: Badge[];
+  achievements: Achievement[];
+  totalPoints: number;
+  streakDays: number;
+  lastActiveDate: Date;
+  updateMetrics: (metrics: Partial<BondMetrics>) => void;
+  addDailyActivity: (activity: Omit<DailyActivity, 'id' | 'timestamp'>) => void;
+  unlockBadge: (badgeId: string) => void;
+  updateAchievement: (achievementId: string, progress: number) => void;
+  checkStreak: () => void;
+}

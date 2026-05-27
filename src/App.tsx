@@ -86,7 +86,7 @@ export default function App() {
       case 'bond-emotion':
         return <BondEmotionPage />;
       case 'camera-monitor':
-        return <CameraMonitorPage />;
+        return <CameraMonitorPage onNavigate={setCurrentPage} />;
       default:
         return <HomePage onNavigate={setCurrentPage} />;
     }

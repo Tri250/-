@@ -1,22 +1,15 @@
-/* PawSync Pro - 动画系统 */
-/* 动画时长变量 */
 :root {
   --duration-instant: 100ms;
   --duration-fast: 200ms;
   --duration-normal: 300ms;
   --duration-slow: 500ms;
-  --duration-slower: 800ms;
-  --duration-slowest: 1000ms;
 
-  /* 缓动函数 */
   --ease-in: cubic-bezier(0.4, 0, 1, 1);
   --ease-out: cubic-bezier(0, 0, 0.2, 1);
   --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
-  --ease-smooth: cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
-/* 1. 淡入动画 */
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -31,7 +24,6 @@
   animation: fadeIn var(--duration-normal) var(--ease-out) forwards;
 }
 
-/* 2. 呼吸动画（用于录音按钮） */
 @keyframes breathe {
   0%, 100% {
     transform: scale(1);
@@ -46,7 +38,6 @@
   animation: breathe 2s var(--ease-in-out) infinite;
 }
 
-/* 3. 脉冲动画（用于在线状态） */
 @keyframes pulse {
   0% {
     box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
@@ -62,86 +53,6 @@
   animation: pulse 2s var(--ease-out) infinite;
 }
 
-/* 4. 心跳动画（用于情感翻译） */
-@keyframes heartbeat {
-  0%, 100% {
-    transform: scale(1);
-  }
-  14% {
-    transform: scale(1.1);
-  }
-  28% {
-    transform: scale(1);
-  }
-  42% {
-    transform: scale(1.1);
-  }
-  70% {
-    transform: scale(1);
-  }
-}
-.animate-heartbeat {
-  animation: heartbeat 1.5s var(--ease-in-out) infinite;
-}
-
-/* 5. 摇晃动画（用于警告） */
-@keyframes shake {
-  0%, 100% {
-    transform: translateX(0);
-  }
-  10%, 30%, 50%, 70%, 90% {
-    transform: translateX(-5px);
-  }
-  20%, 40%, 60%, 80% {
-    transform: translateX(5px);
-  }
-}
-.animate-shake {
-  animation: shake 0.8s var(--ease-in-out);
-}
-
-/* 6. 弹跳动画（用于成功反馈） */
-@keyframes bounce {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
-}
-.animate-bounce-once {
-  animation: bounce 0.6s var(--ease-bounce);
-}
-
-/* 7. 旋转加载动画 */
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-.animate-spin {
-  animation: spin 1s linear infinite;
-}
-
-/* 8. 波纹扩散动画（用于录音） */
-@keyframes ripple {
-  0% {
-    transform: scale(1);
-    opacity: 0.5;
-  }
-  100% {
-    transform: scale(2);
-    opacity: 0;
-  }
-}
-.animate-ripple {
-  animation: ripple 1.5s var(--ease-out) infinite;
-}
-
-/* 9. 滑入动画 */
 @keyframes slideInRight {
   from {
     transform: translateX(100%);
@@ -156,35 +67,6 @@
   animation: slideInRight var(--duration-normal) var(--ease-out);
 }
 
-@keyframes slideInLeft {
-  from {
-    transform: translateX(-100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-.animate-slide-in-left {
-  animation: slideInLeft var(--duration-normal) var(--ease-out);
-}
-
-@keyframes slideInUp {
-  from {
-    transform: translateY(100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-.animate-slide-in-up {
-  animation: slideInUp var(--duration-normal) var(--ease-out);
-}
-
-/* 10. 缩放弹入动画 */
 @keyframes scaleIn {
   from {
     transform: scale(0.8);
@@ -199,172 +81,6 @@
   animation: scaleIn var(--duration-normal) var(--ease-bounce);
 }
 
-/* 11. 渐变流动动画（用于背景） */
-@keyframes gradientFlow {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
-}
-.animate-gradient {
-  background-size: 200% 200%;
-  animation: gradientFlow 3s ease infinite;
-}
-
-/* 12. 闪烁动画（用于重要提示） */
-@keyframes blink {
-  0%, 50%, 100% {
-    opacity: 1;
-  }
-  25%, 75% {
-    opacity: 0.5;
-  }
-}
-.animate-blink {
-  animation: blink 2s var(--ease-in-out) infinite;
-}
-
-/* 13. 浮动动画 */
-@keyframes float {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-5px);
-  }
-}
-.animate-float {
-  animation: float 3s var(--ease-in-out) infinite;
-}
-
-/* 14. 缩放脉冲动画 */
-@keyframes scalePulse {
-  0%, 100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.05);
-  }
-}
-.animate-scale-pulse {
-  animation: scalePulse 2s var(--ease-in-out) infinite;
-}
-
-/* 15. 渐变发光动画 */
-@keyframes glow {
-  0%, 100% {
-    box-shadow: 0 0 5px rgba(255, 255, 255, 0.2);
-  }
-  50% {
-    box-shadow: 0 0 20px rgba(255, 255, 255, 0.4);
-  }
-}
-.animate-glow {
-  animation: glow 2s var(--ease-in-out) infinite;
-}
-
-/* 16. 打字机动画 */
-@keyframes typewriter {
-  from {
-    width: 0;
-  }
-  to {
-    width: 100%;
-  }
-}
-.animate-typewriter {
-  overflow: hidden;
-  white-space: nowrap;
-  animation: typewriter 2s steps(40) forwards;
-}
-
-/* 17. 滑入淡出动画 */
-@keyframes slideFadeIn {
-  from {
-    opacity: 0;
-    transform: translateX(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-.animate-slide-fade-in {
-  animation: slideFadeIn var(--duration-normal) var(--ease-out) forwards;
-}
-
-/* 18. 延迟淡入动画 */
-.animate-delay-100 { animation-delay: 100ms; }
-.animate-delay-200 { animation-delay: 200ms; }
-.animate-delay-300 { animation-delay: 300ms; }
-.animate-delay-400 { animation-delay: 400ms; }
-.animate-delay-500 { animation-delay: 500ms; }
-
-/* 19. 滑入向下动画 */
-@keyframes slideInDown {
-  from {
-    transform: translateY(-100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-.animate-slide-in-down {
-  animation: slideInDown var(--duration-normal) var(--ease-out);
-}
-
-/* 20. 淡出动画 */
-@keyframes fadeOut {
-  from {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  to {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-}
-.animate-fade-out {
-  animation: fadeOut var(--duration-normal) var(--ease-in);
-}
-
-/* 21. 旋转缩放动画 */
-@keyframes rotateScale {
-  0% {
-    transform: rotate(0deg) scale(1);
-  }
-  50% {
-    transform: rotate(180deg) scale(1.1);
-  }
-  100% {
-    transform: rotate(360deg) scale(1);
-  }
-}
-.animate-rotate-scale {
-  animation: rotateScale 2s var(--ease-in-out) infinite;
-}
-
-/* 22. 渐变颜色动画 */
-@keyframes colorShift {
-  0% {
-    filter: hue-rotate(0deg);
-  }
-  100% {
-    filter: hue-rotate(360deg);
-  }
-}
-.animate-color-shift {
-  animation: colorShift 5s linear infinite;
-}
-
-/* 23. 向上滑入动画（用于模态框） */
 @keyframes slideUp {
   from {
     transform: translateY(100%);
@@ -377,7 +93,18 @@
   animation: slideUp 0.3s var(--ease-out) forwards;
 }
 
-/* 24. ping 扩散动画（用于录音按钮） */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
 @keyframes ping {
   0% {
     transform: scale(1);
@@ -392,14 +119,6 @@
   animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
 }
 
-/* 性能优化 - GPU加速提示 */
-.gpu-accelerated {
-  will-change: transform, opacity;
-  transform: translateZ(0);
-  backface-visibility: hidden;
-}
-
-/* 响应式动画 - 尊重用户偏好 */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
