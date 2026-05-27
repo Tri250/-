@@ -7,13 +7,14 @@
 // ============================================
 
 import { useState, useEffect, useRef } from 'react';
-import { Mic, MicOff, Image, Share2, RefreshCw, Sparkles, Heart } from 'lucide-react';
+import { Mic, MicOff, Image, Share2, RefreshCw, Sparkles, Heart, X, Camera } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { EmotionIcons } from '../components/icons/EmotionIcons';
 import { ShareModal } from '../components/ShareModal';
+import { motion, AnimatePresence } from 'framer-motion';
 
 type EmotionType = 'happy' | 'anxious' | 'angry' | 'needs' | 'neutral';
 
@@ -107,14 +108,17 @@ export function TranslatorPage() {
   const [isRecording, setIsRecording] = useState(false);
   const [showResult, setShowResult] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showCameraModal, setShowCameraModal] = useState(false);
   const [emotion, setEmotion] = useState<EmotionType>('neutral');
   const [translation, setTranslation] = useState('');
   const [confidence, setConfidence] = useState(0);
   const [recordingTime, setRecordingTime] = useState(0);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const timerRef = useRef<number | null>(null);
   const animationRef = useRef<number | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
 
   const emotions: EmotionType[] = ['happy', 'anxious', 'angry', 'needs', 'neutral'];
 
@@ -198,6 +202,73 @@ export function TranslatorPage() {
     setConfidence(0);
   };
 
+  const openCameraModal = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+      }
+      setShowCameraModal(true);
+    } catch (error) {
+      console.error('Camera access error:', error);
+      alert('无法访问相机，请检查权限设置');
+    }
+  };
+
+  const takePhoto = () => {
+    if (!videoRef.current) return;
+    
+    const canvas = document.createElement('canvas');
+    canvas.width = videoRef.current.videoWidth;
+    canvas.height = videoRef.current.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx?.drawImage(videoRef.current, 0, 0);
+    
+    const imageDataUrl = canvas.toDataURL('image/png');
+    setCapturedImage(imageDataUrl);
+    setShowCameraModal(false);
+    analyzePhoto();
+  };
+
+  const closeCameraModal = () => {
+    if (videoRef.current?.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach(track => track.stop());
+    }
+    setShowCameraModal(false);
+    setCapturedImage(null);
+  };
+
+  const analyzePhoto = () => {
+    setIsAnalyzing(true);
+    setShowResult(false);
+    
+    setTimeout(() => {
+      const randomEmotion = emotions[Math.floor(Math.random() * emotions.length)];
+      const translations = mockTranslations[randomEmotion];
+      const randomTranslation = translations[Math.floor(Math.random() * translations.length)];
+      const randomConfidence = 80 + Math.floor(Math.random() * 19);
+
+      setEmotion(randomEmotion);
+      setTranslation(randomTranslation);
+      setConfidence(randomConfidence);
+      setIsAnalyzing(false);
+      setShowResult(true);
+      setCurrentEmotion(randomEmotion);
+      
+      addAnalysis({
+        petId: currentPet?.id || '',
+        type: 'photo',
+        result: {
+          emotion: randomEmotion,
+          translation: randomTranslation,
+          confidence: randomConfidence,
+        },
+      });
+    }, 2000);
+  };
+
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -231,6 +302,9 @@ export function TranslatorPage() {
           <Button
             variant="secondary"
             icon={<Image className="w-5 h-5" />}
+            onClick={openCameraModal}
+            disabled={isRecording || isAnalyzing}
+            className={isRecording || isAnalyzing ? 'opacity-50 cursor-not-allowed' : ''}
           >
             拍照分析
           </Button>
@@ -381,6 +455,51 @@ export function TranslatorPage() {
         </Card>
       </main>
       
+      {/* 相机模态框 */}
+      <AnimatePresence>
+        {showCameraModal && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={closeCameraModal}
+              className="fixed inset-0 bg-black/70 z-50"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl z-50 p-6"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-gray-800">拍照分析</h3>
+                <button onClick={closeCameraModal} className="p-2 hover:bg-gray-100 rounded-full">
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+              <div className="aspect-square bg-gray-900 rounded-2xl mb-4 relative overflow-hidden">
+                <video
+                  ref={videoRef}
+                  className="w-full h-full object-cover"
+                  autoPlay
+                  playsInline
+                />
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
+                  <button
+                    onClick={takePhoto}
+                    className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
+                  >
+                    <Camera className="w-8 h-8 text-gray-800" />
+                  </button>
+                </div>
+              </div>
+              <p className="text-center text-sm text-gray-500">点击拍摄按钮拍照分析{currentPet?.name}的情绪</p>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
       <ShareModal
         isOpen={showShareModal}
         onClose={() => setShowShareModal(false)}

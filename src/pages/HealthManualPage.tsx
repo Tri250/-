@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   ChevronLeft, 
   Search, 
@@ -7,11 +7,14 @@ import {
   Apple,
   Bath,
   PawPrint,
-  AlertTriangle
+  AlertTriangle,
+  X
 } from 'lucide-react';
 import { Card, EmptyState } from '../components/DesignSystem';
 import { useHealthManualStore } from '../store/healthManualStore';
 import { MANUAL_CATEGORIES } from '../types/health-manual';
+import { motion, AnimatePresence } from 'framer-motion';
+import type { HealthManual } from '../types/health-manual';
 
 interface HealthManualPageProps {
   onNavigate: (page: string) => void;
@@ -19,6 +22,7 @@ interface HealthManualPageProps {
 
 export const HealthManualPage: React.FC<HealthManualPageProps> = ({ onNavigate }) => {
   const { manuals, selectedCategory, searchQuery, petTypeFilter, getFilteredManuals, getPopularManuals, setSelectedCategory, setSearchQuery, setPetTypeFilter, toggleBookmark, bookmarks } = useHealthManualStore();
+  const [selectedManual, setSelectedManual] = useState<HealthManual | null>(null);
 
   const filteredManuals = getFilteredManuals();
   const popularManuals = getPopularManuals();
@@ -28,6 +32,10 @@ export const HealthManualPage: React.FC<HealthManualPageProps> = ({ onNavigate }
     'care': Bath,
     'behavior': PawPrint,
     'emergency': AlertTriangle,
+  };
+
+  const handleViewManual = (manual: HealthManual) => {
+    setSelectedManual(manual);
   };
 
   return (
@@ -138,7 +146,7 @@ export const HealthManualPage: React.FC<HealthManualPageProps> = ({ onNavigate }
                   <Card
                     key={manual.id}
                     hover
-                    onClick={() => console.log('View manual:', manual.id)}
+                    onClick={() => handleViewManual(manual)}
                     className="p-0 overflow-hidden"
                   >
                     <div className="p-4">
@@ -199,7 +207,7 @@ export const HealthManualPage: React.FC<HealthManualPageProps> = ({ onNavigate }
                   <Card
                     key={manual.id}
                     hover
-                    onClick={() => console.log('View manual:', manual.id)}
+                    onClick={() => handleViewManual(manual)}
                     className="p-0 overflow-hidden"
                   >
                     <div className="p-4">
@@ -241,6 +249,76 @@ export const HealthManualPage: React.FC<HealthManualPageProps> = ({ onNavigate }
           </div>
         </div>
       </div>
+
+      {/* 手册详情模态框 */}
+      <AnimatePresence>
+        {selectedManual && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedManual(null)}
+              className="fixed inset-0 bg-black/50 z-50"
+            />
+            <motion.div
+              initial={{ opacity: 0, y: 100 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 100 }}
+              className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl z-50 max-h-[85vh] overflow-y-auto"
+            >
+              <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between z-10">
+                <h3 className="text-lg font-bold text-gray-800">详情</h3>
+                <button onClick={() => setSelectedManual(null)} className="p-2 hover:bg-gray-100 rounded-full">
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+
+              <div className="p-6">
+                <div className="mb-4">
+                  <h2 className="text-xl font-bold text-gray-800 mb-2">{selectedManual.title}</h2>
+                  <div className="flex items-center gap-3">
+                    <span className="px-3 py-1 rounded-full text-sm font-medium" style={{ backgroundColor: MANUAL_CATEGORIES.find(c => c.id === selectedManual.category)?.color + '20', color: MANUAL_CATEGORIES.find(c => c.id === selectedManual.category)?.color }}>
+                      {MANUAL_CATEGORIES.find(c => c.id === selectedManual.category)?.name}
+                    </span>
+                    <span className="text-sm text-gray-500">{selectedManual.readTime}分钟阅读</span>
+                    {selectedManual.isPopular && (
+                      <span className="px-2 py-1 bg-warning-100 text-warning-700 rounded-full text-xs font-medium">热门</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="prose prose-sm max-w-none">
+                  {selectedManual.content.map((section, index) => (
+                    <div key={index} className="mb-6">
+                      {section.title && (
+                        <h3 className="text-base font-semibold text-gray-800 mb-2">{index + 1}. {section.title}</h3>
+                      )}
+                      <p className="text-gray-600 leading-relaxed">{section.content}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-6 flex gap-3">
+                  <button
+                    onClick={() => {
+                      toggleBookmark(selectedManual.id);
+                      setSelectedManual({ ...selectedManual });
+                    }}
+                    className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium flex items-center justify-center gap-2"
+                  >
+                    <Bookmark className={`w-5 h-5 ${bookmarks.includes(selectedManual.id) ? 'fill-primary-500 text-primary-500' : ''}`} />
+                    {bookmarks.includes(selectedManual.id) ? '已收藏' : '收藏'}
+                  </button>
+                  <button className="flex-1 py-3 bg-gradient-to-r from-primary-500 to-primary-600 text-white rounded-xl font-medium">
+                    分享
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
