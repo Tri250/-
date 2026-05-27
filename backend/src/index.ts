@@ -68,6 +68,6 @@ app.listen(config.port, () => {
   📍 本地访问: http://localhost:${config.port}
   🏥 健康检查: http://localhost:${config.port}/api/health-check
   ✨ 功能列表: http://localhost:${config.port}/api/features
-  📚 作者: 带娃的小陈宫
+  📚 作者: 带娃的小陈工
   `);
 });
