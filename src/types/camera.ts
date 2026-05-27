@@ -6,17 +6,59 @@
 // 描述: 摄像头监控系统完整类型定义
 // ============================================
 
+export type CameraBrand = 'xiaomi' | 'hikvision' | 'ezviz' | 'huawei' | 'honor' | 'other';
+export type StreamQuality = 'auto' | '480p' | '720p' | '1080p' | '2k' | '4k';
+
+export interface PairingProgress {
+  stage: 'scanning' | 'connecting' | 'verifying' | 'completed';
+  message: string;
+  progress: number;
+}
+
+export interface DeviceConfig {
+  brand: CameraBrand;
+  deviceCode: string;
+  deviceName?: string;
+}
+
+export interface DeviceCapability {
+  brand: string;
+  supports1080p: boolean;
+  supports720p: boolean;
+  supports480p: boolean;
+  supportsAudio: boolean;
+  supportsNightVision: boolean;
+  maxResolution: string;
+}
+
+export interface StreamOptions {
+  quality?: StreamQuality;
+  audioEnabled?: boolean;
+  nightVision?: boolean;
+  motionDetection?: boolean;
+  eventRecording?: boolean;
+}
+
 export interface CameraDevice {
   id: string;
   name: string;
-  brand: 'xiaomi' | '360' | 'yingshi' | 'eufy' | 'other';
-  model: string;
+  brand: CameraBrand;
+  model?: string;
   status: 'online' | 'offline' | 'error' | 'updating';
-  lastActive: string;
+  lastActive?: string;
+  lastOnline?: string;
   thumbnail?: string;
+  thumbnailUrl?: string;
   streamUrl?: string;
-  capabilities: CameraCapability[];
-  settings: CameraSettings;
+  ipAddress?: string;
+  firmwareVersion?: string;
+  capabilities?: {
+    nightVision?: boolean;
+    motionDetection?: boolean;
+    twoWayAudio?: boolean;
+    panTilt?: boolean;
+  };
+  settings?: CameraSettings;
   location?: string;
 }
 

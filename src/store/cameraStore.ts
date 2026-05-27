@@ -2,6 +2,42 @@ import { create } from 'zustand';
 import type { CameraDevice, CameraBrand, StreamQuality, PairingProgress } from '../types/camera';
 import { cameraManager } from '../services/cameraService';
 
+// 示例相机设备
+const initialDevices: CameraDevice[] = [
+  {
+    id: 'cam-001',
+    name: '客厅摄像头',
+    brand: 'xiaomi',
+    status: 'online',
+    ipAddress: '192.168.1.100',
+    firmwareVersion: 'v2.5.0',
+    lastOnline: new Date().toISOString(),
+    location: '客厅',
+    capabilities: {
+      nightVision: true,
+      motionDetection: true,
+      twoWayAudio: true,
+      panTilt: false,
+    },
+  },
+  {
+    id: 'cam-002',
+    name: '阳台摄像头',
+    brand: 'hikvision',
+    status: 'online',
+    ipAddress: '192.168.1.101',
+    firmwareVersion: 'v3.0.1',
+    lastOnline: new Date().toISOString(),
+    location: '阳台',
+    capabilities: {
+      nightVision: true,
+      motionDetection: true,
+      twoWayAudio: false,
+      panTilt: true,
+    },
+  },
+];
+
 interface CameraState {
   devices: CameraDevice[];
   selectedDevice: CameraDevice | null;
@@ -21,8 +57,8 @@ interface CameraState {
 }
 
 export const useCameraStore = create<CameraState>((set, get) => ({
-  devices: [],
-  selectedDevice: null,
+  devices: initialDevices,
+  selectedDevice: initialDevices[0],
   isLoading: false,
   error: null,
   streamQuality: 'auto',
@@ -62,13 +98,19 @@ export const useCameraStore = create<CameraState>((set, get) => ({
   },
 
   pairDevice: async (brand, deviceCode, deviceName) => {
+    console.log('开始配对设备...', { brand, deviceCode, deviceName });
     set({ isPairing: true, error: null, pairingProgress: null });
     
     try {
       const device = await cameraManager.pairDevice(
         { brand, deviceCode, deviceName },
-        (progress) => set({ pairingProgress: progress })
+        (progress) => {
+          console.log('配对进度:', progress);
+          set({ pairingProgress: progress });
+        }
       );
+      
+      console.log('设备配对成功:', device);
       
       set((state) => ({
         devices: [...state.devices, device],
@@ -78,6 +120,7 @@ export const useCameraStore = create<CameraState>((set, get) => ({
       
       return device;
     } catch (error) {
+      console.error('设备配对失败:', error);
       set({ error: 'Failed to pair device', isPairing: false, pairingProgress: null });
       throw error;
     }

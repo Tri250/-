@@ -30,6 +30,33 @@ const brandCapabilities: Record<string, DeviceCapability> = {
     supportsNightVision: true,
     maxResolution: '1920x1080',
   },
+  hikvision: {
+    brand: 'hikvision',
+    supports1080p: true,
+    supports720p: true,
+    supports480p: true,
+    supportsAudio: true,
+    supportsNightVision: true,
+    maxResolution: '2560x1440',
+  },
+  ezviz: {
+    brand: 'ezviz',
+    supports1080p: true,
+    supports720p: true,
+    supports480p: true,
+    supportsAudio: true,
+    supportsNightVision: true,
+    maxResolution: '1920x1080',
+  },
+  other: {
+    brand: 'other',
+    supports1080p: true,
+    supports720p: true,
+    supports480p: true,
+    supportsAudio: true,
+    supportsNightVision: false,
+    maxResolution: '1920x1080',
+  },
 };
 
 class CameraManager {
@@ -156,6 +183,84 @@ class CameraManager {
     return newDevice;
   }
 
+  async connectHikvision(deviceCode: string): Promise<CameraDevice> {
+    await this.simulateDelay(MOCK_DELAY);
+    
+    const existingDevice = this.devices.find(d => d.brand === 'hikvision' && d.model === deviceCode);
+    if (existingDevice) {
+      existingDevice.status = 'online';
+      existingDevice.lastOnline = new Date().toISOString();
+      return existingDevice;
+    }
+
+    const newDevice: CameraDevice = {
+      id: `cam-${Date.now()}`,
+      brand: 'hikvision',
+      model: deviceCode,
+      name: `海康威视摄像头 ${deviceCode}`,
+      status: 'online',
+      streamUrl: `https://example.com/stream/${deviceCode}`,
+      thumbnailUrl: `https://picsum.photos/400/300?random=${Date.now()}`,
+      lastOnline: new Date().toISOString(),
+    };
+
+    this.devices.push(newDevice);
+    this.notifyConnection(newDevice);
+    return newDevice;
+  }
+
+  async connectEzviz(deviceCode: string): Promise<CameraDevice> {
+    await this.simulateDelay(MOCK_DELAY);
+    
+    const existingDevice = this.devices.find(d => d.brand === 'ezviz' && d.model === deviceCode);
+    if (existingDevice) {
+      existingDevice.status = 'online';
+      existingDevice.lastOnline = new Date().toISOString();
+      return existingDevice;
+    }
+
+    const newDevice: CameraDevice = {
+      id: `cam-${Date.now()}`,
+      brand: 'ezviz',
+      model: deviceCode,
+      name: `萤石摄像头 ${deviceCode}`,
+      status: 'online',
+      streamUrl: `https://example.com/stream/${deviceCode}`,
+      thumbnailUrl: `https://picsum.photos/400/300?random=${Date.now()}`,
+      lastOnline: new Date().toISOString(),
+    };
+
+    this.devices.push(newDevice);
+    this.notifyConnection(newDevice);
+    return newDevice;
+  }
+
+  async connectOther(deviceCode: string): Promise<CameraDevice> {
+    await this.simulateDelay(MOCK_DELAY);
+    
+    const existingDevice = this.devices.find(d => d.brand === 'other' && d.model === deviceCode);
+    if (existingDevice) {
+      existingDevice.status = 'online';
+      existingDevice.lastOnline = new Date().toISOString();
+      return existingDevice;
+    }
+
+    const newDevice: CameraDevice = {
+      id: `cam-${Date.now()}`,
+      brand: 'other',
+      model: deviceCode,
+      name: `通用摄像头 ${deviceCode}`,
+      status: 'online',
+      streamUrl: `https://example.com/stream/${deviceCode}`,
+      thumbnailUrl: `https://picsum.photos/400/300?random=${Date.now()}`,
+      lastOnline: new Date().toISOString(),
+    };
+
+    this.devices.push(newDevice);
+    this.notifyConnection(newDevice);
+    return newDevice;
+  }
+
   async getStream(deviceId: string): Promise<MediaStream> {
     await this.simulateDelay(500);
     
@@ -219,13 +324,34 @@ class CameraManager {
       await this.simulateDelay(delay);
     }
 
+    // 如果用户提供了设备名称，使用用户提供的名称
+    const deviceName = config.deviceName;
+    
     switch (config.brand) {
       case 'xiaomi':
-        return this.connectXiaomi(config.deviceCode);
+        const xiaomiDevice = await this.connectXiaomi(config.deviceCode);
+        if (deviceName) xiaomiDevice.name = deviceName;
+        return xiaomiDevice;
       case 'huawei':
-        return this.connectHuawei(config.deviceCode);
+        const huaweiDevice = await this.connectHuawei(config.deviceCode);
+        if (deviceName) huaweiDevice.name = deviceName;
+        return huaweiDevice;
       case 'honor':
-        return this.connectHonor(config.deviceCode);
+        const honorDevice = await this.connectHonor(config.deviceCode);
+        if (deviceName) honorDevice.name = deviceName;
+        return honorDevice;
+      case 'hikvision':
+        const hikvisionDevice = await this.connectHikvision(config.deviceCode);
+        if (deviceName) hikvisionDevice.name = deviceName;
+        return hikvisionDevice;
+      case 'ezviz':
+        const ezvizDevice = await this.connectEzviz(config.deviceCode);
+        if (deviceName) ezvizDevice.name = deviceName;
+        return ezvizDevice;
+      case 'other':
+        const otherDevice = await this.connectOther(config.deviceCode);
+        if (deviceName) otherDevice.name = deviceName;
+        return otherDevice;
       default:
         throw new Error(`Unsupported brand: ${config.brand}`);
     }

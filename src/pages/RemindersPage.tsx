@@ -10,20 +10,31 @@ import {
   Droplets,
   Pill,
   Activity,
-  Star
+  Star,
+  X
 } from 'lucide-react';
 import { Card, Button, EmptyState } from '../components/DesignSystem';
 import { useReminderStore } from '../store/reminderStore';
 import { usePetStore } from '../store/petStore';
 import { REMINDER_TYPES } from '../types/reminder';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface RemindersPageProps {
   onNavigate: (page: string) => void;
 }
 
 export const RemindersPage: React.FC<RemindersPageProps> = ({ onNavigate }) => {
-  const { reminders, selectedType, viewMode, getFilteredReminders, getUpcomingReminders, setSelectedType, setViewMode, toggleComplete } = useReminderStore();
+  const { reminders, selectedType, viewMode, getFilteredReminders, getUpcomingReminders, setSelectedType, setViewMode, toggleComplete, addReminder } = useReminderStore();
   const { currentPetId } = usePetStore();
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newReminder, setNewReminder] = useState({
+    title: '',
+    type: 'checkup',
+    date: '',
+    time: '09:00',
+    repeat: 'once' as 'once' | 'daily' | 'weekly' | 'monthly' | 'yearly',
+    notes: ''
+  });
 
   const filteredReminders = currentPetId ? getFilteredReminders(currentPetId) : [];
   const upcomingReminders = currentPetId ? getUpcomingReminders(currentPetId, 5) : [];
@@ -55,6 +66,35 @@ export const RemindersPage: React.FC<RemindersPageProps> = ({ onNavigate }) => {
     return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
   };
 
+  const handleAddReminder = () => {
+    if (!newReminder.title.trim()) {
+      alert('请输入提醒标题');
+      return;
+    }
+    if (!newReminder.date) {
+      alert('请选择日期');
+      return;
+    }
+
+    if (currentPetId) {
+      addReminder({
+        ...newReminder,
+        petId: currentPetId,
+        isCompleted: false,
+      });
+    }
+
+    setShowAddModal(false);
+    setNewReminder({
+      title: '',
+      type: 'checkup',
+      date: '',
+      time: '09:00',
+      repeat: 'once',
+      notes: ''
+    });
+  };
+
   return (
     <div className="min-h-screen bg-neutral-50 pb-24">
       {/* Header */}
@@ -71,7 +111,10 @@ export const RemindersPage: React.FC<RemindersPageProps> = ({ onNavigate }) => {
               <h1 className="text-xl font-bold">智能提醒</h1>
               <p className="text-sm text-white/80">不错过任何重要时间</p>
             </div>
-            <button className="p-2 rounded-full bg-white/20 backdrop-blur hover:bg-white/30 transition-all">
+            <button 
+              className="p-2 rounded-full bg-white/20 backdrop-blur hover:bg-white/30 transition-all"
+              onClick={() => setShowAddModal(true)}
+            >
               <Plus className="w-6 h-6" />
             </button>
           </div>
@@ -257,6 +300,140 @@ export const RemindersPage: React.FC<RemindersPageProps> = ({ onNavigate }) => {
           </div>
         </div>
       </div>
+
+      {/* 添加提醒模态框 */}
+      <AnimatePresence>
+        {showAddModal && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowAddModal(false)}
+              className="fixed inset-0 bg-black/50 z-50"
+            />
+            <motion.div
+              initial={{ opacity: 0, y: 100 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 100 }}
+              className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl z-50 p-6 max-h-[85vh] overflow-y-auto"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-bold text-gray-800">添加提醒</h3>
+                <button onClick={() => setShowAddModal(false)} className="p-2 hover:bg-gray-100 rounded-full">
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {/* 标题 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">标题</label>
+                  <input
+                    type="text"
+                    value={newReminder.title}
+                    onChange={(e) => setNewReminder({ ...newReminder, title: e.target.value })}
+                    placeholder="输入提醒标题..."
+                    className="w-full px-4 py-3 bg-gray-100 rounded-xl text-sm border-none focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:bg-white transition-all"
+                  />
+                </div>
+
+                {/* 类型 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">类型</label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {REMINDER_TYPES.map((type) => {
+                      const Icon = type.id === 'vaccine' ? Syringe : 
+                                   type.id === 'deworming' ? Droplets : 
+                                   type.id === 'checkup' ? Activity : 
+                                   type.id === 'bath' ? Droplets : 
+                                   type.id === 'brush_teeth' ? Pill : 
+                                   type.id === 'medicine' ? Pill : 
+                                   type.id === 'grooming' ? Scissors : Calendar;
+                      return (
+                        <button
+                          key={type.id}
+                          onClick={() => setNewReminder({ ...newReminder, type: type.id })}
+                          className={`flex flex-col items-center gap-1 p-3 rounded-xl transition-all ${
+                            newReminder.type === type.id
+                              ? 'bg-purple-500 text-white'
+                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          }`}
+                        >
+                          <Icon className="w-5 h-5" />
+                          <span className="text-xs font-medium">{type.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 日期 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">日期</label>
+                  <input
+                    type="date"
+                    value={newReminder.date}
+                    onChange={(e) => setNewReminder({ ...newReminder, date: e.target.value })}
+                    className="w-full px-4 py-3 bg-gray-100 rounded-xl text-sm border-none focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:bg-white transition-all"
+                  />
+                </div>
+
+                {/* 时间 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">时间</label>
+                  <input
+                    type="time"
+                    value={newReminder.time}
+                    onChange={(e) => setNewReminder({ ...newReminder, time: e.target.value })}
+                    className="w-full px-4 py-3 bg-gray-100 rounded-xl text-sm border-none focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:bg-white transition-all"
+                  />
+                </div>
+
+                {/* 重复 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">重复</label>
+                  <div className="flex gap-2">
+                    {(['once', 'daily', 'weekly', 'monthly', 'yearly'] as const).map((repeat) => (
+                      <button
+                        key={repeat}
+                        onClick={() => setNewReminder({ ...newReminder, repeat })}
+                        className={`flex-1 px-3 py-2 rounded-xl text-sm font-medium transition-all ${
+                          newReminder.repeat === repeat
+                            ? 'bg-purple-500 text-white'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        {repeat === 'once' ? '一次' : repeat === 'daily' ? '每天' : repeat === 'weekly' ? '每周' : repeat === 'monthly' ? '每月' : '每年'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 备注 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">备注</label>
+                  <textarea
+                    value={newReminder.notes}
+                    onChange={(e) => setNewReminder({ ...newReminder, notes: e.target.value })}
+                    placeholder="添加备注（可选）..."
+                    rows={2}
+                    className="w-full px-4 py-3 bg-gray-100 rounded-xl text-sm border-none focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:bg-white transition-all resize-none"
+                  />
+                </div>
+              </div>
+
+              {/* 提交按钮 */}
+              <button
+                onClick={handleAddReminder}
+                className="w-full mt-6 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-xl font-medium hover:shadow-lg hover:shadow-purple-500/30 transition-all"
+              >
+                创建提醒
+              </button>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

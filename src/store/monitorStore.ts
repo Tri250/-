@@ -2,6 +2,50 @@ import { create } from 'zustand';
 import type { LiveMonitoring, SmartEvent, RecordingSession, StreamConfig } from '../types/monitor';
 import { monitorService } from '../services/monitorService';
 
+// 初始示例事件数据
+const initialEvents: SmartEvent[] = [
+  {
+    id: 'event-1',
+    type: 'behavior',
+    severity: 'info',
+    description: '宠物正在安静休息，呼吸平稳',
+    cameraId: 'cam-001',
+    timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
+    petId: '1',
+    acknowledged: false,
+  },
+  {
+    id: 'event-2',
+    type: 'emotion',
+    severity: 'info',
+    description: '检测到宠物心情愉快，正在玩耍',
+    cameraId: 'cam-001',
+    timestamp: new Date(Date.now() - 1000 * 60 * 60).toISOString(),
+    petId: '1',
+    acknowledged: true,
+  },
+  {
+    id: 'event-3',
+    type: 'environment',
+    severity: 'warning',
+    description: '检测到环境光线较暗，已自动调节夜视模式',
+    cameraId: 'cam-001',
+    timestamp: new Date(Date.now() - 1000 * 60 * 90).toISOString(),
+    petId: '1',
+    acknowledged: true,
+  },
+  {
+    id: 'event-4',
+    type: 'behavior',
+    severity: 'info',
+    description: '宠物进食完毕，状态良好',
+    cameraId: 'cam-001',
+    timestamp: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
+    petId: '1',
+    acknowledged: true,
+  },
+];
+
 interface MonitorState {
   isMonitoring: boolean;
   monitoring: LiveMonitoring | null;
@@ -24,7 +68,7 @@ interface MonitorState {
 export const useMonitorStore = create<MonitorState>((set, get) => ({
   isMonitoring: false,
   monitoring: null,
-  events: [],
+  events: initialEvents,
   recordingSession: null,
   recordingDuration: 0,
   isLoading: false,
