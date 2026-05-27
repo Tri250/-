@@ -18,6 +18,7 @@ interface AIConsultationStore {
   generateReport: (petId: string, period: '7d' | '30d' | '90d') => void;
   
   getCurrentMessages: () => AIMessage[];
+  getTrendReport: (petId: string, period: string) => any;
 }
 
 export const useAIConsultationStore = create<AIConsultationStore>((set, get) => ({
@@ -122,5 +123,25 @@ export const useAIConsultationStore = create<AIConsultationStore>((set, get) => 
     const state = get();
     const consultation = state.consultations.find((c) => c.id === state.currentConsultationId);
     return consultation?.messages || [];
+  },
+
+  getTrendReport: (petId: string, period: string) => {
+    // 返回默认的趋势报告
+    return {
+      summary: '整体健康状况良好，建议继续保持当前的护理方式。',
+      weight: {
+        change: 0.2,
+        trend: 'stable'
+      },
+      activity: {
+        change: 30,
+        trend: 'up'
+      },
+      recommendations: [
+        '继续保持定期体检',
+        '增加饮水量',
+        '适当增加户外活动'
+      ]
+    };
   },
 }));
