@@ -30,6 +30,36 @@ export interface TrendReport {
   recommendations: string[];
   healthScore: number;
   chartsData: any;
+  weight: { change: number; trend: string };
+  activity: { change: number; trend: string };
+  createdAt: string;
+}
+
+export interface HealthReport {
+  id: string;
+  petId: string;
+  petName: string;
+  period: string;
+  title: string;
+  summary: string;
+  petBasicInfo: {
+    name: string;
+    age: string;
+    breed: string;
+    weight: string;
+  };
+  healthEvents: Array<{
+    date: string;
+    type: string;
+    description: string;
+  }>;
+  healthTrends: {
+    weight: { trend: string; change: number; unit: string };
+    activity: { trend: string; change: number; unit: string };
+  };
+  healthScore: number;
+  recommendations: string[];
+  isEmpty: boolean;
   createdAt: string;
 }
 
