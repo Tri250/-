@@ -36,13 +36,26 @@ interface CardConfig {
 }
 
 export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
-  const { currentPet, currentEmotion, healthScore } = useAppStore();
+  const { currentEmotion, healthScore } = useAppStore();
   const { metrics, badges, totalPoints, streakDays } = useBondStore();
-  const unlockedBadges = badges.filter(b => b.isUnlocked).length;
-  const { pets, currentPetId, setCurrentPet } = usePetStore();
+  const { pets, currentPetId, setCurrentPet, getCurrentPet } = usePetStore();
   const { getUpcomingReminders } = useReminderStore();
   const { getFilteredRecords } = useHealthRecordStore();
   const [showCardSettings, setShowCardSettings] = useState(false);
+  
+  const currentPet = getCurrentPet();
+  const unlockedBadges = badges.filter(b => b.isUnlocked).length;
+  
+  console.log('HomePage Debug:', {
+    currentPet,
+    pets,
+    currentPetId,
+    currentEmotion,
+    healthScore,
+    badgesCount: badges.length,
+    totalPoints,
+    streakDays,
+  });
   const [cardConfigs, setCardConfigs] = useState<CardConfig[]>([
     { id: 'pet_status', title: '宠物状态', icon: Heart, visible: true, order: 0 },
     { id: 'quick_actions', title: '快捷操作', icon: Activity, visible: true, order: 1 },
