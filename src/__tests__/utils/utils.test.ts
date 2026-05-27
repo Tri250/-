@@ -1,72 +1,105 @@
 import { describe, it, expect } from 'vitest';
 import { cn } from '@/lib/utils';
 
-describe('utils', () => {
-  describe('cn - className合并工具', () => {
-    it('应该合并多个className', () => {
-      const result = cn('text-red-500', 'bg-blue-500', 'p-4');
-      expect(result).toContain('text-red-500');
-      expect(result).toContain('bg-blue-500');
-      expect(result).toContain('p-4');
-    });
+describe('cn utility function', () => {
+  it('should return empty string when no inputs', () => {
+    expect(cn()).toBe('');
+  });
 
-    it('应该处理条件className', () => {
-      const isActive = true;
-      const result = cn('base-class', isActive && 'active-class', !isActive && 'inactive-class');
-      expect(result).toContain('base-class');
-      expect(result).toContain('active-class');
-      expect(result).not.toContain('inactive-class');
-    });
+  it('should return single class string', () => {
+    expect(cn('class1')).toBe('class1');
+  });
 
-    it('应该处理undefined和null', () => {
-      const result = cn('class1', undefined, null, 'class2');
-      expect(result).toContain('class1');
-      expect(result).toContain('class2');
-    });
+  it('should combine multiple class strings', () => {
+    expect(cn('class1', 'class2', 'class3')).toBe('class1 class2 class3');
+  });
 
-    it('应该处理空字符串', () => {
-      const result = cn('', 'class1', '');
-      expect(result).toContain('class1');
-    });
+  it('should handle conditional classes with true', () => {
+    expect(cn('base', true && 'conditional')).toBe('base conditional');
+  });
 
-    it('应该处理对象形式的className', () => {
-      const result = cn({
-        'class1': true,
-        'class2': false,
-        'class3': true,
-      });
-      expect(result).toContain('class1');
-      expect(result).toContain('class3');
-      expect(result).not.toContain('class2');
-    });
+  it('should handle conditional classes with false', () => {
+    expect(cn('base', false && 'conditional')).toBe('base');
+  });
 
-    it('应该合并数组形式的className', () => {
-      const result = cn(['class1', 'class2'], 'class3');
-      expect(result).toContain('class1');
-      expect(result).toContain('class2');
-      expect(result).toContain('class3');
-    });
+  it('should handle null values', () => {
+    expect(cn('base', null, 'other')).toBe('base other');
+  });
 
-    it('应该处理嵌套数组', () => {
-      const result = cn(['class1', ['class2', 'class3']], 'class4');
-      expect(result).toContain('class1');
-      expect(result).toContain('class2');
-      expect(result).toContain('class3');
-      expect(result).toContain('class4');
-    });
+  it('should handle undefined values', () => {
+    expect(cn('base', undefined, 'other')).toBe('base other');
+  });
 
-    it('应该处理混合类型输入', () => {
-      const result = cn(
-        'base',
-        { 'conditional': true },
-        ['array1', { 'arrayConditional': true }],
-        false && 'falsy'
-      );
-      expect(result).toContain('base');
-      expect(result).toContain('conditional');
-      expect(result).toContain('array1');
-      expect(result).toContain('arrayConditional');
-      expect(result).not.toContain('falsy');
-    });
+  it('should handle empty string', () => {
+    expect(cn('base', '', 'other')).toBe('base other');
+  });
+
+  it('should handle clsx-style arrays', () => {
+    expect(cn(['class1', 'class2'])).toBe('class1 class2');
+  });
+
+  it('should handle clsx-style objects', () => {
+    expect(cn({ 'class-a': true, 'class-b': false, 'class-c': true })).toBe('class-a class-c');
+  });
+
+  it('should merge conflicting Tailwind classes', () => {
+    expect(cn('text-red-500', 'text-blue-500')).toBe('text-blue-500');
+  });
+
+  it('should merge conflicting spacing classes', () => {
+    expect(cn('p-2', 'p-4')).toBe('p-4');
+  });
+
+  it('should merge conflicting color classes', () => {
+    expect(cn('bg-red-500', 'bg-blue-500')).toBe('bg-blue-500');
+  });
+
+  it('should preserve non-conflicting classes', () => {
+    expect(cn('text-red-500', 'bg-blue-500', 'p-4')).toBe('text-red-500 bg-blue-500 p-4');
+  });
+
+  it('should handle mixed input types', () => {
+    const result = cn(
+      'base',
+      true && 'conditional-true',
+      false && 'conditional-false',
+      null,
+      undefined,
+      { 'obj-class': true },
+      ['array-class1', 'array-class2']
+    );
+    expect(result).toBe('base conditional-true obj-class array-class1 array-class2');
+  });
+
+  it('should handle deep nested arrays', () => {
+    expect(cn(['class1', ['class2', ['class3']]])).toBe('class1 class2 class3');
+  });
+
+  it('should handle complex conditional logic', () => {
+    const isActive = true;
+    const isDisabled = false;
+    const size = 'large';
+
+    const result = cn(
+      'btn',
+      isActive && 'btn-active',
+      isDisabled && 'btn-disabled',
+      size === 'large' && 'btn-large',
+      size === 'small' && 'btn-small'
+    );
+
+    expect(result).toBe('btn btn-active btn-large');
+  });
+
+  it('should handle empty arrays', () => {
+    expect(cn('base', [], 'other')).toBe('base other');
+  });
+
+  it('should handle empty objects', () => {
+    expect(cn('base', {}, 'other')).toBe('base other');
+  });
+
+  it('should handle special characters in class names', () => {
+    expect(cn('hover:bg-red-500', 'focus:outline-none', 'md:p-4')).toBe('hover:bg-red-500 focus:outline-none md:p-4');
   });
 });

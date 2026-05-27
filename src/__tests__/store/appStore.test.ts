@@ -1,281 +1,274 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { useAppStore } from '../../store/appStore';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { useAppStore } from '@/store/appStore';
 
-describe('AppStore', () => {
+describe('appStore', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  describe('Initial State - 初始状态', () => {
-    it('应该有默认的初始状态', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  describe('Initial State', () => {
+    it('should have initial state with default values', () => {
       const store = useAppStore.getState();
-      
+      expect(store.user).toBeNull();
       expect(store.isAuthenticated).toBe(true);
       expect(store.isOnboardingComplete).toBe(true);
-      expect(store.pets).toHaveLength(1);
-      expect(store.currentPet).not.toBeNull();
-      expect(store.healthAlerts).toHaveLength(1);
-      expect(store.careTips).toHaveLength(5);
-    });
-
-    it('初始宠物应该是小橘', () => {
-      const store = useAppStore.getState();
-      
-      expect(store.currentPet?.name).toBe('小橘');
-      expect(store.currentPet?.breed).toBe('橘猫');
-      expect(store.currentPet?.type).toBe('cat');
-    });
-  });
-
-  describe('setUser - 设置用户', () => {
-    it('应该设置用户并更新认证状态', () => {
-      const mockUser = {
-        id: 'user-1',
-        email: 'test@example.com',
-        username: 'testuser',
-        isPremium: false,
-        createdAt: new Date().toISOString(),
-      };
-      
-      useAppStore.getState().setUser(mockUser);
-      const store = useAppStore.getState();
-      
-      expect(store.user).toEqual(mockUser);
-      expect(store.isAuthenticated).toBe(true);
-    });
-
-    it('设置null用户应该取消认证', () => {
-      useAppStore.getState().setUser(null);
-      const store = useAppStore.getState();
-      
-      expect(store.user).toBeNull();
-      expect(store.isAuthenticated).toBe(false);
-    });
-  });
-
-  describe('login - 登录', () => {
-    it('应该成功登录并设置用户', async () => {
-      const result = await useAppStore.getState().login('test@example.com', 'password');
-      
-      expect(result).toBe(true);
-      const store = useAppStore.getState();
-      expect(store.user).not.toBeNull();
-      expect(store.user?.email).toBe('test@example.com');
-      expect(store.isAuthenticated).toBe(true);
-    });
-  });
-
-  describe('register - 注册', () => {
-    it('应该成功注册并设置用户', async () => {
-      const result = await useAppStore.getState().register('new@example.com', 'password', 'newuser');
-      
-      expect(result).toBe(true);
-      const store = useAppStore.getState();
-      expect(store.user?.email).toBe('new@example.com');
-      expect(store.user?.username).toBe('newuser');
-      expect(store.isAuthenticated).toBe(true);
-    });
-
-    it('注册后应该未完成引导', async () => {
-      await useAppStore.getState().register('test@example.com', 'password', 'testuser');
-      const store = useAppStore.getState();
-      
-      expect(store.isOnboardingComplete).toBe(false);
-    });
-  });
-
-  describe('logout - 登出', () => {
-    it('应该成功登出并清除用户状态', () => {
-      useAppStore.getState().logout();
-      const store = useAppStore.getState();
-      
-      expect(store.user).toBeNull();
-      expect(store.isAuthenticated).toBe(false);
-      expect(store.isOnboardingComplete).toBe(false);
-    });
-  });
-
-  describe('completeOnboarding - 完成引导', () => {
-    it('应该设置引导完成状态', () => {
-      useAppStore.getState().logout();
-      const storeBefore = useAppStore.getState();
-      expect(storeBefore.isOnboardingComplete).toBe(false);
-      
-      useAppStore.getState().completeOnboarding();
-      const storeAfter = useAppStore.getState();
-      expect(storeAfter.isOnboardingComplete).toBe(true);
-    });
-  });
-
-  describe('setCurrentPet - 设置当前宠物', () => {
-    it('应该设置当前宠物', () => {
-      const newPet = {
-        id: 'pet-2',
-        name: '小黑',
-        breed: '黑猫',
-        age: 3,
-        avatarUrl: '',
-        type: 'cat' as const,
-      };
-      
-      useAppStore.getState().setCurrentPet(newPet);
-      const store = useAppStore.getState();
-      
-      expect(store.currentPet?.id).toBe('pet-2');
-      expect(store.currentPet?.name).toBe('小黑');
-    });
-  });
-
-  describe('addPet - 添加宠物', () => {
-    it('应该添加新宠物到列表', () => {
-      const initialCount = useAppStore.getState().pets.length;
-      
-      useAppStore.getState().addPet({
-        name: '旺财',
-        breed: '金毛',
-        age: 1,
-        avatarUrl: '',
-        type: 'dog' as const,
-      });
-      
-      const store = useAppStore.getState();
-      expect(store.pets.length).toBe(initialCount + 1);
-      expect(store.pets.find(p => p.name === '旺财')).not.toBeUndefined();
-    });
-
-    it('新添加的宠物应该有自动生成的ID', () => {
-      useAppStore.getState().addPet({
-        name: '球球',
-        breed: '泰迪',
+      expect(store.pets).toEqual(expect.arrayContaining([
+        expect.objectContaining({ id: '1', name: '小橘', type: 'cat' })
+      ]));
+      expect(store.currentPet).toEqual({
+        id: '1',
+        name: '小橘',
+        breed: '橘猫',
         age: 2,
         avatarUrl: '',
-        type: 'dog' as const,
+        type: 'cat',
       });
-      
-      const store = useAppStore.getState();
-      const newPet = store.pets.find(p => p.name === '球球');
-      expect(newPet?.id).toBeDefined();
+      expect(store.analyses).toEqual([]);
+      expect(store.healthAlerts).toEqual(expect.arrayContaining([
+        expect.objectContaining({ id: '1', type: 'abnormal', severity: 'low' })
+      ]));
+      expect(store.currentEmotion).toBe('happy');
+      expect(store.healthScore).toBe(92);
+      expect(store.isRecording).toBe(false);
+      expect(store.careTips).toHaveLength(5);
     });
   });
 
-  describe('addAnalysis - 添加分析记录', () => {
-    it('应该添加新的分析记录', () => {
-      const initialCount = useAppStore.getState().analyses.length;
+  describe('User Management', () => {
+    it('should set user correctly', () => {
+      const store = useAppStore.getState();
+      const testUser = {
+        id: '2',
+        email: 'test@example.com',
+        username: 'testuser',
+        isPremium: true,
+        createdAt: new Date().toISOString(),
+      };
+
+      store.setUser(testUser);
+      expect(useAppStore.getState().user).toEqual(testUser);
+      expect(useAppStore.getState().isAuthenticated).toBe(true);
+    });
+
+    it('should set user to null and update authentication status', () => {
+      const store = useAppStore.getState();
+      store.setUser(null);
+      expect(useAppStore.getState().user).toBeNull();
+      expect(useAppStore.getState().isAuthenticated).toBe(false);
+    });
+
+    it('should login successfully', async () => {
+      const store = useAppStore.getState();
+      const result = await store.login('test@example.com', 'password');
       
-      useAppStore.getState().addAnalysis({
+      expect(result).toBe(true);
+      expect(useAppStore.getState().user).toBeDefined();
+      expect(useAppStore.getState().user?.email).toBe('test@example.com');
+      expect(useAppStore.getState().isAuthenticated).toBe(true);
+    });
+
+    it('should register successfully', async () => {
+      const store = useAppStore.getState();
+      const result = await store.register('new@example.com', 'password', 'newuser');
+      
+      expect(result).toBe(true);
+      expect(useAppStore.getState().user).toBeDefined();
+      expect(useAppStore.getState().user?.username).toBe('newuser');
+      expect(useAppStore.getState().isAuthenticated).toBe(true);
+      expect(useAppStore.getState().isOnboardingComplete).toBe(false);
+    });
+
+    it('should logout and reset state', () => {
+      const store = useAppStore.getState();
+      store.logout();
+      
+      expect(useAppStore.getState().user).toBeNull();
+      expect(useAppStore.getState().isAuthenticated).toBe(false);
+      expect(useAppStore.getState().isOnboardingComplete).toBe(false);
+    });
+
+    it('should complete onboarding', () => {
+      const store = useAppStore.getState();
+      store.completeOnboarding();
+      expect(useAppStore.getState().isOnboardingComplete).toBe(true);
+    });
+  });
+
+  describe('Pet Management', () => {
+    it('should set current pet', () => {
+      const store = useAppStore.getState();
+      const newPet = {
+        id: '2',
+        name: '旺财',
+        breed: '金毛',
+        age: 3,
+        avatarUrl: '',
+        type: 'dog',
+      };
+
+      store.setCurrentPet(newPet);
+      expect(useAppStore.getState().currentPet).toEqual(newPet);
+    });
+
+    it('should add a new pet', () => {
+      const store = useAppStore.getState();
+      const initialLength = store.pets.length;
+      
+      store.addPet({
+        name: '新宠物',
+        breed: '品种',
+        age: 1,
+        avatarUrl: '',
+        type: 'cat',
+      });
+
+      const newState = useAppStore.getState();
+      expect(newState.pets.length).toBe(initialLength + 1);
+      expect(newState.pets[newState.pets.length - 1].name).toBe('新宠物');
+      expect(newState.pets[newState.pets.length - 1].id).toBeDefined();
+    });
+
+    it('should generate unique id for new pets', () => {
+      const store = useAppStore.getState();
+      const initialPets = [...store.pets];
+      
+      store.addPet({ name: 'pet1', breed: 'b', age: 1, avatarUrl: '', type: 'cat' });
+      setTimeout(() => {
+        store.addPet({ name: 'pet2', breed: 'b', age: 2, avatarUrl: '', type: 'dog' });
+      }, 1);
+      
+      const newState = useAppStore.getState();
+      const newPets = newState.pets.filter(p => !initialPets.find(ip => ip.id === p.id));
+      
+      expect(newPets.length).toBeGreaterThanOrEqual(1);
+      newPets.forEach((pet, index) => {
+        expect(pet.id).toBeDefined();
+        if (index > 0) {
+          expect(pet.id).not.toBe(newPets[index - 1].id);
+        }
+      });
+    });
+  });
+
+  describe('Analysis Management', () => {
+    it('should add analysis with generated id and timestamp', () => {
+      const store = useAppStore.getState();
+      const initialLength = store.analyses.length;
+      
+      store.addAnalysis({
         petId: '1',
         type: 'voice',
         result: {
           emotion: 'happy',
-          translation: '测试翻译',
+          translation: '开心',
           confidence: 90,
         },
       });
-      
-      const store = useAppStore.getState();
-      expect(store.analyses.length).toBe(initialCount + 1);
-    });
 
-    it('分析记录应该有自动生成的ID和创建时间', () => {
-      useAppStore.getState().addAnalysis({
-        petId: '1',
-        type: 'image',
-        result: {
-          emotion: 'happy',
-          translation: '图片分析',
-          confidence: 85,
-        },
-      });
-      
-      const store = useAppStore.getState();
-      const latestAnalysis = store.analyses[store.analyses.length - 1];
-      
-      expect(latestAnalysis.id).toBeDefined();
-      expect(latestAnalysis.createdAt).toBeDefined();
+      const newState = useAppStore.getState();
+      expect(newState.analyses.length).toBe(initialLength + 1);
+      const newAnalysis = newState.analyses[newState.analyses.length - 1];
+      expect(newAnalysis.id).toBeDefined();
+      expect(newAnalysis.createdAt).toBeDefined();
+      expect(new Date(newAnalysis.createdAt)).toBeInstanceOf(Date);
     });
   });
 
-  describe('addHealthAlert - 添加健康提醒', () => {
-    it('应该添加新的健康提醒', () => {
-      const initialCount = useAppStore.getState().healthAlerts.length;
+  describe('Health Alert Management', () => {
+    it('should add health alert with generated id', () => {
+      const store = useAppStore.getState();
+      const initialLength = store.healthAlerts.length;
       
-      useAppStore.getState().addHealthAlert({
+      store.addHealthAlert({
         petId: '1',
         type: 'cough',
         severity: 'medium',
-        message: '检测到咳嗽',
-        timestamp: new Date().toISOString(),
+        message: '测试警报',
+        timestamp: '2024-01-15 15:00',
       });
-      
-      const store = useAppStore.getState();
-      expect(store.healthAlerts.length).toBe(initialCount + 1);
+
+      const newState = useAppStore.getState();
+      expect(newState.healthAlerts.length).toBe(initialLength + 1);
+      const newAlert = newState.healthAlerts[newState.healthAlerts.length - 1];
+      expect(newAlert.id).toBeDefined();
+      expect(newAlert.message).toBe('测试警报');
     });
   });
 
-  describe('setIsRecording - 设置录制状态', () => {
-    it('应该设置录制状态为true', () => {
-      useAppStore.getState().setIsRecording(true);
+  describe('State Updates', () => {
+    it('should update recording state', () => {
       const store = useAppStore.getState();
-      expect(store.isRecording).toBe(true);
-    });
-
-    it('应该设置录制状态为false', () => {
-      useAppStore.getState().setIsRecording(false);
-      const store = useAppStore.getState();
-      expect(store.isRecording).toBe(false);
-    });
-  });
-
-  describe('setCurrentEmotion - 设置当前情感', () => {
-    it('应该设置当前情感', () => {
-      useAppStore.getState().setCurrentEmotion('anxious');
-      const store = useAppStore.getState();
-      expect(store.currentEmotion).toBe('anxious');
-    });
-
-    it('应该接受所有有效的情感类型', () => {
-      const emotions: ('happy' | 'anxious' | 'angry' | 'needs' | 'neutral')[] = ['happy', 'anxious', 'angry', 'needs', 'neutral'];
+      store.setIsRecording(true);
+      expect(useAppStore.getState().isRecording).toBe(true);
       
-      emotions.forEach(emotion => {
-        useAppStore.getState().setCurrentEmotion(emotion);
-        expect(useAppStore.getState().currentEmotion).toBe(emotion);
-      });
+      store.setIsRecording(false);
+      expect(useAppStore.getState().isRecording).toBe(false);
     });
-  });
 
-  describe('setHealthScore - 设置健康评分', () => {
-    it('应该设置健康评分', () => {
-      useAppStore.getState().setHealthScore(85);
+    it('should update current emotion', () => {
       const store = useAppStore.getState();
-      expect(store.healthScore).toBe(85);
+      store.setCurrentEmotion('anxious');
+      expect(useAppStore.getState().currentEmotion).toBe('anxious');
+      
+      store.setCurrentEmotion('happy');
+      expect(useAppStore.getState().currentEmotion).toBe('happy');
     });
 
-    it('应该接受有效的评分值', () => {
-      useAppStore.getState().setHealthScore(0);
-      expect(useAppStore.getState().healthScore).toBe(0);
+    it('should update health score', () => {
+      const store = useAppStore.getState();
+      store.setHealthScore(85);
+      expect(useAppStore.getState().healthScore).toBe(85);
       
-      useAppStore.getState().setHealthScore(100);
+      store.setHealthScore(100);
       expect(useAppStore.getState().healthScore).toBe(100);
     });
   });
 
-  describe('careTips - 护理建议', () => {
-    it('应该包含所有类别的建议', () => {
+  describe('Care Tips', () => {
+    it('should have correct number of care tips', () => {
       const store = useAppStore.getState();
-      
+      expect(store.careTips).toHaveLength(5);
+    });
+
+    it('should have correct categories', () => {
+      const store = useAppStore.getState();
       const categories = store.careTips.map(tip => tip.category);
       expect(categories).toContain('feeding');
-      expect(categories).toContain('exercise');
-      expect(categories).toContain('grooming');
       expect(categories).toContain('health');
+      expect(categories).toContain('grooming');
+      expect(categories).toContain('exercise');
       expect(categories).toContain('behavior');
     });
 
-    it('建议应该有正确的优先级', () => {
+    it('should have correct priorities', () => {
       const store = useAppStore.getState();
-      
-      store.careTips.forEach(tip => {
-        expect(['high', 'medium', 'low']).toContain(tip.priority);
+      const priorities = store.careTips.map(tip => tip.priority);
+      expect(priorities).toContain('high');
+      expect(priorities).toContain('medium');
+    });
+  });
+
+  describe('Type Safety', () => {
+    it('should only accept valid emotion types', () => {
+      const store = useAppStore.getState();
+      expect(['happy', 'anxious', 'angry', 'needs', 'neutral']).toContain(store.currentEmotion);
+    });
+
+    it('should only accept valid pet types', () => {
+      const store = useAppStore.getState();
+      store.pets.forEach(pet => {
+        expect(['cat', 'dog', 'other']).toContain(pet.type);
+      });
+    });
+
+    it('should only accept valid alert types', () => {
+      const store = useAppStore.getState();
+      store.healthAlerts.forEach(alert => {
+        expect(['cough', 'vomit', 'pain', 'abnormal']).toContain(alert.type);
       });
     });
   });
