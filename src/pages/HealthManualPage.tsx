@@ -133,7 +133,11 @@ export const HealthManualPage: React.FC<HealthManualPageProps> = ({ onNavigate }
                 return (
                   <button
                     key={category.id}
-                    onClick={() => setSelectedCategory(selectedCategory === category.id ? null : category.id)}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setSelectedCategory(selectedCategory === category.id ? null : category.id);
+                    }}
                     className={`p-4 rounded-2xl text-left transition-all ${
                       selectedCategory === category.id
                         ? 'bg-white shadow-lg border-2 border-primary-500'
@@ -285,7 +289,14 @@ export const HealthManualPage: React.FC<HealthManualPageProps> = ({ onNavigate }
             >
               <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between z-10">
                 <h3 className="text-lg font-bold text-gray-800">详情</h3>
-                <button onClick={() => setSelectedManual(null)} className="p-2 hover:bg-gray-100 rounded-full">
+                <button 
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setSelectedManual(null);
+                  }} 
+                  className="p-2 hover:bg-gray-100 rounded-full"
+                >
                   <X className="w-5 h-5 text-gray-500" />
                 </button>
               </div>
@@ -326,7 +337,9 @@ export const HealthManualPage: React.FC<HealthManualPageProps> = ({ onNavigate }
 
                 <div className="mt-6 flex gap-3">
                   <button
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
                       toggleBookmark(selectedManual.id);
                       setSelectedManual({ ...selectedManual });
                     }}
@@ -335,7 +348,13 @@ export const HealthManualPage: React.FC<HealthManualPageProps> = ({ onNavigate }
                     <Bookmark className={`w-5 h-5 ${bookmarks.includes(selectedManual.id) ? 'fill-primary-500 text-primary-500' : ''}`} />
                     {bookmarks.includes(selectedManual.id) ? '已收藏' : '收藏'}
                   </button>
-                  <button className="flex-1 py-3 bg-gradient-to-r from-primary-500 to-primary-600 text-white rounded-xl font-medium">
+                  <button 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                    className="flex-1 py-3 bg-gradient-to-r from-primary-500 to-primary-600 text-white rounded-xl font-medium"
+                  >
                     分享
                   </button>
                 </div>

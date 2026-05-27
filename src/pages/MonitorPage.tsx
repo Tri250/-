@@ -83,7 +83,7 @@ function ActionButton({
   icon: any; 
   label: string; 
   active?: boolean;
-  onClick: () => void;
+  onClick: (e: React.MouseEvent) => void;
   disabled?: boolean;
 }) {
   return (
@@ -245,7 +245,11 @@ export function MonitorPage() {
             <div className="flex items-center gap-2">
               {unacknowledgedEvents.length > 0 && (
                 <button
-                  onClick={() => setActiveTab('events')}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setActiveTab('events');
+                  }}
                   className="relative p-2 rounded-full bg-red-50 text-red-500 hover:bg-red-100 transition-colors"
                 >
                   <AlertTriangle className="w-5 h-5" />
@@ -254,7 +258,13 @@ export function MonitorPage() {
                   </span>
                 </button>
               )}
-              <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
+              <button 
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+              >
                 <Settings className="w-5 h-5 text-gray-600" />
               </button>
             </div>
@@ -264,7 +274,11 @@ export function MonitorPage() {
             {devices.filter(d => d.status === 'online').map((device) => (
               <button
                 key={device.id}
-                onClick={() => selectDevice(device)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  selectDevice(device);
+                }}
                 className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
                   selectedDevice?.id === device.id
                     ? 'bg-gradient-to-r from-orange-400 to-peach-500 text-white shadow-lg'
@@ -279,7 +293,11 @@ export function MonitorPage() {
               </button>
             ))}
             <button
-              onClick={() => setShowAddCameraModal(true)}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setShowAddCameraModal(true);
+              }}
               className="flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 bg-primary-500 text-white hover:bg-primary-600 shadow-lg"
             >
               <Plus className="w-4 h-4" />
@@ -299,7 +317,11 @@ export function MonitorPage() {
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setActiveTab(tab.id);
+                  }}
                   className={`flex-1 py-3 px-4 flex items-center justify-center gap-2 text-sm font-medium transition-colors border-b-2 ${
                     activeTab === tab.id
                       ? 'text-orange-500 border-orange-500'
@@ -350,7 +372,11 @@ export function MonitorPage() {
                 <div className="flex gap-3">
                   {!isMonitoring ? (
                     <button
-                      onClick={handleStartMonitoring}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleStartMonitoring();
+                      }}
                       className="flex-1 py-3 rounded-xl bg-gradient-to-r from-orange-400 to-peach-500 text-white hover:from-orange-500 hover:to-peach-600 transition-colors font-medium flex items-center justify-center gap-2 shadow-lg"
                     >
                       <Monitor className="w-5 h-5" />
@@ -358,7 +384,11 @@ export function MonitorPage() {
                     </button>
                   ) : (
                     <button
-                      onClick={handleStopMonitoring}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleStopMonitoring();
+                      }}
                       className="flex-1 py-3 rounded-xl bg-gradient-to-r from-red-400 to-red-500 text-white hover:from-red-500 hover:to-red-600 transition-colors font-medium flex items-center justify-center gap-2 shadow-lg"
                     >
                       <Monitor className="w-5 h-5" />
@@ -377,25 +407,41 @@ export function MonitorPage() {
                       icon={isMuted ? VolumeX : Volume2} 
                       label={isMuted ? '取消静音' : '静音'}
                       active={isMuted}
-                      onClick={() => setIsMuted(!isMuted)}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setIsMuted(!isMuted);
+                      }}
                     />
                     <ActionButton 
                       icon={isTalking ? MicOff : Mic} 
                       label={isTalking ? '结束对讲' : '语音对讲'}
                       active={isTalking}
-                      onClick={() => setIsTalking(!isTalking)}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setIsTalking(!isTalking);
+                      }}
                       disabled={!isMonitoring}
                     />
                     <ActionButton 
                       icon={Camera} 
                       label="截图"
-                      onClick={() => alert('截图功能')}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        alert('截图功能');
+                      }}
                       disabled={!isMonitoring}
                     />
                     <ActionButton 
                       icon={Maximize2} 
                       label="全屏"
-                      onClick={() => setIsFullscreen(true)}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setIsFullscreen(true);
+                      }}
                       disabled={!isMonitoring}
                     />
                   </div>
@@ -484,7 +530,14 @@ export function MonitorPage() {
             >
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-bold text-gray-800">添加摄像头</h3>
-                <button onClick={() => setShowAddCameraModal(false)} className="p-2 hover:bg-gray-100 rounded-full">
+                <button 
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShowAddCameraModal(false);
+                  }} 
+                  className="p-2 hover:bg-gray-100 rounded-full"
+                >
                   <X className="w-5 h-5 text-gray-500" />
                 </button>
               </div>
@@ -497,7 +550,11 @@ export function MonitorPage() {
                     {cameraBrands.map((brand) => (
                       <button
                         key={brand.id}
-                        onClick={() => setCameraBrand(brand.id)}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setCameraBrand(brand.id);
+                        }}
                         className={`flex flex-col items-center gap-1 p-3 rounded-xl transition-all ${
                           cameraBrand === brand.id
                             ? 'bg-primary-500 text-white'
@@ -548,7 +605,11 @@ export function MonitorPage() {
 
               {/* 提交按钮 */}
               <button
-                onClick={handleAddCamera}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleAddCamera();
+                }}
                 disabled={isPairing}
                 className={`w-full mt-6 py-3 rounded-xl font-medium transition-all ${
                   isPairing

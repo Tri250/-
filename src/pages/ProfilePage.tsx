@@ -72,7 +72,13 @@ export function ProfilePage() {
               <div className="w-20 h-20 rounded-full bg-gradient-to-br from-orange-400 to-peach-500 flex items-center justify-center text-4xl shadow-lg">
                 {emotionEmoji[analyses.length > 0 ? analyses[analyses.length - 1].result.emotion : 'happy']}
               </div>
-              <button className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-purple-500 text-white flex items-center justify-center shadow-md">
+              <button 
+                className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-purple-500 text-white flex items-center justify-center shadow-md"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+              >
                 <Camera className="w-4 h-4" />
               </button>
             </div>
@@ -89,7 +95,11 @@ export function ProfilePage() {
                   <h2 className="text-xl font-bold text-gray-800">{petName}</h2>
                 )}
                 <button
-                  onClick={() => setShowEdit(!showEdit)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShowEdit(!showEdit);
+                  }}
                   className="p-1.5 rounded-full hover:bg-gray-100 transition-colors"
                 >
                   {showEdit ? <X className="w-4 h-4 text-gray-500" /> : <Edit className="w-4 h-4 text-gray-500" />}
@@ -180,7 +190,11 @@ export function ProfilePage() {
             return (
               <button
                 key={item.label}
-                onClick={() => handleMenuClick(item.action)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleMenuClick(item.action);
+                }}
                 className="w-full flex items-center gap-3 p-4 hover:bg-gray-50 transition-colors"
               >
                 <div className="w-10 h-10 rounded-full bg-purple-50 flex items-center justify-center">
@@ -235,7 +249,14 @@ export function ProfilePage() {
                   <h3 className="text-lg font-bold text-gray-800">
                     {showModal === 'history' ? '分析历史' : showModal === 'settings' ? '设置' : '帮助与反馈'}
                   </h3>
-                  <button onClick={() => setShowModal(null)} className="p-2 hover:bg-gray-100 rounded-full">
+                  <button 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setShowModal(null);
+                    }} 
+                    className="p-2 hover:bg-gray-100 rounded-full"
+                  >
                     <X className="w-5 h-5 text-gray-500" />
                   </button>
                 </div>
@@ -288,7 +309,13 @@ export function ProfilePage() {
                         <div className="absolute right-1 top-1 w-4 h-4 bg-white rounded-full" />
                       </div>
                     </div>
-                    <button className="w-full py-3 bg-gray-100 text-gray-700 rounded-xl font-medium">
+                    <button 
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      className="w-full py-3 bg-gray-100 text-gray-700 rounded-xl font-medium"
+                    >
                       清除缓存
                     </button>
                   </div>
@@ -315,7 +342,11 @@ export function ProfilePage() {
                         className="w-full px-4 py-3 bg-gray-100 rounded-xl text-sm border-none focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:bg-white transition-all resize-none"
                       />
                       <button
-                        onClick={handleSubmitFeedback}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleSubmitFeedback();
+                        }}
                         className="w-full mt-4 py-3 bg-gradient-to-r from-primary-500 to-primary-600 text-white rounded-xl font-medium"
                       >
                         提交反馈
