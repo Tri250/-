@@ -174,22 +174,22 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
         return (
           <div key={cardConfig.id} className="grid grid-cols-3 gap-3 animate-slide-up" style={{ animationDelay: `${delay}s` }}>
             {quickActions.map((action) => (
-              <div
-                key={action.page}
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onNavigate(action.page);
-                }}
-                className="col-span-1 cursor-pointer"
-              >
-                <Card className="text-center h-full" hover={true}>
+              <div key={action.page} className="col-span-1">
+                <div 
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('Navigating to:', action.page);
+                    onNavigate(action.page);
+                  }}
+                  className="rounded-2xl border border-neutral-100 bg-white shadow-card p-5 text-center cursor-pointer hover:-translate-y-1 hover:shadow-elevated hover:border-primary-100 transition-all duration-300"
+                >
                   <div className={`w-12 h-12 mx-auto rounded-2xl bg-gradient-to-r ${action.color} flex items-center justify-center mb-3 shadow-md`}>
                     <action.icon className="w-6 h-6 text-white" />
                   </div>
                   <h4 className="font-semibold text-sm text-neutral-800 mb-1">{action.label}</h4>
                   <p className="text-xs text-neutral-500">{action.description}</p>
-                </Card>
+                </div>
               </div>
             ))}
           </div>
