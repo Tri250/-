@@ -29,8 +29,8 @@ export const Button: React.FC<ButtonProps> = ({
   const variantClasses = {
     primary: 'bg-gradient-primary text-white hover:shadow-glow-primary hover:-translate-y-0.5 active:translate-y-0 active:scale-97',
     secondary: 'bg-secondary-500 text-white hover:bg-secondary-600 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 active:scale-97',
-    outline: 'border-2 border-primary-500 text-primary-500 hover:bg-primary-50 active:scale-97',
-    ghost: 'text-neutral-700 hover:bg-neutral-100 active:scale-97',
+    outline: 'border-2 border-primary-500 text-primary-500 hover:bg-primary-50 dark:text-primary-400 dark:border-primary-400 dark:hover:bg-primary-900/20 active:scale-97',
+    ghost: 'text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800 active:scale-97',
     gradient: 'bg-gradient-primary text-white hover:shadow-glow-primary hover:-translate-y-0.5 active:translate-y-0 active:scale-97',
   };
   
