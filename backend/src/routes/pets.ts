@@ -27,24 +27,61 @@ router.get('/', async (req: Request, res: Response) => {
       })),
     }));
 
-    res.json({ pets: parsedPets });
+    res.json({ 
+      code: 200,
+      message: '获取宠物列表成功',
+      data: { pets: parsedPets },
+      timestamp: new Date().toISOString()
+    });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: '获取宠物列表失败' });
+    res.status(500).json({ 
+      code: 500,
+      message: '获取宠物列表失败',
+      data: null,
+      timestamp: new Date().toISOString()
+    });
   }
 });
 
 router.post(
   '/',
   [
-    body('name').isLength({ min: 1 }),
-    body('type').isIn(['DOG', 'CAT', 'OTHER']),
-    body('gender').isIn(['MALE', 'FEMALE']),
+    body('name').isLength({ min: 1 }).withMessage('宠物名称不能为空'),
+    body('type').isIn(['DOG', 'CAT', 'OTHER']).withMessage('宠物类型仅支持 dog/cat/other'),
+    body('gender').isIn(['MALE', 'FEMALE']).withMessage('性别仅支持 male/female'),
+    body('birthday').optional().custom((value) => {
+      if (value) {
+        const birthday = new Date(value);
+        const today = new Date();
+        if (birthday > today) {
+          throw new Error('生日不能为未来日期');
+        }
+      }
+      return true;
+    }),
+    body('weight').optional().custom((value) => {
+      if (value !== undefined && value !== null) {
+        if (typeof value === 'number' && value < 0) {
+          throw new Error('体重必须为正数');
+        }
+      }
+      return true;
+    }),
+    body('healthStatus').optional().isIn(['EXCELLENT', 'GOOD', 'FAIR', 'CONCERN']).withMessage('健康状态仅支持 excellent/good/fair/concern'),
   ],
   async (req: Request, res: Response) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      return res.status(400).json({ 
+        code: 400,
+        message: '创建宠物信息验证失败',
+        errors: errors.array().map(err => ({
+          field: 'path' in err ? err.path : 'unknown',
+          message: err.msg
+        })),
+        timestamp: new Date().toISOString()
+      });
     }
 
     try {
@@ -77,10 +114,20 @@ router.post(
         },
       });
 
-      res.status(201).json({ pet });
+      res.status(201).json({ 
+        code: 201,
+        message: '创建宠物成功',
+        data: { pet },
+        timestamp: new Date().toISOString()
+      });
     } catch (error) {
       console.error(error);
-      res.status(500).json({ error: '创建宠物失败' });
+      res.status(500).json({ 
+        code: 500,
+        message: '创建宠物失败',
+        data: null,
+        timestamp: new Date().toISOString()
+      });
     }
   }
 );
@@ -90,7 +137,6 @@ router.get('/:id', async (req: Request, res: Response) => {
     const pet = await prisma.pet.findFirst({
       where: {
         id: req.params.id,
-        userId: req.userId,
       },
       include: {
         healthRecords: { orderBy: { createdAt: 'desc' } },
@@ -102,7 +148,21 @@ router.get('/:id', async (req: Request, res: Response) => {
     });
 
     if (!pet) {
-      return res.status(404).json({ error: '宠物不存在' });
+      return res.status(404).json({ 
+        code: 404,
+        message: '宠物不存在',
+        data: null,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    if (pet.userId !== req.userId) {
+      return res.status(403).json({ 
+        code: 403,
+        message: '无权访问该宠物',
+        data: null,
+        timestamp: new Date().toISOString()
+      });
     }
 
     const parsedPet = {
@@ -118,15 +178,83 @@ router.get('/:id', async (req: Request, res: Response) => {
       })),
     };
 
-    res.json({ pet: parsedPet });
+    res.json({ 
+      code: 200,
+      message: '获取宠物信息成功',
+      data: { pet: parsedPet },
+      timestamp: new Date().toISOString()
+    });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: '获取宠物信息失败' });
+    res.status(500).json({ 
+      code: 500,
+      message: '获取宠物信息失败',
+      data: null,
+      timestamp: new Date().toISOString()
+    });
   }
 });
 
-router.put('/:id', async (req: Request, res: Response) => {
+router.put('/:id', [
+  body('name').optional().isLength({ min: 1 }).withMessage('宠物名称不能为空'),
+  body('type').optional().isIn(['DOG', 'CAT', 'OTHER']).withMessage('宠物类型仅支持 dog/cat/other'),
+  body('gender').optional().isIn(['MALE', 'FEMALE']).withMessage('性别仅支持 male/female'),
+  body('birthday').optional().custom((value) => {
+    if (value) {
+      const birthday = new Date(value);
+      const today = new Date();
+      if (birthday > today) {
+        throw new Error('生日不能为未来日期');
+      }
+    }
+    return true;
+  }),
+  body('weight').optional().custom((value) => {
+    if (value !== undefined && value !== null) {
+      if (typeof value === 'number' && value < 0) {
+        throw new Error('体重必须为正数');
+      }
+    }
+    return true;
+  }),
+  body('healthStatus').optional().isIn(['EXCELLENT', 'GOOD', 'FAIR', 'CONCERN']).withMessage('健康状态仅支持 excellent/good/fair/concern'),
+], async (req: Request, res: Response) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ 
+      code: 400,
+      message: '更新宠物信息验证失败',
+      errors: errors.array().map(err => ({
+        field: 'path' in err ? err.path : 'unknown',
+        message: err.msg
+      })),
+      timestamp: new Date().toISOString()
+    });
+  }
+
   try {
+    const existingPet = await prisma.pet.findUnique({
+      where: { id: req.params.id },
+    });
+
+    if (!existingPet) {
+      return res.status(404).json({ 
+        code: 404,
+        message: '宠物不存在',
+        data: null,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    if (existingPet.userId !== req.userId) {
+      return res.status(403).json({ 
+        code: 403,
+        message: '无权访问该宠物',
+        data: null,
+        timestamp: new Date().toISOString()
+      });
+    }
+
     const {
       name,
       avatar,
@@ -138,16 +266,13 @@ router.put('/:id', async (req: Request, res: Response) => {
       healthStatus,
     } = req.body;
 
-    const pet = await prisma.pet.updateMany({
-      where: {
-        id: req.params.id,
-        userId: req.userId,
-      },
+    const pet = await prisma.pet.update({
+      where: { id: req.params.id },
       data: {
         name,
         avatar,
         breed,
-        birthday: birthday ? new Date(birthday) : null,
+        birthday: birthday ? new Date(birthday) : undefined,
         weight,
         color,
         characteristics,
@@ -155,61 +280,150 @@ router.put('/:id', async (req: Request, res: Response) => {
       },
     });
 
-    if (pet.count === 0) {
-      return res.status(404).json({ error: '宠物不存在' });
-    }
-
-    const updatedPet = await prisma.pet.findUnique({
-      where: { id: req.params.id },
+    res.json({ 
+      code: 200,
+      message: '更新宠物信息成功',
+      data: { pet },
+      timestamp: new Date().toISOString()
     });
-
-    res.json({ pet: updatedPet });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: '更新宠物失败' });
+    res.status(500).json({ 
+      code: 500,
+      message: '更新宠物失败',
+      data: null,
+      timestamp: new Date().toISOString()
+    });
   }
 });
 
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
-    const pet = await prisma.pet.deleteMany({
-      where: {
-        id: req.params.id,
-        userId: req.userId,
-      },
+    const existingPet = await prisma.pet.findUnique({
+      where: { id: req.params.id },
     });
 
-    if (pet.count === 0) {
-      return res.status(404).json({ error: '宠物不存在' });
+    if (!existingPet) {
+      return res.status(404).json({ 
+        code: 404,
+        message: '宠物不存在',
+        data: null,
+        timestamp: new Date().toISOString()
+      });
     }
 
-    res.json({ message: '删除成功' });
+    if (existingPet.userId !== req.userId) {
+      return res.status(403).json({ 
+        code: 403,
+        message: '无权访问该宠物',
+        data: null,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    await prisma.pet.delete({
+      where: { id: req.params.id },
+    });
+
+    res.json({ 
+      code: 200,
+      message: '删除宠物成功',
+      data: null,
+      timestamp: new Date().toISOString()
+    });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: '删除宠物失败' });
+    res.status(500).json({ 
+      code: 500,
+      message: '删除宠物失败',
+      data: null,
+      timestamp: new Date().toISOString()
+    });
   }
 });
 
 router.get('/:id/vaccines', async (req: Request, res: Response) => {
   try {
+    const pet = await prisma.pet.findUnique({
+      where: { id: req.params.id },
+    });
+
+    if (!pet) {
+      return res.status(404).json({ 
+        code: 404,
+        message: '宠物不存在',
+        data: null,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    if (pet.userId !== req.userId) {
+      return res.status(403).json({ 
+        code: 403,
+        message: '无权访问该宠物',
+        data: null,
+        timestamp: new Date().toISOString()
+      });
+    }
+
     const vaccines = await prisma.petVaccine.findMany({
       where: {
         petId: req.params.id,
-        pet: { userId: req.userId },
       },
       orderBy: { date: 'desc' },
     });
 
-    res.json({ vaccines });
+    res.json({ 
+      code: 200,
+      message: '获取疫苗记录成功',
+      data: { vaccines },
+      timestamp: new Date().toISOString()
+    });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: '获取疫苗记录失败' });
+    res.status(500).json({ 
+      code: 500,
+      message: '获取疫苗记录失败',
+      data: null,
+      timestamp: new Date().toISOString()
+    });
   }
 });
 
 router.post('/:id/vaccines', async (req: Request, res: Response) => {
   try {
+    const pet = await prisma.pet.findUnique({
+      where: { id: req.params.id },
+    });
+
+    if (!pet) {
+      return res.status(404).json({ 
+        code: 404,
+        message: '宠物不存在',
+        data: null,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    if (pet.userId !== req.userId) {
+      return res.status(403).json({ 
+        code: 403,
+        message: '无权访问该宠物',
+        data: null,
+        timestamp: new Date().toISOString()
+      });
+    }
+
     const { name, date, nextDate, vet, notes } = req.body;
+
+    if (nextDate && new Date(nextDate) < new Date(date)) {
+      return res.status(400).json({ 
+        code: 400,
+        message: '下次接种日期应晚于本次接种日期',
+        data: null,
+        timestamp: new Date().toISOString()
+      });
+    }
 
     const vaccine = await prisma.petVaccine.create({
       data: {
@@ -222,19 +436,50 @@ router.post('/:id/vaccines', async (req: Request, res: Response) => {
       },
     });
 
-    res.status(201).json({ vaccine });
+    res.status(201).json({ 
+      code: 201,
+      message: '添加疫苗记录成功',
+      data: { vaccine },
+      timestamp: new Date().toISOString()
+    });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: '添加疫苗记录失败' });
+    res.status(500).json({ 
+      code: 500,
+      message: '添加疫苗记录失败',
+      data: null,
+      timestamp: new Date().toISOString()
+    });
   }
 });
 
 router.get('/:id/checkups', async (req: Request, res: Response) => {
   try {
+    const pet = await prisma.pet.findUnique({
+      where: { id: req.params.id },
+    });
+
+    if (!pet) {
+      return res.status(404).json({ 
+        code: 404,
+        message: '宠物不存在',
+        data: null,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    if (pet.userId !== req.userId) {
+      return res.status(403).json({ 
+        code: 403,
+        message: '无权访问该宠物',
+        data: null,
+        timestamp: new Date().toISOString()
+      });
+    }
+
     const checkups = await prisma.petCheckup.findMany({
       where: {
         petId: req.params.id,
-        pet: { userId: req.userId },
       },
       orderBy: { date: 'desc' },
     });
@@ -244,15 +489,47 @@ router.get('/:id/checkups', async (req: Request, res: Response) => {
       attachments: c.attachments ? JSON.parse(c.attachments) : [],
     }));
 
-    res.json({ checkups: parsedCheckups });
+    res.json({ 
+      code: 200,
+      message: '获取体检记录成功',
+      data: { checkups: parsedCheckups },
+      timestamp: new Date().toISOString()
+    });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: '获取体检记录失败' });
+    res.status(500).json({ 
+      code: 500,
+      message: '获取体检记录失败',
+      data: null,
+      timestamp: new Date().toISOString()
+    });
   }
 });
 
 router.post('/:id/checkups', async (req: Request, res: Response) => {
   try {
+    const pet = await prisma.pet.findUnique({
+      where: { id: req.params.id },
+    });
+
+    if (!pet) {
+      return res.status(404).json({ 
+        code: 404,
+        message: '宠物不存在',
+        data: null,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    if (pet.userId !== req.userId) {
+      return res.status(403).json({ 
+        code: 403,
+        message: '无权访问该宠物',
+        data: null,
+        timestamp: new Date().toISOString()
+      });
+    }
+
     const { date, weight, vet, notes, attachments = [] } = req.body;
 
     const checkup = await prisma.petCheckup.create({
@@ -271,32 +548,95 @@ router.post('/:id/checkups', async (req: Request, res: Response) => {
       attachments: JSON.parse(checkup.attachments),
     };
 
-    res.status(201).json({ checkup: parsedCheckup });
+    res.status(201).json({ 
+      code: 201,
+      message: '添加体检记录成功',
+      data: { checkup: parsedCheckup },
+      timestamp: new Date().toISOString()
+    });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: '添加体检记录失败' });
+    res.status(500).json({ 
+      code: 500,
+      message: '添加体检记录失败',
+      data: null,
+      timestamp: new Date().toISOString()
+    });
   }
 });
 
 router.get('/:id/growth', async (req: Request, res: Response) => {
   try {
+    const pet = await prisma.pet.findUnique({
+      where: { id: req.params.id },
+    });
+
+    if (!pet) {
+      return res.status(404).json({ 
+        code: 404,
+        message: '宠物不存在',
+        data: null,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    if (pet.userId !== req.userId) {
+      return res.status(403).json({ 
+        code: 403,
+        message: '无权访问该宠物',
+        data: null,
+        timestamp: new Date().toISOString()
+      });
+    }
+
     const growthRecords = await prisma.petGrowth.findMany({
       where: {
         petId: req.params.id,
-        pet: { userId: req.userId },
       },
       orderBy: { date: 'desc' },
     });
 
-    res.json({ growthRecords });
+    res.json({ 
+      code: 200,
+      message: '获取成长记录成功',
+      data: { growthRecords },
+      timestamp: new Date().toISOString()
+    });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: '获取成长记录失败' });
+    res.status(500).json({ 
+      code: 500,
+      message: '获取成长记录失败',
+      data: null,
+      timestamp: new Date().toISOString()
+    });
   }
 });
 
 router.post('/:id/growth', async (req: Request, res: Response) => {
   try {
+    const pet = await prisma.pet.findUnique({
+      where: { id: req.params.id },
+    });
+
+    if (!pet) {
+      return res.status(404).json({ 
+        code: 404,
+        message: '宠物不存在',
+        data: null,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    if (pet.userId !== req.userId) {
+      return res.status(403).json({ 
+        code: 403,
+        message: '无权访问该宠物',
+        data: null,
+        timestamp: new Date().toISOString()
+      });
+    }
+
     const { date, weight, height, notes } = req.body;
 
     const growthRecord = await prisma.petGrowth.create({
@@ -309,10 +649,20 @@ router.post('/:id/growth', async (req: Request, res: Response) => {
       },
     });
 
-    res.status(201).json({ growthRecord });
+    res.status(201).json({ 
+      code: 201,
+      message: '添加成长记录成功',
+      data: { growthRecord },
+      timestamp: new Date().toISOString()
+    });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: '添加成长记录失败' });
+    res.status(500).json({ 
+      code: 500,
+      message: '添加成长记录失败',
+      data: null,
+      timestamp: new Date().toISOString()
+    });
   }
 });
 

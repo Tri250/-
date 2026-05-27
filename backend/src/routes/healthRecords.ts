@@ -37,16 +37,32 @@ router.get(
         orderBy: { createdAt: 'desc' },
       });
 
-      const parsedRecords = records.map(r => ({
+      let parsedRecords = records.map(r => ({
         ...r,
         tags: r.tags ? JSON.parse(r.tags) : [],
         attachments: r.attachments ? JSON.parse(r.attachments) : [],
       }));
 
-      res.json({ records: parsedRecords });
+      if (tag) {
+        parsedRecords = parsedRecords.filter(record => 
+          record.tags.some((t: string) => t.includes(tag as string))
+        );
+      }
+
+      res.json({ 
+        code: 200,
+        message: '获取健康记录成功',
+        data: { records: parsedRecords },
+        timestamp: new Date().toISOString()
+      });
     } catch (error) {
       console.error(error);
-      res.status(500).json({ error: '获取健康记录失败' });
+      res.status(500).json({ 
+        code: 500,
+        message: '获取健康记录失败',
+        data: null,
+        timestamp: new Date().toISOString()
+      });
     }
   }
 );
@@ -61,7 +77,7 @@ router.get('/search', async (req: Request, res: Response) => {
     });
     const petIds = userPets.map(p => p.id);
 
-    const searchQuery = q as string;
+    const searchQuery = (q as string || '').replace(/[<>'"]/g, '');
 
     const records = await prisma.healthRecord.findMany({
       where: {
@@ -81,25 +97,43 @@ router.get('/search', async (req: Request, res: Response) => {
       attachments: r.attachments ? JSON.parse(r.attachments) : [],
     }));
 
-    res.json({ records: parsedRecords });
+    res.json({ 
+      code: 200,
+      message: '搜索健康记录成功',
+      data: { records: parsedRecords },
+      timestamp: new Date().toISOString()
+    });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: '搜索记录失败' });
+    res.status(500).json({ 
+      code: 500,
+      message: '搜索记录失败',
+      data: null,
+      timestamp: new Date().toISOString()
+    });
   }
 });
 
 router.post(
   '/',
   [
-    body('petId').isString(),
-    body('type').isIn(['TEXT', 'VOICE', 'PHOTO', 'VIDEO', 'FILE']),
-    body('title').isLength({ min: 1 }),
-    body('content').isLength({ min: 1 }),
+    body('petId').isString().withMessage('宠物ID不能为空'),
+    body('type').isIn(['TEXT', 'VOICE', 'PHOTO', 'VIDEO', 'FILE']).withMessage('记录类型无效'),
+    body('title').isLength({ min: 1 }).withMessage('标题不能为空'),
+    body('content').isLength({ min: 1 }).withMessage('内容不能为空'),
   ],
   async (req: Request, res: Response) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      return res.status(400).json({ 
+        code: 400,
+        message: '创建健康记录验证失败',
+        errors: errors.array().map(err => ({
+          field: 'path' in err ? err.path : 'unknown',
+          message: err.msg
+        })),
+        timestamp: new Date().toISOString()
+      });
     }
 
     try {
@@ -110,7 +144,12 @@ router.post(
       });
 
       if (!pet) {
-        return res.status(404).json({ error: '宠物不存在' });
+        return res.status(404).json({ 
+          code: 404,
+          message: '宠物不存在',
+          data: null,
+          timestamp: new Date().toISOString()
+        });
       }
 
       const record = await prisma.healthRecord.create({
@@ -133,10 +172,20 @@ router.post(
         attachments: JSON.parse(record.attachments),
       };
 
-      res.status(201).json({ record: parsedRecord });
+      res.status(201).json({ 
+        code: 201,
+        message: '创建健康记录成功',
+        data: { record: parsedRecord },
+        timestamp: new Date().toISOString()
+      });
     } catch (error) {
       console.error(error);
-      res.status(500).json({ error: '创建记录失败' });
+      res.status(500).json({ 
+        code: 500,
+        message: '创建记录失败',
+        data: null,
+        timestamp: new Date().toISOString()
+      });
     }
   }
 );
@@ -146,13 +195,26 @@ router.get('/:id', async (req: Request, res: Response) => {
     const record = await prisma.healthRecord.findFirst({
       where: {
         id: req.params.id,
-        pet: { userId: req.userId },
       },
       include: { pet: true },
     });
 
     if (!record) {
-      return res.status(404).json({ error: '记录不存在' });
+      return res.status(404).json({ 
+        code: 404,
+        message: '记录不存在',
+        data: null,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    if (record.pet.userId !== req.userId) {
+      return res.status(403).json({ 
+        code: 403,
+        message: '无权访问该记录',
+        data: null,
+        timestamp: new Date().toISOString()
+      });
     }
 
     const parsedRecord = {
@@ -161,22 +223,54 @@ router.get('/:id', async (req: Request, res: Response) => {
       attachments: record.attachments ? JSON.parse(record.attachments) : [],
     };
 
-    res.json({ record: parsedRecord });
+    res.json({ 
+      code: 200,
+      message: '获取健康记录成功',
+      data: { record: parsedRecord },
+      timestamp: new Date().toISOString()
+    });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: '获取记录失败' });
+    res.status(500).json({ 
+      code: 500,
+      message: '获取记录失败',
+      data: null,
+      timestamp: new Date().toISOString()
+    });
   }
 });
 
 router.put('/:id', async (req: Request, res: Response) => {
   try {
-    const { title, content, tags, attachments, isImportant } = req.body;
-
-    const record = await prisma.healthRecord.updateMany({
+    const existingRecord = await prisma.healthRecord.findFirst({
       where: {
         id: req.params.id,
-        pet: { userId: req.userId },
       },
+      include: { pet: true },
+    });
+
+    if (!existingRecord) {
+      return res.status(404).json({ 
+        code: 404,
+        message: '记录不存在',
+        data: null,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    if (existingRecord.pet.userId !== req.userId) {
+      return res.status(403).json({ 
+        code: 403,
+        message: '无权访问该记录',
+        data: null,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    const { title, content, tags, attachments, isImportant } = req.body;
+
+    const record = await prisma.healthRecord.update({
+      where: { id: req.params.id },
       data: {
         title,
         content,
@@ -184,47 +278,77 @@ router.put('/:id', async (req: Request, res: Response) => {
         attachments: typeof attachments === 'string' ? attachments : JSON.stringify(attachments),
         isImportant,
       },
-    });
-
-    if (record.count === 0) {
-      return res.status(404).json({ error: '记录不存在' });
-    }
-
-    const updatedRecord = await prisma.healthRecord.findUnique({
-      where: { id: req.params.id },
       include: { pet: true },
     });
 
     const parsedRecord = {
-      ...updatedRecord,
-      tags: updatedRecord?.tags ? JSON.parse(updatedRecord.tags) : [],
-      attachments: updatedRecord?.attachments ? JSON.parse(updatedRecord.attachments) : [],
+      ...record,
+      tags: JSON.parse(record.tags),
+      attachments: JSON.parse(record.attachments),
     };
 
-    res.json({ record: parsedRecord });
+    res.json({ 
+      code: 200,
+      message: '更新健康记录成功',
+      data: { record: parsedRecord },
+      timestamp: new Date().toISOString()
+    });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: '更新记录失败' });
+    res.status(500).json({ 
+      code: 500,
+      message: '更新记录失败',
+      data: null,
+      timestamp: new Date().toISOString()
+    });
   }
 });
 
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
-    const record = await prisma.healthRecord.deleteMany({
+    const existingRecord = await prisma.healthRecord.findFirst({
       where: {
         id: req.params.id,
-        pet: { userId: req.userId },
       },
+      include: { pet: true },
     });
 
-    if (record.count === 0) {
-      return res.status(404).json({ error: '记录不存在' });
+    if (!existingRecord) {
+      return res.status(404).json({ 
+        code: 404,
+        message: '记录不存在',
+        data: null,
+        timestamp: new Date().toISOString()
+      });
     }
 
-    res.json({ message: '删除成功' });
+    if (existingRecord.pet.userId !== req.userId) {
+      return res.status(403).json({ 
+        code: 403,
+        message: '无权访问该记录',
+        data: null,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    await prisma.healthRecord.delete({
+      where: { id: req.params.id },
+    });
+
+    res.json({ 
+      code: 200,
+      message: '删除健康记录成功',
+      data: null,
+      timestamp: new Date().toISOString()
+    });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: '删除记录失败' });
+    res.status(500).json({ 
+      code: 500,
+      message: '删除记录失败',
+      data: null,
+      timestamp: new Date().toISOString()
+    });
   }
 });
 

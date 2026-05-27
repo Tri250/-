@@ -36,10 +36,20 @@ router.get(
         orderBy: { date: 'asc' },
       });
 
-      res.json({ reminders });
+      res.json({ 
+        code: 200,
+        message: '获取提醒列表成功',
+        data: { reminders },
+        timestamp: new Date().toISOString()
+      });
     } catch (error) {
       console.error(error);
-      res.status(500).json({ error: '获取提醒失败' });
+      res.status(500).json({ 
+        code: 500,
+        message: '获取提醒失败',
+        data: null,
+        timestamp: new Date().toISOString()
+      });
     }
   }
 );
@@ -69,17 +79,27 @@ router.get('/upcoming', async (req: Request, res: Response) => {
       orderBy: { date: 'asc' },
     });
 
-    res.json({ reminders });
+    res.json({ 
+      code: 200,
+      message: '获取即将到期提醒成功',
+      data: { reminders },
+      timestamp: new Date().toISOString()
+    });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: '获取即将到期提醒失败' });
+    res.status(500).json({ 
+      code: 500,
+      message: '获取即将到期提醒失败',
+      data: null,
+      timestamp: new Date().toISOString()
+    });
   }
 });
 
 router.post(
   '/',
   [
-    body('petId').isString(),
+    body('petId').isString().withMessage('宠物ID不能为空'),
     body('type').isIn([
       'VACCINE',
       'DEWORMING',
@@ -89,16 +109,24 @@ router.post(
       'MEDICINE',
       'GROOMING',
       'CUSTOM',
-    ]),
-    body('title').isLength({ min: 1 }),
-    body('date').isISO8601(),
-    body('time').isString(),
-    body('repeat').isIn(['ONCE', 'DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY']),
+    ]).withMessage('提醒类型无效'),
+    body('title').isLength({ min: 1 }).withMessage('标题不能为空'),
+    body('date').isISO8601().withMessage('日期格式不正确'),
+    body('time').isString().withMessage('时间不能为空'),
+    body('repeat').isIn(['ONCE', 'DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY']).withMessage('重复类型无效'),
   ],
   async (req: Request, res: Response) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      return res.status(400).json({ 
+        code: 400,
+        message: '创建提醒验证失败',
+        errors: errors.array().map(err => ({
+          field: 'path' in err ? err.path : 'unknown',
+          message: err.msg
+        })),
+        timestamp: new Date().toISOString()
+      });
     }
 
     try {
@@ -109,7 +137,34 @@ router.post(
       });
 
       if (!pet) {
-        return res.status(404).json({ error: '宠物不存在' });
+        return res.status(404).json({ 
+          code: 404,
+          message: '宠物不存在',
+          data: null,
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      const reminderDate = new Date(date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      if (reminderDate < today) {
+        return res.status(400).json({ 
+          code: 400,
+          message: '提醒日期不能早于今天',
+          data: null,
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      if (endDate && new Date(endDate) < reminderDate) {
+        return res.status(400).json({ 
+          code: 400,
+          message: '结束日期应晚于开始日期',
+          data: null,
+          timestamp: new Date().toISOString()
+        });
       }
 
       const reminder = await prisma.reminder.create({
@@ -126,10 +181,20 @@ router.post(
         include: { pet: true },
       });
 
-      res.status(201).json({ reminder });
+      res.status(201).json({ 
+        code: 201,
+        message: '创建提醒成功',
+        data: { reminder },
+        timestamp: new Date().toISOString()
+      });
     } catch (error) {
       console.error(error);
-      res.status(500).json({ error: '创建提醒失败' });
+      res.status(500).json({ 
+        code: 500,
+        message: '创建提醒失败',
+        data: null,
+        timestamp: new Date().toISOString()
+      });
     }
   }
 );
@@ -139,31 +204,100 @@ router.get('/:id', async (req: Request, res: Response) => {
     const reminder = await prisma.reminder.findFirst({
       where: {
         id: req.params.id,
-        pet: { userId: req.userId },
       },
       include: { pet: true },
     });
 
     if (!reminder) {
-      return res.status(404).json({ error: '提醒不存在' });
+      return res.status(404).json({ 
+        code: 404,
+        message: '提醒不存在',
+        data: null,
+        timestamp: new Date().toISOString()
+      });
     }
 
-    res.json({ reminder });
+    if (reminder.pet.userId !== req.userId) {
+      return res.status(403).json({ 
+        code: 403,
+        message: '无权访问该提醒',
+        data: null,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    res.json({ 
+      code: 200,
+      message: '获取提醒成功',
+      data: { reminder },
+      timestamp: new Date().toISOString()
+    });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: '获取提醒失败' });
+    res.status(500).json({ 
+      code: 500,
+      message: '获取提醒失败',
+      data: null,
+      timestamp: new Date().toISOString()
+    });
   }
 });
 
 router.put('/:id', async (req: Request, res: Response) => {
   try {
-    const { title, notes, date, time, repeat, endDate } = req.body;
-
-    const reminder = await prisma.reminder.updateMany({
+    const existingReminder = await prisma.reminder.findFirst({
       where: {
         id: req.params.id,
-        pet: { userId: req.userId },
       },
+      include: { pet: true },
+    });
+
+    if (!existingReminder) {
+      return res.status(404).json({ 
+        code: 404,
+        message: '提醒不存在',
+        data: null,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    if (existingReminder.pet.userId !== req.userId) {
+      return res.status(403).json({ 
+        code: 403,
+        message: '无权访问该提醒',
+        data: null,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    const { title, notes, date, time, repeat, endDate } = req.body;
+
+    if (date) {
+      const reminderDate = new Date(date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      if (reminderDate < today) {
+        return res.status(400).json({ 
+          code: 400,
+          message: '提醒日期不能早于今天',
+          data: null,
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
+
+    if (endDate && date && new Date(endDate) < new Date(date)) {
+      return res.status(400).json({ 
+        code: 400,
+        message: '结束日期应晚于开始日期',
+        data: null,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    const reminder = await prisma.reminder.update({
+      where: { id: req.params.id },
       data: {
         title,
         notes,
@@ -172,70 +306,133 @@ router.put('/:id', async (req: Request, res: Response) => {
         repeat,
         endDate: endDate ? new Date(endDate) : null,
       },
-    });
-
-    if (reminder.count === 0) {
-      return res.status(404).json({ error: '提醒不存在' });
-    }
-
-    const updatedReminder = await prisma.reminder.findUnique({
-      where: { id: req.params.id },
       include: { pet: true },
     });
 
-    res.json({ reminder: updatedReminder });
+    res.json({ 
+      code: 200,
+      message: '更新提醒成功',
+      data: { reminder },
+      timestamp: new Date().toISOString()
+    });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: '更新提醒失败' });
+    res.status(500).json({ 
+      code: 500,
+      message: '更新提醒失败',
+      data: null,
+      timestamp: new Date().toISOString()
+    });
   }
 });
 
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
-    const reminder = await prisma.reminder.deleteMany({
+    const existingReminder = await prisma.reminder.findFirst({
       where: {
         id: req.params.id,
-        pet: { userId: req.userId },
       },
+      include: { pet: true },
     });
 
-    if (reminder.count === 0) {
-      return res.status(404).json({ error: '提醒不存在' });
+    if (!existingReminder) {
+      return res.status(404).json({ 
+        code: 404,
+        message: '提醒不存在',
+        data: null,
+        timestamp: new Date().toISOString()
+      });
     }
 
-    res.json({ message: '删除成功' });
+    if (existingReminder.pet.userId !== req.userId) {
+      return res.status(403).json({ 
+        code: 403,
+        message: '无权访问该提醒',
+        data: null,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    await prisma.reminder.delete({
+      where: { id: req.params.id },
+    });
+
+    res.json({ 
+      code: 200,
+      message: '删除提醒成功',
+      data: null,
+      timestamp: new Date().toISOString()
+    });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: '删除提醒失败' });
+    res.status(500).json({ 
+      code: 500,
+      message: '删除提醒失败',
+      data: null,
+      timestamp: new Date().toISOString()
+    });
   }
 });
 
 router.post('/:id/complete', async (req: Request, res: Response) => {
   try {
-    const reminder = await prisma.reminder.updateMany({
+    const existingReminder = await prisma.reminder.findFirst({
       where: {
         id: req.params.id,
-        pet: { userId: req.userId },
       },
+      include: { pet: true },
+    });
+
+    if (!existingReminder) {
+      return res.status(404).json({ 
+        code: 404,
+        message: '提醒不存在',
+        data: null,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    if (existingReminder.pet.userId !== req.userId) {
+      return res.status(403).json({ 
+        code: 403,
+        message: '无权访问该提醒',
+        data: null,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    if (existingReminder.isCompleted) {
+      return res.status(400).json({ 
+        code: 400,
+        message: '该提醒已经完成',
+        data: null,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    const reminder = await prisma.reminder.update({
+      where: { id: req.params.id },
       data: {
         isCompleted: true,
         completedAt: new Date(),
       },
-    });
-
-    if (reminder.count === 0) {
-      return res.status(404).json({ error: '提醒不存在' });
-    }
-
-    const updatedReminder = await prisma.reminder.findUnique({
-      where: { id: req.params.id },
       include: { pet: true },
     });
 
-    res.json({ reminder: updatedReminder });
+    res.json({ 
+      code: 200,
+      message: '标记完成成功',
+      data: { reminder },
+      timestamp: new Date().toISOString()
+    });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: '标记完成失败' });
+    res.status(500).json({ 
+      code: 500,
+      message: '标记完成失败',
+      data: null,
+      timestamp: new Date().toISOString()
+    });
   }
 });
 

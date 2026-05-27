@@ -55,9 +55,10 @@ describe('PawSync Pro API Testing', () => {
         });
 
       expect(res.status).toBe(201);
-      expect(res.body).toHaveProperty('user');
-      expect(res.body).toHaveProperty('token');
-      expect(res.body.user.email).toBe('test@example.com');
+      expect(res.body.data).toHaveProperty('user');
+      expect(res.body.data).toHaveProperty('token');
+      expect(res.body.data.user.email).toBe('test@example.com');
+      token = res.body.data.token;
     });
 
     it('AUTH-002: 用户注册-邮箱格式校验', async () => {
@@ -66,6 +67,18 @@ describe('PawSync Pro API Testing', () => {
         .send({
           email: 'invalid-email',
           password: 'Password123!',
+          name: 'Test User',
+        });
+
+      expect(res.status).toBe(400);
+    });
+
+    it('AUTH-003: 用户注册-密码强度校验', async () => {
+      const res = await request(app)
+        .post('/api/auth/register')
+        .send({
+          email: 'weak@example.com',
+          password: '12345678',
           name: 'Test User',
         });
 
@@ -81,8 +94,8 @@ describe('PawSync Pro API Testing', () => {
           name: 'Test User',
         });
 
-      expect(res.status).toBe(400);
-      expect(res.body.error).toBe('邮箱已注册');
+      expect(res.status).toBe(409);
+      expect(res.body.message).toBe('该邮箱已被注册');
     });
 
     it('AUTH-005: 用户登录（正常流程）', async () => {
@@ -94,9 +107,9 @@ describe('PawSync Pro API Testing', () => {
         });
 
       expect(res.status).toBe(200);
-      expect(res.body).toHaveProperty('user');
-      expect(res.body).toHaveProperty('token');
-      token = res.body.token;
+      expect(res.body.data).toHaveProperty('user');
+      expect(res.body.data).toHaveProperty('token');
+      token = res.body.data.token;
     });
 
     it('AUTH-006: 用户登录-错误密码', async () => {
@@ -108,7 +121,19 @@ describe('PawSync Pro API Testing', () => {
         });
 
       expect(res.status).toBe(401);
-      expect(res.body.error).toBe('邮箱或密码错误');
+      expect(res.body.message).toBe('邮箱或密码错误');
+    });
+
+    it('AUTH-007: 用户登录-不存在的邮箱', async () => {
+      const res = await request(app)
+        .post('/api/auth/login')
+        .send({
+          email: 'nonexistent@example.com',
+          password: 'Password123!',
+        });
+
+      expect(res.status).toBe(401);
+      expect(res.body.message).toBe('邮箱或密码错误');
     });
 
     it('AUTH-009: 获取当前用户信息', async () => {
@@ -117,8 +142,8 @@ describe('PawSync Pro API Testing', () => {
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
-      expect(res.body.user.email).toBe('test@example.com');
-      expect(res.body.user).not.toHaveProperty('password');
+      expect(res.body.data.user.email).toBe('test@example.com');
+      expect(res.body.data.user).not.toHaveProperty('password');
     });
 
     it('AUTH-011: 无 Token 访问受保护接口', async () => {
@@ -139,11 +164,11 @@ describe('PawSync Pro API Testing', () => {
         });
 
       expect(res.status).toBe(201);
-      expect(res.body.pet.name).toBe('旺财');
-      expect(res.body.pet.type).toBe('DOG');
-      expect(res.body.pet.gender).toBe('MALE');
-      expect(res.body.pet.healthStatus).toBe('GOOD');
-      petId = res.body.pet.id;
+      expect(res.body.data.pet.name).toBe('旺财');
+      expect(res.body.data.pet.type).toBe('DOG');
+      expect(res.body.data.pet.gender).toBe('MALE');
+      expect(res.body.data.pet.healthStatus).toBe('GOOD');
+      petId = res.body.data.pet.id;
     });
 
     it('PET-002: 创建宠物-全字段', async () => {
@@ -162,9 +187,9 @@ describe('PawSync Pro API Testing', () => {
         });
 
       expect(res.status).toBe(201);
-      expect(res.body.pet.name).toBe('咪咪');
-      expect(res.body.pet.breed).toBe('英短');
-      expect(res.body.pet.weight).toBe(4.5);
+      expect(res.body.data.pet.name).toBe('咪咪');
+      expect(res.body.data.pet.breed).toBe('英短');
+      expect(res.body.data.pet.weight).toBe(4.5);
     });
 
     it('PET-003: 创建宠物-缺失必填字段', async () => {
@@ -179,14 +204,58 @@ describe('PawSync Pro API Testing', () => {
       expect(res.status).toBe(400);
     });
 
+    it('PET-004: 创建宠物-无效type', async () => {
+      const res = await request(app)
+        .post('/api/pets')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          name: '测试',
+          type: 'rabbit',
+          gender: 'MALE',
+        });
+
+      expect(res.status).toBe(400);
+    });
+
+    it('PET-005: 创建宠物-未来生日', async () => {
+      const futureDate = new Date();
+      futureDate.setFullYear(futureDate.getFullYear() + 1);
+
+      const res = await request(app)
+        .post('/api/pets')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          name: '测试',
+          type: 'DOG',
+          gender: 'MALE',
+          birthday: futureDate.toISOString(),
+        });
+
+      expect(res.status).toBe(400);
+    });
+
+    it('PET-006: 创建宠物-负体重', async () => {
+      const res = await request(app)
+        .post('/api/pets')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          name: '测试',
+          type: 'DOG',
+          gender: 'MALE',
+          weight: -5,
+        });
+
+      expect(res.status).toBe(400);
+    });
+
     it('PET-008: 获取宠物列表-多宠物', async () => {
       const res = await request(app)
         .get('/api/pets')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
-      expect(Array.isArray(res.body.pets)).toBe(true);
-      expect(res.body.pets.length).toBeGreaterThanOrEqual(2);
+      expect(Array.isArray(res.body.data.pets)).toBe(true);
+      expect(res.body.data.pets.length).toBeGreaterThanOrEqual(2);
     });
 
     it('PET-009: 获取宠物详情', async () => {
@@ -195,8 +264,8 @@ describe('PawSync Pro API Testing', () => {
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
-      expect(res.body.pet.id).toBe(petId);
-      expect(res.body.pet.name).toBe('旺财');
+      expect(res.body.data.pet.id).toBe(petId);
+      expect(res.body.data.pet.name).toBe('旺财');
     });
 
     it('PET-010: 获取宠物详情-不存在的id', async () => {
@@ -205,7 +274,7 @@ describe('PawSync Pro API Testing', () => {
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(404);
-      expect(res.body.error).toBe('宠物不存在');
+      expect(res.body.message).toBe('宠物不存在');
     });
 
     it('PET-012: 更新宠物信息', async () => {
@@ -218,8 +287,8 @@ describe('PawSync Pro API Testing', () => {
         });
 
       expect(res.status).toBe(200);
-      expect(res.body.pet.name).toBe('旺财旺财');
-      expect(res.body.pet.weight).toBe(15.5);
+      expect(res.body.data.pet.name).toBe('旺财旺财');
+      expect(res.body.data.pet.weight).toBe(15.5);
     });
   });
 
@@ -237,7 +306,7 @@ describe('PawSync Pro API Testing', () => {
         });
 
       expect(res.status).toBe(201);
-      expect(res.body.vaccine.name).toBe('狂犬疫苗');
+      expect(res.body.data.vaccine.name).toBe('狂犬疫苗');
     });
 
     it('VAC-002: 查询疫苗记录列表', async () => {
@@ -246,7 +315,20 @@ describe('PawSync Pro API Testing', () => {
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
-      expect(Array.isArray(res.body.vaccines)).toBe(true);
+      expect(Array.isArray(res.body.data.vaccines)).toBe(true);
+    });
+
+    it('VAC-003: 添加疫苗-nextDate早于date', async () => {
+      const res = await request(app)
+        .post(`/api/pets/${petId}/vaccines`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          name: '疫苗测试',
+          date: '2024-06-15',
+          nextDate: '2024-06-01',
+        });
+
+      expect(res.status).toBe(400);
     });
 
     it('VAC-004: 添加体检记录', async () => {
@@ -261,7 +343,7 @@ describe('PawSync Pro API Testing', () => {
         });
 
       expect(res.status).toBe(201);
-      expect(res.body.checkup.weight).toBe(14.5);
+      expect(res.body.data.checkup.weight).toBe(14.5);
     });
 
     it('VAC-005: 添加成长记录', async () => {
@@ -276,7 +358,7 @@ describe('PawSync Pro API Testing', () => {
         });
 
       expect(res.status).toBe(201);
-      expect(res.body.growthRecord.weight).toBe(15.0);
+      expect(res.body.data.growthRecord.weight).toBe(15.0);
     });
   });
 
@@ -294,8 +376,8 @@ describe('PawSync Pro API Testing', () => {
         });
 
       expect(res.status).toBe(201);
-      expect(res.body.record.title).toBe('呕吐记录');
-      healthRecordId = res.body.record.id;
+      expect(res.body.data.record.title).toBe('呕吐记录');
+      healthRecordId = res.body.data.record.id;
     });
 
     it('HR-002: 获取健康记录列表', async () => {
@@ -304,7 +386,7 @@ describe('PawSync Pro API Testing', () => {
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
-      expect(Array.isArray(res.body.records)).toBe(true);
+      expect(Array.isArray(res.body.data.records)).toBe(true);
     });
 
     it('HR-003: 搜索健康记录', async () => {
@@ -313,7 +395,7 @@ describe('PawSync Pro API Testing', () => {
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
-      expect(Array.isArray(res.body.records)).toBe(true);
+      expect(Array.isArray(res.body.data.records)).toBe(true);
     });
 
     it('HR-005: 搜索-特殊字符（SQL注入防护）', async () => {
@@ -322,7 +404,7 @@ describe('PawSync Pro API Testing', () => {
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
-      expect(Array.isArray(res.body.records)).toBe(true);
+      expect(Array.isArray(res.body.data.records)).toBe(true);
     });
 
     it('HR-006: 更新健康记录', async () => {
@@ -335,7 +417,7 @@ describe('PawSync Pro API Testing', () => {
         });
 
       expect(res.status).toBe(200);
-      expect(res.body.record.title).toBe('呕吐记录-已更新');
+      expect(res.body.data.record.title).toBe('呕吐记录-已更新');
     });
   });
 
@@ -350,8 +432,8 @@ describe('PawSync Pro API Testing', () => {
         });
 
       expect(res.status).toBe(200);
-      expect(res.body).toHaveProperty('conversation');
-      expect(res.body).toHaveProperty('response');
+      expect(res.body.data).toHaveProperty('conversation');
+      expect(res.body.data).toHaveProperty('response');
     });
 
     it('AI-003: AI对话-空消息', async () => {
@@ -383,9 +465,9 @@ describe('PawSync Pro API Testing', () => {
         });
 
       expect(res.status).toBe(200);
-      expect(res.body.report).toHaveProperty('petName');
-      expect(res.body.report).toHaveProperty('summary');
-      expect(res.body.report).toHaveProperty('recommendations');
+      expect(res.body.data.report).toHaveProperty('petName');
+      expect(res.body.data.report).toHaveProperty('summary');
+      expect(res.body.data.report).toHaveProperty('recommendations');
     });
   });
 
@@ -407,8 +489,8 @@ describe('PawSync Pro API Testing', () => {
         });
 
       expect(res.status).toBe(201);
-      expect(res.body.reminder.title).toBe('狂犬疫苗接种提醒');
-      reminderId = res.body.reminder.id;
+      expect(res.body.data.reminder.title).toBe('狂犬疫苗接种提醒');
+      reminderId = res.body.data.reminder.id;
     });
 
     it('REM-002: 创建周期提醒-每天', async () => {
@@ -428,7 +510,26 @@ describe('PawSync Pro API Testing', () => {
         });
 
       expect(res.status).toBe(201);
-      expect(res.body.reminder.repeat).toBe('DAILY');
+      expect(res.body.data.reminder.repeat).toBe('DAILY');
+    });
+
+    it('REM-005: 创建提醒-过去日期', async () => {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+
+      const res = await request(app)
+        .post('/api/reminders')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          petId: petId,
+          type: 'CHECKUP',
+          title: '体检提醒',
+          date: yesterday.toISOString().split('T')[0],
+          time: '10:00',
+          repeat: 'ONCE',
+        });
+
+      expect(res.status).toBe(400);
     });
 
     it('REM-008: 获取提醒列表', async () => {
@@ -437,7 +538,7 @@ describe('PawSync Pro API Testing', () => {
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
-      expect(Array.isArray(res.body.reminders)).toBe(true);
+      expect(Array.isArray(res.body.data.reminders)).toBe(true);
     });
 
     it('REM-009: 即将到期提醒', async () => {
@@ -446,7 +547,7 @@ describe('PawSync Pro API Testing', () => {
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
-      expect(Array.isArray(res.body.reminders)).toBe(true);
+      expect(Array.isArray(res.body.data.reminders)).toBe(true);
     });
 
     it('REM-010: 标记提醒完成', async () => {
@@ -455,7 +556,7 @@ describe('PawSync Pro API Testing', () => {
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
-      expect(res.body.reminder.isCompleted).toBe(true);
+      expect(res.body.data.reminder.isCompleted).toBe(true);
     });
 
     it('REM-012: 更新提醒', async () => {
@@ -467,7 +568,7 @@ describe('PawSync Pro API Testing', () => {
         });
 
       expect(res.status).toBe(200);
-      expect(res.body.reminder.title).toBe('狂犬疫苗接种提醒-已更新');
+      expect(res.body.data.reminder.title).toBe('狂犬疫苗接种提醒-已更新');
     });
   });
 
@@ -475,30 +576,30 @@ describe('PawSync Pro API Testing', () => {
     it('MAN-001: 获取手册列表', async () => {
       const res = await request(app).get('/api/manuals');
       expect(res.status).toBe(200);
-      expect(Array.isArray(res.body.manuals)).toBe(true);
+      expect(Array.isArray(res.body.data.manuals)).toBe(true);
     });
 
     it('MAN-002: 按分类筛选', async () => {
       const res = await request(app).get('/api/manuals?category=EMERGENCY');
       expect(res.status).toBe(200);
-      expect(Array.isArray(res.body.manuals)).toBe(true);
+      expect(Array.isArray(res.body.data.manuals)).toBe(true);
     });
 
     it('MAN-003: 按宠物类型筛选', async () => {
       const res = await request(app).get('/api/manuals?petType=DOG');
       expect(res.status).toBe(200);
-      expect(Array.isArray(res.body.manuals)).toBe(true);
+      expect(Array.isArray(res.body.data.manuals)).toBe(true);
     });
 
     it('MAN-004: 搜索手册', async () => {
       const res = await request(app).get('/api/manuals/search?q=营养');
       expect(res.status).toBe(200);
-      expect(Array.isArray(res.body.manuals)).toBe(true);
+      expect(Array.isArray(res.body.data.manuals)).toBe(true);
     });
 
     it('MAN-006: 添加书签', async () => {
       const manuals = await request(app).get('/api/manuals');
-      const firstManualId = manuals.body.manuals[0]?.id;
+      const firstManualId = manuals.body.data.manuals[0]?.id;
       
       if (firstManualId) {
         const res = await request(app)
@@ -515,7 +616,7 @@ describe('PawSync Pro API Testing', () => {
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
-      expect(Array.isArray(res.body.bookmarks)).toBe(true);
+      expect(Array.isArray(res.body.data.bookmarks)).toBe(true);
     });
   });
 
@@ -523,7 +624,7 @@ describe('PawSync Pro API Testing', () => {
     it('API-008: 404 统一处理', async () => {
       const res = await request(app).get('/api/nonexistent-endpoint');
       expect(res.status).toBe(404);
-      expect(res.body.error).toBe('接口不存在');
+      expect(res.body.message).toBe('接口不存在');
     });
 
     it('API-004: CORS 跨域配置', async () => {
@@ -552,13 +653,13 @@ describe('PawSync Pro API Testing', () => {
           password: 'Password123!',
           name: 'Another User',
         })
-        .then(res => res.body.token);
+        .then(res => res.body.data.token);
 
       const res = await request(app)
         .get(`/api/pets/${petId}`)
         .set('Authorization', `Bearer ${anotherUserToken}`);
 
-      expect(res.status).toBe(404);
+      expect(res.status).toBe(403);
     });
   });
 });

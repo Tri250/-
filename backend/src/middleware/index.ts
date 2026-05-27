@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { verifyToken } from '../lib/auth';
+import jwt from 'jsonwebtoken';
 
 declare global {
   namespace Express {
@@ -18,7 +19,12 @@ export function authenticateToken(
   const token = authHeader && authHeader.split(' ')[1];
 
   if (!token) {
-    return res.status(401).json({ error: '未登录' });
+    return res.status(401).json({ 
+      code: 401,
+      message: '未提供认证令牌',
+      data: null,
+      timestamp: new Date().toISOString()
+    });
   }
 
   try {
@@ -26,7 +32,30 @@ export function authenticateToken(
     req.userId = payload.userId;
     next();
   } catch (error) {
-    return res.status(403).json({ error: 'Token无效' });
+    if (error instanceof jwt.TokenExpiredError) {
+      return res.status(401).json({ 
+        code: 401,
+        message: 'Token已过期，请重新登录',
+        data: null,
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    if (error instanceof jwt.JsonWebTokenError) {
+      return res.status(401).json({ 
+        code: 401,
+        message: '无效的认证令牌',
+        data: null,
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    return res.status(401).json({ 
+      code: 401,
+      message: '认证失败',
+      data: null,
+      timestamp: new Date().toISOString()
+    });
   }
 }
 
@@ -37,16 +66,32 @@ export function errorHandler(
   next: NextFunction
 ) {
   console.error(err.stack);
-  res.status(500).json({
-    error: process.env.NODE_ENV === 'production' 
-      ? '服务器内部错误' 
-      : err.message,
-  });
+  
+  if (process.env.NODE_ENV === 'production') {
+    res.status(500).json({
+      code: 500,
+      message: '服务器内部错误',
+      data: null,
+      timestamp: new Date().toISOString()
+    });
+  } else {
+    res.status(500).json({
+      code: 500,
+      message: err.message,
+      data: null,
+      timestamp: new Date().toISOString()
+    });
+  }
 }
 
 export function notFoundHandler(
   req: Request,
   res: Response
 ) {
-  res.status(404).json({ error: '接口不存在' });
+  res.status(404).json({ 
+    code: 404,
+    message: '接口不存在',
+    data: null,
+    timestamp: new Date().toISOString()
+  });
 }
