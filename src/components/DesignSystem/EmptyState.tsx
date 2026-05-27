@@ -32,12 +32,12 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   const Icon = getIcon(type);
 
   return (
-    <div className="flex flex-col items-center justify-center py-12 px-6 text-center animate-scale-in">
-      <div className="w-20 h-20 rounded-full bg-neutral-100 flex items-center justify-center mb-6">
-        <Icon className="w-10 h-10 text-neutral-400" />
+    <div className="flex flex-col items-center justify-center py-16 px-6 text-center animate-scale-in">
+      <div className="w-24 h-24 rounded-full bg-neutral-100 flex items-center justify-center mb-6">
+        <Icon className="w-12 h-12 text-neutral-400" />
       </div>
-      <h3 className="text-lg font-semibold text-neutral-800 mb-2">{title}</h3>
-      <p className="text-neutral-500 mb-6 max-w-sm">{description}</p>
+      <h3 className="text-xl font-semibold text-neutral-800 mb-3">{title}</h3>
+      <p className="text-base text-neutral-500 mb-8 max-w-sm leading-relaxed">{description}</p>
       {action}
     </div>
   );

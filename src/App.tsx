@@ -28,6 +28,8 @@ import { AdvancedHealthPage } from './pages/AdvancedHealthPage';
 import { BondEmotionPage } from './pages/BondEmotionPage';
 import { CameraMonitorPage } from './pages/CameraMonitorPage';
 import { PetsPage } from './pages/PetsPage';
+import { ToastProvider } from './components/ui/Toast';
+import { AndroidSafeArea } from './components/AndroidSafeArea';
 import { useAppStore } from './store/appStore';
 
 export default function App() {
@@ -98,9 +100,11 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-50">
-      {renderPage()}
-      <Navigation currentPage={currentPage} onNavigate={setCurrentPage} />
-    </div>
+    <ToastProvider>
+      <AndroidSafeArea className="min-h-screen bg-neutral-50">
+        {renderPage()}
+        <Navigation currentPage={currentPage} onNavigate={setCurrentPage} />
+      </AndroidSafeArea>
+    </ToastProvider>
   );
 }

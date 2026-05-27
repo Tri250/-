@@ -16,7 +16,7 @@ export const Navigation: React.FC<NavigationProps> = ({ currentPage, onNavigate 
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-neutral-200 px-4 py-3 z-40">
+    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-neutral-200 px-4 pb-4 pt-2 z-40 safe-area-bottom">
       <div className="max-w-md mx-auto flex justify-around items-center">
         {navItems.map((item, index) => {
           const isActive = currentPage === item.id;
@@ -30,7 +30,7 @@ export const Navigation: React.FC<NavigationProps> = ({ currentPage, onNavigate 
                 e.stopPropagation();
                 onNavigate(item.id);
               }}
-              className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-all ${
+              className={`flex flex-col items-center gap-1 min-w-[44px] min-h-[44px] justify-center rounded-xl transition-all ${
                 isActive
                   ? 'text-primary-600 bg-primary-50'
                   : 'text-neutral-400 hover:text-neutral-600 hover:bg-neutral-50'

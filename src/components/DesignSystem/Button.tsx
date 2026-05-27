@@ -54,6 +54,7 @@ export const Button: React.FC<ButtonProps> = ({
         ${sizeClasses[size]}
         ${widthClasses}
         ${disabledClasses}
+        min-h-[44px]
         ${className}
       `}
       onClick={onClick}
