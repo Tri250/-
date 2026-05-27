@@ -47,7 +47,11 @@ export function BondEmotionPage() {
   const petId = currentPet?.id || '1';
   const petName = currentPet?.name || '毛孩子';
 
-  const handleTakePhoto = async () => {
+  const handleTakePhoto = async (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
       const video = document.createElement('video');
@@ -66,7 +70,6 @@ export function BondEmotionPage() {
         
         stream.getTracks().forEach(track => track.stop());
         setShowCameraModal(false);
-        setShowFloatingAction(false);
         
         alert('照片已保存！');
       }, 1000);
@@ -107,7 +110,11 @@ export function BondEmotionPage() {
     }
   };
 
-  const handleStopRecording = () => {
+  const handleStopRecording = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     if (mediaRecorderRef.current) {
       mediaRecorderRef.current.stop();
       mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
@@ -117,17 +124,19 @@ export function BondEmotionPage() {
     }
     setIsRecording(false);
     setShowVoiceModal(false);
-    setShowFloatingAction(false);
     
     alert('录音已保存！');
   };
 
-  const handleSendMessage = () => {
+  const handleSendMessage = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     if (messageText.trim()) {
       console.log('Message sent:', messageText);
       setMessageText('');
       setShowMessageModal(false);
-      setShowFloatingAction(false);
       alert('留言已保存！');
     }
   };
@@ -213,7 +222,11 @@ export function BondEmotionPage() {
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          onClick={() => setIsAddingMemory(!isAddingMemory)}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setIsAddingMemory(!isAddingMemory);
+          }}
           className="bg-gradient-to-r from-pink-500 to-rose-500 text-white px-6 py-3 rounded-full shadow-xl flex items-center gap-2"
         >
           <Plus className="w-5 h-5" />
@@ -229,7 +242,11 @@ export function BondEmotionPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setIsAddingMemory(false)}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsAddingMemory(false);
+              }}
               className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40"
             />
             <motion.div
@@ -243,7 +260,9 @@ export function BondEmotionPage() {
               </div>
               <div className="grid grid-cols-3 gap-4">
                 <button 
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     setIsAddingMemory(false);
                     setShowCameraModal(true);
                   }}
@@ -256,7 +275,9 @@ export function BondEmotionPage() {
                 </button>
 
                 <button 
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     setIsAddingMemory(false);
                     setShowVoiceModal(true);
                   }}
@@ -269,7 +290,9 @@ export function BondEmotionPage() {
                 </button>
 
                 <button 
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     setIsAddingMemory(false);
                     setShowMessageModal(true);
                   }}
@@ -295,7 +318,11 @@ export function BondEmotionPage() {
                 key={key}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={() => setActiveTab(key)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setActiveTab(key);
+                }}
                 className={`flex flex-col items-center py-2 px-4 rounded-xl transition-all ${
                   activeTab === key 
                     ? `bg-gradient-to-br ${gradient} text-white shadow-lg` 
@@ -320,7 +347,11 @@ export function BondEmotionPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setShowCameraModal(false)}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setShowCameraModal(false);
+              }}
               className="fixed inset-0 bg-black/70 z-50"
             />
             <motion.div
@@ -331,7 +362,14 @@ export function BondEmotionPage() {
             >
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-bold text-gray-800">拍照记录</h3>
-                <button onClick={() => setShowCameraModal(false)} className="p-2 hover:bg-gray-100 rounded-full">
+                <button 
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShowCameraModal(false);
+                  }} 
+                  className="p-2 hover:bg-gray-100 rounded-full"
+                >
                   <X className="w-5 h-5 text-gray-500" />
                 </button>
               </div>
@@ -362,7 +400,11 @@ export function BondEmotionPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => !isRecording && setShowVoiceModal(false)}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                !isRecording && setShowVoiceModal(false);
+              }}
               className="fixed inset-0 bg-black/70 z-50"
             />
             <motion.div
@@ -373,7 +415,14 @@ export function BondEmotionPage() {
             >
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-bold text-gray-800">录制声音</h3>
-                <button onClick={() => !isRecording && setShowVoiceModal(false)} className="p-2 hover:bg-gray-100 rounded-full">
+                <button 
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    !isRecording && setShowVoiceModal(false);
+                  }} 
+                  className="p-2 hover:bg-gray-100 rounded-full"
+                >
                   <X className="w-5 h-5 text-gray-500" />
                 </button>
               </div>
@@ -398,7 +447,11 @@ export function BondEmotionPage() {
                 </p>
               </div>
               <button
-                onClick={isRecording ? handleStopRecording : handleStartRecording}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  (isRecording ? handleStopRecording : handleStartRecording)();
+                }}
                 className={`w-full py-4 rounded-xl font-medium transition-all ${
                   isRecording 
                     ? 'bg-red-500 text-white' 
@@ -420,7 +473,11 @@ export function BondEmotionPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setShowMessageModal(false)}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setShowMessageModal(false);
+              }}
               className="fixed inset-0 bg-black/70 z-50"
             />
             <motion.div
@@ -431,7 +488,14 @@ export function BondEmotionPage() {
             >
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-bold text-gray-800">发送留言</h3>
-                <button onClick={() => setShowMessageModal(false)} className="p-2 hover:bg-gray-100 rounded-full">
+                <button 
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShowMessageModal(false);
+                  }} 
+                  className="p-2 hover:bg-gray-100 rounded-full"
+                >
                   <X className="w-5 h-5 text-gray-500" />
                 </button>
               </div>

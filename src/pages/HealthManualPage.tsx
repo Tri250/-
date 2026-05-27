@@ -45,7 +45,11 @@ export const HealthManualPage: React.FC<HealthManualPageProps> = ({ onNavigate }
         <div className="max-w-md mx-auto">
           <div className="flex items-center gap-4 mb-6">
             <button 
-              onClick={() => onNavigate('home')}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onNavigate('home');
+              }}
               className="p-2 -ml-2 rounded-full bg-white/20 backdrop-blur hover:bg-white/30 transition-all"
             >
               <ChevronLeft className="w-6 h-6" />
@@ -74,7 +78,11 @@ export const HealthManualPage: React.FC<HealthManualPageProps> = ({ onNavigate }
       <div className="bg-white border-b border-neutral-100 px-4 py-3">
         <div className="max-w-md mx-auto flex gap-2">
           <button
-            onClick={() => setPetTypeFilter('both')}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setPetTypeFilter('both');
+            }}
             className={`flex-1 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
               petTypeFilter === 'both'
                 ? 'bg-primary-500 text-white'
@@ -84,7 +92,11 @@ export const HealthManualPage: React.FC<HealthManualPageProps> = ({ onNavigate }
             全部
           </button>
           <button
-            onClick={() => setPetTypeFilter('cat')}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setPetTypeFilter('cat');
+            }}
             className={`flex-1 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
               petTypeFilter === 'cat'
                 ? 'bg-primary-500 text-white'
@@ -94,7 +106,11 @@ export const HealthManualPage: React.FC<HealthManualPageProps> = ({ onNavigate }
             猫咪
           </button>
           <button
-            onClick={() => setPetTypeFilter('dog')}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setPetTypeFilter('dog');
+            }}
             className={`flex-1 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
               petTypeFilter === 'dog'
                 ? 'bg-primary-500 text-white'

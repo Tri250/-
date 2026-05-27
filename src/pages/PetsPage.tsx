@@ -55,7 +55,11 @@ export const PetsPage: React.FC<PetsPageProps> = ({ onNavigate }) => {
       <header className="bg-gradient-to-br from-primary-500 to-primary-600 text-white px-4 py-6">
         <div className="max-w-md mx-auto flex items-center gap-4">
           <button 
-            onClick={() => onNavigate('home')}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onNavigate('home');
+            }}
             className="p-2 -ml-2 rounded-full bg-white/20 backdrop-blur hover:bg-white/30 transition-all"
           >
             <ChevronLeft className="w-6 h-6" />
@@ -65,7 +69,11 @@ export const PetsPage: React.FC<PetsPageProps> = ({ onNavigate }) => {
             <p className="text-sm text-white/80">管理您的宠物信息</p>
           </div>
           <button 
-            onClick={() => setShowAddForm(true)}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setShowAddForm(true);
+            }}
             className="p-2 rounded-full bg-white/20 backdrop-blur hover:bg-white/30 transition-all"
           >
             <Plus className="w-5 h-5" />
@@ -82,7 +90,11 @@ export const PetsPage: React.FC<PetsPageProps> = ({ onNavigate }) => {
             <h2 className="text-lg font-semibold text-neutral-800 mb-2">还没有宠物</h2>
             <p className="text-sm text-neutral-500 mb-6">添加您的第一只宠物开始记录</p>
             <button
-              onClick={() => setShowAddForm(true)}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setShowAddForm(true);
+              }}
               className="px-6 py-3 bg-gradient-to-r from-primary-500 to-primary-600 text-white rounded-xl font-medium hover:shadow-lg transition-all"
             >
               添加宠物
@@ -102,7 +114,11 @@ export const PetsPage: React.FC<PetsPageProps> = ({ onNavigate }) => {
                       ? 'bg-white border-primary-500 shadow-lg'
                       : 'bg-white border-neutral-200 hover:border-primary-300'
                   }`}
-                  onClick={() => setCurrentPet(pet.id)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setCurrentPet(pet.id);
+                  }}
                 >
                   <div className="flex items-center gap-4">
                     <div className={`w-14 h-14 rounded-xl ${typeInfo.color} flex items-center justify-center`}>
@@ -126,6 +142,7 @@ export const PetsPage: React.FC<PetsPageProps> = ({ onNavigate }) => {
                     </div>
                     <button
                       onClick={(e) => {
+                        e.preventDefault();
                         e.stopPropagation();
                         if (confirm(`确定删除${pet.name}吗？`)) {
                           deletePet(pet.id);
@@ -149,11 +166,15 @@ export const PetsPage: React.FC<PetsPageProps> = ({ onNavigate }) => {
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-neutral-800">添加新宠物</h2>
               <button
-                onClick={() => setShowAddForm(false)}
-                className="text-neutral-400 hover:text-neutral-600"
-              >
-                ✕
-              </button>
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setShowAddForm(false);
+              }}
+              className="text-neutral-400 hover:text-neutral-600"
+            >
+              ✕
+            </button>
             </div>
 
             <div className="space-y-4">
@@ -177,7 +198,11 @@ export const PetsPage: React.FC<PetsPageProps> = ({ onNavigate }) => {
                     return (
                       <button
                         key={type}
-                        onClick={() => setNewPet({ ...newPet, type })}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setNewPet({ ...newPet, type });
+                        }}
                         className={`flex flex-col items-center gap-1 p-3 rounded-xl transition-all ${
                           newPet.type === type
                             ? `${info.color} ring-2 ring-offset-2 ring-primary-500`
@@ -209,7 +234,11 @@ export const PetsPage: React.FC<PetsPageProps> = ({ onNavigate }) => {
                   <label className="block text-sm font-medium text-neutral-700 mb-2">性别</label>
                   <div className="flex gap-2">
                     <button
-                      onClick={() => setNewPet({ ...newPet, gender: 'male' })}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setNewPet({ ...newPet, gender: 'male' });
+                      }}
                       className={`flex-1 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
                         newPet.gender === 'male'
                           ? 'bg-primary-500 text-white'
@@ -219,7 +248,11 @@ export const PetsPage: React.FC<PetsPageProps> = ({ onNavigate }) => {
                       公
                     </button>
                     <button
-                      onClick={() => setNewPet({ ...newPet, gender: 'female' })}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setNewPet({ ...newPet, gender: 'female' });
+                      }}
                       className={`flex-1 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
                         newPet.gender === 'female'
                           ? 'bg-primary-500 text-white'
@@ -278,7 +311,11 @@ export const PetsPage: React.FC<PetsPageProps> = ({ onNavigate }) => {
               </div>
 
               <button
-                onClick={handleAddPet}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleAddPet();
+                }}
                 disabled={!newPet.name.trim()}
                 className={`w-full py-4 rounded-xl font-medium flex items-center justify-center gap-2 transition-all ${
                   newPet.name.trim()

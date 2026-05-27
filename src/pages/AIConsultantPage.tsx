@@ -82,7 +82,11 @@ export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }
       <header className="bg-white border-b border-neutral-200 px-4 py-4 sticky top-0 z-30">
         <div className="max-w-md mx-auto flex items-center gap-4">
           <button 
-            onClick={() => onNavigate('home')}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onNavigate('home');
+            }}
             className="p-2 -ml-2 rounded-full hover:bg-neutral-100 transition-colors"
           >
             <ChevronLeft className="w-6 h-6 text-neutral-600" />
@@ -102,7 +106,11 @@ export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }
           <div className="flex-1" />
           <button 
             className="p-2 rounded-full hover:bg-neutral-100 transition-colors"
-            onClick={() => onNavigate('health-analytics')}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onNavigate('health-analytics');
+            }}
           >
             <BarChart3 className="w-5 h-5 text-neutral-600" />
           </button>
@@ -113,7 +121,11 @@ export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }
         <div className="max-w-md mx-auto">
           <div className="flex gap-2">
             <button 
-              onClick={() => setActiveTab('chat')}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setActiveTab('chat');
+              }}
               className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
                 activeTab === 'chat'
                   ? 'bg-gradient-to-r from-primary-500 to-primary-600 text-white'
@@ -124,7 +136,11 @@ export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }
               快速咨询
             </button>
             <button 
-              onClick={() => setShowReportModal(true)}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setShowReportModal(true);
+              }}
               className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
                 activeTab === 'report'
                   ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white'
@@ -135,7 +151,11 @@ export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }
               健康报告
             </button>
             <button 
-              onClick={() => setShowCheckupModal(true)}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setShowCheckupModal(true);
+              }}
               className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
                 activeTab === 'checkup'
                   ? 'bg-gradient-to-r from-green-500 to-green-600 text-white'
@@ -163,7 +183,11 @@ export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }
                 {QUICK_QUESTIONS.map((question, index) => (
                   <button
                     key={index}
-                    onClick={() => handleQuickQuestion(question)}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleQuickQuestion(question);
+                    }}
                     className="w-full px-4 py-3 bg-white border border-neutral-200 rounded-xl text-sm text-left hover:border-primary-300 hover:bg-primary-50 transition-all"
                   >
                     {question}
@@ -222,7 +246,13 @@ export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }
       <div className="bg-white border-t border-neutral-200 px-4 py-3">
         <div className="max-w-md mx-auto">
           <div className="flex items-end gap-2">
-            <button className="p-2 rounded-full hover:bg-neutral-100 transition-colors">
+            <button 
+              className="p-2 rounded-full hover:bg-neutral-100 transition-colors"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+            >
               <Paperclip className="w-5 h-5 text-neutral-500" />
             </button>
             <div className="flex-1 relative">
@@ -230,13 +260,23 @@ export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }
                 type="text"
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleSendMessage();
+                  }
+                }}
                 placeholder="描述宠物的情况..."
                 className="w-full px-4 py-3 bg-neutral-100 rounded-2xl text-sm border-none focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:bg-white transition-all"
               />
             </div>
             <button
-              onClick={handleSendMessage}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleSendMessage();
+              }}
               disabled={!inputText.trim()}
               className={`p-2 rounded-full transition-all ${
                 inputText.trim()
@@ -269,7 +309,14 @@ export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }
             >
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-bold text-gray-800">健康报告</h3>
-                <button onClick={() => setShowReportModal(false)} className="p-2 hover:bg-gray-100 rounded-full">
+                <button 
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShowReportModal(false);
+                  }} 
+                  className="p-2 hover:bg-gray-100 rounded-full"
+                >
                   <X className="w-5 h-5 text-gray-500" />
                 </button>
               </div>
@@ -317,7 +364,11 @@ export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }
                 </Card>
 
                 <button
-                  onClick={() => setShowReportModal(false)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShowReportModal(false);
+                  }}
                   className="w-full py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl font-medium"
                 >
                   关闭报告
@@ -347,7 +398,14 @@ export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }
             >
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-bold text-gray-800">症状自查</h3>
-                <button onClick={() => setShowCheckupModal(false)} className="p-2 hover:bg-gray-100 rounded-full">
+                <button 
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShowCheckupModal(false);
+                  }} 
+                  className="p-2 hover:bg-gray-100 rounded-full"
+                >
                   <X className="w-5 h-5 text-gray-500" />
                 </button>
               </div>
@@ -360,11 +418,15 @@ export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }
                 {symptoms.map((symptom) => (
                   <button
                     key={symptom.id}
-                    onClick={() => setSelectedSymptoms(prev => 
-                      prev.includes(symptom.id) 
-                        ? prev.filter(id => id !== symptom.id)
-                        : [...prev, symptom.id]
-                    )}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setSelectedSymptoms(prev => 
+                        prev.includes(symptom.id) 
+                          ? prev.filter(id => id !== symptom.id)
+                          : [...prev, symptom.id]
+                      );
+                    }}
                     className={`flex flex-col items-center gap-2 p-4 rounded-xl transition-all ${
                       selectedSymptoms.includes(symptom.id)
                         ? 'bg-primary-500 text-white'
@@ -382,13 +444,19 @@ export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }
 
               <div className="flex gap-3">
                 <button
-                  onClick={() => setSelectedSymptoms([])}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setSelectedSymptoms([]);
+                  }}
                   className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium"
                 >
                   重置选择
                 </button>
                 <button
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     if (selectedSymptoms.length === 0) {
                       alert('请至少选择一个症状');
                       return;
