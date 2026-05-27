@@ -25,11 +25,7 @@ export const Navigation: React.FC<NavigationProps> = ({ currentPage, onNavigate 
           return (
             <button
               key={item.id}
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onNavigate(item.id);
-              }}
+              onClick={() => onNavigate(item.id)}
               className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-all ${
                 isActive
                   ? 'text-primary-600 bg-primary-50'

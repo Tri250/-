@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import { AIConsultation, AIMessage, TrendReport, QUICK_QUESTIONS } from '../types/ai-consultation';
-import { aiConsultationService } from '../services/aiConsultationService';
 
 interface AIConsultationStore {
   consultations: AIConsultation[];
@@ -18,7 +17,6 @@ interface AIConsultationStore {
   generateReport: (petId: string, period: '7d' | '30d' | '90d') => void;
   
   getCurrentMessages: () => AIMessage[];
-  getTrendReport: (petId: string, period: string) => any;
 }
 
 export const useAIConsultationStore = create<AIConsultationStore>((set, get) => ({
@@ -62,10 +60,7 @@ export const useAIConsultationStore = create<AIConsultationStore>((set, get) => 
   },
 
   sendAIMessage: async (consultationId, content) => {
-    const state = get();
-    const consultation = state.consultations.find((c) => c.id === consultationId);
-    const petType = consultation?.petId === '1' ? 'cat' : 'dog';
-
+    // 添加用户消息
     get().addMessage(consultationId, {
       role: 'user',
       content,
@@ -73,20 +68,22 @@ export const useAIConsultationStore = create<AIConsultationStore>((set, get) => 
 
     set({ isTyping: true });
 
-    try {
-      const aiResponse = await aiConsultationService.sendMessage(consultationId, content, petType);
-      
-      get().addMessage(consultationId, {
-        role: 'assistant',
-        content: aiResponse.content,
-      });
-    } catch (error) {
-      console.error('AI response error:', error);
-      get().addMessage(consultationId, {
-        role: 'assistant',
-        content: '抱歉，我暂时无法回答您的问题，请稍后再试。',
-      });
-    }
+    // 模拟AI思考和回复
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+
+    // 模拟AI回复
+    const aiResponses = [
+      '根据您描述的情况，建议先观察24小时。如果症状持续或加重，请及时就医。',
+      '这是一个常见的问题，通常有以下几种处理方法...',
+      '从症状来看，可能是以下原因导致的。建议您...',
+      '感谢您的咨询！根据您提供的信息，我的建议是...',
+    ];
+    const randomResponse = aiResponses[Math.floor(Math.random() * aiResponses.length)];
+
+    get().addMessage(consultationId, {
+      role: 'assistant',
+      content: randomResponse,
+    });
 
     set({ isTyping: false });
   },
@@ -123,25 +120,5 @@ export const useAIConsultationStore = create<AIConsultationStore>((set, get) => 
     const state = get();
     const consultation = state.consultations.find((c) => c.id === state.currentConsultationId);
     return consultation?.messages || [];
-  },
-
-  getTrendReport: (petId: string, period: string) => {
-    // 返回默认的趋势报告
-    return {
-      summary: '整体健康状况良好，建议继续保持当前的护理方式。',
-      weight: {
-        change: 0.2,
-        trend: 'stable'
-      },
-      activity: {
-        change: 30,
-        trend: 'up'
-      },
-      recommendations: [
-        '继续保持定期体检',
-        '增加饮水量',
-        '适当增加户外活动'
-      ]
-    };
   },
 }));

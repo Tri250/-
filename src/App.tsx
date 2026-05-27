@@ -27,7 +27,6 @@ import { RemindersPage } from './pages/RemindersPage';
 import { AdvancedHealthPage } from './pages/AdvancedHealthPage';
 import { BondEmotionPage } from './pages/BondEmotionPage';
 import { CameraMonitorPage } from './pages/CameraMonitorPage';
-import { PetsPage } from './pages/PetsPage';
 import { useAppStore } from './store/appStore';
 
 export default function App() {
@@ -88,10 +87,6 @@ export default function App() {
         return <BondEmotionPage />;
       case 'camera-monitor':
         return <CameraMonitorPage />;
-      case 'pets':
-        return <PetsPage onNavigate={setCurrentPage} />;
-      case 'health-analytics':
-        return <AdvancedHealthPage />;
       default:
         return <HomePage onNavigate={setCurrentPage} />;
     }

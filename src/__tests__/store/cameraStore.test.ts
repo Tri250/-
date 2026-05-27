@@ -31,6 +31,7 @@ describe('CameraStore', () => {
       const store = useCameraStore.getState();
       
       expect(store.devices).toEqual([]);
+      expect(store.selectedDevice).toBeNull();
       expect(store.isLoading).toBe(false);
       expect(store.error).toBeNull();
       expect(store.streamQuality).toBe('auto');

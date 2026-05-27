@@ -20,12 +20,7 @@ import {
   ChevronRight,
   RefreshCw,
   Calendar,
-  Target,
-  X,
-  Check,
-  Clock,
-  Award,
-  Heart
+  Target
 } from 'lucide-react';
 import { aiHealthAlertService } from '../../services/aiHealthAlertService';
 import type { ComprehensiveHealthScore, HealthDashboard } from '../../types/advanced-health';
@@ -41,9 +36,6 @@ export function HealthDashboardComponent({ petId, onNavigateToDetails }: HealthD
   const [loading, setLoading] = useState(true);
   const [selectedDimension, setSelectedDimension] = useState<string | null>(null);
   const [animationComplete, setAnimationComplete] = useState(false);
-  const [showReportModal, setShowReportModal] = useState(false);
-  const [reportData, setReportData] = useState<any>(null);
-  const [reportLoading, setReportLoading] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -65,19 +57,6 @@ export function HealthDashboardComponent({ petId, onNavigateToDetails }: HealthD
       console.error('Failed to load health data:', error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const loadHealthReport = async () => {
-    setReportLoading(true);
-    try {
-      const report = await aiHealthAlertService.generateHealthReport(petId, 'weekly');
-      setReportData(report);
-      setShowReportModal(true);
-    } catch (error) {
-      console.error('Failed to load health report:', error);
-    } finally {
-      setReportLoading(false);
     }
   };
 
@@ -245,19 +224,13 @@ export function HealthDashboardComponent({ petId, onNavigateToDetails }: HealthD
             </motion.div>
           )}
 
-          <div className="flex items-center gap-4 mt-4 text-xs">
-            <div className="flex items-center gap-1 text-green-200">
-              <motion.span
-                animate={{ opacity: [0.5, 1, 0.5] }}
-                transition={{ duration: 2, repeat: Infinity }}
-                className="w-2 h-2 bg-green-300 rounded-full"
-              />
-              <span>实时监测中</span>
-            </div>
-            <div className="flex items-center gap-1 text-green-200">
-              <Award className="w-3 h-3" />
-              <span>AI准确率: {healthScore.accuracy}%</span>
-            </div>
+          <div className="flex items-center gap-2 mt-4 text-xs text-green-200">
+            <motion.span
+              animate={{ opacity: [0.5, 1, 0.5] }}
+              transition={{ duration: 2, repeat: Infinity }}
+              className="w-2 h-2 bg-green-300 rounded-full"
+            />
+            <span>实时监测中 · 数据更新于 {new Date(healthScore.lastUpdated).toLocaleTimeString()}</span>
           </div>
         </div>
       </motion.div>
@@ -404,162 +377,15 @@ export function HealthDashboardComponent({ petId, onNavigateToDetails }: HealthD
 
       {/* 导航按钮 */}
       <button
-        onClick={loadHealthReport}
-        disabled={reportLoading}
-        className="w-full bg-white rounded-2xl p-4 shadow-sm flex items-center justify-between hover:shadow-md transition-shadow disabled:opacity-50"
+        onClick={onNavigateToDetails}
+        className="w-full bg-white rounded-2xl p-4 shadow-sm flex items-center justify-between hover:shadow-md transition-shadow"
       >
         <div className="flex items-center gap-3">
           <Target className="w-5 h-5 text-green-500" />
           <span className="font-medium text-gray-700">查看详细健康报告</span>
         </div>
-        <div className="flex items-center gap-2">
-          {reportLoading && (
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-            >
-              <RefreshCw className="w-4 h-4 text-gray-400" />
-            </motion.div>
-          )}
-          <ChevronRight className="w-5 h-5 text-gray-400" />
-        </div>
+        <ChevronRight className="w-5 h-5 text-gray-400" />
       </button>
-
-      {/* 健康报告模态框 */}
-      <AnimatePresence>
-        {showReportModal && reportData && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowReportModal(false)}
-              className="fixed inset-0 bg-black/50 z-50"
-            />
-            <motion.div
-              initial={{ opacity: 0, y: 100 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 100 }}
-              className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl z-50 max-h-[90vh] overflow-y-auto"
-            >
-              <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between z-10">
-                <h3 className="text-lg font-bold text-gray-800">详细健康报告</h3>
-                <button onClick={() => setShowReportModal(false)} className="p-2 hover:bg-gray-100 rounded-full">
-                  <X className="w-5 h-5 text-gray-500" />
-                </button>
-              </div>
-
-              <div className="p-6 space-y-6">
-                {/* 报告头部 */}
-                <div className="bg-gradient-to-br from-green-500 to-emerald-500 rounded-2xl p-6 text-white">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <p className="text-green-100 text-sm">本周健康评分</p>
-                      <p className="text-4xl font-bold mt-1">{reportData.summary.overallHealth}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-green-100 text-sm">与上周相比</p>
-                      <p className="text-xl font-bold text-green-300">+{reportData.summary.comparedToLast}%</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-green-200">
-                    <Clock className="w-4 h-4" />
-                    <span>报告生成于 {new Date(reportData.generatedAt).toLocaleString('zh-CN')}</span>
-                  </div>
-                </div>
-
-                {/* 各项指标 */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-green-50 rounded-xl p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Activity className="w-4 h-4 text-green-600" />
-                      <span className="text-sm text-gray-600">活动量</span>
-                    </div>
-                    <p className="text-2xl font-bold text-green-600">{reportData.summary.activityLevel}</p>
-                  </div>
-                  <div className="bg-purple-50 rounded-xl p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Moon className="w-4 h-4 text-purple-600" />
-                      <span className="text-sm text-gray-600">睡眠质量</span>
-                    </div>
-                    <p className="text-2xl font-bold text-purple-600">{reportData.summary.sleepQuality}</p>
-                  </div>
-                  <div className="bg-orange-50 rounded-xl p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Utensils className="w-4 h-4 text-orange-600" />
-                      <span className="text-sm text-gray-600">营养均衡</span>
-                    </div>
-                    <p className="text-2xl font-bold text-orange-600">{reportData.summary.nutritionBalance}</p>
-                  </div>
-                  <div className="bg-cyan-50 rounded-xl p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Heart className="w-4 h-4 text-cyan-600" />
-                      <span className="text-sm text-gray-600">心理状态</span>
-                    </div>
-                    <p className="text-2xl font-bold text-cyan-600">{healthScore?.dimensions.find(d => d.id === 'mental')?.score || 88}</p>
-                  </div>
-                </div>
-
-                {/* 亮点 */}
-                <div>
-                  <h4 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                    <Check className="w-5 h-5 text-green-500" />
-                    本周亮点
-                  </h4>
-                  <div className="space-y-2">
-                    {reportData.highlights.positive.map((item, index) => (
-                      <div key={index} className="flex items-center gap-2 text-sm text-gray-600">
-                        <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />
-                        {item}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* 关注事项 */}
-                <div>
-                  <h4 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                    <Target className="w-5 h-5 text-orange-500" />
-                    需要关注
-                  </h4>
-                  <div className="space-y-2">
-                    {reportData.highlights.concerns.map((item, index) => (
-                      <div key={index} className="flex items-center gap-2 text-sm text-gray-600">
-                        <span className="w-1.5 h-1.5 bg-orange-500 rounded-full" />
-                        {item}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* 建议 */}
-                <div className="bg-blue-50 rounded-xl p-4">
-                  <h4 className="font-semibold text-blue-800 mb-3 flex items-center gap-2">
-                    <Award className="w-5 h-5 text-blue-600" />
-                    AI建议
-                  </h4>
-                  <div className="space-y-2">
-                    {reportData.highlights.recommendations.map((item, index) => (
-                      <div key={index} className="flex items-start gap-2 text-sm text-blue-700">
-                        <span className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-1.5" />
-                        {item}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* 关闭按钮 */}
-                <button
-                  onClick={() => setShowReportModal(false)}
-                  className="w-full py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl font-medium"
-                >
-                  关闭报告
-                </button>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
     </div>
   );
 }

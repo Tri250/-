@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { 
   ChevronLeft, 
   Search, 
@@ -7,14 +7,11 @@ import {
   Apple,
   Bath,
   PawPrint,
-  AlertTriangle,
-  X
+  AlertTriangle
 } from 'lucide-react';
 import { Card, EmptyState } from '../components/DesignSystem';
 import { useHealthManualStore } from '../store/healthManualStore';
 import { MANUAL_CATEGORIES } from '../types/health-manual';
-import { motion, AnimatePresence } from 'framer-motion';
-import type { HealthManual } from '../types/health-manual';
 
 interface HealthManualPageProps {
   onNavigate: (page: string) => void;
@@ -22,7 +19,6 @@ interface HealthManualPageProps {
 
 export const HealthManualPage: React.FC<HealthManualPageProps> = ({ onNavigate }) => {
   const { manuals, selectedCategory, searchQuery, petTypeFilter, getFilteredManuals, getPopularManuals, setSelectedCategory, setSearchQuery, setPetTypeFilter, toggleBookmark, bookmarks } = useHealthManualStore();
-  const [selectedManual, setSelectedManual] = useState<HealthManual | null>(null);
 
   const filteredManuals = getFilteredManuals();
   const popularManuals = getPopularManuals();
@@ -34,10 +30,6 @@ export const HealthManualPage: React.FC<HealthManualPageProps> = ({ onNavigate }
     'emergency': AlertTriangle,
   };
 
-  const handleViewManual = (manual: HealthManual) => {
-    setSelectedManual(manual);
-  };
-
   return (
     <div className="min-h-screen bg-neutral-50 pb-24">
       {/* Header */}
@@ -45,11 +37,7 @@ export const HealthManualPage: React.FC<HealthManualPageProps> = ({ onNavigate }
         <div className="max-w-md mx-auto">
           <div className="flex items-center gap-4 mb-6">
             <button 
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onNavigate('home');
-              }}
+              onClick={() => onNavigate('home')}
               className="p-2 -ml-2 rounded-full bg-white/20 backdrop-blur hover:bg-white/30 transition-all"
             >
               <ChevronLeft className="w-6 h-6" />
@@ -78,11 +66,7 @@ export const HealthManualPage: React.FC<HealthManualPageProps> = ({ onNavigate }
       <div className="bg-white border-b border-neutral-100 px-4 py-3">
         <div className="max-w-md mx-auto flex gap-2">
           <button
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setPetTypeFilter('both');
-            }}
+            onClick={() => setPetTypeFilter('both')}
             className={`flex-1 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
               petTypeFilter === 'both'
                 ? 'bg-primary-500 text-white'
@@ -92,11 +76,7 @@ export const HealthManualPage: React.FC<HealthManualPageProps> = ({ onNavigate }
             全部
           </button>
           <button
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setPetTypeFilter('cat');
-            }}
+            onClick={() => setPetTypeFilter('cat')}
             className={`flex-1 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
               petTypeFilter === 'cat'
                 ? 'bg-primary-500 text-white'
@@ -106,11 +86,7 @@ export const HealthManualPage: React.FC<HealthManualPageProps> = ({ onNavigate }
             猫咪
           </button>
           <button
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setPetTypeFilter('dog');
-            }}
+            onClick={() => setPetTypeFilter('dog')}
             className={`flex-1 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
               petTypeFilter === 'dog'
                 ? 'bg-primary-500 text-white'
@@ -133,11 +109,7 @@ export const HealthManualPage: React.FC<HealthManualPageProps> = ({ onNavigate }
                 return (
                   <button
                     key={category.id}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setSelectedCategory(selectedCategory === category.id ? null : category.id);
-                    }}
+                    onClick={() => setSelectedCategory(selectedCategory === category.id ? null : category.id)}
                     className={`p-4 rounded-2xl text-left transition-all ${
                       selectedCategory === category.id
                         ? 'bg-white shadow-lg border-2 border-primary-500'
@@ -166,7 +138,7 @@ export const HealthManualPage: React.FC<HealthManualPageProps> = ({ onNavigate }
                   <Card
                     key={manual.id}
                     hover
-                    onClick={() => handleViewManual(manual)}
+                    onClick={() => console.log('View manual:', manual.id)}
                     className="p-0 overflow-hidden"
                   >
                     <div className="p-4">
@@ -227,7 +199,7 @@ export const HealthManualPage: React.FC<HealthManualPageProps> = ({ onNavigate }
                   <Card
                     key={manual.id}
                     hover
-                    onClick={() => handleViewManual(manual)}
+                    onClick={() => console.log('View manual:', manual.id)}
                     className="p-0 overflow-hidden"
                   >
                     <div className="p-4">
@@ -269,100 +241,6 @@ export const HealthManualPage: React.FC<HealthManualPageProps> = ({ onNavigate }
           </div>
         </div>
       </div>
-
-      {/* 手册详情模态框 */}
-      <AnimatePresence>
-        {selectedManual && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setSelectedManual(null)}
-              className="fixed inset-0 bg-black/50 z-50"
-            />
-            <motion.div
-              initial={{ opacity: 0, y: 100 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 100 }}
-              className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl z-50 max-h-[85vh] overflow-y-auto"
-            >
-              <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between z-10">
-                <h3 className="text-lg font-bold text-gray-800">详情</h3>
-                <button 
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setSelectedManual(null);
-                  }} 
-                  className="p-2 hover:bg-gray-100 rounded-full"
-                >
-                  <X className="w-5 h-5 text-gray-500" />
-                </button>
-              </div>
-
-              <div className="p-6">
-                <div className="mb-4">
-                  <h2 className="text-xl font-bold text-gray-800 mb-2">{selectedManual.title}</h2>
-                  <div className="flex items-center gap-3">
-                    <span className="px-3 py-1 rounded-full text-sm font-medium" style={{ backgroundColor: MANUAL_CATEGORIES.find(c => c.id === selectedManual.category)?.color + '20', color: MANUAL_CATEGORIES.find(c => c.id === selectedManual.category)?.color }}>
-                      {MANUAL_CATEGORIES.find(c => c.id === selectedManual.category)?.name}
-                    </span>
-                    <span className="text-sm text-gray-500">{selectedManual.readTime}分钟阅读</span>
-                    {selectedManual.isPopular && (
-                      <span className="px-2 py-1 bg-warning-100 text-warning-700 rounded-full text-xs font-medium">热门</span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="whitespace-pre-line">
-                  {selectedManual.content.split('\n').map((line, index) => {
-                    if (line.startsWith('# ')) {
-                      return <h2 key={index} className="text-xl font-bold text-gray-800 mb-4 mt-6">{line.replace('# ', '')}</h2>;
-                    } else if (line.startsWith('## ')) {
-                      return <h3 key={index} className="text-lg font-semibold text-gray-800 mb-3 mt-4">{line.replace('## ', '')}</h3>;
-                    } else if (line.startsWith('### ')) {
-                      return <h4 key={index} className="text-base font-semibold text-gray-700 mb-2 mt-3">{line.replace('### ', '')}</h4>;
-                    } else if (line.startsWith('- ')) {
-                      return <p key={index} className="text-gray-600 leading-relaxed pl-4 mb-1">{line}</p>;
-                    } else if (line.startsWith('❌ ') || line.startsWith('✅ ')) {
-                      return <p key={index} className="text-gray-600 leading-relaxed mb-1">{line}</p>;
-                    } else if (line.trim() === '') {
-                      return <br key={index} />;
-                    } else {
-                      return <p key={index} className="text-gray-600 leading-relaxed mb-2">{line}</p>;
-                    }
-                  })}
-                </div>
-
-                <div className="mt-6 flex gap-3">
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      toggleBookmark(selectedManual.id);
-                      setSelectedManual({ ...selectedManual });
-                    }}
-                    className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium flex items-center justify-center gap-2"
-                  >
-                    <Bookmark className={`w-5 h-5 ${bookmarks.includes(selectedManual.id) ? 'fill-primary-500 text-primary-500' : ''}`} />
-                    {bookmarks.includes(selectedManual.id) ? '已收藏' : '收藏'}
-                  </button>
-                  <button 
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                    }}
-                    className="flex-1 py-3 bg-gradient-to-r from-primary-500 to-primary-600 text-white rounded-xl font-medium"
-                  >
-                    分享
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
     </div>
   );
 };

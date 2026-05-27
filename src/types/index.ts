@@ -1,8 +1,21 @@
-// 核心类型定义汇总
-
 export * from './pet';
 export * from './health-record';
 export * from './ai-consultation';
 export * from './health-manual';
 export * from './reminder';
 export * from './visualization';
+export * from './camera';
+export * from './audio';
+export * from './face';
+export * from './fusion';
+export * from './seven-level-alert';
+export * from './voice-cloning';
+export * from './pet-food';
+export * from './emotion';
+export * from './advanced-health';
+export * from './medical';
+export * from './monitor';
+export * from './bond';
+export * from './push';
+export * from './cloud';
+export * from './rtc';

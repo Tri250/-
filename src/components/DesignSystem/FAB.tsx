@@ -15,29 +15,22 @@ export const FAB: React.FC<FABProps> = ({ onAction }) => {
     { type: 'video', icon: Video, label: '视频记录', color: 'from-red-500 to-red-600' },
   ];
 
-  const handleAction = (type: 'text' | 'voice' | 'photo' | 'video') => {
-    console.log('FAB action clicked:', type);
-    onAction(type);
-    setIsOpen(false);
-  };
-
   return (
-    <div className="fixed bottom-24 right-4 md:right-6 z-50">
+    <div className="fixed bottom-24 right-6 z-50">
       {isOpen && (
-        <div className="absolute bottom-16 right-0 flex flex-col items-end gap-2 md:gap-3 animate-slide-up">
+        <div className="absolute bottom-16 right-0 flex flex-col items-end gap-3 animate-slide-up">
           {actions.map((action, index) => (
             <button
               key={action.type}
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                handleAction(action.type);
+              onClick={() => {
+                onAction(action.type as any);
+                setIsOpen(false);
               }}
-              className="flex items-center gap-2 px-4 py-2.5 bg-white rounded-full shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
+              className="flex items-center gap-2 px-4 py-2 bg-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
               style={{ animationDelay: `${index * 50}ms` }}
             >
               <span className="text-sm font-medium text-gray-700">{action.label}</span>
-              <div className={`w-8 h-8 rounded-full bg-gradient-to-r ${action.color} flex items-center justify-center shadow-md`}>
+              <div className={`w-8 h-8 rounded-full bg-gradient-to-r ${action.color} flex items-center justify-center`}>
                 <action.icon className="w-4 h-4 text-white" />
               </div>
             </button>
@@ -46,13 +39,8 @@ export const FAB: React.FC<FABProps> = ({ onAction }) => {
       )}
       
       <button
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          console.log('FAB toggle clicked');
-          setIsOpen(!isOpen);
-        }}
-        className={`w-14 h-14 rounded-full bg-gradient-to-r from-primary-500 to-primary-600 flex items-center justify-center shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-300 ${
+        onClick={() => setIsOpen(!isOpen)}
+        className={`w-14 h-14 rounded-full bg-gradient-to-r from-primary-500 to-primary-600 flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-300 ${
           isOpen ? 'rotate-45' : ''
         }`}
       >

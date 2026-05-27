@@ -313,13 +313,12 @@ class AIHealthAlertService {
     await this.simulateDelay(MOCK_DELAY);
     
     return {
-      overall: 92,
-      accuracy: 95,
+      overall: 87,
       dimensions: [
         {
           id: 'activity',
           name: '活动',
-          score: 90,
+          score: 85,
           trend: 'up',
           change: 5,
           icon: 'activity',
@@ -329,9 +328,9 @@ class AIHealthAlertService {
         {
           id: 'nutrition',
           name: '营养',
-          score: 93,
+          score: 88,
           trend: 'stable',
-          change: 2,
+          change: 0,
           icon: 'nutrition',
           color: '#F97316',
           metrics: ['摄入热量', '蛋白质', '饮水量']
@@ -339,9 +338,9 @@ class AIHealthAlertService {
         {
           id: 'sleep',
           name: '睡眠',
-          score: 95,
+          score: 92,
           trend: 'up',
-          change: 4,
+          change: 3,
           icon: 'sleep',
           color: '#8B5CF6',
           metrics: ['睡眠时长', '睡眠质量', '深睡比例']
@@ -349,20 +348,19 @@ class AIHealthAlertService {
         {
           id: 'mental',
           name: '心理',
-          score: 88,
-          trend: 'up',
-          change: 3,
+          score: 83,
+          trend: 'down',
+          change: -2,
           icon: 'mental',
           color: '#06B6D4',
           metrics: ['情绪状态', '焦虑水平', '社交互动']
         }
       ],
-      trend: 'up',
+      trend: 'stable',
       lastUpdated: new Date().toISOString(),
       prediction: {
         riskLevel: 'low',
-        predictedIssues: [],
-        accuracy: 96
+        predictedIssues: ['饮水量需关注', '运动量可适度增加']
       }
     };
   }
