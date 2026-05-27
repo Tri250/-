@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   ChevronRight, 
   Heart, 
@@ -10,7 +10,8 @@ import {
   Activity,
   Star,
   Clock,
-  ArrowUpRight
+  Settings,
+  Plus
 } from 'lucide-react';
 import { Card, Button, ProgressRing, Badge } from '../components/DesignSystem';
 import { useAppStore } from '../store/appStore';
@@ -23,6 +24,17 @@ interface HomePageProps {
   onNavigate: (page: string) => void;
 }
 
+// 卡片配置类型
+type CardType = 'reminders' | 'recent_records' | 'bond_metrics' | 'quick_actions' | 'pet_status';
+
+interface CardConfig {
+  id: CardType;
+  title: string;
+  icon: any;
+  visible: boolean;
+  order: number;
+}
+
 export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
   const { currentPet, currentEmotion, healthScore } = useAppStore();
   const { metrics, badges, totalPoints, streakDays } = useBondStore();
@@ -30,6 +42,14 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
   const { pets, currentPetId, setCurrentPet } = usePetStore();
   const { getUpcomingReminders } = useReminderStore();
   const { getFilteredRecords } = useHealthRecordStore();
+  const [showCardSettings, setShowCardSettings] = useState(false);
+  const [cardConfigs, setCardConfigs] = useState<CardConfig[]>([
+    { id: 'pet_status', title: '宠物状态', icon: Heart, visible: true, order: 0 },
+    { id: 'quick_actions', title: '快捷操作', icon: Activity, visible: true, order: 1 },
+    { id: 'reminders', title: '即将到来', icon: Calendar, visible: true, order: 2 },
+    { id: 'recent_records', title: '最近记录', icon: FileText, visible: true, order: 3 },
+    { id: 'bond_metrics', title: '亲密度指标', icon: Star, visible: true, order: 4 },
+  ]);
 
   const upcomingReminders = currentPetId ? getUpcomingReminders(currentPetId, 3) : [];
   const recentRecords = currentPetId ? getFilteredRecords(currentPetId).slice(0, 3) : [];
@@ -74,10 +94,24 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
       icon: TrendingUp,
       label: '健康数据',
       description: '趋势分析',
-      color: 'from-warning-500 to-warning-600',
+      color: 'from-orange-500 to-orange-600',
       page: 'health-analytics',
     },
   ];
+
+  // 切换卡片可见性
+  const toggleCardVisibility = (cardId: CardType) => {
+    setCardConfigs(cards => 
+      cards.map(card => 
+        card.id === cardId ? { ...card, visible: !card.visible } : card
+      )
+    );
+  };
+
+  // 获取可见并按顺序排列的卡片
+  const visibleCards = cardConfigs
+    .filter(card => card.visible)
+    .sort((a, b) => a.order - b.order);
 
   const getEmotionEmoji = (emotion: string) => {
     const map: Record<string, string> = {
@@ -88,6 +122,163 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
       needs: '🥺',
     };
     return map[emotion] || '😐';
+  };
+
+  // 渲染单个卡片
+  const renderCard = (cardConfig: CardConfig, index: number) => {
+    const delay = 0.1 + index * 0.1;
+    
+    switch (cardConfig.id) {
+      case 'pet_status':
+        return (
+          <div key={cardConfig.id} className="animate-slide-up" style={{ animationDelay: `${delay}s` }}>
+            <Card variant="elevated" padding="lg">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary-100 to-primary-200 flex items-center justify-center animate-bounce-gentle">
+                  <span className="text-3xl">{getEmotionEmoji(currentEmotion)}</span>
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-bold text-neutral-800">{currentPet?.name}</h3>
+                  <p className="text-sm text-neutral-500 capitalize">{currentEmotion}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-xs text-neutral-400">健康评分</span>
+                    <div className="flex items-center gap-1">
+                      <div className="w-20 bg-neutral-200 rounded-full h-2">
+                        <div 
+                          className="bg-success-500 h-full rounded-full transition-all duration-500"
+                          style={{ width: `${healthScore}%` }}
+                        />
+                      </div>
+                      <span className="text-xs font-medium text-success-600">{healthScore}</span>
+                    </div>
+                  </div>
+                </div>
+                <Badge variant="success" size="sm">正常</Badge>
+              </div>
+            </Card>
+          </div>
+        );
+
+      case 'quick_actions':
+        return (
+          <div key={cardConfig.id} className="grid grid-cols-3 gap-3 animate-slide-up" style={{ animationDelay: `${delay}s` }}>
+            {quickActions.map((action) => (
+              <button
+                key={action.page}
+                onClick={() => onNavigate(action.page)}
+                className="col-span-1"
+              >
+                <Card className="text-center h-full">
+                  <div className={`w-12 h-12 mx-auto rounded-2xl bg-gradient-to-r ${action.color} flex items-center justify-center mb-3 shadow-md`}>
+                    <action.icon className="w-6 h-6 text-white" />
+                  </div>
+                  <h4 className="font-semibold text-sm text-neutral-800 mb-1">{action.label}</h4>
+                  <p className="text-xs text-neutral-500">{action.description}</p>
+                </Card>
+              </button>
+            ))}
+          </div>
+        );
+
+      case 'reminders':
+        return upcomingReminders.length > 0 ? (
+          <div key={cardConfig.id} className="animate-slide-up" style={{ animationDelay: `${delay}s` }}>
+            <Card className="p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-neutral-800 flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-primary-500" />
+                  即将到来
+                </h3>
+                <button 
+                  className="text-xs text-primary-500 font-medium flex items-center gap-1"
+                  onClick={() => onNavigate('reminders')}
+                >
+                  全部
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="space-y-3">
+                {upcomingReminders.map((reminder) => (
+                  <div 
+                    key={reminder.id}
+                    className="flex items-center gap-3 p-3 bg-neutral-50 rounded-xl hover:bg-neutral-100 transition-colors"
+                  >
+                    <div className="w-2 h-2 rounded-full bg-primary-500 animate-pulse" />
+                    <div className="flex-1">
+                      <h4 className="font-medium text-sm text-neutral-800">{reminder.title}</h4>
+                      <p className="text-xs text-neutral-500">{reminder.date} {reminder.time}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </div>
+        ) : null;
+
+      case 'recent_records':
+        return recentRecords.length > 0 ? (
+          <div key={cardConfig.id} className="animate-slide-up" style={{ animationDelay: `${delay}s` }}>
+            <Card className="p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-neutral-800 flex items-center gap-2">
+                  <Activity className="w-5 h-5 text-green-500" />
+                  最近记录
+                </h3>
+                <button 
+                  className="text-xs text-primary-500 font-medium flex items-center gap-1"
+                  onClick={() => onNavigate('health-records')}
+                >
+                  更多
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="space-y-3">
+                {recentRecords.map((record) => (
+                  <div 
+                    key={record.id}
+                    className="p-3 bg-neutral-50 rounded-xl hover:bg-neutral-100 transition-colors cursor-pointer"
+                  >
+                    <h4 className="font-medium text-sm text-neutral-800">{record.title}</h4>
+                    <p className="text-xs text-neutral-500 mt-1 line-clamp-2">{record.content}</p>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </div>
+        ) : null;
+
+      case 'bond_metrics':
+        return (
+          <div key={cardConfig.id} className="animate-slide-up" style={{ animationDelay: `${delay}s` }}>
+            <Card className="p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-neutral-800 flex items-center gap-2">
+                  <Star className="w-5 h-5 text-yellow-500" />
+                  亲密度
+                </h3>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-neutral-500">
+                    {streakDays} 天
+                  </span>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-primary-600">{unlockedBadges}</div>
+                  <div className="text-xs text-neutral-500">已获徽章</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-orange-500">{totalPoints}</div>
+                  <div className="text-xs text-neutral-500">积分</div>
+                </div>
+              </div>
+            </Card>
+          </div>
+        );
+
+      default:
+        return null;
+    }
   };
 
   return (
@@ -107,12 +298,20 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
               </h1>
               <p className="text-xs text-white/80 mt-1">温暖守护 · 陪伴成长</p>
             </div>
-            <button 
-              className="p-2 rounded-full bg-white/20 backdrop-blur hover:bg-white/30 transition-all"
-              onClick={() => onNavigate('health')}
-            >
-              <div className="w-6 h-6" />
-            </button>
+            <div className="flex gap-2">
+              <button 
+                className="p-2 rounded-full bg-white/20 backdrop-blur hover:bg-white/30 transition-all"
+                onClick={() => setShowCardSettings(!showCardSettings)}
+              >
+                <Settings className="w-5 h-5" />
+              </button>
+              <button 
+                className="p-2 rounded-full bg-white/20 backdrop-blur hover:bg-white/30 transition-all"
+                onClick={() => onNavigate('health')}
+              >
+                <Activity className="w-5 h-5" />
+              </button>
+            </div>
           </div>
 
           {/* Pet Selector */}
@@ -144,7 +343,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
               onClick={() => onNavigate('pets')}
             >
               <div className="w-8 h-8 rounded-full border-2 border-dashed border-white/50 flex items-center justify-center">
-                <div className="w-4 h-4" />
+                <Plus className="w-4 h-4" />
               </div>
               <span className="text-sm font-medium">添加</span>
             </button>
@@ -184,120 +383,48 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
       </header>
 
       <main className="max-w-md mx-auto px-4 -mt-8 space-y-5">
-        {/* Status Card */}
-        <div className="animate-slide-up" style={{ animationDelay: '0.1s' }}>
-          <Card variant="elevated" padding="lg">
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary-100 to-primary-200 flex items-center justify-center animate-bounce-gentle">
-                <span className="text-3xl">{getEmotionEmoji(currentEmotion)}</span>
+        {/* 卡片设置模态框 */}
+        {showCardSettings && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center" onClick={() => setShowCardSettings(false)}>
+            <div className="bg-white rounded-2xl p-6 w-80 max-w-[90%]" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-bold text-lg text-neutral-800">自定义首页</h3>
+                <button onClick={() => setShowCardSettings(false)} className="text-neutral-500">✕</button>
               </div>
-              <div className="flex-1">
-                <h3 className="font-bold text-neutral-800">{currentPet?.name}</h3>
-                <p className="text-sm text-neutral-500 capitalize">{currentEmotion}</p>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-xs text-neutral-400">健康评分</span>
-                  <div className="flex items-center gap-1">
-                    <div className="w-20 bg-neutral-200 rounded-full h-2">
-                      <div 
-                        className="bg-success-500 h-full rounded-full transition-all duration-500"
-                        style={{ width: `${healthScore}%` }}
-                      />
+              <div className="space-y-3">
+                {cardConfigs.map((card) => (
+                  <div key={card.id} className="flex items-center justify-between p-3 bg-neutral-50 rounded-xl">
+                    <div className="flex items-center gap-3">
+                      <div className="text-neutral-400">
+                        <card.icon className="w-5 h-5" />
+                      </div>
+                      <span className="font-medium text-neutral-800">{card.title}</span>
                     </div>
-                    <span className="text-xs font-medium text-success-600">{healthScore}</span>
+                    <button 
+                      onClick={() => toggleCardVisibility(card.id)}
+                      className={`w-10 h-6 rounded-full transition-colors ${
+                        card.visible ? 'bg-primary-500' : 'bg-neutral-300'
+                      }`}
+                    >
+                      <div className={`w-4 h-4 rounded-full bg-white shadow transition-transform ${
+                        card.visible ? 'translate-x-5' : 'translate-x-1'
+                      }`} />
+                    </button>
                   </div>
-                </div>
+                ))}
               </div>
-              <Badge variant="success" size="sm">正常</Badge>
+              <button 
+                onClick={() => setShowCardSettings(false)}
+                className="w-full mt-4 py-3 bg-primary-500 text-white rounded-xl font-medium"
+              >
+                完成
+              </button>
             </div>
-          </Card>
-        </div>
-
-        {/* Quick Actions Grid */}
-        <div className="grid grid-cols-3 gap-3 animate-slide-up" style={{ animationDelay: '0.2s' }}>
-          {quickActions.map((action, index) => (
-            <button
-              key={action.page}
-              onClick={() => onNavigate(action.page)}
-              className="col-span-1"
-              style={{ animationDelay: `${0.2 + index * 0.05}s` }}
-            >
-              <Card className="text-center h-full">
-                <div className={`w-12 h-12 mx-auto rounded-2xl bg-gradient-to-r ${action.color} flex items-center justify-center mb-3 shadow-md`}>
-                  <action.icon className="w-6 h-6 text-white" />
-                </div>
-                <h4 className="font-semibold text-sm text-neutral-800 mb-1">{action.label}</h4>
-                <p className="text-xs text-neutral-500">{action.description}</p>
-              </Card>
-            </button>
-          ))}
-        </div>
-
-        {/* Upcoming Reminders */}
-        {upcomingReminders.length > 0 && (
-          <div className="animate-slide-up" style={{ animationDelay: '0.3s' }}>
-            <Card className="p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-neutral-800 flex items-center gap-2">
-                  <Calendar className="w-5 h-5 text-primary-500" />
-                  即将到来
-                </h3>
-                <button 
-                  className="text-xs text-primary-500 font-medium flex items-center gap-1"
-                  onClick={() => onNavigate('reminders')}
-                >
-                  全部
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-              <div className="space-y-3">
-                {upcomingReminders.map((reminder, index) => (
-                  <div 
-                    key={reminder.id}
-                    className="flex items-center gap-3 p-3 bg-neutral-50 rounded-xl hover:bg-neutral-100 transition-colors"
-                  >
-                    <div className="w-2 h-2 rounded-full bg-primary-500 animate-pulse" />
-                    <div className="flex-1">
-                      <h4 className="font-medium text-sm text-neutral-800">{reminder.title}</h4>
-                      <p className="text-xs text-neutral-500">{reminder.date} {reminder.time}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
           </div>
         )}
 
-        {/* Recent Records */}
-        {recentRecords.length > 0 && (
-          <div className="animate-slide-up" style={{ animationDelay: '0.4s' }}>
-            <Card className="p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-neutral-800 flex items-center gap-2">
-                  <Activity className="w-5 h-5 text-green-500" />
-                  最近记录
-                </h3>
-                <button 
-                  className="text-xs text-primary-500 font-medium flex items-center gap-1"
-                  onClick={() => onNavigate('health-records')}
-                >
-                  更多
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-              <div className="space-y-3">
-                {recentRecords.map((record, index) => (
-                  <div 
-                    key={record.id}
-                    className="p-3 bg-neutral-50 rounded-xl hover:bg-neutral-100 transition-colors cursor-pointer"
-                  >
-                    <h4 className="font-medium text-sm text-neutral-800">{record.title}</h4>
-                    <p className="text-xs text-neutral-500 mt-1 line-clamp-2">{record.content}</p>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          </div>
-        )}
+        {/* 动态渲染卡片 */}
+        {visibleCards.map((cardConfig, index) => renderCard(cardConfig, index))}
       </main>
     </div>
   );
