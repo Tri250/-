@@ -2,11 +2,13 @@
 // PawSync Pro - appStore.ts
 //
 // 作者: 带娃的小陈工
-// 日期: 2026-05-26
+// 日期: 2026-05-27
 // 描述: 应用主状态管理，包含用户、宠物、分析结果等状态
 // ============================================
 
 import { create } from 'zustand';
+import { AuthService, validateEmail, validatePassword, sanitizeInput } from '../services/authService';
+import { secureStorage } from '../services/securityService';
 
 export interface User {
   id: string;
@@ -69,10 +71,12 @@ interface AppState {
   isRecording: boolean;
   careTips: CareTip[];
   setUser: (user: User | null) => void;
-  login: (email: string, password: string) => Promise<boolean>;
-  register: (email: string, password: string, username: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<{ success: boolean; message?: string }>;
+  register: (email: string, password: string, confirmPassword: string, username: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
   completeOnboarding: () => void;
+  deleteAccount: (password: string) => Promise<{ success: boolean; message?: string }>;
+  updateUserInfo: (updates: Partial<User>) => void;
   setCurrentPet: (pet: Pet) => void;
   addPet: (pet: Omit<Pet, 'id'>) => void;
   addAnalysis: (analysis: Omit<Analysis, 'id' | 'createdAt'>) => void;
@@ -162,30 +166,59 @@ export const useAppStore = create<AppState>((set) => ({
   ],
   setUser: (user) => set({ user, isAuthenticated: !!user }),
   login: async (email, password) => {
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    const mockUser: User = {
-      id: '1',
-      email,
-      username: email.split('@')[0],
-      isPremium: false,
-      createdAt: new Date().toISOString(),
-    };
-    set({ user: mockUser, isAuthenticated: true });
-    return true;
+    const result = await AuthService.login(email, password);
+    if (result.success && result.user) {
+      set({ user: result.user, isAuthenticated: true });
+      secureStorage.setItem('user', result.user);
+    }
+    return { success: result.success, message: result.message };
   },
-  register: async (email, password, username) => {
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    const mockUser: User = {
-      id: Date.now().toString(),
-      email,
-      username,
-      isPremium: false,
-      createdAt: new Date().toISOString(),
-    };
-    set({ user: mockUser, isAuthenticated: true, isOnboardingComplete: false });
-    return true;
+  register: async (email, password, confirmPassword, username) => {
+    // 验证邮箱格式
+    if (!validateEmail(email)) {
+      return { success: false, message: '请输入有效的邮箱地址' };
+    }
+    
+    // 验证密码强度
+    const passwordCheck = validatePassword(password);
+    if (!passwordCheck.valid) {
+      return { success: false, message: passwordCheck.message };
+    }
+    
+    // 验证密码匹配
+    if (password !== confirmPassword) {
+      return { success: false, message: '两次输入的密码不一致' };
+    }
+    
+    const result = await AuthService.register(email, password, username);
+    if (result.success) {
+      const loginResult = await AuthService.login(email, password);
+      if (loginResult.success && loginResult.user) {
+        set({ user: loginResult.user, isAuthenticated: true, isOnboardingComplete: false });
+        secureStorage.setItem('user', loginResult.user);
+      }
+    }
+    return result;
   },
-  logout: () => set({ user: null, isAuthenticated: false, isOnboardingComplete: false }),
+  logout: () => {
+    AuthService.logout();
+    secureStorage.removeItem('user');
+    set({ user: null, isAuthenticated: false, isOnboardingComplete: false });
+  },
+  deleteAccount: async (password) => {
+    const currentUser = useAppStore.getState().user;
+    if (!currentUser) {
+      return { success: false, message: '用户未登录' };
+    }
+    const result = await AuthService.deleteAccount(currentUser.email, password);
+    if (result.success) {
+      useAppStore.getState().logout();
+    }
+    return result;
+  },
+  updateUserInfo: (updates) => set((state) => ({
+    user: state.user ? { ...state.user, ...updates } : null,
+  })),
   completeOnboarding: () => set({ isOnboardingComplete: true }),
   setCurrentPet: (pet) => set({ currentPet: pet }),
   addPet: (pet) => set((state) => ({
