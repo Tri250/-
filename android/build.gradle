@@ -6,6 +6,7 @@ buildscript {
         maven { url 'https://maven.aliyun.com/repository/google' }
         maven { url 'https://maven.aliyun.com/repository/central' }
         maven { url 'https://maven.aliyun.com/repository/public' }
+        maven { url 'https://maven.tencent.com/nexus/repository/google' }
         google()
         mavenCentral()
     }
@@ -25,6 +26,7 @@ allprojects {
         maven { url 'https://maven.aliyun.com/repository/google' }
         maven { url 'https://maven.aliyun.com/repository/central' }
         maven { url 'https://maven.aliyun.com/repository/public' }
+        maven { url 'https://maven.tencent.com/nexus/repository/google' }
         google()
         mavenCentral()
     }
