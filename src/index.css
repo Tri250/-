@@ -77,8 +77,7 @@ body {
 }
 
 .animate-slide-up {
-  animation: slideUp 0.3s ease-out forwards;
-  opacity: 0;
+  animation: slideUp 0.4s ease-out forwards;
 }
 
 .animate-bounce-gentle {

@@ -185,26 +185,28 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
 
       case 'quick_actions':
         return (
-          <div key={cardConfig.id} className="grid grid-cols-3 gap-3 animate-slide-up" style={{ animationDelay: `${delay}s` }}>
-            {quickActions.map((action) => (
-              <div key={action.page} className="col-span-1">
-                <div 
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    console.log('Navigating to:', action.page);
-                    onNavigate(action.page);
-                  }}
-                  className="rounded-2xl border border-neutral-100 bg-white shadow-card p-5 text-center cursor-pointer hover:-translate-y-1 hover:shadow-elevated hover:border-primary-100 transition-all duration-300"
-                >
-                  <div className={`w-12 h-12 mx-auto rounded-2xl bg-gradient-to-r ${action.color} flex items-center justify-center mb-3 shadow-md`}>
-                    <action.icon className="w-6 h-6 text-white" />
+          <div key={cardConfig.id} className="animate-slide-up" style={{ animationDelay: `${delay}s` }}>
+            <div className="grid grid-cols-3 gap-3">
+              {quickActions.map((action) => (
+                <div key={action.page} className="col-span-1">
+                  <div 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      console.log('Navigating to:', action.page);
+                      onNavigate(action.page);
+                    }}
+                    className="rounded-2xl border border-neutral-200 bg-white shadow-card p-5 text-center cursor-pointer hover:-translate-y-1 hover:shadow-elevated hover:border-primary-200 transition-all duration-300"
+                  >
+                    <div className={`w-12 h-12 mx-auto rounded-2xl bg-gradient-to-r ${action.color} flex items-center justify-center mb-3 shadow-md`}>
+                      <action.icon className="w-6 h-6 text-white" />
+                    </div>
+                    <h4 className="font-semibold text-sm text-neutral-800 mb-1">{action.label}</h4>
+                    <p className="text-xs text-neutral-500">{action.description}</p>
                   </div>
-                  <h4 className="font-semibold text-sm text-neutral-800 mb-1">{action.label}</h4>
-                  <p className="text-xs text-neutral-500">{action.description}</p>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         );
 
@@ -263,7 +265,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
         );
 
       case 'recent_records':
-        return recentRecords.length > 0 ? (
+        return (
           <div key={cardConfig.id} className="animate-slide-up" style={{ animationDelay: `${delay}s` }}>
             <Card className="p-5">
               <div className="flex items-center justify-between mb-4">
@@ -284,7 +286,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
                 </button>
               </div>
               <div className="space-y-3">
-                {recentRecords.map((record) => (
+                {recentRecords.length > 0 ? recentRecords.map((record) => (
                   <div 
                     key={record.id}
                     className="p-3 bg-neutral-50 rounded-xl hover:bg-neutral-100 transition-colors cursor-pointer"
@@ -292,11 +294,17 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
                     <h4 className="font-medium text-sm text-neutral-800">{record.title}</h4>
                     <p className="text-xs text-neutral-500 mt-1 line-clamp-2">{record.content}</p>
                   </div>
-                ))}
+                )) : (
+                  <div className="text-center py-6">
+                    <Activity className="w-10 h-10 text-green-300 mx-auto mb-2" />
+                    <p className="text-sm text-neutral-500">还没有记录哦</p>
+                    <p className="text-xs text-neutral-400 mt-1">点击"健康记录"开始记录</p>
+                  </div>
+                )}
               </div>
             </Card>
           </div>
-        ) : null;
+        );
 
       case 'bond_metrics':
         return (
