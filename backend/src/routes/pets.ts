@@ -2,7 +2,6 @@ import { Router, Request, Response } from 'express';
 import { body, validationResult, query } from 'express-validator';
 import prisma from '../lib/prisma';
 import { authenticateToken } from '../middleware';
-import { PetType, PetGender, HealthStatus } from '@prisma/client';
 
 const router = Router();
 
@@ -19,7 +18,16 @@ router.get('/', async (req: Request, res: Response) => {
       orderBy: { createdAt: 'desc' },
     });
 
-    res.json({ pets });
+    const parsedPets = pets.map(p => ({
+      ...p,
+      healthRecords: p.healthRecords.map(r => ({
+        ...r,
+        tags: r.tags ? JSON.parse(r.tags) : [],
+        attachments: r.attachments ? JSON.parse(r.attachments) : [],
+      })),
+    }));
+
+    res.json({ pets: parsedPets });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: '获取宠物列表失败' });
@@ -58,14 +66,14 @@ router.post(
           userId: req.userId!,
           name,
           avatar,
-          type: type as PetType,
+          type,
           breed,
-          gender: gender as PetGender,
+          gender,
           birthday: birthday ? new Date(birthday) : null,
           weight,
           color,
           characteristics,
-          healthStatus: (healthStatus as HealthStatus) || 'GOOD',
+          healthStatus: healthStatus || 'GOOD',
         },
       });
 
@@ -97,7 +105,20 @@ router.get('/:id', async (req: Request, res: Response) => {
       return res.status(404).json({ error: '宠物不存在' });
     }
 
-    res.json({ pet });
+    const parsedPet = {
+      ...pet,
+      healthRecords: pet.healthRecords.map(r => ({
+        ...r,
+        tags: r.tags ? JSON.parse(r.tags) : [],
+        attachments: r.attachments ? JSON.parse(r.attachments) : [],
+      })),
+      checkups: pet.checkups.map(c => ({
+        ...c,
+        attachments: c.attachments ? JSON.parse(c.attachments) : [],
+      })),
+    };
+
+    res.json({ pet: parsedPet });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: '获取宠物信息失败' });
@@ -130,7 +151,7 @@ router.put('/:id', async (req: Request, res: Response) => {
         weight,
         color,
         characteristics,
-        healthStatus: healthStatus as HealthStatus,
+        healthStatus,
       },
     });
 
@@ -218,7 +239,12 @@ router.get('/:id/checkups', async (req: Request, res: Response) => {
       orderBy: { date: 'desc' },
     });
 
-    res.json({ checkups });
+    const parsedCheckups = checkups.map(c => ({
+      ...c,
+      attachments: c.attachments ? JSON.parse(c.attachments) : [],
+    }));
+
+    res.json({ checkups: parsedCheckups });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: '获取体检记录失败' });
@@ -236,11 +262,16 @@ router.post('/:id/checkups', async (req: Request, res: Response) => {
         weight,
         vet,
         notes,
-        attachments,
+        attachments: JSON.stringify(attachments),
       },
     });
 
-    res.status(201).json({ checkup });
+    const parsedCheckup = {
+      ...checkup,
+      attachments: JSON.parse(checkup.attachments),
+    };
+
+    res.status(201).json({ checkup: parsedCheckup });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: '添加体检记录失败' });

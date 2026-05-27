@@ -7,9 +7,13 @@ const router = Router();
 
 router.use(authenticateToken);
 
-router.post('/chat', [body('petId').isString(), body('message').isString()], async (req: Request, res: Response) => {
+router.post('/chat', [body('petId').isString(), body('message').isString().isLength({ min: 1 })], async (req: Request, res: Response) => {
   try {
     const { petId, message } = req.body;
+
+    if (!message || message.trim().length === 0) {
+      return res.status(400).json({ error: '消息内容不能为空' });
+    }
 
     const pet = await prisma.pet.findFirst({
       where: { id: petId, userId: req.userId },
@@ -36,25 +40,25 @@ router.post('/chat', [body('petId').isString(), body('message').isString()], asy
     };
 
     const messages = conversation 
-      ? [...conversation.messages, userMessage, aiResponse]
+      ? [...JSON.parse(conversation.messages), userMessage, aiResponse]
       : [userMessage, aiResponse];
 
     if (conversation) {
       conversation = await prisma.aIConversation.update({
         where: { id: conversation.id },
-        data: { messages },
+        data: { messages: JSON.stringify(messages) },
       });
     } else {
       conversation = await prisma.aIConversation.create({
         data: {
           petId,
           userId: req.userId!,
-          messages,
+          messages: JSON.stringify(messages),
         },
       });
     }
 
-    res.json({ conversation, response: aiResponse });
+    res.json({ conversation: { ...conversation, messages }, response: aiResponse });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: '对话失败' });
@@ -70,7 +74,12 @@ router.get('/conversations/:petId', async (req: Request, res: Response) => {
       },
     });
 
-    res.json({ conversation });
+    const parsedConversation = conversation ? {
+      ...conversation,
+      messages: JSON.parse(conversation.messages),
+    } : null;
+
+    res.json({ conversation: parsedConversation });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: '获取对话失败' });

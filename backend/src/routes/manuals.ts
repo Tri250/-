@@ -2,7 +2,6 @@ import { Router, Request, Response } from 'express';
 import { query } from 'express-validator';
 import prisma from '../lib/prisma';
 import { authenticateToken } from '../middleware';
-import { ManualCategory, PetType } from '@prisma/client';
 
 const router = Router();
 
@@ -30,7 +29,12 @@ router.get(
         ],
       });
 
-      res.json({ manuals });
+      const parsedManuals = manuals.map(m => ({
+        ...m,
+        tags: m.tags ? JSON.parse(m.tags) : [],
+      }));
+
+      res.json({ manuals: parsedManuals });
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: '获取手册失败' });
@@ -41,50 +45,31 @@ router.get(
 router.get('/search', async (req: Request, res: Response) => {
   try {
     const { q } = req.query;
+    const searchQuery = q as string;
 
     const manuals = await prisma.healthManual.findMany({
       where: {
         OR: [
-          { title: { contains: q as string, mode: 'insensitive' } },
-          { content: { contains: q as string, mode: 'insensitive' } },
-          { tags: { hasSome: [q as string] } },
+          { title: { contains: searchQuery } },
+          { content: { contains: searchQuery } },
         ],
       },
       orderBy: { viewCount: 'desc' },
     });
 
-    res.json({ manuals });
+    const parsedManuals = manuals.map(m => ({
+      ...m,
+      tags: m.tags ? JSON.parse(m.tags) : [],
+    }));
+
+    res.json({ manuals: parsedManuals });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: '搜索手册失败' });
   }
 });
 
-router.get('/:id', async (req: Request, res: Response) => {
-  try {
-    const manual = await prisma.healthManual.findUnique({
-      where: { id: req.params.id },
-    });
-
-    if (!manual) {
-      return res.status(404).json({ error: '手册不存在' });
-    }
-
-    await prisma.healthManual.update({
-      where: { id: req.params.id },
-      data: { viewCount: { increment: 1 } },
-    });
-
-    res.json({ manual });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: '获取手册失败' });
-  }
-});
-
-router.use(authenticateToken);
-
-router.get('/bookmarks', async (req: Request, res: Response) => {
+router.get('/bookmarks', authenticateToken, async (req: Request, res: Response) => {
   try {
     const bookmarks = await prisma.manualBookmark.findMany({
       where: { userId: req.userId },
@@ -92,14 +77,22 @@ router.get('/bookmarks', async (req: Request, res: Response) => {
       orderBy: { createdAt: 'desc' },
     });
 
-    res.json({ bookmarks });
+    const parsedBookmarks = bookmarks.map(b => ({
+      ...b,
+      manual: {
+        ...b.manual,
+        tags: b.manual.tags ? JSON.parse(b.manual.tags) : [],
+      },
+    }));
+
+    res.json({ bookmarks: parsedBookmarks });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: '获取书签失败' });
   }
 });
 
-router.post('/:id/bookmark', async (req: Request, res: Response) => {
+router.post('/:id/bookmark', authenticateToken, async (req: Request, res: Response) => {
   try {
     const existing = await prisma.manualBookmark.findFirst({
       where: {
@@ -120,14 +113,22 @@ router.post('/:id/bookmark', async (req: Request, res: Response) => {
       include: { manual: true },
     });
 
-    res.status(201).json({ bookmark });
+    const parsedBookmark = {
+      ...bookmark,
+      manual: {
+        ...bookmark.manual,
+        tags: bookmark.manual.tags ? JSON.parse(bookmark.manual.tags) : [],
+      },
+    };
+
+    res.status(201).json({ bookmark: parsedBookmark });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: '收藏失败' });
   }
 });
 
-router.delete('/:id/bookmark', async (req: Request, res: Response) => {
+router.delete('/:id/bookmark', authenticateToken, async (req: Request, res: Response) => {
   try {
     const bookmark = await prisma.manualBookmark.deleteMany({
       where: {
@@ -144,6 +145,33 @@ router.delete('/:id/bookmark', async (req: Request, res: Response) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: '取消收藏失败' });
+  }
+});
+
+router.get('/:id', async (req: Request, res: Response) => {
+  try {
+    const manual = await prisma.healthManual.findUnique({
+      where: { id: req.params.id },
+    });
+
+    if (!manual) {
+      return res.status(404).json({ error: '手册不存在' });
+    }
+
+    await prisma.healthManual.update({
+      where: { id: req.params.id },
+      data: { viewCount: { increment: 1 } },
+    });
+
+    const parsedManual = {
+      ...manual,
+      tags: manual.tags ? JSON.parse(manual.tags) : [],
+    };
+
+    res.json({ manual: parsedManual });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: '获取手册失败' });
   }
 });
 

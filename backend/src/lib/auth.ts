@@ -20,11 +20,12 @@ export async function verifyPassword(
 }
 
 export function generateToken(payload: JWTPayload): string {
-  return jwt.sign(payload, config.jwt.secret, {
-    expiresIn: config.jwt.expiresIn,
-  });
+  const options: jwt.SignOptions = {
+    expiresIn: config.jwt.expiresIn as jwt.SignOptions['expiresIn'],
+  };
+  return jwt.sign(payload, config.jwt.secret, options);
 }
 
 export function verifyToken(token: string): JWTPayload {
-  return jwt.verify(token, config.jwt.secret) as JWTPayload;
+  return jwt.verify(token, config.jwt.secret as any) as JWTPayload;
 }

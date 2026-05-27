@@ -1,4 +1,4 @@
-import { PrismaClient, PetType, PetGender, HealthStatus, ManualCategory } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import { hashPassword } from '../src/lib/auth';
 
 const prisma = new PrismaClient();
@@ -24,14 +24,14 @@ async function main() {
       userId: user.id,
       name: '毛球',
       avatar: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=200',
-      type: PetType.CAT,
+      type: 'CAT',
       breed: '英国短毛猫',
-      gender: PetGender.MALE,
+      gender: 'MALE',
       birthday: new Date('2022-05-15'),
       weight: 5.2,
       color: '橘白',
       characteristics: '黏人、喜欢晒太阳、怕生人',
-      healthStatus: HealthStatus.GOOD,
+      healthStatus: 'GOOD',
     },
   });
 
@@ -40,14 +40,14 @@ async function main() {
       userId: user.id,
       name: '旺财',
       avatar: 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=200',
-      type: PetType.DOG,
+      type: 'DOG',
       breed: '柯基犬',
-      gender: PetGender.MALE,
+      gender: 'MALE',
       birthday: new Date('2023-01-20'),
       weight: 12.5,
       color: '黄白',
       characteristics: '活泼、精力充沛、喜欢捡球',
-      healthStatus: HealthStatus.EXCELLENT,
+      healthStatus: 'EXCELLENT',
     },
   });
 
@@ -60,7 +60,8 @@ async function main() {
         type: 'TEXT',
         title: '日常检查',
         content: '今天毛球精神很好，食欲正常，大便正常。继续保持。',
-        tags: ['日常', '健康'],
+        tags: JSON.stringify(['日常', '健康']),
+        attachments: '[]',
         isImportant: false,
       },
       {
@@ -68,7 +69,8 @@ async function main() {
         type: 'TEXT',
         title: '驱虫记录',
         content: '2024年1月15日进行体内外驱虫，使用拜宠清。',
-        tags: ['驱虫', '医疗'],
+        tags: JSON.stringify(['驱虫', '医疗']),
+        attachments: '[]',
         isImportant: true,
       },
       {
@@ -76,7 +78,8 @@ async function main() {
         type: 'TEXT',
         title: '疫苗接种',
         content: '完成六联疫苗接种，下次加强针在6个月后。',
-        tags: ['疫苗', '医疗'],
+        tags: JSON.stringify(['疫苗', '医疗']),
+        attachments: '[]',
         isImportant: true,
       },
     ],
@@ -159,9 +162,9 @@ async function main() {
 - 观察排便情况
 - 定期体重监控
         `.trim(),
-        category: ManualCategory.NUTRITION,
-        petType: PetType.CAT,
-        tags: ['饮食', '营养', '猫粮'],
+        category: 'NUTRITION',
+        petType: 'CAT',
+        tags: JSON.stringify(['饮食', '营养', '猫粮']),
         author: '兽医团队',
         isOfficial: true,
       },
@@ -185,9 +188,9 @@ async function main() {
 - 互动游戏
 - 社交活动
         `.trim(),
-        category: ManualCategory.CARE,
-        petType: PetType.DOG,
-        tags: ['护理', '毛发', '口腔'],
+        category: 'CARE',
+        petType: 'DOG',
+        tags: JSON.stringify(['护理', '毛发', '口腔']),
         author: '兽医团队',
         isOfficial: true,
       },
@@ -215,8 +218,8 @@ async function main() {
 3. 就医咨询
 4. 调整环境
         `.trim(),
-        category: ManualCategory.BEHAVIOR,
-        tags: ['行为', '异常', '健康'],
+        category: 'BEHAVIOR',
+        tags: JSON.stringify(['行为', '异常', '健康']),
         author: '兽医团队',
         isOfficial: true,
       },
@@ -245,8 +248,8 @@ async function main() {
 - 止血粉
 - 紧急联系方式
         `.trim(),
-        category: ManualCategory.EMERGENCY,
-        tags: ['急救', '紧急', '安全'],
+        category: 'EMERGENCY',
+        tags: JSON.stringify(['急救', '紧急', '安全']),
         author: '兽医团队',
         isOfficial: true,
       },
@@ -271,9 +274,9 @@ async function main() {
 - 保持愉快氛围
 - 及时奖励
         `.trim(),
-        category: ManualCategory.TRAINING,
-        petType: PetType.DOG,
-        tags: ['训练', '幼犬', '教育'],
+        category: 'TRAINING',
+        petType: 'DOG',
+        tags: JSON.stringify(['训练', '幼犬', '教育']),
         author: '训犬师团队',
         isOfficial: true,
       },

@@ -2,7 +2,6 @@ import { Router, Request, Response } from 'express';
 import { body, validationResult, query } from 'express-validator';
 import prisma from '../lib/prisma';
 import { authenticateToken } from '../middleware';
-import { ReminderType, RepeatType } from '@prisma/client';
 
 const router = Router();
 
@@ -116,12 +115,12 @@ router.post(
       const reminder = await prisma.reminder.create({
         data: {
           petId,
-          type: type as ReminderType,
+          type,
           title,
           notes,
           date: new Date(date),
           time,
-          repeat: repeat as RepeatType,
+          repeat,
           endDate: endDate ? new Date(endDate) : null,
         },
         include: { pet: true },
@@ -170,7 +169,7 @@ router.put('/:id', async (req: Request, res: Response) => {
         notes,
         date: date ? new Date(date) : undefined,
         time,
-        repeat: repeat as RepeatType,
+        repeat,
         endDate: endDate ? new Date(endDate) : null,
       },
     });

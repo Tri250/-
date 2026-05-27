@@ -2,7 +2,6 @@ import { Router, Request, Response } from 'express';
 import { body, validationResult, query } from 'express-validator';
 import prisma from '../lib/prisma';
 import { authenticateToken } from '../middleware';
-import { RecordType } from '@prisma/client';
 
 const router = Router();
 
@@ -30,7 +29,6 @@ router.get(
       
       if (petId) where.petId = petId;
       if (type) where.type = type;
-      if (tag) where.tags = { has: tag };
       if (important === 'true') where.isImportant = true;
 
       const records = await prisma.healthRecord.findMany({
@@ -39,7 +37,13 @@ router.get(
         orderBy: { createdAt: 'desc' },
       });
 
-      res.json({ records });
+      const parsedRecords = records.map(r => ({
+        ...r,
+        tags: r.tags ? JSON.parse(r.tags) : [],
+        attachments: r.attachments ? JSON.parse(r.attachments) : [],
+      }));
+
+      res.json({ records: parsedRecords });
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: '获取健康记录失败' });
@@ -57,19 +61,27 @@ router.get('/search', async (req: Request, res: Response) => {
     });
     const petIds = userPets.map(p => p.id);
 
+    const searchQuery = q as string;
+
     const records = await prisma.healthRecord.findMany({
       where: {
         petId: { in: petIds },
         OR: [
-          { title: { contains: q as string, mode: 'insensitive' } },
-          { content: { contains: q as string, mode: 'insensitive' } },
+          { title: { contains: searchQuery } },
+          { content: { contains: searchQuery } },
         ],
       },
       include: { pet: true },
       orderBy: { createdAt: 'desc' },
     });
 
-    res.json({ records });
+    const parsedRecords = records.map(r => ({
+      ...r,
+      tags: r.tags ? JSON.parse(r.tags) : [],
+      attachments: r.attachments ? JSON.parse(r.attachments) : [],
+    }));
+
+    res.json({ records: parsedRecords });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: '搜索记录失败' });
@@ -104,18 +116,24 @@ router.post(
       const record = await prisma.healthRecord.create({
         data: {
           petId,
-          type: type as RecordType,
+          type,
           title,
           content,
-          tags,
-          attachments,
+          tags: JSON.stringify(tags),
+          attachments: JSON.stringify(attachments),
           voiceDuration,
           isImportant: isImportant || false,
         },
         include: { pet: true },
       });
 
-      res.status(201).json({ record });
+      const parsedRecord = {
+        ...record,
+        tags: JSON.parse(record.tags),
+        attachments: JSON.parse(record.attachments),
+      };
+
+      res.status(201).json({ record: parsedRecord });
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: '创建记录失败' });
@@ -137,7 +155,13 @@ router.get('/:id', async (req: Request, res: Response) => {
       return res.status(404).json({ error: '记录不存在' });
     }
 
-    res.json({ record });
+    const parsedRecord = {
+      ...record,
+      tags: record.tags ? JSON.parse(record.tags) : [],
+      attachments: record.attachments ? JSON.parse(record.attachments) : [],
+    };
+
+    res.json({ record: parsedRecord });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: '获取记录失败' });
@@ -156,8 +180,8 @@ router.put('/:id', async (req: Request, res: Response) => {
       data: {
         title,
         content,
-        tags,
-        attachments,
+        tags: typeof tags === 'string' ? tags : JSON.stringify(tags),
+        attachments: typeof attachments === 'string' ? attachments : JSON.stringify(attachments),
         isImportant,
       },
     });
@@ -171,7 +195,13 @@ router.put('/:id', async (req: Request, res: Response) => {
       include: { pet: true },
     });
 
-    res.json({ record: updatedRecord });
+    const parsedRecord = {
+      ...updatedRecord,
+      tags: updatedRecord?.tags ? JSON.parse(updatedRecord.tags) : [],
+      attachments: updatedRecord?.attachments ? JSON.parse(updatedRecord.attachments) : [],
+    };
+
+    res.json({ record: parsedRecord });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: '更新记录失败' });

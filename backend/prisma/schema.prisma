@@ -25,14 +25,14 @@ model Pet {
   user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   name           String
   avatar         String?
-  type           PetType
+  type           String
   breed          String?
-  gender         PetGender
+  gender         String
   birthday       DateTime?
   weight         Float?
   color          String?
   characteristics String?
-  healthStatus   HealthStatus     @default(GOOD)
+  healthStatus   String           @default("GOOD")
   healthRecords  HealthRecord[]
   vaccines       PetVaccine[]
   checkups       PetCheckup[]
@@ -47,11 +47,11 @@ model HealthRecord {
   id             String        @id @default(uuid())
   petId          String
   pet            Pet           @relation(fields: [petId], references: [id], onDelete: Cascade)
-  type           RecordType
+  type           String
   title          String
   content        String
-  tags           String[]
-  attachments    String[]
+  tags           String
+  attachments    String
   voiceDuration  Int?
   isImportant    Boolean       @default(false)
   createdAt      DateTime      @default(now())
@@ -78,7 +78,7 @@ model PetCheckup {
   weight      Float?
   vet         String?
   notes       String?
-  attachments String[]
+  attachments String
   createdAt   DateTime @default(now())
 }
 
@@ -94,19 +94,19 @@ model PetGrowth {
 }
 
 model Reminder {
-  id          String       @id @default(uuid())
+  id          String   @id @default(uuid())
   petId       String
-  pet         Pet          @relation(fields: [petId], references: [id], onDelete: Cascade)
-  type        ReminderType
+  pet         Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+  type        String
   title       String
   notes       String?
   date        DateTime
   time        String
-  repeat      RepeatType
+  repeat      String
   endDate     DateTime?
-  isCompleted Boolean      @default(false)
+  isCompleted Boolean  @default(false)
   completedAt DateTime?
-  createdAt   DateTime     @default(now())
+  createdAt   DateTime @default(now())
 }
 
 model AIConversation {
@@ -114,7 +114,7 @@ model AIConversation {
   petId     String
   pet       Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
   userId    String
-  messages  Json[]
+  messages  String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -123,9 +123,9 @@ model HealthManual {
   id          String           @id @default(uuid())
   title       String
   content     String
-  category    ManualCategory
-  petType     PetType?
-  tags        String[]
+  category    String
+  petType     String?
+  tags        String
   author      String?
   viewCount   Int              @default(0)
   isOfficial  Boolean          @default(true)
@@ -141,57 +141,4 @@ model ManualBookmark {
   manualId  String
   manual    HealthManual  @relation(fields: [manualId], references: [id], onDelete: Cascade)
   createdAt DateTime      @default(now())
-}
-
-enum PetType {
-  DOG
-  CAT
-  OTHER
-}
-
-enum PetGender {
-  MALE
-  FEMALE
-}
-
-enum HealthStatus {
-  EXCELLENT
-  GOOD
-  FAIR
-  CONCERN
-}
-
-enum RecordType {
-  TEXT
-  VOICE
-  PHOTO
-  VIDEO
-  FILE
-}
-
-enum ReminderType {
-  VACCINE
-  DEWORMING
-  CHECKUP
-  BATH
-  BRUSH_TEETH
-  MEDICINE
-  GROOMING
-  CUSTOM
-}
-
-enum RepeatType {
-  ONCE
-  DAILY
-  WEEKLY
-  MONTHLY
-  YEARLY
-}
-
-enum ManualCategory {
-  NUTRITION
-  CARE
-  BEHAVIOR
-  EMERGENCY
-  TRAINING
 }
