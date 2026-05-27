@@ -174,19 +174,23 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
         return (
           <div key={cardConfig.id} className="grid grid-cols-3 gap-3 animate-slide-up" style={{ animationDelay: `${delay}s` }}>
             {quickActions.map((action) => (
-              <button
+              <div
                 key={action.page}
-                onClick={() => onNavigate(action.page)}
-                className="col-span-1"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onNavigate(action.page);
+                }}
+                className="col-span-1 cursor-pointer"
               >
-                <Card className="text-center h-full">
+                <Card className="text-center h-full" hover={true}>
                   <div className={`w-12 h-12 mx-auto rounded-2xl bg-gradient-to-r ${action.color} flex items-center justify-center mb-3 shadow-md`}>
                     <action.icon className="w-6 h-6 text-white" />
                   </div>
                   <h4 className="font-semibold text-sm text-neutral-800 mb-1">{action.label}</h4>
                   <p className="text-xs text-neutral-500">{action.description}</p>
                 </Card>
-              </button>
+              </div>
             ))}
           </div>
         );
@@ -256,7 +260,11 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
                 </h3>
                 <button 
                   className="text-xs text-primary-500 font-medium flex items-center gap-1"
-                  onClick={() => onNavigate('health-records')}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onNavigate('health-records');
+                  }}
                 >
                   更多
                   <ChevronRight className="w-4 h-4" />
@@ -374,13 +382,21 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
             <div className="flex gap-2">
               <button 
                 className="p-2 rounded-full bg-white/20 backdrop-blur hover:bg-white/30 transition-all"
-                onClick={() => setShowCardSettings(!showCardSettings)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setShowCardSettings(!showCardSettings);
+                }}
               >
                 <Settings className="w-5 h-5" />
               </button>
               <button 
                 className="p-2 rounded-full bg-white/20 backdrop-blur hover:bg-white/30 transition-all"
-                onClick={() => onNavigate('health')}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onNavigate('health');
+                }}
               >
                 <Activity className="w-5 h-5" />
               </button>
@@ -392,7 +408,11 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
             {pets.map((pet) => (
               <button
                 key={pet.id}
-                onClick={() => setCurrentPet(pet.id)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setCurrentPet(pet.id);
+                }}
                 className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all ${
                   pet.id === currentPetId
                     ? 'bg-white/30 backdrop-blur border border-white/30'
@@ -413,7 +433,11 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
             ))}
             <button 
               className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 transition-all"
-              onClick={() => onNavigate('pets')}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onNavigate('pets');
+              }}
             >
               <div className="w-8 h-8 rounded-full border-2 border-dashed border-white/50 flex items-center justify-center">
                 <Plus className="w-4 h-4" />
