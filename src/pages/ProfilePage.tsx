@@ -1,17 +1,27 @@
 import { useState } from 'react';
-import { User, Edit, History, Settings, Crown, Star, Heart, ChevronRight, Camera, X, Gift } from 'lucide-react';
+import { User, Edit, History, Settings, Crown, Star, Heart, ChevronRight, Camera, X, Gift, Mic, Activity, Shield, Utensils, BookOpen, Calendar } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 import { ReferralProgram } from '../components/ReferralProgram';
 
 const menuItems = [
+  { icon: Mic, label: '声音分析', description: '倾听宠物心声', page: 'voice-analysis' },
+  { icon: Activity, label: '行为分析', description: 'AI智能监测', page: 'behavior-analysis' },
+  { icon: Shield, label: '健康管理', description: '智能预警系统', page: 'health-management' },
+  { icon: Utensils, label: '营养分析', description: '科学喂养建议', page: 'food-analysis' },
+  { icon: BookOpen, label: '健康手册', description: '专业养护知识', page: 'health-manual' },
+  { icon: Calendar, label: '智能提醒', description: '重要日程管理', page: 'reminders' },
   { icon: Gift, label: '邀请好友', description: '邀请得会员奖励' },
-  { icon: History, label: '分析历史', description: '查看所有翻译记录' },
+  { icon: History, label: '分析历史', description: '查看所有记录' },
   { icon: Settings, label: '设置', description: '隐私、通知等设置' },
   { icon: Heart, label: '收藏', description: '收藏的精彩时刻' },
   { icon: Star, label: '帮助与反馈', description: '使用帮助与问题反馈' },
 ];
 
-export function ProfilePage() {
+interface ProfilePageProps {
+  onNavigate?: (page: string) => void;
+}
+
+export function ProfilePage({ onNavigate }: ProfilePageProps) {
   const { currentPet, analyses } = useAppStore();
   const [showEdit, setShowEdit] = useState(false);
   const [petName, setPetName] = useState(currentPet?.name || '');
@@ -154,7 +164,8 @@ export function ProfilePage() {
             return (
               <button
                 key={item.label}
-                className="w-full flex items-center gap-3 p-4 hover:bg-gray-50 transition-colors"
+                onClick={() => item.page && onNavigate?.(item.page)}
+                className={`w-full flex items-center gap-3 p-4 hover:bg-gray-50 transition-colors ${item.page ? 'cursor-pointer' : ''}`}
               >
                 <div className="w-10 h-10 rounded-full bg-purple-50 flex items-center justify-center">
                   <Icon className="w-5 h-5 text-purple-500" />

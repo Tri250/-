@@ -10,7 +10,10 @@ import {
   Activity,
   Star,
   Clock,
-  ArrowUpRight
+  ArrowUpRight,
+  Mic,
+  Utensils,
+  Shield
 } from 'lucide-react';
 import { Card, Button, ProgressRing, Badge } from '../components/DesignSystem';
 import { useAppStore } from '../store/appStore';
@@ -36,46 +39,46 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
 
   const quickActions = [
     {
+      icon: Mic,
+      label: '声音分析',
+      description: '倾听心声',
+      color: 'from-purple-500 to-pink-600',
+      page: 'voice-analysis',
+    },
+    {
+      icon: Activity,
+      label: '行为分析',
+      description: 'AI监测',
+      color: 'from-blue-500 to-cyan-600',
+      page: 'behavior-analysis',
+    },
+    {
+      icon: Shield,
+      label: '健康管理',
+      description: '智能预警',
+      color: 'from-green-500 to-emerald-600',
+      page: 'health-management',
+    },
+    {
+      icon: Utensils,
+      label: '营养分析',
+      description: '科学喂养',
+      color: 'from-orange-500 to-amber-600',
+      page: 'food-analysis',
+    },
+    {
       icon: Bot,
-      label: 'AI健康顾问',
+      label: 'AI顾问',
       description: '随时咨询',
       color: 'from-primary-500 to-primary-600',
       page: 'ai-consultant',
     },
     {
-      icon: FileText,
-      label: '健康记录',
-      description: '记录状态',
-      color: 'from-blue-500 to-blue-600',
-      page: 'health-records',
-    },
-    {
-      icon: Heart,
-      label: '情绪翻译',
-      description: '读懂毛孩',
-      color: 'from-pink-500 to-pink-600',
-      page: 'translator',
-    },
-    {
-      icon: BookOpen,
-      label: '健康手册',
-      description: '专业知识',
-      color: 'from-green-500 to-green-600',
-      page: 'health-manual',
-    },
-    {
       icon: Calendar,
       label: '智能提醒',
       description: '重要日程',
-      color: 'from-purple-500 to-purple-600',
+      color: 'from-indigo-500 to-purple-600',
       page: 'reminders',
-    },
-    {
-      icon: TrendingUp,
-      label: '健康数据',
-      description: '趋势分析',
-      color: 'from-warning-500 to-warning-600',
-      page: 'health-analytics',
     },
   ];
 

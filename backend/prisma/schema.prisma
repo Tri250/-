@@ -8,39 +8,47 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  name      String
-  avatar    String?
-  pets      Pet[]
-  bookmarks ManualBookmark[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String           @id @default(uuid())
+  email           String           @unique
+  password        String
+  name            String
+  avatar          String?
+  pets            Pet[]
+  bookmarks       ManualBookmark[]
+  voiceMemories   VoiceMemory[]
+  isPremium       Boolean          @default(false)
+  premiumExpires  DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 }
 
 model Pet {
-  id             String           @id @default(uuid())
-  userId         String
-  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name           String
-  avatar         String?
-  type           String
-  breed          String?
-  gender         String
-  birthday       DateTime?
-  weight         Float?
-  color          String?
-  characteristics String?
-  healthStatus   String           @default("GOOD")
-  healthRecords  HealthRecord[]
-  vaccines       PetVaccine[]
-  checkups       PetCheckup[]
-  growthRecords  PetGrowth[]
-  reminders      Reminder[]
-  conversations  AIConversation[]
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
+  id                String           @id @default(uuid())
+  userId            String
+  user              User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name              String
+  avatar            String?
+  type              String
+  breed             String?
+  gender            String
+  birthday          DateTime?
+  weight            Float?
+  color             String?
+  characteristics   String?
+  healthStatus      String           @default("GOOD")
+  healthScore       Int              @default(80)
+  behaviorBaseline  String?
+  healthRecords     HealthRecord[]
+  vaccines          PetVaccine[]
+  checkups          PetCheckup[]
+  growthRecords     PetGrowth[]
+  reminders         Reminder[]
+  conversations     AIConversation[]
+  voiceMemories     VoiceMemory[]
+  behaviorEvents    BehaviorEvent[]
+  emotionRecords    EmotionRecord[]
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
 }
 
 model HealthRecord {
@@ -141,4 +149,86 @@ model ManualBookmark {
   manualId  String
   manual    HealthManual  @relation(fields: [manualId], references: [id], onDelete: Cascade)
   createdAt DateTime      @default(now())
+}
+
+model VoiceMemory {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  petId           String?
+  pet             Pet?     @relation(fields: [petId], references: [id], onDelete: Cascade)
+  audioUrl        String
+  emotion         String
+  confidence      Float
+  transcription   String?
+  intent          String?
+  isCloned        Boolean  @default(false)
+  createdAt       DateTime @default(now())
+}
+
+model BehaviorEvent {
+  id              String   @id @default(uuid())
+  petId           String
+  pet             Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+  behaviorType    String
+  confidence      Float
+  timestamp       DateTime
+  duration        Int?
+  metadata        String
+  createdAt       DateTime @default(now())
+}
+
+model EmotionRecord {
+  id              String   @id @default(uuid())
+  petId           String
+  pet             Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+  emotionType     String
+  source          String
+  confidence      Float
+  timestamp       DateTime
+  imageUrl        String?
+  voiceUrl        String?
+  behaviorEventId String?
+  createdAt       DateTime @default(now())
+}
+
+model HealthAlert {
+  id              String   @id @default(uuid())
+  petId           String
+  pet             Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+  type            String
+  severity        String
+  message         String
+  recommendation  String
+  isResolved      Boolean  @default(false)
+  resolvedAt      DateTime?
+  timestamp       DateTime @default(now())
+}
+
+model FoodAnalysis {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  petId           String?
+  pet             Pet?     @relation(fields: [petId], references: [id], onDelete: Cascade)
+  foodName        String?
+  ingredients     String
+  nutritionScore  Float
+  warnings        String
+  recommendations String
+  createdAt       DateTime @default(now())
+}
+
+model DailyJournal {
+  id              String   @id @default(uuid())
+  petId           String
+  pet             Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+  date            DateTime
+  summary         String
+  highlights      String
+  healthScore     Int
+  activityScore   Int
+  emotionScore    Int
+  events          String
+  createdAt       DateTime @default(now())
 }

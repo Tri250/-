@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Heart, BookOpen, Calendar, User, Bot, FileText, TrendingUp, GraduationCap, Camera, Shield, Sparkles } from 'lucide-react';
+import { Home, Heart, BookOpen, Calendar, User, Bot, FileText, TrendingUp, GraduationCap, Camera, Shield, Sparkles, Mic, Activity, Utensils } from 'lucide-react';
 
 interface NavigationProps {
   currentPage: string;
@@ -9,9 +9,10 @@ interface NavigationProps {
 export const Navigation: React.FC<NavigationProps> = ({ currentPage, onNavigate }) => {
   const navItems = [
     { id: 'home', label: '首页', icon: Home },
-    { id: 'advanced-health', label: '健康', icon: Shield },
-    { id: 'bond-emotion', label: '情感', icon: Sparkles },
-    { id: 'camera-monitor', label: '监控', icon: Camera },
+    { id: 'voice-analysis', label: '声音', icon: Mic },
+    { id: 'behavior-analysis', label: '行为', icon: Activity },
+    { id: 'health-management', label: '健康', icon: Heart },
+    { id: 'food-analysis', label: '营养', icon: Utensils },
     { id: 'profile', label: '我的', icon: User },
   ];
 

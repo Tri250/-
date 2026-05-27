@@ -1,11 +1,3 @@
-// ============================================
-// PawSync Pro - appStore.ts
-//
-// 作者: 带娃的小陈工
-// 日期: 2026-05-26
-// 描述: 应用主状态管理，包含用户、宠物、分析结果等状态
-// ============================================
-
 import { create } from 'zustand';
 
 export interface User {
@@ -14,6 +6,7 @@ export interface User {
   username: string;
   avatarUrl?: string;
   isPremium: boolean;
+  premiumExpires: string;
   createdAt: string;
 }
 
@@ -24,6 +17,7 @@ export interface Pet {
   age: number;
   avatarUrl: string;
   type: 'cat' | 'dog' | 'other';
+  healthScore: number;
 }
 
 export interface Analysis {
@@ -45,6 +39,7 @@ export interface HealthAlert {
   severity: 'low' | 'medium' | 'high';
   message: string;
   timestamp: string;
+  isResolved: boolean;
 }
 
 export interface CareTip {
@@ -54,6 +49,33 @@ export interface CareTip {
   content: string;
   petType?: 'cat' | 'dog' | 'all';
   priority: 'high' | 'medium' | 'low';
+}
+
+export interface VoiceMemory {
+  id: string;
+  petId: string;
+  emotion: string;
+  confidence: number;
+  transcription: string;
+  createdAt: string;
+}
+
+export interface BehaviorEvent {
+  id: string;
+  petId: string;
+  behaviorType: string;
+  confidence: number;
+  timestamp: string;
+}
+
+export interface DailyJournal {
+  id: string;
+  petId: string;
+  date: string;
+  summary: string;
+  healthScore: number;
+  activityScore: number;
+  emotionScore: number;
 }
 
 interface AppState {
@@ -68,6 +90,9 @@ interface AppState {
   healthScore: number;
   isRecording: boolean;
   careTips: CareTip[];
+  voiceMemories: VoiceMemory[];
+  behaviorEvents: BehaviorEvent[];
+  dailyJournals: DailyJournal[];
   setUser: (user: User | null) => void;
   login: (email: string, password: string) => Promise<boolean>;
   register: (email: string, password: string, username: string) => Promise<boolean>;
@@ -77,15 +102,22 @@ interface AppState {
   addPet: (pet: Omit<Pet, 'id'>) => void;
   addAnalysis: (analysis: Omit<Analysis, 'id' | 'createdAt'>) => void;
   addHealthAlert: (alert: Omit<HealthAlert, 'id'>) => void;
+  resolveAlert: (alertId: string) => void;
   setIsRecording: (isRecording: boolean) => void;
   setCurrentEmotion: (emotion: 'happy' | 'anxious' | 'angry' | 'needs' | 'neutral') => void;
   setHealthScore: (score: number) => void;
+  addVoiceMemory: (memory: Omit<VoiceMemory, 'id'>) => void;
+  addBehaviorEvent: (event: Omit<BehaviorEvent, 'id'>) => void;
+  addDailyJournal: (journal: Omit<DailyJournal, 'id'>) => void;
+  setVoiceMemories: (memories: VoiceMemory[]) => void;
+  setBehaviorEvents: (events: BehaviorEvent[]) => void;
+  setDailyJournals: (journals: DailyJournal[]) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
   user: null,
-  isAuthenticated: true, // 临时设为 true 方便测试
-  isOnboardingComplete: true, // 临时设为 true 方便测试
+  isAuthenticated: true,
+  isOnboardingComplete: true,
   pets: [
     {
       id: '1',
@@ -94,6 +126,16 @@ export const useAppStore = create<AppState>((set) => ({
       age: 2,
       avatarUrl: '',
       type: 'cat',
+      healthScore: 92,
+    },
+    {
+      id: '2',
+      name: '旺财',
+      breed: '金毛',
+      age: 3,
+      avatarUrl: '',
+      type: 'dog',
+      healthScore: 88,
     },
   ],
   currentPet: {
@@ -103,6 +145,7 @@ export const useAppStore = create<AppState>((set) => ({
     age: 2,
     avatarUrl: '',
     type: 'cat',
+    healthScore: 92,
   },
   analyses: [],
   healthAlerts: [
@@ -113,6 +156,7 @@ export const useAppStore = create<AppState>((set) => ({
       severity: 'low',
       message: '轻微活动异常，建议观察',
       timestamp: '2024-01-15 14:30',
+      isResolved: false,
     },
   ],
   currentEmotion: 'happy',
@@ -160,6 +204,9 @@ export const useAppStore = create<AppState>((set) => ({
       priority: 'medium',
     },
   ],
+  voiceMemories: [],
+  behaviorEvents: [],
+  dailyJournals: [],
   setUser: (user) => set({ user, isAuthenticated: !!user }),
   login: async (email, password) => {
     await new Promise(resolve => setTimeout(resolve, 1000));
@@ -168,6 +215,7 @@ export const useAppStore = create<AppState>((set) => ({
       email,
       username: email.split('@')[0],
       isPremium: false,
+      premiumExpires: '',
       createdAt: new Date().toISOString(),
     };
     set({ user: mockUser, isAuthenticated: true });
@@ -180,6 +228,7 @@ export const useAppStore = create<AppState>((set) => ({
       email,
       username,
       isPremium: false,
+      premiumExpires: '',
       createdAt: new Date().toISOString(),
     };
     set({ user: mockUser, isAuthenticated: true, isOnboardingComplete: false });
@@ -187,7 +236,7 @@ export const useAppStore = create<AppState>((set) => ({
   },
   logout: () => set({ user: null, isAuthenticated: false, isOnboardingComplete: false }),
   completeOnboarding: () => set({ isOnboardingComplete: true }),
-  setCurrentPet: (pet) => set({ currentPet: pet }),
+  setCurrentPet: (pet) => set({ currentPet: pet, healthScore: pet.healthScore }),
   addPet: (pet) => set((state) => ({
     pets: [...state.pets, { ...pet, id: Date.now().toString() }],
   })),
@@ -204,7 +253,33 @@ export const useAppStore = create<AppState>((set) => ({
       id: Date.now().toString(),
     }],
   })),
+  resolveAlert: (alertId) => set((state) => ({
+    healthAlerts: state.healthAlerts.map(alert => 
+      alert.id === alertId ? { ...alert, isResolved: true } : alert
+    ),
+  })),
   setIsRecording: (isRecording) => set({ isRecording }),
   setCurrentEmotion: (emotion) => set({ currentEmotion: emotion }),
   setHealthScore: (score) => set({ healthScore: score }),
+  addVoiceMemory: (memory) => set((state) => ({
+    voiceMemories: [...state.voiceMemories, {
+      ...memory,
+      id: Date.now().toString(),
+    }],
+  })),
+  addBehaviorEvent: (event) => set((state) => ({
+    behaviorEvents: [...state.behaviorEvents, {
+      ...event,
+      id: Date.now().toString(),
+    }],
+  })),
+  addDailyJournal: (journal) => set((state) => ({
+    dailyJournals: [...state.dailyJournals, {
+      ...journal,
+      id: Date.now().toString(),
+    }],
+  })),
+  setVoiceMemories: (memories) => set({ voiceMemories: memories }),
+  setBehaviorEvents: (events) => set({ behaviorEvents: events }),
+  setDailyJournals: (journals) => set({ dailyJournals: journals }),
 }));

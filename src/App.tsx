@@ -1,7 +1,7 @@
 // ============================================
 // PawSync Pro - App.tsx
 // 
-// 作者: 带娃的小陈工
+// 作者: 带娃的小陈宫
 // 日期: 2026-05-26
 // 描述: 应用主入口组件
 // ============================================
@@ -27,6 +27,10 @@ import { RemindersPage } from './pages/RemindersPage';
 import { AdvancedHealthPage } from './pages/AdvancedHealthPage';
 import { BondEmotionPage } from './pages/BondEmotionPage';
 import { CameraMonitorPage } from './pages/CameraMonitorPage';
+import VoiceAnalysis from './pages/VoiceAnalysis';
+import HealthManagement from './pages/HealthManagement';
+import FoodAnalysis from './pages/FoodAnalysis';
+import BehaviorAnalysis from './pages/BehaviorAnalysis';
 import { useAppStore } from './store/appStore';
 
 export default function App() {
@@ -76,7 +80,7 @@ export default function App() {
       case 'medical':
         return <MedicalPage />;
       case 'profile':
-        return <ProfilePage />;
+        return <ProfilePage onNavigate={setCurrentPage} />;
       case 'camera':
         return <CameraPage />;
       case 'monitor':
@@ -87,6 +91,14 @@ export default function App() {
         return <BondEmotionPage />;
       case 'camera-monitor':
         return <CameraMonitorPage />;
+      case 'voice-analysis':
+        return <VoiceAnalysis />;
+      case 'health-management':
+        return <HealthManagement />;
+      case 'food-analysis':
+        return <FoodAnalysis />;
+      case 'behavior-analysis':
+        return <BehaviorAnalysis />;
       default:
         return <HomePage onNavigate={setCurrentPage} />;
     }
