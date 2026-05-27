@@ -141,6 +141,8 @@ export function MonitorPage() {
   ];
 
   const handleAddCamera = async () => {
+    console.log('开始添加摄像头...', { cameraBrand, deviceCode, deviceName });
+    
     if (!deviceCode.trim()) {
       alert('请输入设备配对码');
       return;
@@ -152,12 +154,20 @@ export function MonitorPage() {
 
     setIsPairing(true);
     try {
-      await pairDevice(cameraBrand, deviceCode, deviceName);
+      const newDevice = await pairDevice(cameraBrand, deviceCode, deviceName);
+      console.log('设备添加成功:', newDevice);
+      
+      // 自动选中新添加的设备
+      if (newDevice) {
+        selectDevice(newDevice);
+      }
+      
       setShowAddCameraModal(false);
       setDeviceCode('');
       setDeviceName('');
       alert('摄像头添加成功！');
     } catch (error) {
+      console.error('添加摄像头失败:', error);
       alert('添加失败，请检查配对码是否正确');
     } finally {
       setIsPairing(false);
@@ -271,7 +281,7 @@ export function MonitorPage() {
           </div>
 
           <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
-            {devices.filter(d => d.status === 'online').map((device) => (
+            {devices.map((device) => (
               <button
                 key={device.id}
                 onClick={(e) => {
@@ -287,8 +297,10 @@ export function MonitorPage() {
               >
                 <Camera className="w-4 h-4" />
                 <span>{device.name}</span>
-                {device.status === 'online' && (
+                {device.status === 'online' ? (
                   <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                ) : (
+                  <span className="w-2 h-2 bg-gray-400 rounded-full" />
                 )}
               </button>
             ))}

@@ -98,13 +98,19 @@ export const useCameraStore = create<CameraState>((set, get) => ({
   },
 
   pairDevice: async (brand, deviceCode, deviceName) => {
+    console.log('开始配对设备...', { brand, deviceCode, deviceName });
     set({ isPairing: true, error: null, pairingProgress: null });
     
     try {
       const device = await cameraManager.pairDevice(
         { brand, deviceCode, deviceName },
-        (progress) => set({ pairingProgress: progress })
+        (progress) => {
+          console.log('配对进度:', progress);
+          set({ pairingProgress: progress });
+        }
       );
+      
+      console.log('设备配对成功:', device);
       
       set((state) => ({
         devices: [...state.devices, device],
@@ -114,6 +120,7 @@ export const useCameraStore = create<CameraState>((set, get) => ({
       
       return device;
     } catch (error) {
+      console.error('设备配对失败:', error);
       set({ error: 'Failed to pair device', isPairing: false, pairingProgress: null });
       throw error;
     }
