@@ -38,14 +38,14 @@ describe('TranslatorPage', () => {
     expect(screen.getByText(/倾听 小橘 的心声/)).toBeInTheDocument();
   });
 
-  it('应该显示录音翻译按钮', () => {
+  it('应该显示语音按钮', () => {
     render(<TranslatorPage />);
-    expect(screen.getByRole('button', { name: /录音翻译/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /语音/i })).toBeInTheDocument();
   });
 
-  it('应该显示拍照分析按钮', () => {
+  it('应该显示图片按钮', () => {
     render(<TranslatorPage />);
-    expect(screen.getByRole('button', { name: /拍照分析/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /图片/i })).toBeInTheDocument();
   });
 
   it('应该显示录音按钮', () => {
@@ -102,7 +102,7 @@ describe('TranslatorPage', () => {
 
   it('应该显示提示文本', () => {
     render(<TranslatorPage />);
-    expect(screen.getByText(/请将麦克风靠近宝贝/)).toBeInTheDocument();
+    expect(screen.getByText(/支持多种输入方式/)).toBeInTheDocument();
   });
 
   it('录音时应该显示点击结束提示', () => {
@@ -115,8 +115,8 @@ describe('TranslatorPage', () => {
 
   it('应该渲染UI组件', () => {
     render(<TranslatorPage />);
-    expect(screen.getByText(/麦克风靠近宝贝/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /录音翻译/i })).toBeInTheDocument();
+    expect(screen.getByText(/支持多种输入方式/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /语音/i })).toBeInTheDocument();
   });
 
   it('应该显示页面结构', () => {

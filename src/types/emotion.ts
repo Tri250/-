@@ -1,4 +1,4 @@
-export type PrimaryEmotion = 'happy' | 'curious' | 'anxious' | 'angry' | 'needs' | 'calm' | 'excited' | 'safe';
+export type PrimaryEmotion = 'happy' | 'curious' | 'anxious' | 'angry' | 'needs' | 'calm' | 'excited' | 'safe' | 'hungry' | 'tired' | 'affectionate' | 'bored' | 'pain' | 'fearful' | 'neutral';
 
 export type EmotionCategory = 'positive' | 'negative' | 'neutral' | 'active';
 
@@ -6,17 +6,50 @@ export interface EmotionAnalysis {
   id: string;
   petId: string;
   primaryEmotion: PrimaryEmotion;
+  secondaryEmotions: PrimaryEmotion[];
   intensity: number;
   confidence: number;
-  subEmotions: string[];
   translation: string;
   context: {
     timeContext: string;
     locationContext: string;
+    activityContext?: string;
+    relatedTo?: string;
   };
   createdAt: string;
-  source: 'voice' | 'image' | 'behavior';
+  source: 'voice' | 'image' | 'behavior' | 'text' | 'video' | 'multimodal';
+  keyFeatures?: string[];
+  breedSpecific?: boolean;
+  isEmergency?: boolean;
+  healthRecommendations?: string[];
+  actionSuggestion?: string;
+  multimodalAccuracyBoost?: number;
 }
+
+export type EmotionHistoryItem = EmotionAnalysis;
+
+export interface EmotionReport {
+  id: string;
+  petId: string;
+  period: string;
+  title: string;
+  summary: string;
+  emotionDistribution: Record<string, number>;
+  emotionTrends: {
+    happiness: number;
+    anxiety: number;
+    activity: number;
+  };
+  commonNeeds: string[];
+  healthScore: number;
+  recommendations: string[];
+  isEmpty: boolean;
+  totalAnalyses: number;
+  avgIntensity: number;
+  createdAt: string;
+}
+
+export type HealthReport = EmotionReport;
 
 export interface EmotionDimension {
   name: string;
@@ -35,6 +68,8 @@ export interface EmotionDashboard {
     anxiety: number;
     affection: number;
     curiosity: number;
+    playfulness: number;
+    contentment: number;
   };
   recentHistory: EmotionAnalysis[];
   trends: {
