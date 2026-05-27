@@ -33,7 +33,6 @@ type TabType = 'memories' | 'voices' | 'remote';
 export function BondEmotionPage() {
   const { currentPet } = useAppStore();
   const [activeTab, setActiveTab] = useState<TabType>('memories');
-  const [showFloatingAction, setShowFloatingAction] = useState(false);
   const [showCameraModal, setShowCameraModal] = useState(false);
   const [showVoiceModal, setShowVoiceModal] = useState(false);
   const [showMessageModal, setShowMessageModal] = useState(false);
@@ -41,6 +40,7 @@ export function BondEmotionPage() {
   const [recordingTime, setRecordingTime] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [messageText, setMessageText] = useState('');
+  const [isAddingMemory, setIsAddingMemory] = useState(false);
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingIntervalRef = useRef<number | null>(null);
@@ -178,36 +178,23 @@ export function BondEmotionPage() {
       {/* 顶部导航 */}
       <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-lg border-b border-pink-100 shadow-sm">
         <div className="max-w-md mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <motion.div
-                whileHover={{ scale: 1.05 }}
-                className="w-10 h-10 bg-gradient-to-br from-pink-500 to-rose-500 rounded-xl flex items-center justify-center"
-              >
-                <Heart className="w-5 h-5 text-white" />
-              </motion.div>
-              <div>
-                <h1 className="text-lg font-bold text-gray-800">情感连接</h1>
-                <p className="text-xs text-gray-500">强化{petName}的情感纽带</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setShowFloatingAction(!showFloatingAction)}
-                className="p-2 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-xl shadow-lg"
-              >
-                <Plus className="w-5 h-5" />
-              </motion.button>
+          <div className="flex items-center gap-3">
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              className="w-10 h-10 bg-gradient-to-br from-pink-500 to-rose-500 rounded-xl flex items-center justify-center"
+            >
+              <Heart className="w-5 h-5 text-white" />
+            </motion.div>
+            <div>
+              <h1 className="text-lg font-bold text-gray-800">情感连接</h1>
+              <p className="text-xs text-gray-500">强化{petName}的情感纽带</p>
             </div>
           </div>
         </div>
       </header>
 
       {/* 主内容区 */}
-      <main className="max-w-md mx-auto px-4 py-6 pb-24">
+      <main className="max-w-md mx-auto px-4 py-6 pb-32">
         <AnimatePresence mode="wait">
           <motion.div
             key={activeTab}
@@ -220,6 +207,84 @@ export function BondEmotionPage() {
           </motion.div>
         </AnimatePresence>
       </main>
+
+      {/* 添加回忆按钮 */}
+      <div className="fixed bottom-20 left-0 right-0 z-30 flex justify-center px-4">
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setIsAddingMemory(!isAddingMemory)}
+          className="bg-gradient-to-r from-pink-500 to-rose-500 text-white px-6 py-3 rounded-full shadow-xl flex items-center gap-2"
+        >
+          <Plus className="w-5 h-5" />
+          <span className="font-medium">添加回忆</span>
+        </motion.button>
+      </div>
+
+      {/* 添加回忆菜单 */}
+      <AnimatePresence>
+        {isAddingMemory && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsAddingMemory(false)}
+              className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40"
+            />
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.8, opacity: 0, y: 20 }}
+              className="fixed bottom-32 left-1/2 -translate-x-1/2 z-50 bg-white rounded-2xl shadow-xl p-4 w-[90%] max-w-sm"
+            >
+              <div className="text-center mb-4">
+                <p className="text-sm font-medium text-gray-700">选择添加方式</p>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <button 
+                  onClick={() => {
+                    setIsAddingMemory(false);
+                    setShowCameraModal(true);
+                  }}
+                  className="flex flex-col items-center gap-2 p-4 hover:bg-pink-50 rounded-xl transition-colors"
+                >
+                  <div className="w-12 h-12 bg-pink-100 rounded-xl flex items-center justify-center">
+                    <Camera className="w-6 h-6 text-pink-600" />
+                  </div>
+                  <p className="text-xs text-gray-700">拍照记录</p>
+                </button>
+
+                <button 
+                  onClick={() => {
+                    setIsAddingMemory(false);
+                    setShowVoiceModal(true);
+                  }}
+                  className="flex flex-col items-center gap-2 p-4 hover:bg-purple-50 rounded-xl transition-colors"
+                >
+                  <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
+                    <Mic className="w-6 h-6 text-purple-600" />
+                  </div>
+                  <p className="text-xs text-gray-700">录制声音</p>
+                </button>
+
+                <button 
+                  onClick={() => {
+                    setIsAddingMemory(false);
+                    setShowMessageModal(true);
+                  }}
+                  className="flex flex-col items-center gap-2 p-4 hover:bg-blue-50 rounded-xl transition-colors"
+                >
+                  <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                    <Send className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <p className="text-xs text-gray-700">发送留言</p>
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* 底部导航栏 */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t border-gray-100 shadow-lg z-30">
@@ -246,75 +311,6 @@ export function BondEmotionPage() {
           </div>
         </div>
       </nav>
-
-      {/* 浮动操作菜单 */}
-      <AnimatePresence>
-        {showFloatingAction && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowFloatingAction(false)}
-              className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40"
-            />
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.8, opacity: 0, y: 20 }}
-              className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 bg-white rounded-2xl shadow-xl p-2 w-64"
-            >
-              <button 
-                    onClick={() => {
-                      setShowFloatingAction(false);
-                      setShowCameraModal(true);
-                    }}
-                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-pink-50 rounded-xl transition-colors"
-                  >
-                    <div className="w-10 h-10 bg-pink-100 rounded-xl flex items-center justify-center">
-                      <Camera className="w-5 h-5 text-pink-600" />
-                    </div>
-                    <div className="text-left">
-                      <p className="font-medium text-gray-800">拍照记录</p>
-                      <p className="text-xs text-gray-500">拍摄{petName}的精彩瞬间</p>
-                    </div>
-                  </button>
-
-                  <button 
-                    onClick={() => {
-                      setShowFloatingAction(false);
-                      setShowVoiceModal(true);
-                    }}
-                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-purple-50 rounded-xl transition-colors"
-                  >
-                    <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
-                      <Mic className="w-5 h-5 text-purple-600" />
-                    </div>
-                    <div className="text-left">
-                      <p className="font-medium text-gray-800">录制声音</p>
-                      <p className="text-xs text-gray-500">记录{petName}的叫声</p>
-                    </div>
-                  </button>
-
-                  <button 
-                    onClick={() => {
-                      setShowFloatingAction(false);
-                      setShowMessageModal(true);
-                    }}
-                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-blue-50 rounded-xl transition-colors"
-                  >
-                    <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-                      <Send className="w-5 h-5 text-blue-600" />
-                    </div>
-                    <div className="text-left">
-                      <p className="font-medium text-gray-800">录制留言</p>
-                      <p className="text-xs text-gray-500">录制给{petName}的话</p>
-                    </div>
-                  </button>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
 
       {/* 拍照模态框 */}
       <AnimatePresence>

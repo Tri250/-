@@ -280,11 +280,11 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
       case 'bond_metrics':
         return (
           <div key={cardConfig.id} className="animate-slide-up" style={{ animationDelay: `${delay}s` }}>
-            <Card className="p-5 bg-gradient-to-br from-pink-50 via-white to-orange-50">
+            <Card className="p-5 bg-gradient-to-br from-green-50 via-white to-emerald-50">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold text-neutral-800 flex items-center gap-2">
-                  <Heart className="w-5 h-5 text-pink-500 fill-pink-500" />
-                  与{currentPet?.name}的羁绊
+                  <Activity className="w-5 h-5 text-green-500 fill-green-500" />
+                  {currentPet?.name}健康评分
                 </h3>
                 <div className="flex items-center gap-1 px-2 py-1 bg-white rounded-full shadow-sm">
                   <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
@@ -292,27 +292,27 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
                 </div>
               </div>
               
-              {/* 主亲密度展示 */}
+              {/* 主健康评分展示 */}
               <div className="flex items-center gap-4 mb-4">
                 <div className="relative">
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-pink-400 to-orange-400 flex items-center justify-center shadow-lg">
-                    <span className="text-3xl">💖</span>
+                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-green-400 to-emerald-400 flex items-center justify-center shadow-lg">
+                    <span className="text-3xl">❤️</span>
                   </div>
-                  <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-yellow-400 flex items-center justify-center text-xs font-bold shadow-md">
-                    {metrics.overall}%
+                  <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-green-400 flex items-center justify-center text-xs font-bold shadow-md">
+                    {healthScore}
                   </div>
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-sm text-neutral-600">当前亲密度</span>
-                    <span className="px-2 py-0.5 bg-pink-100 text-pink-600 rounded-full text-xs font-medium">
-                      {metrics.overall >= 80 ? '亲密无间' : metrics.overall >= 60 ? '感情深厚' : metrics.overall >= 40 ? '渐入佳境' : '初识阶段'}
+                    <span className="text-sm text-neutral-600">健康状态</span>
+                    <span className="px-2 py-0.5 bg-green-100 text-green-600 rounded-full text-xs font-medium">
+                      {healthScore >= 90 ? '非常健康' : healthScore >= 80 ? '健康良好' : healthScore >= 70 ? '基本健康' : '需要关注'}
                     </span>
                   </div>
                   <div className="h-2 bg-neutral-200 rounded-full overflow-hidden">
                     <div 
-                      className="h-full bg-gradient-to-r from-pink-500 to-orange-500 rounded-full transition-all duration-1000 ease-out"
-                      style={{ width: `${metrics.overall}%` }}
+                      className="h-full bg-gradient-to-r from-green-500 to-emerald-500 rounded-full transition-all duration-1000 ease-out"
+                      style={{ width: `${healthScore}%` }}
                     />
                   </div>
                 </div>
@@ -321,11 +321,11 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
               {/* 详细指标 */}
               <div className="grid grid-cols-3 gap-3">
                 <div className="text-center p-2 bg-white rounded-xl shadow-sm">
-                  <div className="text-lg font-bold text-pink-500">{unlockedBadges}</div>
+                  <div className="text-lg font-bold text-green-500">{unlockedBadges}</div>
                   <div className="text-xs text-neutral-500">已获徽章</div>
                 </div>
                 <div className="text-center p-2 bg-white rounded-xl shadow-sm">
-                  <div className="text-lg font-bold text-orange-500">{totalPoints}</div>
+                  <div className="text-lg font-bold text-emerald-500">{totalPoints}</div>
                   <div className="text-xs text-neutral-500">爱心积分</div>
                 </div>
                 <div className="text-center p-2 bg-white rounded-xl shadow-sm">
@@ -334,14 +334,14 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
                 </div>
               </div>
 
-              {/* 互动建议 */}
+              {/* 健康建议 */}
               <div className="mt-4 p-3 bg-white/80 rounded-xl">
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-neutral-600">💡 今日建议：</span>
                   <span className="text-sm text-neutral-700">
-                    {metrics.overall < 60 ? '多陪' + (currentPet?.name || '宠物') + '玩耍互动吧！' : 
-                     metrics.overall < 80 ? '给' + (currentPet?.name || '宠物') + '一个温暖的拥抱~' : 
-                     '你们的感情真的很棒！继续保持！'}
+                    {healthScore < 70 ? '记得按时记录' + (currentPet?.name || '宠物') + '的健康状态哦！' : 
+                     healthScore < 85 ? '继续保持良好的健康习惯~' : 
+                     '太棒了！继续保持健康快乐的生活！'}
                   </span>
                 </div>
               </div>
@@ -422,13 +422,13 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
             </button>
           </div>
 
-          {/* Bond Score & Quick Stats */}
+          {/* Health Score & Quick Stats */}
           <div className="flex items-center gap-6">
             <ProgressRing 
-              progress={metrics.overall} 
+              progress={healthScore} 
               size={120} 
               strokeWidth={12}
-              label="亲密度"
+              label="健康评分"
             />
             <div className="flex-1 space-y-3">
               <div className="flex items-center gap-4">
@@ -444,11 +444,11 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
               <div className="flex items-center gap-2">
                 <div className="flex-1 bg-white/20 rounded-full h-2">
                   <div 
-                    className="bg-yellow-400 h-full rounded-full transition-all duration-1000 ease-out"
-                    style={{ width: `${Math.min((totalPoints / 2000) * 100, 100)}%` }}
+                    className="bg-green-400 h-full rounded-full transition-all duration-1000 ease-out"
+                    style={{ width: `${healthScore}%` }}
                   />
                 </div>
-                <span className="text-xs">{totalPoints} 积分</span>
+                <span className="text-xs">{healthScore} 分</span>
               </div>
             </div>
           </div>

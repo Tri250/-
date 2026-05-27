@@ -215,16 +215,78 @@ export const HealthRecordsPage: React.FC<HealthRecordsPageProps> = ({ onNavigate
                 />
               </div>
 
-              {/* 内容输入 */}
+              {/* 内容输入 - 根据类型显示不同界面 */}
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">内容</label>
-                <textarea
-                  value={recordContent}
-                  onChange={(e) => setRecordContent(e.target.value)}
-                  placeholder="输入记录内容..."
-                  rows={4}
-                  className="w-full px-4 py-3 bg-gray-100 rounded-xl text-sm border-none focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:bg-white transition-all resize-none"
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {recordType === 'text' && '内容'}
+                  {recordType === 'voice' && '语音记录'}
+                  {recordType === 'photo' && '拍照记录'}
+                  {recordType === 'video' && '视频记录'}
+                </label>
+                
+                {recordType === 'text' && (
+                  <textarea
+                    value={recordContent}
+                    onChange={(e) => setRecordContent(e.target.value)}
+                    placeholder="输入记录内容..."
+                    rows={4}
+                    className="w-full px-4 py-3 bg-gray-100 rounded-xl text-sm border-none focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:bg-white transition-all resize-none"
+                  />
+                )}
+                
+                {recordType === 'voice' && (
+                  <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-6 text-center">
+                    <div className="w-20 h-20 mx-auto bg-gradient-to-br from-purple-500 to-purple-600 rounded-full flex items-center justify-center mb-4">
+                      <Mic className="w-10 h-10 text-white" />
+                    </div>
+                    <p className="text-sm text-gray-600 mb-2">点击下方按钮开始录音</p>
+                    <button 
+                      className="px-6 py-2 bg-purple-500 text-white rounded-full hover:bg-purple-600 transition-colors"
+                      onClick={() => setRecordContent(recordContent ? recordContent : '🎤 已录制完成的语音记录')}
+                    >
+                      {recordContent ? '重新录制' : '开始录制'}
+                    </button>
+                    {recordContent && (
+                      <p className="text-xs text-green-600 mt-2">✓ 语音记录已准备好</p>
+                    )}
+                  </div>
+                )}
+                
+                {recordType === 'photo' && (
+                  <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-6 text-center">
+                    <div className="w-20 h-20 mx-auto bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center mb-4">
+                      <Image className="w-10 h-10 text-white" />
+                    </div>
+                    <p className="text-sm text-gray-600 mb-2">点击下方按钮拍照或选择图片</p>
+                    <button 
+                      className="px-6 py-2 bg-green-500 text-white rounded-full hover:bg-green-600 transition-colors"
+                      onClick={() => setRecordContent(recordContent ? recordContent : '📷 已拍摄完成的照片记录')}
+                    >
+                      {recordContent ? '重新拍摄' : '开始拍照'}
+                    </button>
+                    {recordContent && (
+                      <p className="text-xs text-green-600 mt-2">✓ 照片记录已准备好</p>
+                    )}
+                  </div>
+                )}
+                
+                {recordType === 'video' && (
+                  <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-xl p-6 text-center">
+                    <div className="w-20 h-20 mx-auto bg-gradient-to-br from-red-500 to-red-600 rounded-full flex items-center justify-center mb-4">
+                      <Video className="w-10 h-10 text-white" />
+                    </div>
+                    <p className="text-sm text-gray-600 mb-2">点击下方按钮开始录制视频</p>
+                    <button 
+                      className="px-6 py-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                      onClick={() => setRecordContent(recordContent ? recordContent : '🎬 已录制完成的视频记录')}
+                    >
+                      {recordContent ? '重新录制' : '开始录像'}
+                    </button>
+                    {recordContent && (
+                      <p className="text-xs text-green-600 mt-2">✓ 视频记录已准备好</p>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* 标签选择 */}
