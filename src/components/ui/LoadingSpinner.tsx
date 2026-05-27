@@ -20,7 +20,7 @@ export function LoadingSpinner({
   text,
 }: LoadingSpinnerProps) {
   return (
-    <div className="flex flex-col items-center justify-center gap-3">
+    <div className={`flex flex-col items-center justify-center gap-3 ${className}`}>
       <div className={`${sizeClasses[size]} ${color} animate-spin`}>
         <svg viewBox="0 0 24 24" fill="none" className="w-full h-full">
           <circle

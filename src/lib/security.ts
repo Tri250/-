@@ -9,35 +9,40 @@
 export function maskSensitiveData(data: string, type: 'phone' | 'email' | 'id' | 'name' = 'phone'): string {
   if (!data) return '';
   
+  let result = data;
   switch (type) {
     case 'phone':
       // 手机号：138****1234
-      return data.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2');
+      result = data.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2');
+      break;
     
     case 'email':
       // 邮箱：te***@example.com
       const [name, domain] = data.split('@');
-      if (!name || !domain) return data;
-      const visibleLength = Math.min(2, name.length);
-      return `${name.slice(0, visibleLength)}***@${domain}`;
+      if (name && domain) {
+        const visibleLength = Math.min(2, name.length);
+        result = `${name.slice(0, visibleLength)}***@${domain}`;
+      }
+      break;
     
     case 'id':
       // 身份证：110***********1234
-      return data.replace(/(\d{3})\d{11}(\d{4})/, '$1***********$2');
+      result = data.replace(/(\d{3})\d{11}(\d{4})/, '$1***********$2');
+      break;
     
     case 'name':
       // 姓名：张*
-      if (data.length <= 1) return data;
-      return data.slice(0, 1) + '*'.repeat(data.length - 1);
-    
-    default:
-      return data;
+      if (data.length > 1) {
+        result = data.slice(0, 1) + '*'.repeat(data.length - 1);
+      }
+      break;
   }
+  return result;
 }
 
 // 安全存储工具
 export const secureStorage = {
-  setItem(key: string, value: any, sensitive: boolean = false): void {
+  setItem(key: string, value: unknown, sensitive: boolean = false): void {
     try {
       const data = sensitive 
         ? JSON.stringify({ type: 'sensitive', data: value, timestamp: Date.now() })
@@ -48,7 +53,7 @@ export const secureStorage = {
     }
   },
   
-  getItem(key: string): any {
+  getItem(key: string): unknown {
     try {
       const data = localStorage.getItem(key);
       if (!data) return null;

@@ -27,7 +27,7 @@ import { useAppStore } from './store/appStore';
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState('home');
-  const { isAuthenticated, isOnboardingComplete, login, register, completeOnboarding } = useAppStore();
+  const { isAuthenticated, isOnboardingComplete, completeOnboarding } = useAppStore();
 
   const handleAuthSuccess = () => {
     // 认证成功，状态已在store中更新

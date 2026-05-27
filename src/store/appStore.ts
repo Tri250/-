@@ -161,7 +161,7 @@ export const useAppStore = create<AppState>((set) => ({
     },
   ],
   setUser: (user) => set({ user, isAuthenticated: !!user }),
-  login: async (email, password) => {
+  login: async (email, _password) => {
     await new Promise(resolve => setTimeout(resolve, 1000));
     const mockUser: User = {
       id: '1',

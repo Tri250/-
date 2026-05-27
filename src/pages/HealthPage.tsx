@@ -7,10 +7,9 @@
 // ============================================
 
 import { useState } from 'react';
-import { Activity, AlertTriangle, Bell, Heart, Moon, Sun, Thermometer, ChevronRight, Shield, Utensils, Scissors, Zap, BookOpen, Star } from 'lucide-react';
+import { Activity, AlertTriangle, Bell, Heart, Moon, Sun, Thermometer, Shield, Utensils, Scissors, Zap, BookOpen, Star, ChevronRight } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
-import { Card } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
+import { Card } from '../components/DesignSystem';
 
 const alertTypeConfig = {
   cough: { icon: Activity, label: '咳嗽', color: 'text-yellow-500', bgColor: 'bg-yellow-50' },
@@ -202,7 +201,7 @@ export function HealthPage() {
               const config = careCategoryConfig[tip.category];
               const Icon = config.icon;
               return (
-                <Card key={tip.id} variant="default" padding="medium" className="hover:shadow-md transition-shadow">
+                <Card key={tip.id} variant="default" padding="md" className="hover:shadow-md transition-shadow">
                   <div className="flex items-start gap-3">
                     <div className={`w-10 h-10 rounded-xl ${config.bgColor} flex items-center justify-center flex-shrink-0`}>
                       <Icon className={`w-5 h-5 ${config.color}`} />
