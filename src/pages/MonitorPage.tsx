@@ -1,13 +1,5 @@
-// ============================================
-// PawSync Pro - MonitorPage.tsx
-//
-// 作者: 带娃的小陈工
-// 日期: 2026-05-26
-// 描述: 实时监控和录制管理页面
-// ============================================
-
 import { useEffect, useState } from 'react';
-import { Monitor, Camera, AlertTriangle, History, Settings, Maximize2, Minimize2, Mic, MicOff, Volume2, VolumeX, Wifi, Plus, X, Check } from 'lucide-react';
+import { Monitor, Camera, AlertTriangle, History, Settings, Maximize2, Minimize2, Mic, MicOff, Volume2, VolumeX, Wifi, Plus, X, Check, RefreshCw } from 'lucide-react';
 import { LiveStream } from '../components/monitor/LiveStream';
 import { EventAlert } from '../components/monitor/EventAlert';
 import { RecordingControls } from '../components/monitor/RecordingControls';
@@ -38,7 +30,11 @@ function StreamControls({
     <div className="flex items-center gap-3">
       <div className="relative">
         <button
-          onClick={() => setShowQualityMenu(!showQualityMenu)}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setShowQualityMenu(!showQualityMenu);
+          }}
           className="px-3 py-1.5 bg-black/50 backdrop-blur-sm text-white rounded-lg text-xs font-medium hover:bg-black/60 transition-colors"
         >
           {quality === 'auto' ? '自动' : quality === 'high' ? '高清' : '标清'}
@@ -48,7 +44,9 @@ function StreamControls({
             {['auto', 'high', 'medium'].map((q) => (
               <button
                 key={q}
-                onClick={() => {
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
                   onQualityChange(q);
                   setShowQualityMenu(false);
                 }}
@@ -63,7 +61,11 @@ function StreamControls({
         )}
       </div>
       <button
-        onClick={onToggleFullscreen}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onToggleFullscreen();
+        }}
         className="p-1.5 bg-black/50 backdrop-blur-sm text-white rounded-lg hover:bg-black/60 transition-colors"
         aria-label={isFullscreen ? '退出全屏' : '全屏'}
       >
@@ -91,7 +93,7 @@ function ActionButton({
       onClick={onClick}
       disabled={disabled}
       className={`
-        flex flex-col items-center justify-center p-3 rounded-xl transition-all
+        flex flex-col items-center justify-center p-3 rounded-xl transition-all touch-target
         ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
         ${active 
           ? 'bg-orange-500 text-white shadow-lg' 
@@ -106,7 +108,7 @@ function ActionButton({
 }
 
 export function MonitorPage() {
-  const { devices, selectedDevice, selectDevice, loadDevices, pairDevice } = useCameraStore();
+  const { devices, selectedDevice, selectDevice, loadDevices, pairDevice, addDevice } = useCameraStore();
   const { 
     isMonitoring, 
     monitoring, 
@@ -128,15 +130,18 @@ export function MonitorPage() {
   const [isTalking, setIsTalking] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [showAddCameraModal, setShowAddCameraModal] = useState(false);
-  const [cameraBrand, setCameraBrand] = useState('xiaomi' as 'xiaomi' | 'hikvision' | 'ezviz' | 'other');
+  const [cameraBrand, setCameraBrand] = useState<'xiaomi' | 'hikvision' | 'ezviz' | 'huawei' | 'honor' | 'other'>('xiaomi');
   const [deviceCode, setDeviceCode] = useState('');
   const [deviceName, setDeviceName] = useState('');
   const [isPairing, setIsPairing] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
 
   const cameraBrands = [
     { id: 'xiaomi' as const, name: '小米', icon: '📱' },
     { id: 'hikvision' as const, name: '海康威视', icon: '🏢' },
     { id: 'ezviz' as const, name: '萤石', icon: '✨' },
+    { id: 'huawei' as const, name: '华为', icon: '📡' },
+    { id: 'honor' as const, name: '荣耀', icon: '🌟' },
     { id: 'other' as const, name: '其他品牌', icon: '📷' },
   ];
 
@@ -157,15 +162,16 @@ export function MonitorPage() {
       const newDevice = await pairDevice(cameraBrand, deviceCode, deviceName);
       console.log('设备添加成功:', newDevice);
       
-      // 自动选中新添加的设备
       if (newDevice) {
+        addDevice(newDevice);
         selectDevice(newDevice);
       }
       
       setShowAddCameraModal(false);
       setDeviceCode('');
       setDeviceName('');
-      alert('摄像头添加成功！');
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 3000);
     } catch (error) {
       console.error('添加摄像头失败:', error);
       alert('添加失败，请检查配对码是否正确');
@@ -260,7 +266,7 @@ export function MonitorPage() {
                     e.stopPropagation();
                     setActiveTab('events');
                   }}
-                  className="relative p-2 rounded-full bg-red-50 text-red-500 hover:bg-red-100 transition-colors"
+                  className="relative p-2 rounded-full bg-red-50 text-red-500 hover:bg-red-100 transition-colors touch-target"
                 >
                   <AlertTriangle className="w-5 h-5" />
                   <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
@@ -272,10 +278,11 @@ export function MonitorPage() {
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
+                  loadDevices();
                 }}
-                className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                className="p-2 rounded-full hover:bg-gray-100 transition-colors touch-target"
               >
-                <Settings className="w-5 h-5 text-gray-600" />
+                <RefreshCw className="w-5 h-5 text-gray-600" />
               </button>
             </div>
           </div>
@@ -289,14 +296,14 @@ export function MonitorPage() {
                   e.stopPropagation();
                   selectDevice(device);
                 }}
-                className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
+                className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 touch-target ${
                   selectedDevice?.id === device.id
                     ? 'bg-gradient-to-r from-orange-400 to-peach-500 text-white shadow-lg'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
                 <Camera className="w-4 h-4" />
-                <span>{device.name}</span>
+                <span className="whitespace-nowrap">{device.name}</span>
                 {device.status === 'online' ? (
                   <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
                 ) : (
@@ -310,10 +317,10 @@ export function MonitorPage() {
                 e.stopPropagation();
                 setShowAddCameraModal(true);
               }}
-              className="flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 bg-primary-500 text-white hover:bg-primary-600 shadow-lg"
+              className="flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 bg-primary-500 text-white hover:bg-primary-600 shadow-lg touch-target"
             >
               <Plus className="w-4 h-4" />
-              <span>添加</span>
+              <span className="whitespace-nowrap">添加</span>
             </button>
           </div>
         </div>
@@ -334,7 +341,7 @@ export function MonitorPage() {
                     e.stopPropagation();
                     setActiveTab(tab.id);
                   }}
-                  className={`flex-1 py-3 px-4 flex items-center justify-center gap-2 text-sm font-medium transition-colors border-b-2 ${
+                  className={`flex-1 py-3 px-4 flex items-center justify-center gap-2 text-sm font-medium transition-colors border-b-2 touch-target ${
                     activeTab === tab.id
                       ? 'text-orange-500 border-orange-500'
                       : 'text-gray-500 border-transparent hover:text-gray-700'
@@ -389,7 +396,7 @@ export function MonitorPage() {
                         e.stopPropagation();
                         handleStartMonitoring();
                       }}
-                      className="flex-1 py-3 rounded-xl bg-gradient-to-r from-orange-400 to-peach-500 text-white hover:from-orange-500 hover:to-peach-600 transition-colors font-medium flex items-center justify-center gap-2 shadow-lg"
+                      className="flex-1 py-3 rounded-xl bg-gradient-to-r from-orange-400 to-peach-500 text-white hover:from-orange-500 hover:to-peach-600 transition-all font-medium flex items-center justify-center gap-2 shadow-lg touch-target"
                     >
                       <Monitor className="w-5 h-5" />
                       开始监控
@@ -401,7 +408,7 @@ export function MonitorPage() {
                         e.stopPropagation();
                         handleStopMonitoring();
                       }}
-                      className="flex-1 py-3 rounded-xl bg-gradient-to-r from-red-400 to-red-500 text-white hover:from-red-500 hover:to-red-600 transition-colors font-medium flex items-center justify-center gap-2 shadow-lg"
+                      className="flex-1 py-3 rounded-xl bg-gradient-to-r from-red-400 to-red-500 text-white hover:from-red-500 hover:to-red-600 transition-all font-medium flex items-center justify-center gap-2 shadow-lg touch-target"
                     >
                       <Monitor className="w-5 h-5" />
                       停止监控
@@ -471,11 +478,11 @@ export function MonitorPage() {
               <EmptyState
                 icon={<Camera className="w-12 h-12" />}
                 title="暂无摄像头"
-                description="请先在设备管理中添加摄像头"
+                description="请先添加摄像头设备"
                 action={{
                   label: '去添加',
-                  onClick: () => window.location.hash = '#camera',
-                  icon: <Camera className="w-5 h-5" />
+                  onClick: () => setShowAddCameraModal(true),
+                  icon: <Plus className="w-5 h-5" />
                 }}
               />
             )}
@@ -538,7 +545,7 @@ export function MonitorPage() {
               initial={{ opacity: 0, y: 100 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 100 }}
-              className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl z-50 p-6 max-h-[85vh] overflow-y-auto"
+              className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl z-50 p-6 max-h-[85vh] overflow-y-auto safe-area-bottom"
             >
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-bold text-gray-800">添加摄像头</h3>
@@ -548,7 +555,7 @@ export function MonitorPage() {
                     e.stopPropagation();
                     setShowAddCameraModal(false);
                   }} 
-                  className="p-2 hover:bg-gray-100 rounded-full"
+                  className="p-2 hover:bg-gray-100 rounded-full touch-target"
                 >
                   <X className="w-5 h-5 text-gray-500" />
                 </button>
@@ -558,7 +565,7 @@ export function MonitorPage() {
                 {/* 品牌选择 */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">选择品牌</label>
-                  <div className="grid grid-cols-4 gap-2">
+                  <div className="grid grid-cols-3 gap-2">
                     {cameraBrands.map((brand) => (
                       <button
                         key={brand.id}
@@ -567,7 +574,7 @@ export function MonitorPage() {
                           e.stopPropagation();
                           setCameraBrand(brand.id);
                         }}
-                        className={`flex flex-col items-center gap-1 p-3 rounded-xl transition-all ${
+                        className={`flex flex-col items-center gap-1 p-3 rounded-xl transition-all touch-target ${
                           cameraBrand === brand.id
                             ? 'bg-primary-500 text-white'
                             : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -623,7 +630,7 @@ export function MonitorPage() {
                   handleAddCamera();
                 }}
                 disabled={isPairing}
-                className={`w-full mt-6 py-3 rounded-xl font-medium transition-all ${
+                className={`w-full mt-6 py-3 rounded-xl font-medium transition-all touch-target ${
                   isPairing
                     ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                     : 'bg-gradient-to-r from-primary-500 to-primary-600 text-white hover:shadow-lg hover:shadow-primary-500/30'
@@ -633,6 +640,21 @@ export function MonitorPage() {
               </button>
             </motion.div>
           </>
+        )}
+      </AnimatePresence>
+
+      {/* 成功提示 */}
+      <AnimatePresence>
+        {showSuccess && (
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -50 }}
+            className="fixed top-20 left-1/2 -translate-x-1/2 bg-green-500 text-white px-6 py-3 rounded-full shadow-lg z-50 flex items-center gap-2"
+          >
+            <Check className="w-5 h-5" />
+            <span className="font-medium">摄像头添加成功！</span>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

@@ -7,7 +7,6 @@ import {
   Plus,
   Mic,
   Image,
-  File,
   Video,
   X,
   Check
@@ -25,7 +24,6 @@ interface HealthRecordsPageProps {
 export const HealthRecordsPage: React.FC<HealthRecordsPageProps> = ({ onNavigate }) => {
   const { records, tags, selectedTag, searchQuery, getFilteredRecords, setSelectedTag, setSearchQuery, addRecord } = useHealthRecordStore();
   const { currentPetId } = usePetStore();
-  const [fabOpen, setFabOpen] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [recordType, setRecordType] = useState<'text' | 'voice' | 'photo' | 'video'>('text');
   const [recordTitle, setRecordTitle] = useState('');
@@ -40,7 +38,7 @@ export const HealthRecordsPage: React.FC<HealthRecordsPageProps> = ({ onNavigate
   }, {} as Record<string, string>);
 
   const handleAddRecord = (type: 'text' | 'voice' | 'photo' | 'video') => {
-    setFabOpen(false);
+    console.log('Adding record of type:', type);
     setRecordType(type);
     setRecordTitle('');
     setRecordContent('');
@@ -59,13 +57,14 @@ export const HealthRecordsPage: React.FC<HealthRecordsPageProps> = ({ onNavigate
         petId: currentPetId,
         type: recordType,
         title: recordTitle,
-        content: recordContent,
+        content: recordContent || `${recordType === 'voice' ? '🎤 语音记录' : recordType === 'photo' ? '📷 照片记录' : recordType === 'video' ? '🎬 视频记录' : ''}`,
         tags: selectedTags,
         isImportant: false,
       });
     }
     
     setShowAddModal(false);
+    alert('记录添加成功！');
   };
 
   const toggleTag = (tagId: string) => {
@@ -78,12 +77,15 @@ export const HealthRecordsPage: React.FC<HealthRecordsPageProps> = ({ onNavigate
 
   return (
     <div className="min-h-screen bg-neutral-50 pb-24">
-      {/* Header */}
       <header className="bg-white border-b border-neutral-200 px-4 py-4 sticky top-0 z-30">
         <div className="max-w-md mx-auto flex items-center gap-4">
           <button 
-            onClick={() => onNavigate('home')}
-            className="p-2 -ml-2 rounded-full hover:bg-neutral-100 transition-colors"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onNavigate('home');
+            }}
+            className="p-2 -ml-2 rounded-full hover:bg-neutral-100 transition-colors touch-target"
           >
             <ChevronLeft className="w-6 h-6 text-neutral-600" />
           </button>
@@ -94,10 +96,8 @@ export const HealthRecordsPage: React.FC<HealthRecordsPageProps> = ({ onNavigate
         </div>
       </header>
 
-      {/* Search & Filter */}
       <div className="bg-white border-b border-neutral-100 px-4 py-3">
         <div className="max-w-md mx-auto space-y-3">
-          {/* Search */}
           <div className="relative">
             <Search className="w-5 h-5 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
@@ -109,11 +109,14 @@ export const HealthRecordsPage: React.FC<HealthRecordsPageProps> = ({ onNavigate
             />
           </div>
 
-          {/* Tags Filter */}
-          <div className="flex gap-2 overflow-x-auto pb-1">
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
             <button
-              onClick={() => setSelectedTag(null)}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setSelectedTag(null);
+              }}
+              className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all touch-target ${
                 selectedTag === null
                   ? 'bg-primary-500 text-white'
                   : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
@@ -124,8 +127,12 @@ export const HealthRecordsPage: React.FC<HealthRecordsPageProps> = ({ onNavigate
             {tags.map((tag) => (
               <button
                 key={tag.id}
-                onClick={() => setSelectedTag(tag.id)}
-                className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setSelectedTag(tag.id);
+                }}
+                className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all touch-target ${
                   selectedTag === tag.id
                     ? 'bg-primary-500 text-white'
                     : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
@@ -139,7 +146,6 @@ export const HealthRecordsPage: React.FC<HealthRecordsPageProps> = ({ onNavigate
         </div>
       </div>
 
-      {/* Records List */}
       <div className="px-4 py-4">
         <div className="max-w-md mx-auto">
           {filteredRecords.length === 0 ? (
@@ -149,8 +155,12 @@ export const HealthRecordsPage: React.FC<HealthRecordsPageProps> = ({ onNavigate
               description="开始记录您宠物的健康状况吧"
               action={
                 <button 
-                  onClick={() => setFabOpen(true)}
-                  className="px-6 py-2.5 bg-gradient-to-r from-primary-500 to-primary-600 text-white rounded-xl font-medium hover:shadow-lg hover:shadow-primary-500/30 transition-all"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleAddRecord('text');
+                  }}
+                  className="px-6 py-2.5 bg-gradient-to-r from-primary-500 to-primary-600 text-white rounded-xl font-medium hover:shadow-lg hover:shadow-primary-500/30 transition-all touch-target"
                 >
                   开始记录
                 </button>
@@ -176,10 +186,8 @@ export const HealthRecordsPage: React.FC<HealthRecordsPageProps> = ({ onNavigate
         </div>
       </div>
 
-      {/* FAB */}
       <FAB onAction={handleAddRecord} />
 
-      {/* 添加记录模态框 */}
       <AnimatePresence>
         {showAddModal && (
           <>
@@ -194,16 +202,51 @@ export const HealthRecordsPage: React.FC<HealthRecordsPageProps> = ({ onNavigate
               initial={{ opacity: 0, y: 100 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 100 }}
-              className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl z-50 p-6 max-h-[80vh] overflow-y-auto"
+              className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl z-50 p-6 max-h-[80vh] overflow-y-auto safe-area-bottom"
             >
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-bold text-gray-800">添加健康记录</h3>
-                <button onClick={() => setShowAddModal(false)} className="p-2 hover:bg-gray-100 rounded-full">
+                <button 
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShowAddModal(false);
+                  }} 
+                  className="p-2 hover:bg-gray-100 rounded-full touch-target"
+                >
                   <X className="w-5 h-5 text-gray-500" />
                 </button>
               </div>
 
-              {/* 标题输入 */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">记录类型</label>
+                <div className="flex gap-2">
+                  {[
+                    { type: 'text' as const, icon: FileText, label: '文字', color: 'from-blue-500 to-blue-600' },
+                    { type: 'voice' as const, icon: Mic, label: '语音', color: 'from-purple-500 to-purple-600' },
+                    { type: 'photo' as const, icon: Image, label: '拍照', color: 'from-green-500 to-green-600' },
+                    { type: 'video' as const, icon: Video, label: '视频', color: 'from-red-500 to-red-600' },
+                  ].map((item) => (
+                    <button
+                      key={item.type}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setRecordType(item.type);
+                      }}
+                      className={`flex-1 flex flex-col items-center gap-2 px-4 py-3 rounded-xl transition-all touch-target ${
+                        recordType === item.type
+                          ? `bg-gradient-to-r ${item.color} text-white`
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      <item.icon className="w-5 h-5" />
+                      <span className="text-xs font-medium">{item.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">标题</label>
                 <input
@@ -215,7 +258,6 @@ export const HealthRecordsPage: React.FC<HealthRecordsPageProps> = ({ onNavigate
                 />
               </div>
 
-              {/* 内容输入 - 根据类型显示不同界面 */}
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   {recordType === 'text' && '内容'}
@@ -241,8 +283,12 @@ export const HealthRecordsPage: React.FC<HealthRecordsPageProps> = ({ onNavigate
                     </div>
                     <p className="text-sm text-gray-600 mb-2">点击下方按钮开始录音</p>
                     <button 
-                      className="px-6 py-2 bg-purple-500 text-white rounded-full hover:bg-purple-600 transition-colors"
-                      onClick={() => setRecordContent(recordContent ? recordContent : '🎤 已录制完成的语音记录')}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setRecordContent(recordContent ? recordContent : '🎤 已录制完成的语音记录');
+                      }}
+                      className="px-6 py-2 bg-purple-500 text-white rounded-full hover:bg-purple-600 transition-colors touch-target"
                     >
                       {recordContent ? '重新录制' : '开始录制'}
                     </button>
@@ -259,8 +305,12 @@ export const HealthRecordsPage: React.FC<HealthRecordsPageProps> = ({ onNavigate
                     </div>
                     <p className="text-sm text-gray-600 mb-2">点击下方按钮拍照或选择图片</p>
                     <button 
-                      className="px-6 py-2 bg-green-500 text-white rounded-full hover:bg-green-600 transition-colors"
-                      onClick={() => setRecordContent(recordContent ? recordContent : '📷 已拍摄完成的照片记录')}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setRecordContent(recordContent ? recordContent : '📷 已拍摄完成的照片记录');
+                      }}
+                      className="px-6 py-2 bg-green-500 text-white rounded-full hover:bg-green-600 transition-colors touch-target"
                     >
                       {recordContent ? '重新拍摄' : '开始拍照'}
                     </button>
@@ -277,8 +327,12 @@ export const HealthRecordsPage: React.FC<HealthRecordsPageProps> = ({ onNavigate
                     </div>
                     <p className="text-sm text-gray-600 mb-2">点击下方按钮开始录制视频</p>
                     <button 
-                      className="px-6 py-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
-                      onClick={() => setRecordContent(recordContent ? recordContent : '🎬 已录制完成的视频记录')}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setRecordContent(recordContent ? recordContent : '🎬 已录制完成的视频记录');
+                      }}
+                      className="px-6 py-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors touch-target"
                     >
                       {recordContent ? '重新录制' : '开始录像'}
                     </button>
@@ -289,15 +343,18 @@ export const HealthRecordsPage: React.FC<HealthRecordsPageProps> = ({ onNavigate
                 )}
               </div>
 
-              {/* 标签选择 */}
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-2">标签</label>
                 <div className="flex flex-wrap gap-2">
                   {tags.map((tag) => (
                     <button
                       key={tag.id}
-                      onClick={() => toggleTag(tag.id)}
-                      className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        toggleTag(tag.id);
+                      }}
+                      className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all touch-target ${
                         selectedTags.includes(tag.id)
                           ? 'bg-primary-500 text-white'
                           : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -311,10 +368,13 @@ export const HealthRecordsPage: React.FC<HealthRecordsPageProps> = ({ onNavigate
                 </div>
               </div>
 
-              {/* 提交按钮 */}
               <button
-                onClick={handleSubmitRecord}
-                className="w-full py-3 bg-gradient-to-r from-primary-500 to-primary-600 text-white rounded-xl font-medium hover:shadow-lg hover:shadow-primary-500/30 transition-all"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleSubmitRecord();
+                }}
+                className="w-full py-3 bg-gradient-to-r from-primary-500 to-primary-600 text-white rounded-xl font-medium hover:shadow-lg hover:shadow-primary-500/30 transition-all touch-target"
               >
                 保存记录
               </button>
