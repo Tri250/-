@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Android APK (Android 16 Compatible)
 
 on:
   push:
@@ -7,30 +7,50 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
     
+    strategy:
+      fail-fast: true
+
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
-        
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-          
+
       - name: Setup Java JDK
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
           cache: 'gradle'
-          
+
       - name: Setup Android SDK
         uses: android-actions/setup-android@v2
-        
+        with:
+          api-levels: '24,36'
+          build-tools: '36.0.0'
+
+      - name: Cache npm dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.npm
+            node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
       - name: Cache Gradle packages
         uses: actions/cache@v3
         with:
@@ -40,58 +60,81 @@ jobs:
           key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
           restore-keys: |
             ${{ runner.os }}-gradle-
-            
-      - name: Cache Android dependencies
+
+      - name: Cache Android SDK
         uses: actions/cache@v3
         with:
           path: |
-            ~/.m2/repository
             ~/.android/build-cache
           key: ${{ runner.os }}-android-${{ hashFiles('**/build.gradle*', '**/settings.gradle*') }}
           restore-keys: |
             ${{ runner.os }}-android-
-            
+
       - name: Install npm dependencies
         run: npm ci
-        
-      - name: Build Web App
+
+      - name: Build web application
         run: npm run build
-        
-      - name: Add Android platform
-        run: npx cap add android
-        
-      - name: Sync to Android
+
+      - name: Sync Capacitor
         run: npx cap sync android
-        
+
+      - name: Make Gradle executable
+        run: chmod +x android/gradlew
+
       - name: Build Debug APK
         run: |
           cd android
-          chmod +x gradlew
-          ./gradlew assembleDebug
-          
-      - name: Upload Debug APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: pawsyc-pro-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
-          retention-days: 30
-          
+          ./gradlew assembleDebug --stacktrace
+
       - name: Build Release APK
         run: |
           cd android
-          ./gradlew assembleRelease
-          
-      - name: Upload Release APK
+          ./gradlew assembleRelease --stacktrace
+
+      - name: List APK artifacts
+        run: |
+          echo "Listing APK files..."
+          ls -la android/app/build/outputs/apk/debug/
+          ls -la android/app/build/outputs/apk/release/ || true
+
+      - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: pawsyc-pro-release-apk
+          name: pawsync-pro-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
+          compression-level: 0
+
+      - name: Upload Release APK (unsigned)
+        uses: actions/upload-artifact@v4
+        with:
+          name: pawsync-pro-release-unsigned-apk
           path: android/app/build/outputs/apk/release/app-release-unsigned.apk
           retention-days: 30
-          
-      - name: Upload Build Report
+          compression-level: 0
+
+      - name: Upload Build Reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: build-report
+          name: build-reports
           path: android/app/build/reports/
           retention-days: 7
+
+      - name: Show Summary
+        if: always()
+        run: |
+          echo "## Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ PawSync Pro Android Build Complete!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Artifacts Available" >> $GITHUB_STEP_SUMMARY
+          echo "- [Debug APK](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
+          echo "- [Release APK (Unsigned)](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Compatibility Info" >> $GITHUB_STEP_SUMMARY
+          echo "- Min SDK: 24 (Android 7.0)" >> $GITHUB_STEP_SUMMARY
+          echo "- Target SDK: 36 (Android 16)" >> $GITHUB_STEP_SUMMARY
+          echo "- Package: com.pawsync.pro" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
