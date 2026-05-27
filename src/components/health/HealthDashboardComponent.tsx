@@ -424,142 +424,142 @@ export function HealthDashboardComponent({ petId, onNavigateToDetails }: HealthD
           <ChevronRight className="w-5 h-5 text-gray-400" />
         </div>
       </button>
+
+      {/* 健康报告模态框 */}
+      <AnimatePresence>
+        {showReportModal && reportData && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowReportModal(false)}
+              className="fixed inset-0 bg-black/50 z-50"
+            />
+            <motion.div
+              initial={{ opacity: 0, y: 100 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 100 }}
+              className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl z-50 max-h-[90vh] overflow-y-auto"
+            >
+              <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between z-10">
+                <h3 className="text-lg font-bold text-gray-800">详细健康报告</h3>
+                <button onClick={() => setShowReportModal(false)} className="p-2 hover:bg-gray-100 rounded-full">
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-6">
+                {/* 报告头部 */}
+                <div className="bg-gradient-to-br from-green-500 to-emerald-500 rounded-2xl p-6 text-white">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <p className="text-green-100 text-sm">本周健康评分</p>
+                      <p className="text-4xl font-bold mt-1">{reportData.summary.overallHealth}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-green-100 text-sm">与上周相比</p>
+                      <p className="text-xl font-bold text-green-300">+{reportData.summary.comparedToLast}%</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-green-200">
+                    <Clock className="w-4 h-4" />
+                    <span>报告生成于 {new Date(reportData.generatedAt).toLocaleString('zh-CN')}</span>
+                  </div>
+                </div>
+
+                {/* 各项指标 */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-green-50 rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Activity className="w-4 h-4 text-green-600" />
+                      <span className="text-sm text-gray-600">活动量</span>
+                    </div>
+                    <p className="text-2xl font-bold text-green-600">{reportData.summary.activityLevel}</p>
+                  </div>
+                  <div className="bg-purple-50 rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Moon className="w-4 h-4 text-purple-600" />
+                      <span className="text-sm text-gray-600">睡眠质量</span>
+                    </div>
+                    <p className="text-2xl font-bold text-purple-600">{reportData.summary.sleepQuality}</p>
+                  </div>
+                  <div className="bg-orange-50 rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Utensils className="w-4 h-4 text-orange-600" />
+                      <span className="text-sm text-gray-600">营养均衡</span>
+                    </div>
+                    <p className="text-2xl font-bold text-orange-600">{reportData.summary.nutritionBalance}</p>
+                  </div>
+                  <div className="bg-cyan-50 rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Heart className="w-4 h-4 text-cyan-600" />
+                      <span className="text-sm text-gray-600">心理状态</span>
+                    </div>
+                    <p className="text-2xl font-bold text-cyan-600">{healthScore?.dimensions.find(d => d.id === 'mental')?.score || 88}</p>
+                  </div>
+                </div>
+
+                {/* 亮点 */}
+                <div>
+                  <h4 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                    <Check className="w-5 h-5 text-green-500" />
+                    本周亮点
+                  </h4>
+                  <div className="space-y-2">
+                    {reportData.highlights.positive.map((item, index) => (
+                      <div key={index} className="flex items-center gap-2 text-sm text-gray-600">
+                        <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />
+                        {item}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 关注事项 */}
+                <div>
+                  <h4 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                    <Target className="w-5 h-5 text-orange-500" />
+                    需要关注
+                  </h4>
+                  <div className="space-y-2">
+                    {reportData.highlights.concerns.map((item, index) => (
+                      <div key={index} className="flex items-center gap-2 text-sm text-gray-600">
+                        <span className="w-1.5 h-1.5 bg-orange-500 rounded-full" />
+                        {item}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 建议 */}
+                <div className="bg-blue-50 rounded-xl p-4">
+                  <h4 className="font-semibold text-blue-800 mb-3 flex items-center gap-2">
+                    <Award className="w-5 h-5 text-blue-600" />
+                    AI建议
+                  </h4>
+                  <div className="space-y-2">
+                    {reportData.highlights.recommendations.map((item, index) => (
+                      <div key={index} className="flex items-start gap-2 text-sm text-blue-700">
+                        <span className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-1.5" />
+                        {item}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 关闭按钮 */}
+                <button
+                  onClick={() => setShowReportModal(false)}
+                  className="w-full py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl font-medium"
+                >
+                  关闭报告
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
-
-    {/* 健康报告模态框 */}
-    <AnimatePresence>
-      {showReportModal && reportData && (
-        <>
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setShowReportModal(false)}
-            className="fixed inset-0 bg-black/50 z-50"
-          />
-          <motion.div
-            initial={{ opacity: 0, y: 100 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 100 }}
-            className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl z-50 max-h-[90vh] overflow-y-auto"
-          >
-            <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between z-10">
-              <h3 className="text-lg font-bold text-gray-800">详细健康报告</h3>
-              <button onClick={() => setShowReportModal(false)} className="p-2 hover:bg-gray-100 rounded-full">
-                <X className="w-5 h-5 text-gray-500" />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-6">
-              {/* 报告头部 */}
-              <div className="bg-gradient-to-br from-green-500 to-emerald-500 rounded-2xl p-6 text-white">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <p className="text-green-100 text-sm">本周健康评分</p>
-                    <p className="text-4xl font-bold mt-1">{reportData.summary.overallHealth}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-green-100 text-sm">与上周相比</p>
-                    <p className="text-xl font-bold text-green-300">+{reportData.summary.comparedToLast}%</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 text-xs text-green-200">
-                  <Clock className="w-4 h-4" />
-                  <span>报告生成于 {new Date(reportData.generatedAt).toLocaleString('zh-CN')}</span>
-                </div>
-              </div>
-
-              {/* 各项指标 */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-green-50 rounded-xl p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Activity className="w-4 h-4 text-green-600" />
-                    <span className="text-sm text-gray-600">活动量</span>
-                  </div>
-                  <p className="text-2xl font-bold text-green-600">{reportData.summary.activityLevel}</p>
-                </div>
-                <div className="bg-purple-50 rounded-xl p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Moon className="w-4 h-4 text-purple-600" />
-                    <span className="text-sm text-gray-600">睡眠质量</span>
-                  </div>
-                  <p className="text-2xl font-bold text-purple-600">{reportData.summary.sleepQuality}</p>
-                </div>
-                <div className="bg-orange-50 rounded-xl p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Utensils className="w-4 h-4 text-orange-600" />
-                    <span className="text-sm text-gray-600">营养均衡</span>
-                  </div>
-                  <p className="text-2xl font-bold text-orange-600">{reportData.summary.nutritionBalance}</p>
-                </div>
-                <div className="bg-cyan-50 rounded-xl p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Heart className="w-4 h-4 text-cyan-600" />
-                    <span className="text-sm text-gray-600">心理状态</span>
-                  </div>
-                  <p className="text-2xl font-bold text-cyan-600">{healthScore?.dimensions.find(d => d.id === 'mental')?.score || 88}</p>
-                </div>
-              </div>
-
-              {/* 亮点 */}
-              <div>
-                <h4 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                  <Check className="w-5 h-5 text-green-500" />
-                  本周亮点
-                </h4>
-                <div className="space-y-2">
-                  {reportData.highlights.positive.map((item, index) => (
-                    <div key={index} className="flex items-center gap-2 text-sm text-gray-600">
-                      <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />
-                      {item}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* 关注事项 */}
-              <div>
-                <h4 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                  <Target className="w-5 h-5 text-orange-500" />
-                  需要关注
-                </h4>
-                <div className="space-y-2">
-                  {reportData.highlights.concerns.map((item, index) => (
-                    <div key={index} className="flex items-center gap-2 text-sm text-gray-600">
-                      <span className="w-1.5 h-1.5 bg-orange-500 rounded-full" />
-                      {item}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* 建议 */}
-              <div className="bg-blue-50 rounded-xl p-4">
-                <h4 className="font-semibold text-blue-800 mb-3 flex items-center gap-2">
-                  <Award className="w-5 h-5 text-blue-600" />
-                  AI建议
-                </h4>
-                <div className="space-y-2">
-                  {reportData.highlights.recommendations.map((item, index) => (
-                    <div key={index} className="flex items-start gap-2 text-sm text-blue-700">
-                      <span className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-1.5" />
-                      {item}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* 关闭按钮 */}
-              <button
-                onClick={() => setShowReportModal(false)}
-                className="w-full py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl font-medium"
-              >
-                关闭报告
-              </button>
-            </div>
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>
   );
 }
