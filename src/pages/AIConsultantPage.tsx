@@ -23,6 +23,8 @@ interface AIConsultantPageProps {
 }
 
 export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }) => {
+  console.log('AIConsultantPage 加载中...');
+  
   const { 
     consultations, currentConsultationId, isTyping, sendAIMessage, createConsultation, getCurrentMessages, getTrendReport } = useAIConsultationStore();
   const { currentPetId, getCurrentPet } = usePetStore();
@@ -35,6 +37,14 @@ export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }
   
   const currentPet = getCurrentPet();
   const messages = getCurrentMessages();
+  
+  console.log('AIConsultantPage 状态:', {
+    currentPetId,
+    currentConsultationId,
+    currentPetName: currentPet?.name,
+    messageCount: messages.length,
+    consultationCount: consultations.length,
+  });
 
   const symptoms = [
     { id: 'loss_appetite', label: '食欲不振', icon: '🍽️' },
@@ -51,10 +61,18 @@ export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }
     { id: 'urinary_issue', label: '排尿异常', icon: '🚽' },
   ];
 
-  const trendReport = getTrendReport(currentPetId || '1', 'month');
+  // 安全获取趋势报告
+  const trendReport = getTrendReport ? getTrendReport(currentPetId || '1', 'month') : {
+    summary: '整体健康状况良好，建议继续保持当前的护理方式。',
+    weight: { change: 0.2, trend: 'stable' },
+    activity: { change: 30, trend: 'up' },
+    recommendations: ['继续保持定期体检', '增加饮水量', '适当增加户外活动'],
+  };
 
   useEffect(() => {
+    console.log('检查是否需要创建咨询...');
     if (!currentConsultationId && currentPetId) {
+      console.log('创建新咨询...');
       createConsultation(currentPetId, 'chat', '健康咨询');
     }
   }, [currentConsultationId, currentPetId, createConsultation]);

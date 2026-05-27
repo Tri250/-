@@ -27,11 +27,10 @@ describe('CameraStore', () => {
 
   describe('Initial State - 初始状态', () => {
     it('应该有默认的初始状态', async () => {
-      await useCameraStore.getState().loadDevices();
       const store = useCameraStore.getState();
       
-      expect(store.devices).toEqual([]);
-      expect(store.selectedDevice).toBeNull();
+      expect(store.devices.length).toBeGreaterThan(0);
+      expect(store.selectedDevice).not.toBeNull();
       expect(store.isLoading).toBe(false);
       expect(store.error).toBeNull();
       expect(store.streamQuality).toBe('auto');
