@@ -281,3 +281,125 @@ export const aiApi = {
   generateReport: (data: { petId: string }) =>
     api.post<{ report: any }>('/ai/generate-report', data),
 };
+
+// 监控模块 API
+export interface CameraDevice {
+  id: string;
+  userId: string;
+  petId?: string;
+  name: string;
+  brand: string;
+  model: string;
+  serialNumber: string;
+  status: 'online' | 'offline' | 'error' | 'updating';
+  thumbnailUrl?: string;
+  streamUrl?: string;
+  webrtcUrl?: string;
+  ipAddress?: string;
+  location?: string;
+  capabilities: string[];
+  settings: any;
+  bindingSecurityLevel: string;
+  isDeleted: boolean;
+  createdAt: string;
+  updatedAt: string;
+  pet?: Pet;
+}
+
+export interface MotionAlert {
+  id: string;
+  userId: string;
+  cameraId: string;
+  petId?: string;
+  type: 'motion' | 'sound' | 'pet_detected' | 'person_detected' | 'intrusion' | 'pet_in_trouble';
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  description: string;
+  thumbnailUrl?: string;
+  videoUrl?: string;
+  isAcknowledged: boolean;
+  acknowledgedAt?: string;
+  createdAt: string;
+  camera?: CameraDevice;
+  pet?: Pet;
+}
+
+export interface CameraRecording {
+  id: string;
+  userId: string;
+  cameraId: string;
+  petId?: string;
+  type: 'motion' | 'manual' | 'scheduled' | 'alert';
+  startTime: string;
+  endTime?: string;
+  duration?: number;
+  size: number;
+  thumbnailUrl?: string;
+  videoUrl?: string;
+  cloudUrl?: string;
+  isFavorite: boolean;
+  hasAIAnalysis: boolean;
+  aiTags?: string[];
+  isDeleted: boolean;
+  createdAt: string;
+  camera?: CameraDevice;
+  pet?: Pet;
+}
+
+export interface CameraStatistics {
+  id: string;
+  cameraId: string;
+  date: string;
+  totalRecordingTime: number;
+  motionEvents: number;
+  petDetections: number;
+  averageLatency: number;
+  storageUsed: number;
+  bandwidthUsed: number;
+  createdAt: string;
+}
+
+export const cameraApi = {
+  // 设备白名单
+  seedWhitelist: () => api.post('/camera/seed-whitelist'),
+
+  // 摄像头设备管理
+  getCameras: () => api.get<{ data: CameraDevice[] }>('/camera/cameras'),
+  bindCamera: (data: {
+    name: string;
+    brand: string;
+    model: string;
+    serialNumber: string;
+    petId?: string;
+    location?: string;
+    thumbnailUrl?: string;
+  }) => api.post<{ data: CameraDevice }>('/camera/cameras', data),
+  getCameraById: (id: string) => api.get<{ data: CameraDevice }>(`/camera/cameras/${id}`),
+  updateCamera: (id: string, data: Partial<{
+    name?: string;
+    petId?: string;
+    location?: string;
+    status?: 'online' | 'offline' | 'error' | 'updating';
+    thumbnailUrl?: string;
+    settings?: any;
+  }>) => api.put<{ data: CameraDevice }>(`/camera/cameras/${id}`, data),
+  deleteCamera: (id: string) => api.delete(`/camera/cameras/${id}`),
+
+  // 告警管理
+  getAlerts: () => api.get<{ data: MotionAlert[] }>('/camera/alerts'),
+  createAlert: (data: Omit<MotionAlert, 'id' | 'createdAt' | 'user' | 'camera' | 'pet' | 'acknowledgedAt'>) =>
+    api.post<{ data: MotionAlert }>('/camera/alerts', data),
+  acknowledgeAlert: (id: string) =>
+    api.put<{ data: MotionAlert }>(`/camera/alerts/${id}/acknowledge`),
+
+  // 录像管理
+  getRecordings: () => api.get<{ data: CameraRecording[] }>('/camera/recordings'),
+  deleteRecording: (id: string) => api.delete(`/camera/recordings/${id}`),
+
+  // 统计数据
+  getStatistics: (id: string) =>
+    api.get<{ data: CameraStatistics }>(`/camera/statistics/cameras/${id}/statistics`),
+
+  // 跨模块联动
+  createHealthRecordFromAlert: (alertId: string, data?: { title?: string; content?: string }) =>
+    api.post<{ data: HealthRecord }>(`/camera/alerts/${alertId}/create-health-record`, data),
+};

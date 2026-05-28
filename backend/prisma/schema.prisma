@@ -8,17 +8,20 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  name      String
-  avatar    String?
-  pets      Pet[]
-  healthRecords HealthRecord[]
-  healthReports HealthReport[]
-  bookmarks ManualBookmark[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                String            @id @default(uuid())
+  email             String            @unique
+  password          String
+  name              String
+  avatar            String?
+  pets              Pet[]
+  healthRecords     HealthRecord[]
+  healthReports     HealthReport[]
+  bookmarks         ManualBookmark[]
+  cameraDevices     CameraDevice[]
+  motionAlerts      MotionAlert[]
+  cameraRecordings  CameraRecording[]
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
 }
 
 model Pet {
@@ -43,6 +46,10 @@ model Pet {
   conversations  AIConversation[]
   healthReports  HealthReport[]
   emotionTranslations EmotionTranslation[]
+  cameraDevices  CameraDevice[]
+  motionAlerts   MotionAlert[]
+  cameraRecordings CameraRecording[]
+  petDetections  PetDetection[]
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 }
@@ -198,4 +205,161 @@ model EmotionTranslation {
 
   @@index([userId, petId])
   @@index([petId, createdAt])
+}
+
+// ============================================
+// 宠物监控模块核心模型
+// ============================================
+
+// 官方设备白名单（核心红线：只有白名单中的设备才可以接入）
+model OfficialCameraWhitelist {
+  id                String   @id @default(uuid())
+  brand             String   // 官方品牌："pawsync" | "pawsync_pro" | "pawsync_petcam"
+  model             String   // 官方型号
+  serialPrefix      String?  // SN序列号前缀验证
+  description       String?
+  isActive          Boolean  @default(true)
+  supportedFeatures String   // JSON array: ["ptz", "audio", "night_vision", "motion_detect"]
+  createdAt         DateTime @default(now())
+
+  @@index([brand, model])
+  @@unique([brand, model])
+}
+
+// 绑定的摄像头设备
+model CameraDevice {
+  id          String           @id @default(uuid())
+  userId      String
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  petId       String?          // 关联的宠物
+  pet         Pet?             @relation(fields: [petId], references: [id], onDelete: Cascade)
+  name        String           // 摄像头名称
+  brand       String           // 必须在 OfficialCameraWhitelist 中
+  model       String           // 必须在 OfficialCameraWhitelist 中
+  serialNumber String          // 设备序列号
+  status      String           @default("offline") // "online" | "offline" | "error" | "updating"
+  thumbnailUrl String?
+  streamUrl   String?
+  webrtcUrl   String?
+  ipAddress   String?
+  location    String?          // 安装位置
+  capabilities String          // JSON array: ["ptz", "audio", "night_vision", "motion_detect"]
+  settings    String           // JSON object: 摄像头设置
+  lastActive  DateTime?
+  bindingSecurityLevel String  @default("high") // 设备绑定安全等级
+  isDeleted   Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  motionAlerts      MotionAlert[]
+  recordings        CameraRecording[]
+  cameraStatistics  CameraStatistics[]
+  petDetections     PetDetection[]
+
+  @@index([userId])
+  @@index([petId])
+  @@index([status])
+}
+
+// 移动侦测/异常告警
+model MotionAlert {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cameraId    String
+  camera      CameraDevice @relation(fields: [cameraId], references: [id], onDelete: Cascade)
+  petId       String?
+  pet         Pet?      @relation(fields: [petId], references: [id])
+  type        String   // "motion" | "sound" | "pet_detected" | "person_detected" | "intrusion" | "pet_in_trouble"
+  severity    String   // "low" | "medium" | "high" | "critical"
+  description String
+  thumbnailUrl String?
+  videoUrl     String?
+  isAcknowledged Boolean @default(false)
+  acknowledgedAt  DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([cameraId])
+  @@index([petId])
+  @@index([isAcknowledged])
+  @@index([createdAt])
+}
+
+// 摄像头录像记录
+model CameraRecording {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cameraId    String
+  camera      CameraDevice @relation(fields: [cameraId], references: [id], onDelete: Cascade)
+  petId       String?
+  pet         Pet?      @relation(fields: [petId], references: [id])
+  type        String   // "motion" | "manual" | "scheduled" | "alert"
+  startTime   DateTime
+  endTime     DateTime?
+  duration    Int?     // 秒
+  size        Int      // bytes
+  thumbnailUrl String?
+  videoUrl    String?
+  cloudUrl    String?
+  isFavorite  Boolean  @default(false)
+  hasAIAnalysis Boolean @default(false)
+  aiTags      String?  // JSON array
+  isDeleted   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([cameraId])
+  @@index([petId])
+  @@index([createdAt])
+}
+
+// 宠物活动检测
+model PetDetection {
+  id          String   @id @default(uuid())
+  cameraId    String
+  camera      CameraDevice @relation(fields: [cameraId], references: [id], onDelete: Cascade)
+  petId       String?
+  pet         Pet?      @relation(fields: [petId], references: [id])
+  timestamp   DateTime
+  confidence  Float    // 0-100
+  boundingBox String   // JSON: {x, y, width, height}
+  petType     String   // "cat" | "dog" | "other"
+  behavior    String?
+  emotion     String?
+  createdAt   DateTime @default(now())
+
+  @@index([cameraId])
+  @@index([petId])
+  @@index([timestamp])
+}
+
+// 摄像头统计数据
+model CameraStatistics {
+  id          String   @id @default(uuid())
+  cameraId    String
+  camera      CameraDevice @relation(fields: [cameraId], references: [id], onDelete: Cascade)
+  date        String
+  totalRecordingTime Int  // 秒
+  motionEvents Int
+  petDetections Int
+  averageLatency Float
+  storageUsed Int
+  bandwidthUsed Int
+  createdAt DateTime @default(now())
+
+  @@index([cameraId])
+  @@index([date])
+  @@unique([cameraId, date])
+}
+
+// 监控告警联动健康记录
+model AlertHealthRecordLink {
+  id            String   @id @default(uuid())
+  alertId       String
+  healthRecordId String
+  createdAt     DateTime @default(now())
+
+  @@unique([alertId, healthRecordId])
 }

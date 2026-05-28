@@ -10,6 +10,7 @@ import healthRecordRoutes from './routes/healthRecords';
 import reminderRoutes from './routes/reminders';
 import manualRoutes from './routes/manuals';
 import aiRoutes from './routes/ai';
+import cameraRoutes from './routes/camera';
 
 const app = express();
 
@@ -27,6 +28,7 @@ app.use('/api/health-records', healthRecordRoutes);
 app.use('/api/reminders', reminderRoutes);
 app.use('/api/manuals', manualRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/camera', cameraRoutes);
 
 app.get('/api/health-check', (req, res) => {
   res.json({ status: 'ok', message: 'PawSync Pro API 运行正常' });

@@ -8,6 +8,7 @@ import { TranslatorPage } from './pages/TranslatorPage';
 import { HealthManualPage } from './pages/HealthManualPage';
 import { RemindersPage } from './pages/RemindersPage';
 import { CameraMonitorPage } from './pages/CameraMonitorPage';
+import { CameraPage } from './pages/CameraPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { MedicalPage } from './pages/MedicalPage';
 import { InsurancePage } from './pages/InsurancePage';
@@ -112,10 +113,11 @@ function AppContent() {
         <Route path="/health-records" element={<HealthRecordsPage />} />
         <Route path="/ai-consultant" element={<AIConsultantPage />} />
         <Route path="/translator" element={<TranslatorPage />} />
-        <Route path="/manuals" element={<HealthManualPage onNavigate={() => {}} />} />
-        <Route path="/reminders" element={<RemindersPage />} />
-        <Route path="/camera-monitor" element={<CameraMonitorPage onNavigate={() => {}} />} />
-        <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/manuals" element={<HealthManualPage onNavigate={() => {}} />} />
+            <Route path="/reminders" element={<RemindersPage />} />
+            <Route path="/cameras" element={<CameraPage />} />
+            <Route path="/camera-monitor" element={<CameraMonitorPage onNavigate={() => {}} />} />
+            <Route path="/profile" element={<ProfilePage />} />
         <Route path="/medical" element={<MedicalPage />} />
         <Route path="/insurance" element={<InsurancePage />} />
         <Route path="/training" element={<TrainingPage />} />
