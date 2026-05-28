@@ -1,8 +1,3 @@
-export * from './auth.middleware';
-export * from './permission.middleware';
-export * from './validation.middleware';
-export * from './error.middleware';
-
 import { Request, Response, NextFunction } from 'express';
 import { verifyToken } from '../lib/auth';
 

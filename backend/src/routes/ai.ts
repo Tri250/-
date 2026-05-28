@@ -1,134 +1,308 @@
 import { Router, Request, Response } from 'express';
-import { body } from 'express-validator';
+import { z } from 'zod';
 import prisma from '../lib/prisma';
 import { authenticateToken } from '../middleware';
+import { validatePetOwnership, validatePetOwnershipFromBody } from '../middleware/permission.middleware';
+import { validateBody } from '../middleware/validation.middleware';
+import { callAIWithPetContext, generateHealthReport, checkContentSafety } from '../lib/ai-service';
 
 const router = Router();
 
+const chatSchema = z.object({
+  petId: z.string().min(1, 'petId 为必填参数'),
+  message: z.string().min(1, '消息不能为空').max(2000, '消息不能超过 2000 字符'),
+});
+
+const generateReportSchema = z.object({
+  petId: z.string().min(1, 'petId 为必填参数'),
+  period: z.enum(['7d', '30d', '90d']).optional().default('30d'),
+});
+
+const getConversationsSchema = z.object({
+  page: z.string().optional().default('1'),
+  pageSize: z.string().optional().default('20'),
+});
+
 router.use(authenticateToken);
 
-router.post('/chat', [body('petId').isString(), body('message').isString()], async (req: Request, res: Response) => {
-  try {
-    const { petId, message } = req.body;
+router.post(
+  '/chat',
+  validateBody(chatSchema),
+  validatePetOwnershipFromBody,
+  async (req: Request, res: Response) => {
+    try {
+      const { petId, message } = req.body;
+      const userId = req.userId!;
+      const pet = req.pet;
 
-    const pet = await prisma.pet.findFirst({
-      where: { id: petId, userId: req.userId },
-    });
+      if (!checkContentSafety(message)) {
+        return res.status(400).json({
+          code: 400,
+          error: '消息内容包含不安全信息',
+        });
+      }
 
-    if (!pet) {
-      return res.status(404).json({ error: '宠物不存在' });
-    }
-
-    let conversation = await prisma.aIConversation.findFirst({
-      where: { petId, userId: req.userId },
-    });
-
-    const userMessage = {
-      role: 'user',
-      content: message,
-      timestamp: new Date().toISOString(),
-    };
-
-    const aiResponse = {
-      role: 'assistant',
-      content: generateMockAIResponse(pet, message),
-      timestamp: new Date().toISOString(),
-    };
-
-    const messages = conversation 
-      ? [...conversation.messages, userMessage, aiResponse]
-      : [userMessage, aiResponse];
-
-    if (conversation) {
-      conversation = await prisma.aIConversation.update({
-        where: { id: conversation.id },
-        data: { messages },
-      });
-    } else {
-      conversation = await prisma.aIConversation.create({
-        data: {
-          petId,
-          userId: req.userId!,
-          messages,
+      let conversation = await prisma.aIConversation.findFirst({
+        where: { petId, userId },
+        include: {
+          messages: {
+            orderBy: { timestamp: 'asc' },
+            take: -10,
+          },
         },
       });
+
+      const conversationHistory = conversation?.messages.map(m => ({
+        role: m.role,
+        content: m.content,
+      })) || [];
+
+      const aiResponse = await callAIWithPetContext(message, pet, conversationHistory);
+
+      if (!conversation) {
+        conversation = await prisma.aIConversation.create({
+          data: {
+            petId,
+            userId,
+          },
+        });
+      }
+
+      await prisma.$transaction([
+        prisma.message.create({
+          data: {
+            conversationId: conversation.id,
+            role: 'user',
+            content: message,
+          },
+        }),
+        prisma.message.create({
+          data: {
+            conversationId: conversation.id,
+            role: 'assistant',
+            content: aiResponse.reply,
+          },
+        }),
+      ]);
+
+      res.json({
+        code: 200,
+        data: {
+          reply: aiResponse.reply,
+          messageId: aiResponse.messageId,
+          timestamp: aiResponse.timestamp,
+        },
+      });
+    } catch (error) {
+      console.error('聊天接口错误:', error);
+      res.status(500).json({
+        code: 500,
+        error: '对话失败，请稍后再试',
+      });
     }
-
-    res.json({ conversation, response: aiResponse });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: '对话失败' });
   }
-});
+);
 
-router.get('/conversations/:petId', async (req: Request, res: Response) => {
-  try {
-    const conversation = await prisma.aIConversation.findFirst({
-      where: {
-        petId: req.params.petId,
-        userId: req.userId,
-      },
-    });
+router.get(
+  '/conversations/:petId',
+  validatePetOwnership,
+  async (req: Request, res: Response) => {
+    try {
+      const { petId } = req.params;
+      const userId = req.userId!;
+      const page = parseInt(req.query.page as string) || 1;
+      const pageSize = parseInt(req.query.pageSize as string) || 20;
+      const skip = (page - 1) * pageSize;
 
-    res.json({ conversation });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: '获取对话失败' });
-  }
-});
+      const conversation = await prisma.aIConversation.findFirst({
+        where: { petId, userId },
+      });
 
-router.post('/generate-report', [body('petId').isString()], async (req: Request, res: Response) => {
-  try {
-    const { petId } = req.body;
+      if (!conversation) {
+        return res.json({
+          code: 200,
+          data: [],
+          pagination: {
+            page,
+            pageSize,
+            total: 0,
+            totalPages: 0,
+          },
+        });
+      }
 
-    const pet = await prisma.pet.findFirst({
-      where: { id: petId, userId: req.userId },
-      include: {
-        healthRecords: true,
-        vaccines: true,
-        checkups: true,
-        growthRecords: true,
-      },
-    });
+      const [messages, total] = await Promise.all([
+        prisma.message.findMany({
+          where: { conversationId: conversation.id },
+          orderBy: { timestamp: 'desc' },
+          skip,
+          take: pageSize,
+        }),
+        prisma.message.count({
+          where: { conversationId: conversation.id },
+        }),
+      ]);
 
-    if (!pet) {
-      return res.status(404).json({ error: '宠物不存在' });
+      res.json({
+        code: 200,
+        data: messages.reverse(),
+        pagination: {
+          page,
+          pageSize,
+          total,
+          totalPages: Math.ceil(total / pageSize),
+        },
+      });
+    } catch (error) {
+      console.error('获取对话历史错误:', error);
+      res.status(500).json({
+        code: 500,
+        error: '获取对话历史失败',
+      });
     }
-
-    const report = generateMockHealthReport(pet);
-    res.json({ report });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: '生成报告失败' });
   }
-});
+);
 
-function generateMockAIResponse(pet: any, message: string) {
-  const responses = [
-    `作为${pet.name}的AI健康顾问，我很高兴为您服务。关于您的问题"${message}"，我建议您...`,
-    `感谢您的咨询！针对您提到的问题，我建议您观察${pet.name}的...`,
-    `${pet.name}的情况我已经了解了。根据描述，我建议您...`,
-    `这是一个很好的问题！对于${pet.name}的健康，我建议您...`,
-  ];
-  return responses[Math.floor(Math.random() * responses.length)];
-}
+router.post(
+  '/generate-report',
+  validateBody(generateReportSchema),
+  validatePetOwnershipFromBody,
+  async (req: Request, res: Response) => {
+    try {
+      const { petId } = req.body;
+      const userId = req.userId!;
+      const pet = req.pet;
 
-function generateMockHealthReport(pet: any) {
-  return {
-    petName: pet.name,
-    generatedAt: new Date().toISOString(),
-    healthStatus: pet.healthStatus,
-    summary: `${pet.name}的整体健康状况良好。建议继续保持当前的护理习惯。`,
-    weight: pet.weight ? `${pet.weight} kg` : '未记录',
-    recommendations: [
-      '定期进行健康检查',
-      '保持均衡饮食',
-      '确保充足的运动',
-      '定期进行疫苗接种',
-    ],
-    lastCheckup: pet.checkups[0]?.date || '无记录',
-    nextVaccine: pet.vaccines[0]?.nextDate || '无计划',
-  };
-}
+      const [healthRecords, vaccines, checkups, growthRecords] = await Promise.all([
+        prisma.healthRecord.findMany({
+          where: { petId },
+          orderBy: { createdAt: 'desc' },
+          take: 50,
+        }),
+        prisma.petVaccine.findMany({
+          where: { petId },
+          orderBy: { date: 'desc' },
+          take: 20,
+        }),
+        prisma.petCheckup.findMany({
+          where: { petId },
+          orderBy: { date: 'desc' },
+          take: 20,
+        }),
+        prisma.petGrowth.findMany({
+          where: { petId },
+          orderBy: { date: 'desc' },
+          take: 30,
+        }),
+      ]);
+
+      const reportContent = await generateHealthReport(
+        pet,
+        healthRecords,
+        vaccines,
+        checkups,
+        growthRecords
+      );
+
+      const report = await prisma.healthReport.create({
+        data: {
+          userId,
+          petId,
+          content: reportContent,
+        },
+      });
+
+      res.json({
+        code: 200,
+        data: {
+          reportId: report.id,
+          content: reportContent,
+          createdAt: report.createdAt,
+        },
+      });
+    } catch (error) {
+      console.error('生成报告错误:', error);
+      res.status(500).json({
+        code: 500,
+        error: '生成报告失败',
+      });
+    }
+  }
+);
+
+router.get(
+  '/reports/:petId',
+  validatePetOwnership,
+  async (req: Request, res: Response) => {
+    try {
+      const { petId } = req.params;
+      const userId = req.userId!;
+      const page = parseInt(req.query.page as string) || 1;
+      const pageSize = parseInt(req.query.pageSize as string) || 10;
+      const skip = (page - 1) * pageSize;
+
+      const [reports, total] = await Promise.all([
+        prisma.healthReport.findMany({
+          where: { petId, userId },
+          orderBy: { createdAt: 'desc' },
+          skip,
+          take: pageSize,
+        }),
+        prisma.healthReport.count({
+          where: { petId, userId },
+        }),
+      ]);
+
+      res.json({
+        code: 200,
+        data: reports,
+        pagination: {
+          page,
+          pageSize,
+          total,
+          totalPages: Math.ceil(total / pageSize),
+        },
+      });
+    } catch (error) {
+      console.error('获取报告列表错误:', error);
+      res.status(500).json({
+        code: 500,
+        error: '获取报告列表失败',
+      });
+    }
+  }
+);
+
+router.get(
+  '/reports/detail/:reportId',
+  async (req: Request, res: Response) => {
+    try {
+      const { reportId } = req.params;
+      const userId = req.userId!;
+
+      const report = await prisma.healthReport.findFirst({
+        where: { id: reportId, userId },
+      });
+
+      if (!report) {
+        return res.status(404).json({
+          code: 404,
+          error: '报告不存在',
+        });
+      }
+
+      res.json({
+        code: 200,
+        data: report,
+      });
+    } catch (error) {
+      console.error('获取报告详情错误:', error);
+      res.status(500).json({
+        code: 500,
+        error: '获取报告详情失败',
+      });
+    }
+  }
+);
 
 export default router;
