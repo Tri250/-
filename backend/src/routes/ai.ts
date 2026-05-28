@@ -4,7 +4,7 @@ import prisma from '../lib/prisma';
 import { authenticateToken } from '../middleware';
 import { validatePetOwnership, validatePetOwnershipFromBody } from '../middleware/permission.middleware';
 import { validateBody } from '../middleware/validation.middleware';
-import { callAIWithPetContext, generateHealthReport, checkContentSafety } from '../lib/ai-service';
+import aiService from '../lib/ai-service';
 
 const router = Router();
 
@@ -18,11 +18,6 @@ const generateReportSchema = z.object({
   period: z.enum(['7d', '30d', '90d']).optional().default('30d'),
 });
 
-const getConversationsSchema = z.object({
-  page: z.string().optional().default('1'),
-  pageSize: z.string().optional().default('20'),
-});
-
 router.use(authenticateToken);
 
 router.post(
@@ -34,13 +29,6 @@ router.post(
       const { petId, message } = req.body;
       const userId = req.userId!;
       const pet = req.pet;
-
-      if (!checkContentSafety(message)) {
-        return res.status(400).json({
-          code: 400,
-          error: '消息内容包含不安全信息',
-        });
-      }
 
       let conversation = await prisma.aIConversation.findFirst({
         where: { petId, userId },
@@ -57,7 +45,9 @@ router.post(
         content: m.content,
       })) || [];
 
-      const aiResponse = await callAIWithPetContext(message, pet, conversationHistory);
+      const petInfo = formatPetInfo(pet);
+
+      const aiResponse = await aiService.chat(message, petInfo, conversationHistory);
 
       if (!conversation) {
         conversation = await prisma.aIConversation.create({
@@ -175,7 +165,7 @@ router.post(
 
       const [healthRecords, vaccines, checkups, growthRecords] = await Promise.all([
         prisma.healthRecord.findMany({
-          where: { petId },
+          where: { petId, deletedAt: null },
           orderBy: { createdAt: 'desc' },
           take: 50,
         }),
@@ -196,13 +186,14 @@ router.post(
         }),
       ]);
 
-      const reportContent = await generateHealthReport(
-        pet,
+      const petInfo = formatPetInfo(pet);
+
+      const reportContent = await aiService.generateReport(petInfo, {
         healthRecords,
         vaccines,
         checkups,
-        growthRecords
-      );
+        growthRecords,
+      });
 
       const report = await prisma.healthReport.create({
         data: {
@@ -304,5 +295,18 @@ router.get(
     }
   }
 );
+
+function formatPetInfo(pet: any): string {
+  let info = `名字: ${pet.name || '未知'}\n`;
+  info += `类型: ${pet.type || '未知'}\n`;
+  info += `品种: ${pet.breed || '未知'}\n`;
+  info += `性别: ${pet.gender || '未知'}\n`;
+  if (pet.birthday) info += `生日: ${pet.birthday}\n`;
+  if (pet.weight) info += `体重: ${pet.weight} kg\n`;
+  if (pet.color) info += `毛色: ${pet.color}\n`;
+  if (pet.characteristics) info += `特点: ${pet.characteristics}\n`;
+  if (pet.healthStatus) info += `健康状态: ${pet.healthStatus}\n`;
+  return info;
+}
 
 export default router;
