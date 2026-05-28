@@ -30,6 +30,7 @@ router.post(
       const userId = req.userId!;
       const pet = req.pet;
 
+      // 获取对话历史
       let conversation = await prisma.aIConversation.findFirst({
         where: { petId, userId },
         include: {
@@ -45,10 +46,37 @@ router.post(
         content: m.content,
       })) || [];
 
+      // 自动拉取宠物完整健康数据
+      const [healthRecords, vaccines, checkups, growthRecords] = await Promise.all([
+        prisma.healthRecord.findMany({
+          where: { petId, deletedAt: null },
+          orderBy: { recordDate: 'desc' },
+          take: 10,
+        }),
+        prisma.petVaccine.findMany({
+          where: { petId },
+          orderBy: { date: 'desc' },
+        }),
+        prisma.petCheckup.findMany({
+          where: { petId },
+          orderBy: { date: 'desc' },
+          take: 5,
+        }),
+        prisma.petGrowth.findMany({
+          where: { petId },
+          orderBy: { date: 'desc' },
+          take: 10,
+        }),
+      ]);
+
+      // 构建完整上下文
       const petInfo = formatPetInfo(pet);
+      const healthContext = buildHealthContext({ healthRecords, vaccines, checkups, growthRecords });
+      const fullContext = petInfo + '\n\n' + healthContext;
 
-      const aiResponse = await petHealthAI.chat(message, petInfo, conversationHistory);
+      const aiResponse = await petHealthAI.chat(message, fullContext, conversationHistory);
 
+      // 创建或更新对话记录
       if (!conversation) {
         conversation = await prisma.aIConversation.create({
           data: {
@@ -188,8 +216,10 @@ router.post(
       ]);
 
       const petInfo = formatPetInfo(pet);
+      const healthContext = buildHealthContext({ healthRecords, vaccines, checkups, growthRecords });
+      const fullContext = petInfo + '\n\n' + healthContext;
 
-      const reportContent = await petHealthAI.generateReport(petInfo, {
+      const reportContent = await petHealthAI.generateReport(fullContext, {
         healthRecords,
         vaccines,
         checkups,
@@ -298,16 +328,111 @@ router.get(
 );
 
 function formatPetInfo(pet: any): string {
-  let info = `名字: ${pet.name || '未知'}\n`;
+  let info = `【宠物基础信息】\n`;
+  info += `名字: ${pet.name || '未知'}\n`;
   info += `类型: ${pet.type || '未知'}\n`;
   info += `品种: ${pet.breed || '未知'}\n`;
   info += `性别: ${pet.gender || '未知'}\n`;
-  if (pet.birthday) info += `生日: ${pet.birthday}\n`;
+  if (pet.birthday) {
+    const age = calculateAge(pet.birthday);
+    info += `年龄: ${age}\n`;
+  }
   if (pet.weight) info += `体重: ${pet.weight} kg\n`;
   if (pet.color) info += `毛色: ${pet.color}\n`;
-  if (pet.characteristics) info += `特点: ${pet.characteristics}\n`;
   if (pet.healthStatus) info += `健康状态: ${pet.healthStatus}\n`;
+  if (pet.characteristics) info += `特点: ${pet.characteristics}\n`;
   return info;
+}
+
+function calculateAge(birthday: string): string {
+  const birth = new Date(birthday);
+  const now = new Date();
+  const years = now.getFullYear() - birth.getFullYear();
+  const months = now.getMonth() - birth.getMonth();
+  
+  if (years > 0) {
+    return `${years}岁${months > 0 ? months + '个月' : ''}`;
+  } else if (months > 0) {
+    return `${months}个月`;
+  } else {
+    const days = Math.floor((now.getTime() - birth.getTime()) / (1000 * 60 * 60 * 24));
+    return `${days}天`;
+  }
+}
+
+function buildHealthContext(data: {
+  healthRecords: any[];
+  vaccines: any[];
+  checkups: any[];
+  growthRecords: any[];
+}): string {
+  const { healthRecords, vaccines, checkups, growthRecords } = data;
+  
+  let context = '\n【健康记录】（最近10条）\n';
+  if (healthRecords.length > 0) {
+    healthRecords.forEach((record, index) => {
+      context += `${index + 1}. [${record.type}] ${record.title} - ${new Date(record.recordDate).toLocaleDateString()}\n`;
+      if (record.content) {
+        context += `   内容: ${record.content.substring(0, 200)}\n`;
+      }
+    });
+  } else {
+    context += '暂无健康记录\n';
+  }
+  
+  context += '\n【疫苗记录】\n';
+  if (vaccines.length > 0) {
+    vaccines.forEach((vaccine, index) => {
+      const nextDate = vaccine.nextDate 
+        ? `\n   下次接种: ${new Date(vaccine.nextDate).toLocaleDateString()}`
+        : '';
+      context += `${index + 1}. ${vaccine.name} - ${new Date(vaccine.date).toLocaleDateString()}${nextDate}\n`;
+    });
+  } else {
+    context += '暂无疫苗记录\n';
+  }
+  
+  context += '\n【体检记录】（最近5条）\n';
+  if (checkups.length > 0) {
+    checkups.forEach((checkup, index) => {
+      let info = `${index + 1}. ${new Date(checkup.date).toLocaleDateString()}`;
+      if (checkup.weight) info += ` - 体重: ${checkup.weight}kg`;
+      if (checkup.vet) info += ` - 兽医: ${checkup.vet}`;
+      context += info + '\n';
+      if (checkup.notes) {
+        context += `   备注: ${checkup.notes.substring(0, 150)}\n`;
+      }
+    });
+  } else {
+    context += '暂无体检记录\n';
+  }
+  
+  context += '\n【成长记录】（最近10条体重数据）\n';
+  if (growthRecords.length > 0) {
+    const weightRecords = growthRecords.filter(g => g.weight);
+    if (weightRecords.length > 0) {
+      weightRecords.forEach((record, index) => {
+        context += `${index + 1}. ${new Date(record.date).toLocaleDateString()} - 体重: ${record.weight}kg`;
+        if (record.height) context += `, 身高: ${record.height}cm`;
+        context += '\n';
+      });
+      
+      // 添加体重变化趋势分析
+      if (weightRecords.length >= 2) {
+        const latestWeight = weightRecords[0].weight;
+        const previousWeight = weightRecords[1].weight;
+        const change = ((latestWeight - previousWeight) / previousWeight * 100).toFixed(1);
+        const changeType = parseFloat(change) > 0 ? '增加' : '减少';
+        context += `\n【体重变化趋势】近期体重${changeType}了 ${Math.abs(parseFloat(change))}%\n`;
+      }
+    } else {
+      context += '暂无体重记录\n';
+    }
+  } else {
+    context += '暂无成长记录\n';
+  }
+  
+  return context;
 }
 
 export default router;
