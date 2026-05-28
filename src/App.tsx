@@ -1,3 +1,4 @@
+
 // ============================================
 // PawSync Pro - App.tsx
 // 
@@ -6,96 +7,63 @@
 // 描述: 应用主入口组件
 // ============================================
 
-import { useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Navigation } from './components/Navigation';
 import { HomePage } from './pages/HomePage';
+import PetsPage from './pages/PetsPage';
+import HealthRecordsPage from './pages/HealthRecordsPage';
+import AIConsultantPage from './pages/AIConsultantPage';
 import { TranslatorPage } from './pages/TranslatorPage';
-import { HealthPage } from './pages/HealthPage';
-import { ProfilePage } from './pages/ProfilePage';
-import { CameraPage } from './pages/CameraPage';
-import { MonitorPage } from './pages/MonitorPage';
-import { AuthPage } from './pages/AuthPage';
-import { OnboardingPage } from './pages/OnboardingPage';
-import { TrainingPage } from './pages/TrainingPage';
-import { ServicesPage } from './pages/ServicesPage';
-import { InsurancePage } from './pages/InsurancePage';
-import { MedicalPage } from './pages/MedicalPage';
-import { AIConsultantPage } from './pages/AIConsultantPage';
-import { HealthRecordsPage } from './pages/HealthRecordsPage';
 import { HealthManualPage } from './pages/HealthManualPage';
 import { RemindersPage } from './pages/RemindersPage';
-import { AdvancedHealthPage } from './pages/AdvancedHealthPage';
-import { BondEmotionPage } from './pages/BondEmotionPage';
 import { CameraMonitorPage } from './pages/CameraMonitorPage';
+import { ProfilePage } from './pages/ProfilePage';
+import { MedicalPage } from './pages/MedicalPage';
+import { InsurancePage } from './pages/InsurancePage';
+import { TrainingPage } from './pages/TrainingPage';
+import { ServicesPage } from './pages/ServicesPage';
+import { AuthPage } from './pages/AuthPage';
+import { OnboardingPage } from './pages/OnboardingPage';
 import { useAppStore } from './store/appStore';
 
-export default function App() {
-  const [currentPage, setCurrentPage] = useState('home');
-  const { isAuthenticated, isOnboardingComplete, login, register, completeOnboarding } = useAppStore();
+function AppContent() {
+  const { isAuthenticated, isOnboardingComplete } = useAppStore();
 
-  const handleAuthSuccess = () => {
-    // 认证成功，状态已在store中更新
-  };
-
-  const handleOnboardingComplete = () => {
-    completeOnboarding();
-  };
-
-  // 未登录显示认证页面
   if (!isAuthenticated) {
-    return <AuthPage onSuccess={handleAuthSuccess} />;
+    return <AuthPage onSuccess={() => {}} />;
   }
 
-  // 已登录但未完成引导，显示引导页面
   if (!isOnboardingComplete) {
-    return <OnboardingPage onComplete={handleOnboardingComplete} />;
+    return <OnboardingPage onComplete={() => {}} />;
   }
-
-  const renderPage = () => {
-    switch (currentPage) {
-      case 'home':
-        return <HomePage onNavigate={setCurrentPage} />;
-      case 'translator':
-        return <TranslatorPage />;
-      case 'health':
-        return <HealthPage />;
-      case 'ai-consultant':
-        return <AIConsultantPage onNavigate={setCurrentPage} />;
-      case 'health-records':
-        return <HealthRecordsPage onNavigate={setCurrentPage} />;
-      case 'health-manual':
-        return <HealthManualPage onNavigate={setCurrentPage} />;
-      case 'reminders':
-        return <RemindersPage onNavigate={setCurrentPage} />;
-      case 'training':
-        return <TrainingPage />;
-      case 'services':
-        return <ServicesPage onNavigate={setCurrentPage} />;
-      case 'insurance':
-        return <InsurancePage />;
-      case 'medical':
-        return <MedicalPage />;
-      case 'profile':
-        return <ProfilePage />;
-      case 'camera':
-        return <CameraPage />;
-      case 'monitor':
-        return <MonitorPage />;
-      case 'advanced-health':
-        return <AdvancedHealthPage />;
-      case 'bond-emotion':
-        return <BondEmotionPage />;
-      case 'camera-monitor':
-        return <CameraMonitorPage onNavigate={setCurrentPage} />;
-      default:
-        return <HomePage onNavigate={setCurrentPage} />;
-    }
-  };
 
   return (
     <div className="min-h-screen bg-neutral-50">
-      {renderPage()}
-      <Navigation currentPage={currentPage} onNavigate={setCurrentPage} />
+      <Routes>
+        <Route path="/" element={<HomePage onNavigate={() => {}} />} />
+        <Route path="/pets" element={<PetsPage />} />
+        <Route path="/health-records" element={<HealthRecordsPage />} />
+        <Route path="/ai-consultant" element={<AIConsultantPage />} />
+        <Route path="/translator" element={<TranslatorPage />} />
+        <Route path="/manuals" element={<HealthManualPage onNavigate={() => {}} />} />
+        <Route path="/reminders" element={<RemindersPage />} />
+        <Route path="/camera-monitor" element={<CameraMonitorPage onNavigate={() => {}} />} />
+        <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/medical" element={<MedicalPage />} />
+        <Route path="/insurance" element={<InsurancePage />} />
+        <Route path="/training" element={<TrainingPage />} />
+        <Route path="/services" element={<ServicesPage onNavigate={() => {}} />} />
+        <Route path="*" element={<Navigate to="/" />} />
+      </Routes>
+      <Navigation />
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <Router>
+      <AppContent />
+    </Router>
   );
 }

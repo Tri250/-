@@ -1,31 +1,30 @@
+
 import React from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { Home, Heart, BookOpen, Calendar, User, Bot, FileText, TrendingUp, GraduationCap, Camera, Shield, Sparkles } from 'lucide-react';
 
-interface NavigationProps {
-  currentPage: string;
-  onNavigate: (page: string) => void;
-}
-
-export const Navigation: React.FC<NavigationProps> = ({ currentPage, onNavigate }) => {
+export const Navigation: React.FC = () => {
+  const location = useLocation();
+  
   const navItems = [
-    { id: 'home', label: '首页', icon: Home },
-    { id: 'advanced-health', label: '健康', icon: Shield },
-    { id: 'bond-emotion', label: '情感', icon: Sparkles },
-    { id: 'camera-monitor', label: '监控', icon: Camera },
-    { id: 'profile', label: '我的', icon: User },
+    { id: 'home', label: '首页', icon: Home, path: '/' },
+    { id: 'health', label: '健康', icon: Shield, path: '/health-records' },
+    { id: 'ai', label: 'AI顾问', icon: Bot, path: '/ai-consultant' },
+    { id: 'camera', label: '监控', icon: Camera, path: '/camera-monitor' },
+    { id: 'profile', label: '我的', icon: User, path: '/profile' },
   ];
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-neutral-200 px-4 py-3 z-40">
       <div className="max-w-md mx-auto flex justify-around items-center">
-        {navItems.map((item, index) => {
-          const isActive = currentPage === item.id;
+        {navItems.map((item) => {
+          const isActive = location.pathname === item.path;
           const Icon = item.icon;
           
           return (
-            <button
+            <Link
               key={item.id}
-              onClick={() => onNavigate(item.id)}
+              to={item.path}
               className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-all ${
                 isActive
                   ? 'text-primary-600 bg-primary-50'
@@ -42,7 +41,7 @@ export const Navigation: React.FC<NavigationProps> = ({ currentPage, onNavigate 
               }`}>
                 {item.label}
               </span>
-            </button>
+            </Link>
           );
         })}
       </div>
