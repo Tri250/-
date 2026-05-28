@@ -1,8 +1,3 @@
-export * from './auth.middleware';
-export * from './permission.middleware';
-export * from './validation.middleware';
-export * from './error.middleware';
-
 import { Request, Response, NextFunction } from 'express';
 import { verifyToken } from '../lib/auth';
 
@@ -40,7 +35,3 @@ export function authenticateToken(
     });
   }
 }
-
-// 导出 errorHandler 和 notFoundHandler 的别名
-import { globalErrorHandler, notFoundHandler as _notFoundHandler } from './error.middleware';
-export { globalErrorHandler as errorHandler, _notFoundHandler as notFoundHandler };

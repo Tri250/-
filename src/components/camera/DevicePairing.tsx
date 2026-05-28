@@ -1,83 +1,77 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Camera, Smartphone, CheckCircle, AlertCircle, Loader } from 'lucide-react';
-import type { CameraBrand, PairingProgress } from '../../types/camera';
+import { useCameraStore } from '../../store/cameraStore';
 
 interface DevicePairingProps {
   onPaired: (device: any) => void;
   onCancel: () => void;
 }
 
-type PairingStage = 'select-brand' | 'enter-code' | 'pairing' | 'success' | 'error';
+type PairingStage = 'select-brand' | 'enter-details' | 'pairing' | 'success' | 'error';
 
-const brandInfo: Array<{ brand: CameraBrand; name: string; icon: string; color: string }> = [
-  { brand: 'xiaomi', name: '小米米家', icon: '📱', color: 'hover:border-orange-400' },
-  { brand: 'huawei', name: '华为海雀', icon: '🐦', color: 'hover:border-blue-400' },
-  { brand: 'honor', name: '荣耀小值', icon: '✨', color: 'hover:border-red-400' },
+const officialBrands = [
+  { brand: 'pawsync', name: 'Pawsync 标准款', icon: '🐾', color: 'hover:border-orange-400' },
+  { brand: 'pawsync_pro', name: 'Pawsync Pro 专业版', icon: '🦴', color: 'hover:border-blue-400' },
+  { brand: 'pawsync_petcam', name: 'Pawsync PetCam 迷你款', icon: '📹', color: 'hover:border-green-400' },
 ];
 
+const officialModels = {
+  pawsync: ['PetCam V1', 'PetCam V2', 'PetCam Mini'],
+  pawsync_pro: ['PetCam Pro', 'PetCam Pro X'],
+  pawsync_petcam: ['PetCam Mini', 'PetCam Tiny'],
+};
+
 export function DevicePairing({ onPaired, onCancel }: DevicePairingProps) {
+  const { bindDevice, isPairing, seedWhitelist } = useCameraStore();
   const [stage, setStage] = useState<PairingStage>('select-brand');
-  const [selectedBrand, setSelectedBrand] = useState<CameraBrand | null>(null);
-  const [deviceCode, setDeviceCode] = useState('');
+  const [selectedBrand, setSelectedBrand] = useState<string | null>(null);
+  const [selectedModel, setSelectedModel] = useState<string>('');
+  const [serialNumber, setSerialNumber] = useState('');
   const [deviceName, setDeviceName] = useState('');
-  const [progress, setProgress] = useState<PairingProgress | null>(null);
+  const [location, setLocation] = useState('');
+  const [petId, setPetId] = useState<string | undefined>();
   const [error, setError] = useState<string | null>(null);
 
-  const handleBrandSelect = (brand: CameraBrand) => {
+  useEffect(() => {
+    seedWhitelist();
+  }, [seedWhitelist]);
+
+  const handleBrandSelect = (brand: string) => {
     setSelectedBrand(brand);
-    setStage('enter-code');
+    setSelectedModel(officialModels[brand as keyof typeof officialModels][0]);
+    setStage('enter-details');
   };
 
   const handleStartPairing = async () => {
-    if (!deviceCode.trim()) {
-      setError('请输入设备码');
+    if (!selectedBrand || !selectedModel || !serialNumber.trim()) {
+      setError('请完整填写设备信息');
       return;
     }
 
     setStage('pairing');
     setError(null);
 
-    const stages = [
-      { stage: 'scanning' as const, message: '正在扫描设备...', delay: 800 },
-      { stage: 'connecting' as const, message: '正在连接设备...', delay: 1000 },
-      { stage: 'verifying' as const, message: '正在验证设备...', delay: 800 },
-    ];
-
-    for (const s of stages) {
-      setProgress({ stage: s.stage, message: s.message, progress: 0 });
-      await new Promise(resolve => setTimeout(resolve, s.delay));
+    try {
+      const newDevice = await bindDevice({
+        name: deviceName || `${officialBrands.find(b => b.brand === selectedBrand)?.name}`,
+        brand: selectedBrand,
+        model: selectedModel,
+        serialNumber: serialNumber.trim(),
+        petId,
+        location: location || undefined,
+      });
       
-      let p = 0;
-      const interval = setInterval(() => {
-        p += 20;
-        setProgress({ stage: s.stage, message: s.message, progress: p });
-        if (p >= 100) clearInterval(interval);
-      }, s.delay / 5);
-      
-      await new Promise(resolve => setTimeout(resolve, s.delay));
+      setStage('success');
+      onPaired(newDevice);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '设备绑定失败');
+      setStage('error');
     }
-
-    setProgress({ stage: 'completed', message: '配对成功！', progress: 100 });
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    setStage('success');
-    onPaired({
-      id: `cam-${Date.now()}`,
-      brand: selectedBrand,
-      model: deviceCode,
-      name: deviceName || `${brandInfo.find(b => b.brand === selectedBrand)?.name}摄像头`,
-      status: 'online',
-      streamUrl: `https://example.com/stream/${deviceCode}`,
-      thumbnailUrl: `https://picsum.photos/400/300?random=${Date.now()}`,
-      lastOnline: new Date().toISOString(),
-    });
   };
 
   const handleRetry = () => {
-    setStage('enter-code');
-    setDeviceCode('');
+    setStage('enter-details');
     setError(null);
-    setProgress(null);
   };
 
   return (
@@ -86,14 +80,14 @@ export function DevicePairing({ onPaired, onCancel }: DevicePairingProps) {
         <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-gradient-to-br from-orange-100 to-peach-100 flex items-center justify-center">
           <Camera className="w-8 h-8 text-orange-500" />
         </div>
-        <h2 className="text-xl font-bold text-gray-800">添加摄像头设备</h2>
-        <p className="text-sm text-gray-500 mt-1">支持小米、华为、荣耀等主流品牌</p>
+        <h2 className="text-xl font-bold text-gray-800">添加官方摄像头设备</h2>
+        <p className="text-sm text-gray-500 mt-1">仅支持 Pawsync 官方摄像头设备</p>
       </div>
 
       {stage === 'select-brand' && (
         <div className="space-y-3">
-          <p className="text-sm text-gray-600 mb-4">请选择摄像头品牌</p>
-          {brandInfo.map((brand) => (
+          <p className="text-sm text-gray-600 mb-4">请选择官方摄像头型号</p>
+          {officialBrands.map((brand) => (
             <button
               key={brand.brand}
               onClick={() => handleBrandSelect(brand.brand)}
@@ -113,24 +107,39 @@ export function DevicePairing({ onPaired, onCancel }: DevicePairingProps) {
         </div>
       )}
 
-      {stage === 'enter-code' && (
+      {stage === 'enter-details' && (
         <div className="space-y-4">
           <button
             onClick={() => setStage('select-brand')}
             className="text-sm text-orange-500 hover:text-orange-600"
           >
-            ← 返回选择品牌
+            ← 返回选择型号
           </button>
           
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              设备码 <span className="text-red-500">*</span>
+              设备型号
+            </label>
+            <select
+              value={selectedModel}
+              onChange={(e) => setSelectedModel(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 outline-none transition-all"
+            >
+              {officialModels[selectedBrand as keyof typeof officialModels].map((model) => (
+                <option key={model} value={model}>{model}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              设备序列号 <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
-              value={deviceCode}
-              onChange={(e) => setDeviceCode(e.target.value)}
-              placeholder="请输入设备背面的设备码"
+              value={serialNumber}
+              onChange={(e) => setSerialNumber(e.target.value)}
+              placeholder="例如：PSV1-XXXX-XXXX"
               className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 outline-none transition-all"
             />
           </div>
@@ -148,12 +157,25 @@ export function DevicePairing({ onPaired, onCancel }: DevicePairingProps) {
             />
           </div>
 
-          <div className="bg-blue-50 rounded-xl p-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              安装位置（选填）
+            </label>
+            <input
+              type="text"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="例如：客厅、卧室、阳台"
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 outline-none transition-all"
+            />
+          </div>
+
+          <div className="bg-orange-50 rounded-xl p-4">
             <div className="flex items-start gap-3">
-              <Smartphone className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
-              <div className="text-sm text-blue-700">
-                <p className="font-medium mb-1">如何获取设备码？</p>
-                <p className="text-blue-600">在摄像头机身底部或说明书上找到以"MB"或"HW"开头的设备码</p>
+              <AlertCircle className="w-5 h-5 text-orange-500 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-orange-700">
+                <p className="font-medium mb-1">重要提示</p>
+                <p>本平台仅支持 Pawsync 官方摄像头设备，不兼容第三方品牌。请确保您的设备是官方正品。</p>
               </div>
             </div>
           </div>
@@ -174,22 +196,23 @@ export function DevicePairing({ onPaired, onCancel }: DevicePairingProps) {
             </button>
             <button
               onClick={handleStartPairing}
-              className="flex-1 py-3 rounded-xl bg-orange-500 text-white hover:bg-orange-600 transition-colors font-medium"
+              disabled={isPairing}
+              className="flex-1 py-3 rounded-xl bg-orange-500 text-white hover:bg-orange-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              开始配对
+              {isPairing ? '绑定中...' : '开始绑定'}
             </button>
           </div>
         </div>
       )}
 
-      {stage === 'pairing' && progress && (
+      {stage === 'pairing' && (
         <div className="text-center py-8">
           <Loader className="w-12 h-12 mx-auto mb-4 text-orange-500 animate-spin" />
-          <p className="font-medium text-gray-800 mb-2">{progress.message}</p>
+          <p className="font-medium text-gray-800 mb-2">正在绑定设备...</p>
           <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
             <div
-              className="h-full bg-gradient-to-r from-orange-400 to-peach-500 transition-all duration-300"
-              style={{ width: `${progress.progress}%` }}
+              className="h-full bg-gradient-to-r from-orange-400 to-peach-500 animate-pulse"
+              style={{ width: '60%' }}
             />
           </div>
         </div>
@@ -198,7 +221,7 @@ export function DevicePairing({ onPaired, onCancel }: DevicePairingProps) {
       {stage === 'success' && (
         <div className="text-center py-8">
           <CheckCircle className="w-16 h-16 mx-auto mb-4 text-green-500" />
-          <p className="font-bold text-gray-800 text-lg mb-2">配对成功！</p>
+          <p className="font-bold text-gray-800 text-lg mb-2">绑定成功！</p>
           <p className="text-sm text-gray-500 mb-6">设备已添加到您的摄像头列表</p>
           <button
             onClick={onCancel}
@@ -212,8 +235,10 @@ export function DevicePairing({ onPaired, onCancel }: DevicePairingProps) {
       {stage === 'error' && (
         <div className="text-center py-8">
           <AlertCircle className="w-16 h-16 mx-auto mb-4 text-red-500" />
-          <p className="font-bold text-gray-800 text-lg mb-2">配对失败</p>
-          <p className="text-sm text-gray-500 mb-6">请检查设备码是否正确，或尝试重新配对</p>
+          <p className="font-bold text-gray-800 text-lg mb-2">绑定失败</p>
+          <p className="text-sm text-gray-500 mb-6">
+            {error || '请检查设备是否为官方正品，或确认序列号是否正确'}
+          </p>
           <div className="flex gap-3 justify-center">
             <button
               onClick={onCancel}

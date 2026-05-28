@@ -4,13 +4,12 @@ import { CameraList } from '../components/camera/CameraList';
 import { CameraPlayer } from '../components/camera/CameraPlayer';
 import { DevicePairing } from '../components/camera/DevicePairing';
 import { useCameraStore } from '../store/cameraStore';
-import type { CameraDevice } from '../types/camera';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
 
 export function CameraPage() {
-  const { devices, selectedDevice, isLoading, loadDevices, selectDevice, addDevice, removeDevice } = useCameraStore();
+  const { devices, selectedDevice, isLoading, loadDevices, selectDevice, removeDevice } = useCameraStore();
   const [showPairing, setShowPairing] = useState(false);
   const [showPlayer, setShowPlayer] = useState(false);
 
@@ -18,24 +17,23 @@ export function CameraPage() {
     loadDevices();
   }, [loadDevices]);
 
-  const handleDeviceClick = (device: CameraDevice) => {
+  const handleDeviceClick = (device: any) => {
     selectDevice(device);
     setShowPlayer(true);
   };
 
-  const handleStreamClick = (device: CameraDevice) => {
+  const handleStreamClick = (device: any) => {
     selectDevice(device);
     setShowPlayer(true);
   };
 
-  const handleDeleteDevice = async (device: CameraDevice) => {
+  const handleDeleteDevice = async (device: any) => {
     if (confirm(`确定要删除 ${device.name} 吗？`)) {
       await removeDevice(device.id);
     }
   };
 
-  const handlePaired = (device: CameraDevice) => {
-    addDevice(device);
+  const handlePaired = (device: any) => {
     setShowPairing(false);
   };
 
