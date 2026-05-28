@@ -28,6 +28,8 @@ import { AdvancedHealthPage } from './pages/AdvancedHealthPage';
 import { BondEmotionPage } from './pages/BondEmotionPage';
 import { CameraMonitorPage } from './pages/CameraMonitorPage';
 import { PetsPage } from './pages/PetsPage';
+import { HealthRiskAssessmentPage } from './pages/HealthRiskAssessmentPage';
+import { SymptomCheckerPage } from './pages/SymptomCheckerPage';
 import { ToastProvider } from './components/ui/Toast';
 import { AndroidSafeArea } from './components/AndroidSafeArea';
 import { useAppStore } from './store/appStore';
@@ -94,6 +96,10 @@ export default function App() {
         return <PetsPage onNavigate={setCurrentPage} />;
       case 'health-analytics':
         return <AdvancedHealthPage />;
+      case 'health-risk':
+        return <HealthRiskAssessmentPage onNavigate={setCurrentPage} />;
+      case 'symptom-checker':
+        return <SymptomCheckerPage onNavigate={setCurrentPage} />;
       default:
         return <HomePage onNavigate={setCurrentPage} />;
     }

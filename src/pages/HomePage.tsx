@@ -11,7 +11,10 @@ import {
   Star,
   Clock,
   Settings,
-  Plus
+  Plus,
+  AlertTriangle,
+  TrendingUp as TrendingUpIcon,
+  Stethoscope
 } from 'lucide-react';
 import { Card, Button, ProgressRing, Badge } from '../components/DesignSystem';
 import { useAppStore } from '../store/appStore';
@@ -63,10 +66,24 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
       page: 'ai-consultant',
     },
     {
+      icon: TrendingUpIcon,
+      label: '健康风险评估',
+      description: '综合评分',
+      color: 'from-blue-500 to-cyan-600',
+      page: 'health-risk',
+    },
+    {
+      icon: AlertTriangle,
+      label: '症状自查',
+      description: '智能判断',
+      color: 'from-amber-500 to-orange-600',
+      page: 'symptom-checker',
+    },
+    {
       icon: FileText,
       label: '健康记录',
       description: '记录状态',
-      color: 'from-blue-500 to-blue-600',
+      color: 'from-indigo-500 to-blue-600',
       page: 'health-records',
     },
     {
@@ -80,7 +97,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
       icon: BookOpen,
       label: '健康手册',
       description: '专业知识',
-      color: 'from-green-500 to-green-600',
+      color: 'from-green-500 to-emerald-600',
       page: 'health-manual',
     },
     {
@@ -91,11 +108,11 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
       page: 'reminders',
     },
     {
-      icon: Activity,
-      label: '实时监控',
-      description: '守护安全',
-      color: 'from-orange-500 to-orange-600',
-      page: 'monitor',
+      icon: Stethoscope,
+      label: '深度分析',
+      description: '专业解读',
+      color: 'from-violet-500 to-purple-600',
+      page: 'health-analytics',
     },
   ];
 

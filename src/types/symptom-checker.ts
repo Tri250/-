@@ -475,24 +475,6 @@ export const SYMPTOM_TREE_DATA: { [key: string]: SymptomNode } = {
       askDoctor: true,
     },
   },
-  'itch-mild-result': {
-    id: 'itch-mild-result',
-    type: 'result',
-    result: {
-      title: '轻微皮肤瘙痒',
-      severity: 'low',
-      description: '轻微瘙痒可能是干燥或轻微刺激。',
-      possibleConditions: ['皮肤干燥', '轻微过敏', '蚊虫叮咬', '环境刺激物'],
-      recommendations: [
-        '使用温和宠物浴液',
-        '保持皮肤保湿',
-        '检查环境是否有刺激物',
-        '观察是否加重',
-      ],
-      relatedManualIds: ['7'],
-      askDoctor: false,
-    },
-  },
   behavioral: {
     id: 'behavioral',
     type: 'question',
