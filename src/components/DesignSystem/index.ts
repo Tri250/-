@@ -2,7 +2,7 @@ export { Card } from './Card';
 export { Button } from './Button';
 export { Badge } from './Badge';
 export { ProgressRing } from './ProgressRing';
-export { FAB } from './FAB';
+export { FAB, LongPressMenu, GlobalSearch, PullToRefresh } from './FAB';
 export { Timeline, TimelineItem } from './Timeline';
 export { EmptyState } from './EmptyState';
 export { GlassCard, GlassSurface, GlassButton } from './GlassCard';

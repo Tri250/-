@@ -1,13 +1,4 @@
-
-// ============================================
-// PawSync Pro - App.tsx
-// 
-// 作者: 带娃的小陈工
-// 日期: 2026-05-26
-// 描述: 应用主入口组件
-// ============================================
-
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Navigation } from './components/Navigation';
 import Home from './pages/Home';
 import PetsPage from './pages/PetsPage';
@@ -24,7 +15,83 @@ import { TrainingPage } from './pages/TrainingPage';
 import { ServicesPage } from './pages/ServicesPage';
 import { AuthPage } from './pages/AuthPage';
 import { OnboardingPage } from './pages/OnboardingPage';
+import { FAB, PullToRefresh } from './components/DesignSystem';
+import { GlobalSearchModal } from './components/GlobalSearchModal';
 import { useAppStore } from './store/appStore';
+import { usePetStore } from './store/bondStore';
+import { useState, useEffect, useCallback } from 'react';
+
+function KeyboardShortcuts({ onSearch, onNavigate }: { onSearch: () => void; onNavigate: (page: string) => void }) {
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        switch (e.key) {
+          case 'k':
+          case 'K':
+            e.preventDefault();
+            onSearch();
+            break;
+          case 'n':
+          case 'N':
+            e.preventDefault();
+            onNavigate('health-records');
+            break;
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onSearch, onNavigate]);
+
+  return null;
+}
+
+function QuickActionsLayer() {
+  const navigate = useNavigate();
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+
+  const handleNavigate = useCallback((page: string) => {
+    navigate(`/${page}`);
+  }, [navigate]);
+
+  const handleSearch = useCallback(() => {
+    setIsSearchOpen(true);
+  }, []);
+
+  return (
+    <>
+      <KeyboardShortcuts onSearch={handleSearch} onNavigate={handleNavigate} />
+      
+      <FAB
+        onAction={(type) => {
+          handleNavigate('health-records');
+        }}
+        onAIClick={() => handleNavigate('ai-consultant')}
+        onReminderClick={() => handleNavigate('reminders')}
+        onPetSwitch={() => handleNavigate('pets')}
+        onSearch={handleSearch}
+        onPetAdd={() => handleNavigate('pets')}
+      />
+
+      <GlobalSearchModal
+        isOpen={isSearchOpen}
+        onClose={() => setIsSearchOpen(false)}
+        onNavigate={(page, params) => {
+          if (page === 'pets' && params?.petId) {
+            navigate(`/pets?id=${params.petId}`);
+          } else if (page === 'health-records' && params?.recordId) {
+            navigate(`/health-records?id=${params.recordId}`);
+          } else if (page === 'reminders' && params?.reminderId) {
+            navigate(`/reminders?id=${params.reminderId}`);
+          } else {
+            navigate(`/${page}`);
+          }
+        }}
+      />
+    </>
+  );
+}
 
 function AppContent() {
   const { isAuthenticated, isOnboardingComplete } = useAppStore();
@@ -38,7 +105,7 @@ function AppContent() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-50">
+    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/pets" element={<PetsPage />} />
@@ -56,6 +123,7 @@ function AppContent() {
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
       <Navigation />
+      <QuickActionsLayer />
     </div>
   );
 }
