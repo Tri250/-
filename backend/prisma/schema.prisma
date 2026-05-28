@@ -42,6 +42,7 @@ model Pet {
   reminders      Reminder[]
   conversations  AIConversation[]
   healthReports  HealthReport[]
+  emotionTranslations EmotionTranslation[]
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 }
@@ -176,4 +177,25 @@ model ManualBookmark {
   manualId  String
   manual    HealthManual  @relation(fields: [manualId], references: [id], onDelete: Cascade)
   createdAt DateTime      @default(now())
+}
+
+model EmotionTranslation {
+  id             String   @id @default(uuid())
+  userId         String
+  petId          String
+  pet            Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+  sourceType     String   // "voice" | "behavior" | "combined"
+  inputContent   String   // 原始输入描述
+  audioUrl       String?  // 音频文件URL（如果有）
+  audioDuration  Int?     // 音频时长（秒）
+  emotion        String   // 识别出的情绪
+  confidence     Float    // 置信度 0-100
+  translation    String   // 翻译结果
+  healthAlert    Boolean  @default(false)  // 是否存在健康风险预警
+  alertMessage   String?  // 预警信息
+  needsAttention Boolean  @default(false)  // 需要关注
+  createdAt      DateTime @default(now())
+
+  @@index([userId, petId])
+  @@index([petId, createdAt])
 }
