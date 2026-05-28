@@ -1,3 +1,11 @@
+// ============================================
+// PawSync Pro - AI健康咨询服务
+//
+// 作者: 带娃的小陈工
+// 日期: 2026-05-28
+// 描述: AI对话健康咨询、症状分析、专业建议生成
+// ============================================
+
 import type { AIMessage, AIConsultation, TrendReport, HealthReport } from '../types/ai-consultation';
 
 interface AIResponse {
