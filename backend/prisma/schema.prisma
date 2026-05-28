@@ -14,6 +14,8 @@ model User {
   name      String
   avatar    String?
   pets      Pet[]
+  healthRecords HealthRecord[]
+  healthReports HealthReport[]
   bookmarks ManualBookmark[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -25,20 +27,21 @@ model Pet {
   user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   name           String
   avatar         String?
-  type           PetType
+  type           String           // "DOG", "CAT", "OTHER"
   breed          String?
-  gender         PetGender
+  gender         String           // "MALE", "FEMALE"
   birthday       DateTime?
   weight         Float?
   color          String?
   characteristics String?
-  healthStatus   HealthStatus     @default(GOOD)
+  healthStatus   String           @default("GOOD") // "EXCELLENT", "GOOD", "FAIR", "CONCERN"
   healthRecords  HealthRecord[]
   vaccines       PetVaccine[]
   checkups       PetCheckup[]
   growthRecords  PetGrowth[]
   reminders      Reminder[]
   conversations  AIConversation[]
+  healthReports  HealthReport[]
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 }
@@ -49,11 +52,11 @@ model HealthRecord {
   user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   petId          String
   pet            Pet           @relation(fields: [petId], references: [id], onDelete: Cascade)
-  type           RecordType
-  title          String        @db.VarChar(100)
-  content        String        @db.VarChar(3000)
-  tags           String[]
-  attachments    String[]
+  type           String        // "TEXT", "VOICE", "PHOTO", "VIDEO", "FILE"
+  title          String
+  content        String
+  tags           String        // JSON array
+  attachments    String        // JSON array
   voiceDuration  Int?
   isImportant    Boolean       @default(false)
   recordDate     DateTime      @default(now())
@@ -63,7 +66,6 @@ model HealthRecord {
 
   @@index([userId, recordDate])
   @@index([userId, petId])
-  @@index([userId, type])
 }
 
 model PetVaccine {
@@ -86,7 +88,7 @@ model PetCheckup {
   weight      Float?
   vet         String?
   notes       String?
-  attachments String[]
+  attachments String   // JSON array
   createdAt   DateTime @default(now())
 }
 
@@ -105,12 +107,12 @@ model Reminder {
   id          String       @id @default(uuid())
   petId       String
   pet         Pet          @relation(fields: [petId], references: [id], onDelete: Cascade)
-  type        ReminderType
+  type        String       // "VACCINE", "DEWORMING", "CHECKUP", "BATH", "BRUSH_TEETH", "MEDICINE", "GROOMING", "CUSTOM"
   title       String
   notes       String?
   date        DateTime
   time        String
-  repeat      RepeatType
+  repeat      String       // "ONCE", "DAILY", "WEEKLY", "MONTHLY", "YEARLY"
   endDate     DateTime?
   isCompleted Boolean      @default(false)
   completedAt DateTime?
@@ -131,12 +133,12 @@ model AIConversation {
 }
 
 model Message {
-  id        String    @id @default(uuid())
+  id             String    @id @default(uuid())
   conversationId String
-  conversation AIConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  role      String // "user" or "assistant"
-  content   String
-  timestamp DateTime @default(now())
+  conversation   AIConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           String // "user" or "assistant"
+  content        String
+  timestamp      DateTime @default(now())
 }
 
 model HealthReport {
@@ -145,7 +147,7 @@ model HealthReport {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   petId     String
   pet       Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
-  content   String   @db.Text
+  content   String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -156,9 +158,9 @@ model HealthManual {
   id          String           @id @default(uuid())
   title       String
   content     String
-  category    ManualCategory
-  petType     PetType?
-  tags        String[]
+  category    String           // "NUTRITION", "CARE", "BEHAVIOR", "EMERGENCY", "TRAINING"
+  petType     String?
+  tags        String           // JSON array
   author      String?
   viewCount   Int              @default(0)
   isOfficial  Boolean          @default(true)
@@ -174,57 +176,4 @@ model ManualBookmark {
   manualId  String
   manual    HealthManual  @relation(fields: [manualId], references: [id], onDelete: Cascade)
   createdAt DateTime      @default(now())
-}
-
-enum PetType {
-  DOG
-  CAT
-  OTHER
-}
-
-enum PetGender {
-  MALE
-  FEMALE
-}
-
-enum HealthStatus {
-  EXCELLENT
-  GOOD
-  FAIR
-  CONCERN
-}
-
-enum RecordType {
-  TEXT
-  VOICE
-  PHOTO
-  VIDEO
-  FILE
-}
-
-enum ReminderType {
-  VACCINE
-  DEWORMING
-  CHECKUP
-  BATH
-  BRUSH_TEETH
-  MEDICINE
-  GROOMING
-  CUSTOM
-}
-
-enum RepeatType {
-  ONCE
-  DAILY
-  WEEKLY
-  MONTHLY
-  YEARLY
-}
-
-enum ManualCategory {
-  NUTRITION
-  CARE
-  BEHAVIOR
-  EMERGENCY
-  TRAINING
 }

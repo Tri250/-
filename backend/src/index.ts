@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { config } from './config';
-import { errorHandler, notFoundHandler } from './middleware';
+import { globalErrorHandler, notFoundHandler } from './middleware/error.middleware';
 import authRoutes from './routes/auth';
 import petRoutes from './routes/pets';
 import healthRecordRoutes from './routes/healthRecords';
@@ -29,7 +29,7 @@ app.get('/api/health', (req, res) => {
 });
 
 app.use(notFoundHandler);
-app.use(errorHandler);
+app.use(globalErrorHandler);
 
 app.listen(config.port, () => {
   console.log(`

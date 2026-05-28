@@ -40,3 +40,7 @@ export function authenticateToken(
     });
   }
 }
+
+// 导出 errorHandler 和 notFoundHandler 的别名
+import { globalErrorHandler, notFoundHandler as _notFoundHandler } from './error.middleware';
+export { globalErrorHandler as errorHandler, _notFoundHandler as notFoundHandler };
