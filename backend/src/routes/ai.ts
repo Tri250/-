@@ -4,7 +4,7 @@ import prisma from '../lib/prisma';
 import { authenticateToken } from '../middleware';
 import { validatePetOwnership, validatePetOwnershipFromBody } from '../middleware/permission.middleware';
 import { validateBody } from '../middleware/validation.middleware';
-import aiService from '../lib/ai-service';
+import petHealthAI from '../lib/ai-service';
 
 const router = Router();
 
@@ -47,7 +47,7 @@ router.post(
 
       const petInfo = formatPetInfo(pet);
 
-      const aiResponse = await aiService.chat(message, petInfo, conversationHistory);
+      const aiResponse = await petHealthAI.chat(message, petInfo, conversationHistory);
 
       if (!conversation) {
         conversation = await prisma.aIConversation.create({
@@ -81,6 +81,7 @@ router.post(
           reply: aiResponse.reply,
           messageId: aiResponse.messageId,
           timestamp: aiResponse.timestamp,
+          source: aiResponse.source,
         },
       });
     } catch (error) {
@@ -188,7 +189,7 @@ router.post(
 
       const petInfo = formatPetInfo(pet);
 
-      const reportContent = await aiService.generateReport(petInfo, {
+      const reportContent = await petHealthAI.generateReport(petInfo, {
         healthRecords,
         vaccines,
         checkups,
