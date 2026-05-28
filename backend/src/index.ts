@@ -2,6 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import { config } from './config';
 import { globalErrorHandler, notFoundHandler } from './middleware/error.middleware';
+import { requestLogger } from './middleware/logger.middleware';
+import healthRoutes from './routes/health';
 import authRoutes from './routes/auth';
 import petRoutes from './routes/pets';
 import healthRecordRoutes from './routes/healthRecords';
@@ -17,6 +19,8 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use('/uploads', express.static('uploads'));
 
+app.use(requestLogger);
+app.use('/api/health', healthRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/pets', petRoutes);
 app.use('/api/health-records', healthRecordRoutes);
@@ -24,7 +28,7 @@ app.use('/api/reminders', reminderRoutes);
 app.use('/api/manuals', manualRoutes);
 app.use('/api/ai', aiRoutes);
 
-app.get('/api/health', (req, res) => {
+app.get('/api/health-check', (req, res) => {
   res.json({ status: 'ok', message: 'PawSync Pro API 运行正常' });
 });
 
@@ -36,6 +40,7 @@ app.listen(config.port, () => {
   🚀 PawSync Pro API 服务器已启动!
   📍 本地访问: http://localhost:${config.port}
   🏥 健康检查: http://localhost:${config.port}/api/health
+  📊 日志监控: http://localhost:${config.port}/api/logs
   📚 API 文档: 详见 ARCHITECTURE.md
   `);
 });

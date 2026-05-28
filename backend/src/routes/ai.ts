@@ -5,6 +5,8 @@ import { authenticateToken } from '../middleware';
 import { validatePetOwnership, validatePetOwnershipFromBody } from '../middleware/permission.middleware';
 import { validateBody } from '../middleware/validation.middleware';
 import petHealthAI from '../lib/ai-service';
+import { HealthAnalyzer, formatHealthAnalysisReport } from '../lib/health-analyzer';
+import { exoticPetKnowledge } from '../lib/exotic-pet-knowledge';
 
 const router = Router();
 
@@ -72,7 +74,17 @@ router.post(
       // 构建完整上下文
       const petInfo = formatPetInfo(pet);
       const healthContext = buildHealthContext({ healthRecords, vaccines, checkups, growthRecords });
-      const fullContext = petInfo + '\n\n' + healthContext;
+      
+      // 检索异宠专业知识（如果是异宠）
+      let exoticKnowledgeContext = '';
+      if (['仓鼠', '兔子', '鸟', '鹦鹉', '蜥蜴', '龟', '鱼', 'OTHER'].includes(pet.type)) {
+        const exoticKnowledge = exoticPetKnowledge.search(message, pet.type);
+        if (exoticKnowledge.length > 0) {
+          exoticKnowledgeContext = '\n\n【异宠专业知识参考】\n' + exoticPetKnowledge.formatAsContext(exoticKnowledge);
+        }
+      }
+      
+      const fullContext = petInfo + '\n\n' + healthContext + exoticKnowledgeContext;
 
       const aiResponse = await petHealthAI.chat(message, fullContext, conversationHistory);
 
@@ -215,15 +227,41 @@ router.post(
         }),
       ]);
 
+      // 执行健康数据分析
+      const healthAnalyzer = new HealthAnalyzer(pet.type, pet.breed);
+      const healthAnalysis = healthAnalyzer.analyze(
+        healthRecords.map(r => ({
+          ...r,
+          recordDate: new Date(r.recordDate),
+        })),
+        vaccines.map(v => ({
+          ...v,
+          date: new Date(v.date),
+          nextDate: v.nextDate ? new Date(v.nextDate) : undefined,
+        })),
+        checkups.map(c => ({
+          ...c,
+          date: new Date(c.date),
+        })),
+        growthRecords.map(g => ({
+          ...g,
+          date: new Date(g.date),
+        }))
+      );
+
+      // 格式化健康分析报告
+      const healthAnalysisReport = formatHealthAnalysisReport(healthAnalysis);
+
       const petInfo = formatPetInfo(pet);
       const healthContext = buildHealthContext({ healthRecords, vaccines, checkups, growthRecords });
-      const fullContext = petInfo + '\n\n' + healthContext;
+      const fullContext = petInfo + '\n\n' + healthContext + healthAnalysisReport;
 
       const reportContent = await petHealthAI.generateReport(fullContext, {
         healthRecords,
         vaccines,
         checkups,
         growthRecords,
+        healthAnalysis,
       });
 
       const report = await prisma.healthReport.create({
@@ -240,6 +278,7 @@ router.post(
           reportId: report.id,
           content: reportContent,
           createdAt: report.createdAt,
+          analysis: healthAnalysis,
         },
       });
     } catch (error) {

@@ -91,34 +91,201 @@ export class TokenCounter {
 }
 
 class ContentAuditor {
-  private dangerousPatterns = [
+  // 危险注入模式
+  private injectionPatterns = [
     /ignore.*instruction/i,
     /forget.*previous/i,
     /disregard.*rules/i,
-    /password|secret|api.*key/i,
-    /hack|attack|exploit/i,
+    /disregard.*all.*previous/i,
+    /ignore.*all.*rules/i,
+    /you.*are.*now.*(not|different)/i,
+    /forget.*everything/i,
+    /new.*system.*prompt/i,
+    /override.*your.*(instruction|programming)/i,
+    /ignore.*(your|all).*previous/i,
+    /pretend.*(to be|you are)/i,
+    /role.*play.*(as|different)/i,
+    /disconnect.*(the|from).*(safety|restriction)/i,
   ];
-  
+
+  // 敏感信息泄露模式
+  private sensitivePatterns = [
+    /password/i,
+    /secret/i,
+    /api.*key/i,
+    /private.*key/i,
+    /token/i,
+    /credential/i,
+    /database.*(connection|uri|url)/i,
+    /\b(SELECT|INSERT|UPDATE|DELETE|DROP|ALTER)\b.*\b(FROM|INTO|WHERE|TABLE|DATABASE)\b/i,
+  ];
+
+  // 恶意代码模式
+  private maliciousPatterns = [
+    /hack/i,
+    /attack/i,
+    /exploit/i,
+    /virus/i,
+    /malware/i,
+    /phishing/i,
+    /sql.*injection/i,
+    /xss/i,
+    /csrf/i,
+    /buffer.*overflow/i,
+    /backdoor/i,
+  ];
+
+  // 违规医疗内容模式
   private medicalViolationPatterns = [
-    /确诊.*病/i,
-    /处方.*药/i,
-    /开.*药.*治疗/i,
+    /确诊.*(病|疾病|癌症|肿瘤)/i,
+    /处方.*(药|药物|药名)/i,
+    /开.*(药|处方)/i,
+    /治疗.*(癌症|肿瘤|艾滋病|新冠)/i,
+    /推荐.*(处方药|处方药物)/i,
+    /给我.*(药方|处方|药名)/i,
   ];
-  
-  checkInput(content: string): { safe: boolean; reason?: string } {
-    for (const pattern of this.dangerousPatterns) {
+
+  // 人类医疗内容模式（宠物AI应该避免）
+  private humanMedicalPatterns = [
+    /人类.*(心脏病|糖尿病|高血压|癌症|肿瘤)/i,
+    /成人.*(用药|剂量|药物)/i,
+    /人用.*(药物|药品|药)/i,
+    /人类.*(手术|化疗|放疗)/i,
+    /人类医学/i,
+  ];
+
+  // 暴力色情内容模式
+  private violencePornPatterns = [
+    /暴力/i,
+    /色情/i,
+    /赌博/i,
+    /毒品/i,
+    /自杀/i,
+    /自残/i,
+  ];
+
+  // 违规关键词库
+  private violationKeywords = [
+    '处方药', '药方', '确诊', '开药', '人类医学',
+    '赌场', '赌博', '毒品', '吸毒',
+  ];
+
+  // 检查输入内容安全性
+  checkInput(content: string): { safe: boolean; reason?: string; category?: string } {
+    // 检查注入攻击
+    for (const pattern of this.injectionPatterns) {
       if (pattern.test(content)) {
-        return { safe: false, reason: '输入包含不安全内容' };
+        return { 
+          safe: false, 
+          reason: '输入包含不安全的指令尝试，已被拦截',
+          category: 'injection_attempt'
+        };
       }
     }
+
+    // 检查敏感信息
+    for (const pattern of this.sensitivePatterns) {
+      if (pattern.test(content)) {
+        return { 
+          safe: false, 
+          reason: '输入包含敏感信息关键词，已被拦截',
+          category: 'sensitive_info'
+        };
+      }
+    }
+
+    // 检查恶意代码
+    for (const pattern of this.maliciousPatterns) {
+      if (pattern.test(content)) {
+        return { 
+          safe: false, 
+          reason: '输入包含可疑关键词，已被拦截',
+          category: 'malicious_content'
+        };
+      }
+    }
+
+    // 检查违规医疗内容
+    for (const pattern of this.medicalViolationPatterns) {
+      if (pattern.test(content)) {
+        return { 
+          safe: false, 
+          reason: '您的请求涉及违规医疗内容，AI顾问无法提供此类帮助',
+          category: 'medical_violation'
+        };
+      }
+    }
+
+    // 检查人类医疗内容
+    for (const pattern of this.humanMedicalPatterns) {
+      if (pattern.test(content)) {
+        return { 
+          safe: false, 
+          reason: 'AI顾问专注于宠物健康，不提供人类医疗建议',
+          category: 'human_medical'
+        };
+      }
+    }
+
+    // 检查暴力色情内容
+    for (const pattern of this.violencePornPatterns) {
+      if (pattern.test(content)) {
+        return { 
+          safe: false, 
+          reason: '输入包含不当内容，已被拦截',
+          category: 'inappropriate_content'
+        };
+      }
+    }
+
+    // 检查违规关键词
+    for (const keyword of this.violationKeywords) {
+      if (content.includes(keyword)) {
+        return { 
+          safe: false, 
+          reason: '输入包含不当关键词，已被拦截',
+          category: 'violation_keyword'
+        };
+      }
+    }
+
     return { safe: true };
   }
-  
-  checkOutput(content: string): boolean {
-    for (const pattern of this.dangerousPatterns) {
-      if (pattern.test(content)) return false;
+
+  // 检查输出内容安全性
+  checkOutput(content: string): { safe: boolean; reason?: string; violations?: string[] } {
+    const violations: string[] = [];
+
+    // 检查危险模式
+    for (const pattern of this.injectionPatterns) {
+      if (pattern.test(content)) {
+        violations.push('可能包含指令注入内容');
+      }
     }
-    return true;
+
+    // 检查敏感信息泄露
+    for (const pattern of this.sensitivePatterns) {
+      if (pattern.test(content)) {
+        violations.push('可能泄露敏感信息');
+      }
+    }
+
+    // 检查违规医疗内容
+    for (const pattern of this.medicalViolationPatterns) {
+      if (pattern.test(content)) {
+        violations.push('可能包含违规医疗建议');
+      }
+    }
+
+    if (violations.length > 0) {
+      return { 
+        safe: false, 
+        reason: '输出内容检测到异常',
+        violations 
+      };
+    }
+
+    return { safe: true };
   }
   
   sanitizeOutput(content: string, type: 'chat' | 'report' = 'chat'): string {
