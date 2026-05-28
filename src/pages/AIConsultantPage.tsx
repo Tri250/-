@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Paperclip, Sparkles, MessageCircle, Clock, FileText } from 'lucide-react';
+import { Send, Paperclip, Sparkles, MessageCircle, Clock, FileText, ChevronLeft, Bot, BarChart3 } from 'lucide-react';
 import { Card } from '../components/DesignSystem/Card';
 
 interface ChatMessage {
@@ -10,6 +10,10 @@ interface ChatMessage {
   content: string;
   suggestions?: string[];
   createdAt: string;
+}
+
+interface AIConsultantPageProps {
+  onNavigate?: (page: string) => void;
 }
 
 const quickQuestions = [
@@ -34,7 +38,7 @@ const mockResponses: Record<string, { content: string; suggestions: string[] }> 
   },
 };
 
-export default function AIConsultantPage() {
+export default function AIConsultantPage({ onNavigate }: AIConsultantPageProps = {}) {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: '1',
@@ -85,7 +89,41 @@ export default function AIConsultantPage() {
   };
 
   const handleQuickQuestion = (question: string) => {
-    setInputValue(question);
+    if (!inputValue.trim()) {
+      const userMessage: ChatMessage = {
+        id: `msg-${Date.now()}`,
+        role: 'user',
+        content: question,
+        createdAt: new Date().toISOString(),
+      };
+
+      setMessages([...messages, userMessage]);
+      setIsTyping(true);
+
+      setTimeout(() => {
+        const response = mockResponses[question] || mockResponses.default;
+        const assistantMessage: ChatMessage = {
+          id: `msg-${Date.now()}-response`,
+          role: 'assistant',
+          content: response.content,
+          suggestions: response.suggestions,
+          createdAt: new Date().toISOString(),
+        };
+        setMessages((prev) => [...prev, assistantMessage]);
+        setIsTyping(false);
+      }, 1500);
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInputValue(e.target.value);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
   };
 
   const formatTime = (dateString: string) => {
@@ -97,9 +135,27 @@ export default function AIConsultantPage() {
     <div className="min-h-screen bg-neutral-50 flex flex-col">
       {/* 头部 */}
       <div className="bg-white shadow-sm">
-        <div className="px-4 py-4">
-          <h1 className="text-xl font-bold text-neutral-800">AI健康顾问</h1>
-          <p className="text-sm text-neutral-500 mt-1">专业宠物健康咨询服务</p>
+        <div className="px-4 py-4 flex items-center gap-4">
+          {onNavigate && (
+            <button 
+              onClick={() => onNavigate('home')}
+              className="p-2 -ml-2 rounded-full hover:bg-neutral-100 transition-colors"
+            >
+              <ChevronLeft className="w-6 h-6 text-neutral-600" />
+            </button>
+          )}
+          <div className="flex-1">
+            <h1 className="text-xl font-bold text-neutral-800">AI健康顾问</h1>
+            <p className="text-sm text-neutral-500 mt-1">专业宠物健康咨询服务</p>
+          </div>
+          {onNavigate && (
+            <button 
+              className="p-2 rounded-full hover:bg-neutral-100 transition-colors"
+              onClick={() => onNavigate('health-analytics')}
+            >
+              <BarChart3 className="w-5 h-5 text-neutral-600" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -225,8 +281,8 @@ export default function AIConsultantPage() {
           <input
             type="text"
             value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+            onChange={handleInputChange}
+            onKeyDown={handleKeyDown}
             className="flex-1 px-4 py-2.5 rounded-xl border border-neutral-200 focus:outline-none focus:ring-2 focus:ring-primary-500"
             placeholder="输入您的问题..."
           />
