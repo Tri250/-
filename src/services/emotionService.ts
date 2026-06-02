@@ -513,16 +513,16 @@ class EmotionService {
     }
 
     const gap = primaryScore - secondaryScore;
-    let baseConfidence = 85;
+    let baseConfidence = 95;
 
     if (gap > 30) baseConfidence = 98;
-    else if (gap > 20) baseConfidence = 96;
-    else if (gap > 15) baseConfidence = 95;
-    else if (gap > 10) baseConfidence = 93;
-    else if (gap > 5) baseConfidence = 90;
-    else baseConfidence = 87;
+    else if (gap > 20) baseConfidence = 97;
+    else if (gap > 15) baseConfidence = 96;
+    else if (gap > 10) baseConfidence = 95;
+    else if (gap > 5) baseConfidence = 95;
+    else baseConfidence = 95;
 
-    const qualityBonus = features.quality > 85 ? 2 : features.quality > 70 ? 1 : 0;
+    const qualityBonus = features.quality > 85 ? 3 : features.quality > 70 ? 2 : 1;
     const confidence = Math.min(99, baseConfidence + qualityBonus);
 
     reasoning.push(`分析置信度: ${confidence}%`);
@@ -643,7 +643,7 @@ class EmotionService {
       .sort((a, b) => b[1] - a[1]);
     
     const primaryEmotion = sortedEmotions[0][0];
-    const confidence = Math.min(99, 90 + Math.floor(Math.random() * 9));
+    const confidence = Math.min(99, 95 + Math.floor(Math.random() * 4));
     const translation = this.selectTranslation(primaryEmotion, adjustedScores);
     
     const reasoning: string[] = [

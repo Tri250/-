@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  ChevronLeft, 
-  Mic, 
-  MicOff, 
-  Volume2, 
-  VolumeX, 
-  Maximize2, 
+import {
+  ChevronLeft,
+  Mic,
+  MicOff,
+  Volume2,
+  VolumeX,
+  Maximize2,
   ZoomIn,
   ZoomOut,
   ChevronUp,
@@ -22,6 +22,7 @@ import {
 import { GlassCard, GlassModal } from '../components/DesignSystem';
 import { cameraAdapterService } from '../services/cameraAdapterService';
 import { DevicePairing } from '../components/camera/DevicePairing';
+import { useCameraStore } from '../store/cameraStore';
 import type { CameraDevice } from '../types/camera';
 
 interface CameraMonitorPageProps {
@@ -29,7 +30,7 @@ interface CameraMonitorPageProps {
 }
 
 export const CameraMonitorPage: React.FC<CameraMonitorPageProps> = ({ onNavigate }) => {
-  const [cameras, setCameras] = useState<CameraDevice[]>([]);
+  const { devices, addDevice, loadDevices } = useCameraStore();
   const [selectedCamera, setSelectedCamera] = useState<CameraDevice | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
@@ -41,12 +42,18 @@ export const CameraMonitorPage: React.FC<CameraMonitorPageProps> = ({ onNavigate
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'streaming' | 'error'>('connecting');
 
   useEffect(() => {
-    cameraAdapterService.getDevices().then((devices) => {
-      setCameras(devices);
-      if (devices.length > 0) {
-        setSelectedCamera(devices[0]);
+    const initializeDevices = async () => {
+      await loadDevices();
+      const adapterDevices = await cameraAdapterService.getDevices();
+      if (adapterDevices.length > 0 && devices.length === 0) {
+        adapterDevices.forEach(device => addDevice(device));
       }
-    });
+      if (devices.length > 0 || adapterDevices.length > 0) {
+        const allDevices = devices.length > 0 ? devices : adapterDevices;
+        setSelectedCamera(allDevices[0]);
+      }
+    };
+    initializeDevices();
   }, []);
 
   useEffect(() => {
@@ -77,7 +84,7 @@ export const CameraMonitorPage: React.FC<CameraMonitorPageProps> = ({ onNavigate
   };
 
   const handleDevicePaired = async (device: CameraDevice) => {
-    setCameras(prev => [...prev, device]);
+    addDevice(device);
     setSelectedCamera(device);
     setShowPairingModal(false);
     setConnectionStatus('connecting');
@@ -325,7 +332,7 @@ export const CameraMonitorPage: React.FC<CameraMonitorPageProps> = ({ onNavigate
 
       <GlassModal isOpen={showCameraList} onClose={() => setShowCameraList(false)} title="选择摄像头">
         <div className="space-y-2">
-          {cameras.map((camera) => (
+          {devices.map((camera) => (
             <button
               key={camera.id}
               onClick={() => {
