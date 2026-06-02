@@ -1,12 +1,12 @@
 // ============================================
 // PawSync Pro - App.tsx
-// 
+//
 // 作者: 带娃的小陈工
 // 日期: 2026-05-26
 // 描述: 应用主入口组件
 // ============================================
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Navigation } from './components/Navigation';
 import { HomePage } from './pages/HomePage';
 import { TranslatorPage } from './pages/TranslatorPage';
@@ -34,25 +34,78 @@ import { FavoritesPage } from './pages/FavoritesPage';
 import { HelpFeedbackPage } from './pages/HelpFeedbackPage';
 import { DeveloperInfoPage } from './pages/DeveloperInfoPage';
 import { useAppStore } from './store/appStore';
+import { PawPrint } from 'lucide-react';
+
+function LoadingScreen({ progress, message }: { progress: number; message: string }) {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-peach-50 flex flex-col items-center justify-center p-4">
+      <div className="w-24 h-24 bg-gradient-to-br from-orange-400 to-peach-500 rounded-full flex items-center justify-center mb-6 shadow-lg animate-pulse">
+        <PawPrint className="w-12 h-12 text-white" />
+      </div>
+      <h1 className="text-2xl font-bold text-gray-800 mb-2">PawSync Pro</h1>
+      <p className="text-gray-500 mb-8">爪印同频 · 守护版</p>
+      
+      <div className="w-64 bg-gray-100 rounded-full h-2 mb-4 overflow-hidden">
+        <div 
+          className="bg-gradient-to-r from-orange-400 to-peach-500 h-full rounded-full transition-all duration-300 ease-out"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+      
+      <p className="text-sm text-gray-600 font-medium">{message}</p>
+      
+      {progress < 100 && (
+        <div className="flex items-center gap-2 mt-4">
+          <div className="w-2 h-2 rounded-full bg-orange-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+          <div className="w-2 h-2 rounded-full bg-orange-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+          <div className="w-2 h-2 rounded-full bg-orange-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState('home');
-  const { isAuthenticated, isOnboardingComplete, login, register, completeOnboarding } = useAppStore();
+  const { 
+    isAuthenticated, 
+    isOnboardingComplete, 
+    isInitialized, 
+    initProgress, 
+    initMessage,
+    initializeApp,
+    settings
+  } = useAppStore();
+
+  useEffect(() => {
+    if (!isInitialized) {
+      initializeApp();
+    }
+  }, [isInitialized, initializeApp]);
+
+  useEffect(() => {
+    if (settings.darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [settings.darkMode]);
 
   const handleAuthSuccess = () => {
-    // 认证成功，状态已在store中更新
   };
 
   const handleOnboardingComplete = () => {
-    completeOnboarding();
+    useAppStore.getState().completeOnboarding();
   };
 
-  // 未登录显示认证页面
+  if (!isInitialized) {
+    return <LoadingScreen progress={initProgress} message={initMessage} />;
+  }
+
   if (!isAuthenticated) {
     return <AuthPage onSuccess={handleAuthSuccess} />;
   }
 
-  // 已登录但未完成引导，显示引导页面
   if (!isOnboardingComplete) {
     return <OnboardingPage onComplete={handleOnboardingComplete} />;
   }
@@ -113,7 +166,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-50">
+    <div className={`min-h-screen ${settings.darkMode ? 'bg-gray-900' : 'bg-neutral-50'}`}>
       {renderPage()}
       <Navigation currentPage={currentPage} onNavigate={setCurrentPage} />
     </div>

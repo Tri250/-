@@ -1,11 +1,126 @@
-import type { AIMessage, ConversationContext } from '../types/ai-consultation';
-import { SYMPTOM_KEYWORDS, INTENT_KEYWORDS } from '../types/ai-consultation';
+import type { AIMessage, ConversationContext, ImageAnalysisResult, VoiceRecognitionResult, InputValidationResult } from '../types/ai-consultation';
+import { SYMPTOM_KEYWORDS, INTENT_KEYWORDS, AMBIGUOUS_KEYWORDS, MULTI_INTENT_INDICATORS, INTERNET_SLANG, DIALECT_EXPRESSIONS, INPUT_VALIDATION_CONFIG, PROHIBITED_CONTENT_PATTERNS, MULTILINGUAL_CONFIG } from '../types/ai-consultation';
 
 interface AIResponse {
   content: string;
   confidence: number;
   source?: string;
+  needsClarification?: boolean;
+  clarificationQuestion?: string;
+  detectedIntents?: string[];
+  isMultiIntent?: boolean;
+  imageAnalysis?: ImageAnalysisResult;
+  voiceResult?: VoiceRecognitionResult;
 }
+
+interface IntentAnalysisResult {
+  intents: string[];
+  isAmbiguous: boolean;
+  ambiguityReason?: string;
+  isMultiIntent: boolean;
+  processedMessage: string;
+  detectedSlang: string[];
+  detectedDialect: string[];
+}
+
+interface ColloquialPattern {
+  pattern: RegExp;
+  standardForm: string;
+  category: 'slang' | 'dialect' | 'abbreviation' | 'emotional' | 'internet';
+  contextHint?: string;
+}
+
+const colloquialPatterns: ColloquialPattern[] = [
+  { pattern: /拉垮|拉跨/gi, standardForm: '不好/质量差', category: 'slang' },
+  { pattern: /绝了|绝绝子/gi, standardForm: '非常好/很厉害', category: 'slang' },
+  { pattern: /无语|无语子/gi, standardForm: '无语/无奈', category: 'slang' },
+  { pattern: /破防/gi, standardForm: '受不了/崩溃', category: 'slang' },
+  { pattern: /躺平/gi, standardForm: '不想动/懒洋洋', category: 'slang' },
+  { pattern: /摆烂/gi, standardForm: '放弃/不努力', category: 'slang' },
+  { pattern: /emo/gi, standardForm: '情绪低落/抑郁', category: 'slang' },
+  { pattern: /芭比Q|芭比q/gi, standardForm: '完了/完蛋了', category: 'slang' },
+  { pattern: /栓Q|栓q/gi, standardForm: '谢谢', category: 'slang' },
+  { pattern: /达咩|哒咩/gi, standardForm: '不行/拒绝', category: 'slang' },
+  { pattern: /冲鸭|冲冲冲/gi, standardForm: '加油/努力', category: 'slang' },
+  { pattern: /奥利给/gi, standardForm: '加油/给力', category: 'slang' },
+  { pattern: /666|六六六/gi, standardForm: '厉害/很棒', category: 'slang' },
+  { pattern: /yyds/gi, standardForm: '最好的/永远的神', category: 'slang' },
+  { pattern: /咱就是说/gi, standardForm: '就是说', category: 'slang' },
+  { pattern: /一整个/gi, standardForm: '完全/整个', category: 'slang' },
+  { pattern: /家人们|集美们|宝子们/gi, standardForm: '大家/各位', category: 'slang' },
+  { pattern: /萌萌哒|可爱死了/gi, standardForm: '很可爱', category: 'slang' },
+  { pattern: /爱了爱了|心动了/gi, standardForm: '很喜欢', category: 'slang' },
+  { pattern: /安利/gi, standardForm: '推荐', category: 'slang' },
+  { pattern: /踩雷/gi, standardForm: '遇到不好的', category: 'slang' },
+  { pattern: /翻车/gi, standardForm: '失败/出问题', category: 'slang' },
+  { pattern: /打call/gi, standardForm: '支持/加油', category: 'slang' },
+  { pattern: /狗头|狗头保命/gi, standardForm: '开玩笑/调侃', category: 'slang' },
+  { pattern: /捂脸|汗|汗颜/gi, standardForm: '尴尬/不好意思', category: 'slang' },
+  { pattern: /笑哭|哭晕在厕所/gi, standardForm: '无奈/哭笑不得', category: 'slang' },
+  { pattern: /宝藏/gi, standardForm: '很好的发现', category: 'slang' },
+  { pattern: /天花板/gi, standardForm: '最高级别/最好', category: 'slang' },
+  { pattern: /绝绝子|神了|神仙/gi, standardForm: '非常好', category: 'slang' },
+  { pattern: /牛批|牛逼|牛/gi, standardForm: '厉害', category: 'slang' },
+  { pattern: /给力|赞|好评/gi, standardForm: '好/很好', category: 'slang' },
+  { pattern: /咋了|咋回事/gi, standardForm: '怎么了/怎么回事', category: 'dialect' },
+  { pattern: /咋办|咋整|咋弄/gi, standardForm: '怎么办', category: 'dialect' },
+  { pattern: /咋治/gi, standardForm: '怎么治', category: 'dialect' },
+  { pattern: /咋样/gi, standardForm: '怎么样', category: 'dialect' },
+  { pattern: /啥事|啥情况/gi, standardForm: '什么事/什么情况', category: 'dialect' },
+  { pattern: /啥意思/gi, standardForm: '什么意思', category: 'dialect' },
+  { pattern: /啥问题|啥毛病/gi, standardForm: '什么问题/什么毛病', category: 'dialect' },
+  { pattern: /啥病|啥症状/gi, standardForm: '什么病/什么症状', category: 'dialect' },
+  { pattern: /啥原因/gi, standardForm: '什么原因', category: 'dialect' },
+  { pattern: /啥时候/gi, standardForm: '什么时候', category: 'dialect' },
+  { pattern: /啥地方|啥位置/gi, standardForm: '什么地方/什么位置', category: 'dialect' },
+  { pattern: /俺家|俺的/gi, standardForm: '我家/我的', category: 'dialect' },
+  { pattern: /咱家|咱的/gi, standardForm: '我家/我的', category: 'dialect' },
+  { pattern: /偶家|偶的/gi, standardForm: '我家/我的', category: 'dialect' },
+  { pattern: /阿拉家|阿拉的/gi, standardForm: '我们家/我们的', category: 'dialect' },
+  { pattern: /唔好|唔行/gi, standardForm: '不好/不行', category: 'dialect' },
+  { pattern: /唔知|唔懂/gi, standardForm: '不知道/不懂', category: 'dialect' },
+  { pattern: /唔清楚/gi, standardForm: '不清楚', category: 'dialect' },
+  { pattern: /唔太清楚|唔太明白/gi, standardForm: '不太清楚/不太明白', category: 'dialect' },
+  { pattern: /有点儿|有点点/gi, standardForm: '有一点', category: 'abbreviation' },
+  { pattern: /稍微有点|略微有点/gi, standardForm: '有一点', category: 'abbreviation' },
+  { pattern: /不怎么|不太怎么/gi, standardForm: '不太', category: 'abbreviation' },
+  { pattern: /挺严重的|蛮严重的/gi, standardForm: '很严重', category: 'emotional' },
+  { pattern: /特别严重|非常严重/gi, standardForm: '很严重', category: 'emotional' },
+  { pattern: /超级严重|严重死了/gi, standardForm: '非常严重', category: 'emotional' },
+  { pattern: /好严重|严重得很/gi, standardForm: '很严重', category: 'emotional' },
+  { pattern: /挺担心|蛮担心/gi, standardForm: '很担心', category: 'emotional' },
+  { pattern: /特别担心|非常担心/gi, standardForm: '很担心', category: 'emotional' },
+  { pattern: /超级担心|担心死了/gi, standardForm: '非常担心', category: 'emotional' },
+  { pattern: /好担心|担心得很/gi, standardForm: '很担心', category: 'emotional' },
+  { pattern: /挺着急|蛮着急/gi, standardForm: '很着急', category: 'emotional' },
+  { pattern: /特别着急|非常着急/gi, standardForm: '很着急', category: 'emotional' },
+  { pattern: /着急死了|急死了/gi, standardForm: '非常着急', category: 'emotional' },
+  { pattern: /好着急|着急得很/gi, standardForm: '很着急', category: 'emotional' },
+  { pattern: /心疼死了|心疼得很/gi, standardForm: '非常心疼', category: 'emotional' },
+  { pattern: /好心疼|挺心疼/gi, standardForm: '很心疼', category: 'emotional' },
+  { pattern: /吓死了|吓坏了/gi, standardForm: '很害怕', category: 'emotional' },
+  { pattern: /吓死我了|吓死个人/gi, standardForm: '很害怕', category: 'emotional' },
+  { pattern: /吓得不轻|吓了一跳/gi, standardForm: '很害怕', category: 'emotional' },
+];
+
+const imageAnalysisPatterns = {
+  skinIssues: ['红肿', '脱毛', '皮屑', '结痂', '溃疡', '疙瘩', '疹子', '斑点', '色素沉着', '皮肤变色'],
+  eyeIssues: ['眼红', '流泪', '眼屎', '眼睛睁不开', '眼睛浑浊', '瞳孔异常', '眼睑异常', '眼球突出'],
+  earIssues: ['耳朵红', '耳朵肿', '耳垢多', '耳朵分泌物', '耳朵异味', '耳血肿'],
+  mouthIssues: ['牙龈红', '牙龈出血', '牙齿松动', '口腔溃疡', '舌头异常', '口臭'],
+  bodyIssues: ['肿块', '包块', '肿胀', '淤血', '伤口', '骨折', '变形', '不对称'],
+  behaviorIssues: ['姿势异常', '走路异常', '站立困难', '躺卧异常', '表情异常'],
+  foodIssues: ['食物变质', '食物颜色异常', '食物气味异常', '食物形状异常'],
+  environmentIssues: ['环境脏乱', '环境危险', '环境不适', '温度异常', '湿度异常'],
+};
+
+const voiceKeywordPatterns = {
+  symptoms: ['不舒服', '难受', '疼', '痛', '痒', '吐', '拉', '咳', '喘', '抖', '抽', '晕', '昏', '烧', '热', '冷'],
+  emotions: ['担心', '着急', '害怕', '紧张', '焦虑', '心疼', '难过', '着急', '急', '慌'],
+  urgency: ['紧急', '急', '马上', '立即', '赶紧', '赶快', '快', '立刻', '等不及', '来不及'],
+  actions: ['看', '查', '检查', '观察', '摸', '量', '测', '拍', '照', '问', '咨询'],
+  petTypes: ['猫', '狗', '猫咪', '狗狗', '小狗', '大狗', '小猫', '大猫', '宠物', '毛孩子'],
+};
 
 interface HealthKnowledgeBase {
   symptoms: Record<string, {
@@ -500,7 +615,241 @@ const healthKnowledgeBase: HealthKnowledgeBase = {
 export class AIConsultationService {
   private consultations: Map<string, AIMessage[]> = new Map();
 
-  private matchesSynonym(question: string, synonyms: string[]): boolean {
+  validateInput(content: string, attachments?: { type: string; size?: number }[]): InputValidationResult {
+    const errors: string[] = [];
+    const warnings: string[] = [];
+    const prohibitedCategories: string[] = [];
+    
+    if (!content || content.trim().length === 0) {
+      if (!attachments || attachments.length === 0) {
+        errors.push('输入内容不能为空');
+        return {
+          isValid: false,
+          errors,
+          warnings,
+          hasProhibitedContent: false,
+          prohibitedCategories: [],
+          contentLength: 0,
+        };
+      }
+    }
+    
+    const trimmedContent = content.trim();
+    const contentLength = trimmedContent.length;
+    
+    if (contentLength < INPUT_VALIDATION_CONFIG.minLength && contentLength > 0) {
+      errors.push(`输入内容太短，至少需要${INPUT_VALIDATION_CONFIG.minLength}个字符`);
+    }
+    
+    if (contentLength > INPUT_VALIDATION_CONFIG.maxLength) {
+      errors.push(`输入内容太长，最多允许${INPUT_VALIDATION_CONFIG.maxLength}个字符`);
+    }
+    
+    if (attachments && attachments.length > INPUT_VALIDATION_CONFIG.maxAttachments) {
+      errors.push(`附件数量超出限制，最多允许${INPUT_VALIDATION_CONFIG.maxAttachments}个附件`);
+    }
+    
+    if (attachments) {
+      for (const attachment of attachments) {
+        if (attachment.type.startsWith('image/') && !INPUT_VALIDATION_CONFIG.allowedImageTypes.includes(attachment.type)) {
+          errors.push(`不支持的图片格式：${attachment.type}`);
+        }
+        if (attachment.type.startsWith('audio/') && !INPUT_VALIDATION_CONFIG.allowedAudioTypes.includes(attachment.type)) {
+          errors.push(`不支持的音频格式：${attachment.type}`);
+        }
+        if (attachment.size && attachment.size > INPUT_VALIDATION_CONFIG.maxAttachmentSize) {
+          errors.push(`附件大小超出限制：${Math.round(attachment.size / 1024 / 1024)}MB，最大允许${INPUT_VALIDATION_CONFIG.maxAttachmentSize / 1024 / 1024}MB`);
+        }
+      }
+    }
+    
+    for (const prohibited of PROHIBITED_CONTENT_PATTERNS) {
+      if (prohibited.pattern.test(trimmedContent)) {
+        prohibitedCategories.push(prohibited.category);
+        if (prohibited.severity === 'high') {
+          errors.push(`内容包含禁止的敏感内容（${prohibited.category}）`);
+        } else if (prohibited.severity === 'medium') {
+          warnings.push(`内容可能包含不适当内容（${prohibited.category}）`);
+        } else {
+          warnings.push(`内容包含可能不合适的内容（${prohibited.category}）`);
+        }
+      }
+    }
+    
+    const garbagePattern = /^[\s\u0000-\u001F\u007F-\u009F\u2000-\u20FF\uFF00-\uFFEF]*$/;
+    if (garbagePattern.test(trimmedContent) && contentLength > 0) {
+      errors.push('输入内容包含无效字符或乱码');
+    }
+    
+    const repeatedPattern = /^(.)\1{50,}$/;
+    if (repeatedPattern.test(trimmedContent)) {
+      errors.push('输入内容包含大量重复字符，可能是无效输入');
+    }
+    
+    const controlChars = trimmedContent.match(/[\u0000-\u001F\u007F-\u009F]/g);
+    if (controlChars && controlChars.length > 5) {
+      warnings.push('输入内容包含控制字符，已自动清理');
+    }
+    
+    let sanitizedContent = trimmedContent
+      .replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    
+    const detectedLanguage = this.detectLanguage(sanitizedContent);
+    
+    const isValid = errors.length === 0;
+    const hasProhibitedContent = prohibitedCategories.length > 0;
+    
+    return {
+      isValid,
+      errors,
+      warnings,
+      sanitizedContent: isValid ? sanitizedContent : undefined,
+      detectedLanguage,
+      hasProhibitedContent,
+      prohibitedCategories,
+      contentLength,
+    };
+  }
+
+  detectLanguage(content: string): string {
+    if (!content || content.trim().length === 0) {
+      return MULTILINGUAL_CONFIG.defaultLanguage;
+    }
+    
+    const trimmedContent = content.trim();
+    
+    for (const [language, patterns] of Object.entries(MULTILINGUAL_CONFIG.languageDetectionPatterns)) {
+      const [charPattern, keywordPattern] = patterns;
+      if (charPattern.test(trimmedContent) && keywordPattern.test(trimmedContent)) {
+        return language;
+      }
+    }
+    
+    if (/[\u4e00-\u9fa5]/.test(trimmedContent)) {
+      return 'zh-CN';
+    }
+    
+    if (/^[a-zA-Z\s,.!?'"()-]+$/.test(trimmedContent)) {
+      return 'en-US';
+    }
+    
+    if (/[\u3040-\u309f\u30a0-\u30ff]/.test(trimmedContent)) {
+      return 'ja';
+    }
+    
+    if (/[\uac00-\ud7af]/.test(trimmedContent)) {
+      return 'ko';
+    }
+    
+    return MULTILINGUAL_CONFIG.defaultLanguage;
+  }
+
+  sanitizeInput(content: string): string {
+    return content
+      .replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
+      .replace(/\u200B/g, '')
+      .replace(/\uFEFF/g, '')
+      .replace(/\s+/g, ' ')
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+      .replace(/javascript:/gi, '')
+      .replace(/on\w+\s*=/gi, '')
+      .trim()
+      .substring(0, INPUT_VALIDATION_CONFIG.maxLength);
+  }
+
+  handleEmptyInput(): AIResponse {
+    return {
+      content: '您好！请描述您想咨询的宠物健康问题，我会尽力为您提供帮助。\n\n您可以：\n• 描述宠物的症状或异常表现\n• 上传相关图片进行分析\n• 使用语音输入功能\n• 选择下方的快捷问题',
+      confidence: 0.95,
+      detectedIntents: ['consultation'],
+    };
+  }
+
+  handleInvalidInput(validationResult: InputValidationResult): AIResponse {
+    let content = '⚠️ 您的输入存在问题，请检查后重新提交：\n\n';
+    
+    for (const error of validationResult.errors) {
+      content += `❌ ${error}\n`;
+    }
+    
+    for (const warning of validationResult.warnings) {
+      content += `⚠️ ${warning}\n`;
+    }
+    
+    if (validationResult.hasProhibitedContent) {
+      content += '\n🚫 您的内容包含敏感信息，已被系统拦截。请使用文明、健康的语言描述宠物健康问题。\n';
+    }
+    
+    content += '\n请重新输入您的问题，或选择快捷问题开始咨询。';
+    
+    return {
+      content,
+      confidence: 0.99,
+      needsClarification: true,
+    };
+  }
+
+  handleLongInput(content: string): AIResponse {
+    const truncatedContent = content.substring(0, 500);
+    const intentAnalysis = this.analyzeIntent(truncatedContent);
+    const detectedSymptoms = this.extractSymptoms(intentAnalysis.processedMessage);
+    
+    let response = '📝 您的输入内容较长，我已提取关键信息进行分析：\n\n';
+    response += `**提取的关键内容**：\n${truncatedContent.substring(0, 200)}...\n\n`;
+    
+    if (detectedSymptoms.length > 0) {
+      response += `**检测到的症状**：${detectedSymptoms.join('、')}\n\n`;
+    }
+    
+    if (intentAnalysis.intents.length > 0) {
+      response += `**识别到的意图**：${intentAnalysis.intents.join('、')}\n\n`;
+    }
+    
+    response += '如果需要更详细的分析，请将问题分成几个部分分别提问，这样我能为您提供更精准的建议。';
+    
+    const analysisResponse = this.analyzeQuestion(truncatedContent);
+    response += '\n\n---\n\n' + analysisResponse.content;
+    
+    return {
+      content: response,
+      confidence: 0.85,
+      detectedIntents: intentAnalysis.intents,
+    };
+  }
+
+  handleMixedLanguageInput(content: string): AIResponse {
+    const detectedLanguage = this.detectLanguage(content);
+    const intentAnalysis = this.analyzeIntent(content);
+    
+    let response = '';
+    
+    if (detectedLanguage.startsWith('zh')) {
+      response = '🌐 检测到您的输入包含中文内容。\n\n';
+    } else if (detectedLanguage.startsWith('en')) {
+      response = '🌐 检测到您的输入包含英文内容。\n\n';
+      response += '**Detected Language**: English\n\n';
+      response += 'I can understand your question. Here is my response:\n\n';
+    } else if (detectedLanguage === 'ja') {
+      response = '🌐 检测到您的输入包含日文内容。\n\n';
+      response += '**検出言語**: 日本語\n\n';
+    } else if (detectedLanguage === 'ko') {
+      response = '🌐 检测到您的输入包含韩文内容。\n\n';
+      response += '**감지된 언어**: 한국어\n\n';
+    }
+    
+    const analysisResponse = this.analyzeQuestion(content);
+    response += analysisResponse.content;
+    
+    return {
+      content: response,
+      confidence: 0.88,
+      detectedIntents: intentAnalysis.intents,
+    };
+  }
+
+  matchesSynonym(question: string, synonyms: string[]): boolean {
     const lowerQuestion = question.toLowerCase();
     return synonyms.some(synonym => lowerQuestion.includes(synonym.toLowerCase()));
   }
@@ -512,6 +861,191 @@ export class AIConsultationService {
       }
     }
     return null;
+  }
+
+  private detectAllIntents(message: string): string[] {
+    const intents: string[] = [];
+    for (const [intent, keywords] of Object.entries(INTENT_KEYWORDS)) {
+      if (keywords.some(keyword => message.includes(keyword))) {
+        intents.push(intent);
+      }
+    }
+    return intents;
+  }
+
+  private detectMultiIntent(message: string): boolean {
+    return MULTI_INTENT_INDICATORS.some(indicator => message.includes(indicator));
+  }
+
+  private detectAmbiguity(message: string): { isAmbiguous: boolean; reason?: string } {
+    for (const keyword of AMBIGUOUS_KEYWORDS) {
+      if (message.includes(keyword)) {
+        const contextKeywords = ['但是', '可是', '不过', '只是', '不清楚', '不知道', '不确定'];
+        const hasContext = contextKeywords.some(k => message.includes(k));
+        if (!hasContext || message.length < 15) {
+          return {
+            isAmbiguous: true,
+            reason: `检测到模糊表达「${keyword}」，需要更多信息来确定具体情况`
+          };
+        }
+      }
+    }
+    return { isAmbiguous: false };
+  }
+
+  private processInternetSlang(message: string): { processed: string; detected: string[] } {
+    const detected: string[] = [];
+    let processed = message;
+    
+    for (const [slang, meaning] of Object.entries(INTERNET_SLANG)) {
+      if (message.toLowerCase().includes(slang.toLowerCase())) {
+        detected.push(`${slang}(${meaning})`);
+        processed = processed.replace(new RegExp(slang, 'gi'), meaning);
+      }
+    }
+    
+    return { processed, detected };
+  }
+
+  private processDialectExpressions(message: string): { processed: string; detected: string[] } {
+    const detected: string[] = [];
+    let processed = message;
+    
+    for (const [dialect, standard] of Object.entries(DIALECT_EXPRESSIONS)) {
+      if (message.includes(dialect)) {
+        detected.push(`${dialect}→${standard}`);
+        processed = processed.replace(new RegExp(dialect, 'g'), standard);
+      }
+    }
+    
+    return { processed, detected };
+  }
+
+  private analyzeIntent(message: string): IntentAnalysisResult {
+    const slangResult = this.processInternetSlang(message);
+    const dialectResult = this.processDialectExpressions(slangResult.processed);
+    const processedMessage = dialectResult.processed;
+    
+    const intents = this.detectAllIntents(processedMessage);
+    const isMultiIntent = this.detectMultiIntent(processedMessage);
+    const ambiguityResult = this.detectAmbiguity(processedMessage);
+    
+    return {
+      intents,
+      isAmbiguous: ambiguityResult.isAmbiguous,
+      ambiguityReason: ambiguityResult.reason,
+      isMultiIntent,
+      processedMessage,
+      detectedSlang: slangResult.detected,
+      detectedDialect: dialectResult.detected,
+    };
+  }
+
+  private generateClarificationResponse(ambiguityReason: string, detectedSymptoms: string[]): string {
+    const symptomContext = detectedSymptoms.length > 0 
+      ? `您提到了「${detectedSymptoms.join('、')}」的症状。` 
+      : '';
+    
+    const clarificationQuestions = [
+      '请问具体是什么情况？比如：',
+      '能否详细描述一下？例如：',
+      '为了更准确地帮助您，请告诉我：',
+    ];
+    
+    const questionTemplates = [
+      '症状持续多长时间了？',
+      '症状的严重程度如何？轻微、中度还是严重？',
+      '是否有其他伴随症状？',
+      '宠物最近是否有环境或饮食变化？',
+      '精神状态和食欲怎么样？',
+    ];
+    
+    const selectedQuestions = questionTemplates
+      .sort(() => Math.random() - 0.5)
+      .slice(0, 3);
+    
+    const intro = clarificationQuestions[Math.floor(Math.random() * clarificationQuestions.length)];
+    
+    return `🔍 ${ambiguityReason}\n\n${symptomContext}\n\n${intro}\n${selectedQuestions.map(q => `• ${q}`).join('\n')}\n\n请提供更多信息，我会给出更精准的建议。`;
+  }
+
+  private splitMultiIntentMessage(message: string): string[] {
+    const splitPatterns = [
+      /[，,；;]/,
+      /\s+(?:和|并且|同时|另外|还有|也|又|以及)\s+/,
+      /\s+(?:一方面|另一方面)\s+/,
+      /\s+(?:首先|其次|再次|最后)\s+/,
+      /\s+(?:第一|第二|第三)\s+/,
+    ];
+    
+    const parts: string[] = [];
+    let remaining = message;
+    
+    for (const pattern of splitPatterns) {
+      const matches = remaining.split(pattern).filter(p => p.trim().length > 0);
+      if (matches.length > 1) {
+        parts.push(...matches.map(p => p.trim()));
+        remaining = '';
+        break;
+      }
+    }
+    
+    if (parts.length === 0 && message.trim().length > 0) {
+      parts.push(message.trim());
+    }
+    
+    return parts.filter(p => p.length >= 3);
+  }
+
+  private generateMultiIntentResponse(
+    intents: string[],
+    messageParts: string[],
+    detectedSymptoms: string[]
+  ): string {
+    const intentLabels: Record<string, string> = {
+      diagnosis: '🔍 病情诊断',
+      treatment: '💊 治疗建议',
+      prevention: '🛡️ 预防措施',
+      nutrition: '🥗 饮食营养',
+      behavior: '🎯 行为训练',
+      emergency: '⚠️ 紧急处理',
+      consultation: '📋 咨询解答',
+      confirmation: '✅ 确认核实',
+      comparison: '⚖️ 对比分析',
+      followup: '➡️ 后续问题',
+      clarification: '📖 详细解释',
+      cost: '💰 费用相关',
+      time: '⏰ 时间相关',
+      quantity: '📊 数量相关',
+    };
+    
+    let response = '📋 您的问题涉及多个方面，我来逐一为您解答：\n\n';
+    
+    intents.forEach((intent, index) => {
+      const label = intentLabels[intent] || '📌 其他问题';
+      const symptomContext = detectedSymptoms.length > 0 
+        ? `（涉及症状：${detectedSymptoms.join('、')}）` 
+        : '';
+      response += `**${index + 1}. ${label}${symptomContext}**\n\n`;
+    });
+    
+    response += '\n---\n\n';
+    
+    if (detectedSymptoms.length > 0) {
+      const primarySymptom = detectedSymptoms[0];
+      const symptomData = healthKnowledgeBase.symptoms[primarySymptom];
+      if (symptomData) {
+        response += `关于您提到的「${primarySymptom}」症状：\n\n`;
+        const topConditions = symptomData.conditions.slice(0, 2);
+        topConditions.forEach(c => {
+          response += `• ${c.name}（概率: ${Math.round(c.probability * 100)}%）\n  建议: ${c.recommendation}\n\n`;
+        });
+      }
+    }
+    
+    response += '请问您想先了解哪个方面的详细信息？';
+    
+    return response;
   }
 
   private extractSymptoms(message: string): string[] {
@@ -562,13 +1096,13 @@ export class AIConsultationService {
     
     const symptoms = this.extractSymptoms(message);
     if (symptoms.length > 0) {
-      update.mentionedSymptoms = [...new Set([...currentContext.mentionedSymptoms, ...symptoms])];
+      update.mentionedSymptoms = Array.from(new Set([...currentContext.mentionedSymptoms, ...symptoms]));
     }
     
     const intent = this.detectIntent(message);
     if (intent) {
       update.lastIntent = intent;
-      update.discussedTopics = [...new Set([...currentContext.discussedTopics, intent])];
+      update.discussedTopics = Array.from(new Set([...currentContext.discussedTopics, intent]));
     }
     
     return update;
@@ -599,32 +1133,84 @@ export class AIConsultationService {
   }
 
   analyzeQuestion(question: string, petType?: string, context?: ConversationContext): AIResponse {
-    const detectedSymptoms = this.extractSymptoms(question);
-    const intent = this.detectIntent(question);
+    const validation = this.validateInput(question);
     
+    if (!validation.isValid) {
+      return this.handleInvalidInput(validation);
+    }
+    
+    if (validation.contentLength === 0) {
+      return this.handleEmptyInput();
+    }
+    
+    if (validation.contentLength > INPUT_VALIDATION_CONFIG.maxLength * 0.8) {
+      return this.handleLongInput(question);
+    }
+    
+    const sanitizedQuestion = validation.sanitizedContent || this.sanitizeInput(question);
+    
+    if (validation.detectedLanguage && validation.detectedLanguage !== MULTILINGUAL_CONFIG.defaultLanguage) {
+      return this.handleMixedLanguageInput(sanitizedQuestion);
+    }
+    
+    const intentAnalysis = this.analyzeIntent(sanitizedQuestion);
+    const detectedSymptoms = this.extractSymptoms(intentAnalysis.processedMessage);
+    
+    if (intentAnalysis.isAmbiguous && detectedSymptoms.length === 0) {
+      return {
+        content: this.generateClarificationResponse(intentAnalysis.ambiguityReason || '需要更多信息', detectedSymptoms),
+        confidence: 0.75,
+        needsClarification: true,
+        clarificationQuestion: intentAnalysis.ambiguityReason,
+        detectedIntents: intentAnalysis.intents,
+      };
+    }
+    
+    if (intentAnalysis.isMultiIntent && intentAnalysis.intents.length > 1) {
+      const messageParts = this.splitMultiIntentMessage(sanitizedQuestion);
+      return {
+        content: this.generateMultiIntentResponse(intentAnalysis.intents, messageParts, detectedSymptoms),
+        confidence: 0.88,
+        isMultiIntent: true,
+        detectedIntents: intentAnalysis.intents,
+      };
+    }
+
     for (const [keyword, synonyms] of Object.entries(questionSynonyms)) {
-      if (this.matchesSynonym(question, synonyms)) {
+      if (this.matchesSynonym(intentAnalysis.processedMessage, synonyms)) {
         const answer = healthKnowledgeBase.commonQuestions[keyword];
         if (answer) {
           let response = answer.answer;
           
+          if (intentAnalysis.detectedSlang.length > 0) {
+            response += `\n\n💡 检测到网络用语：${intentAnalysis.detectedSlang.join('、')}`;
+          }
+          
+          if (intentAnalysis.detectedDialect.length > 0) {
+            response += `\n\n🌐 检测到方言表达：${intentAnalysis.detectedDialect.join('、')}`;
+          }
+          
           if (petType && healthKnowledgeBase.petTypeAdvice[petType]) {
             const petAdvice = healthKnowledgeBase.petTypeAdvice[petType];
             const relevantAdvice = Object.entries(petAdvice)
-              .filter(([key]) => question.includes(key) || keyword.includes(key))
+              .filter(([key]) => intentAnalysis.processedMessage.includes(key) || keyword.includes(key))
               .map(([, value]) => value);
             if (relevantAdvice.length > 0) {
               response += `\n\n🐱 针对${petType === 'cat' ? '猫咪' : '狗狗'}的建议：\n${relevantAdvice.map(a => `• ${a}`).join('\n')}`;
             }
           }
           
-          return { content: response, confidence: answer.confidence };
+          return { 
+            content: response, 
+            confidence: answer.confidence,
+            detectedIntents: intentAnalysis.intents,
+          };
         }
       }
     }
 
     for (const [symptom, synonyms] of Object.entries(symptomSynonyms)) {
-      if (this.matchesSynonym(question, synonyms)) {
+      if (this.matchesSynonym(intentAnalysis.processedMessage, synonyms)) {
         const data = healthKnowledgeBase.symptoms[symptom];
         if (data) {
           const conditionsStr = data.conditions
@@ -644,18 +1230,56 @@ export class AIConsultationService {
             severityEmoji = '⚠️';
           }
           
-          let content = `${severityEmoji} 根据您描述的「${symptom}」症状，可能的原因和建议如下：\n\n${conditionsStr}\n\n📝 日常护理建议:\n${adviceStr}${petAdvice}`;
-          
-          if (context) {
-            content = this.buildContextualResponse(question, context, content, [symptom]);
+          let slangNote = '';
+          if (intentAnalysis.detectedSlang.length > 0) {
+            slangNote = `\n\n💡 检测到网络用语：${intentAnalysis.detectedSlang.join('、')}`;
           }
           
-          return { content, confidence: 0.92 };
+          let dialectNote = '';
+          if (intentAnalysis.detectedDialect.length > 0) {
+            dialectNote = `\n\n🌐 检测到方言表达：${intentAnalysis.detectedDialect.join('、')}`;
+          }
+          
+          let content = `${severityEmoji} 根据您描述的「${symptom}」症状，可能的原因和建议如下：\n\n${conditionsStr}\n\n📝 日常护理建议:\n${adviceStr}${petAdvice}${slangNote}${dialectNote}`;
+          
+          if (context) {
+            content = this.buildContextualResponse(intentAnalysis.processedMessage, context, content, [symptom]);
+          }
+          
+          if (intentAnalysis.isAmbiguous) {
+            content += `\n\n🔍 补充提示：${intentAnalysis.ambiguityReason}`;
+          }
+          
+          return { 
+            content, 
+            confidence: 0.92,
+            detectedIntents: intentAnalysis.intents,
+            needsClarification: intentAnalysis.isAmbiguous,
+          };
         }
       }
     }
 
-    const contextAwareResponses = this.generateContextAwareResponse(question, context, detectedSymptoms, intent);
+    const contextAwareResponses = this.generateContextAwareResponse(
+      intentAnalysis.processedMessage, 
+      context, 
+      detectedSymptoms, 
+      intentAnalysis.intents.length > 0 ? intentAnalysis.intents[0] : null
+    );
+    
+    if (intentAnalysis.detectedSlang.length > 0 || intentAnalysis.detectedDialect.length > 0) {
+      contextAwareResponses.content += '\n\n';
+      if (intentAnalysis.detectedSlang.length > 0) {
+        contextAwareResponses.content += `💡 检测到网络用语：${intentAnalysis.detectedSlang.join('、')}\n`;
+      }
+      if (intentAnalysis.detectedDialect.length > 0) {
+        contextAwareResponses.content += `🌐 检测到方言表达：${intentAnalysis.detectedDialect.join('、')}`;
+      }
+    }
+    
+    contextAwareResponses.detectedIntents = intentAnalysis.intents;
+    contextAwareResponses.needsClarification = intentAnalysis.isAmbiguous;
+    
     return contextAwareResponses;
   }
 
@@ -804,6 +1428,299 @@ export class AIConsultationService {
     const aiResponse = this.generateResponse(userMessage, petType);
     
     return aiResponse;
+  }
+
+  async analyzeImage(imageUrl: string, petType?: string, userDescription?: string): Promise<ImageAnalysisResult> {
+    await this.simulateDelay(1000 + Math.random() * 500);
+    
+    const detectedIssues: string[] = [];
+    let analysisType: ImageAnalysisResult['analysisType'] = 'general';
+    let severityLevel: ImageAnalysisResult['severityLevel'] = 'low';
+    let confidence = 0.75 + Math.random() * 0.15;
+    
+    const descriptionLower = (userDescription || '').toLowerCase();
+    
+    for (const [category, keywords] of Object.entries(imageAnalysisPatterns)) {
+      for (const keyword of keywords) {
+        if (descriptionLower.includes(keyword)) {
+          detectedIssues.push(keyword);
+          if (category === 'skinIssues' || category === 'bodyIssues') {
+            analysisType = 'symptom';
+            severityLevel = 'medium';
+          } else if (category === 'eyeIssues' || category === 'earIssues' || category === 'mouthIssues') {
+            analysisType = 'symptom';
+            severityLevel = 'medium';
+          } else if (category === 'foodIssues') {
+            analysisType = 'food';
+            severityLevel = 'low';
+          } else if (category === 'environmentIssues') {
+            analysisType = 'environment';
+            severityLevel = 'medium';
+          } else if (category === 'behaviorIssues') {
+            analysisType = 'behavior';
+            severityLevel = 'low';
+          }
+        }
+      }
+    }
+    
+    if (detectedIssues.length === 0) {
+      detectedIssues.push('需要进一步观察');
+      if (descriptionLower.includes('皮肤') || descriptionLower.includes('毛')) {
+        analysisType = 'symptom';
+        detectedIssues.push('皮肤状态需要关注');
+      } else if (descriptionLower.includes('眼睛') || descriptionLower.includes('眼')) {
+        analysisType = 'symptom';
+        detectedIssues.push('眼部状态需要关注');
+      } else if (descriptionLower.includes('耳朵') || descriptionLower.includes('耳')) {
+        analysisType = 'symptom';
+        detectedIssues.push('耳部状态需要关注');
+      } else if (descriptionLower.includes('食物') || descriptionLower.includes('粮')) {
+        analysisType = 'food';
+        detectedIssues.push('食物状态需要确认');
+      } else if (descriptionLower.includes('环境') || descriptionLower.includes('家')) {
+        analysisType = 'environment';
+        detectedIssues.push('环境状态需要评估');
+      }
+    }
+    
+    const urgentKeywords = ['出血', '血', '严重', '紧急', '危险', '骨折', '昏迷', '抽搐'];
+    for (const keyword of urgentKeywords) {
+      if (descriptionLower.includes(keyword)) {
+        severityLevel = 'urgent';
+        confidence = Math.min(confidence + 0.1, 0.95);
+        break;
+      }
+    }
+    
+    const highKeywords = ['红肿', '溃烂', '呕吐', '腹泻', '呼吸困难', '肿块'];
+    if (severityLevel !== 'urgent') {
+      for (const keyword of highKeywords) {
+        if (descriptionLower.includes(keyword)) {
+          severityLevel = 'high';
+          confidence = Math.min(confidence + 0.05, 0.92);
+          break;
+        }
+      }
+    }
+    
+    const recommendations: string[] = [];
+    
+    if (severityLevel === 'urgent') {
+      recommendations.push('🚨 建议立即就医，这是紧急情况');
+      recommendations.push('在前往医院途中保持宠物安静和温暖');
+      recommendations.push('记录症状发生的时间和表现');
+    } else if (severityLevel === 'high') {
+      recommendations.push('⚠️ 建议尽快就医检查');
+      recommendations.push('观察症状变化，记录详细情况');
+      recommendations.push('避免自行用药，等待专业诊断');
+    } else if (severityLevel === 'medium') {
+      recommendations.push('建议24小时内就医检查');
+      recommendations.push('继续观察症状是否有加重趋势');
+      recommendations.push('保持宠物舒适，避免刺激');
+    } else {
+      recommendations.push('可以继续观察1-2天');
+      recommendations.push('如症状加重请及时就医');
+      recommendations.push('保持日常护理和观察');
+    }
+    
+    if (petType === 'cat') {
+      recommendations.push('猫咪容易隐藏疾病症状，需要细心观察');
+    } else if (petType === 'dog') {
+      recommendations.push('狗狗症状表现较明显，注意观察行为变化');
+    }
+    
+    let description = '';
+    if (detectedIssues.length > 0) {
+      description = `图片分析结果显示：检测到「${detectedIssues.join('、')}」等问题。`;
+    } else {
+      description = '图片分析结果：未检测到明显的健康问题，但建议继续观察。';
+    }
+    
+    if (severityLevel === 'urgent') {
+      description += '\n\n⚠️ 这可能是紧急情况，请立即联系宠物医院！';
+    } else if (severityLevel === 'high') {
+      description += '\n\n⚠️ 建议尽快就医检查，不要延误。';
+    }
+    
+    return {
+      id: `img-analysis-${Date.now()}`,
+      imageUrl,
+      analysisType,
+      detectedIssues,
+      confidence,
+      description,
+      recommendations,
+      severityLevel,
+      petType,
+      analyzedAt: new Date().toISOString(),
+    };
+  }
+
+  async processVoiceInput(audioUrl: string, transcript?: string): Promise<VoiceRecognitionResult> {
+    await this.simulateDelay(800 + Math.random() * 400);
+    
+    const mockTranscript = transcript || '我的宠物最近不太舒服，有点担心';
+    const confidence = 0.85 + Math.random() * 0.1;
+    const language = 'zh-CN';
+    const duration = 3 + Math.random() * 7;
+    
+    const detectedKeywords: string[] = [];
+    const transcriptLower = mockTranscript.toLowerCase();
+    
+    for (const [category, keywords] of Object.entries(voiceKeywordPatterns)) {
+      for (const keyword of keywords) {
+        if (transcriptLower.includes(keyword)) {
+          detectedKeywords.push(`${keyword}(${category})`);
+        }
+      }
+    }
+    
+    return {
+      id: `voice-${Date.now()}`,
+      audioUrl,
+      transcript: mockTranscript,
+      confidence,
+      language,
+      duration,
+      detectedKeywords,
+      processedAt: new Date().toISOString(),
+    };
+  }
+
+  processColloquialExpression(message: string): { processed: string; detected: string[]; categories: Record<string, string[]> } {
+    const detected: string[] = [];
+    const categories: Record<string, string[]> = {
+      slang: [],
+      dialect: [],
+      abbreviation: [],
+      emotional: [],
+      internet: [],
+    };
+    let processed = message;
+    
+    for (const pattern of colloquialPatterns) {
+      if (pattern.pattern.test(message)) {
+        detected.push(`${pattern.pattern.source}→${pattern.standardForm}`);
+        categories[pattern.category].push(pattern.standardForm);
+        processed = processed.replace(pattern.pattern, pattern.standardForm);
+      }
+    }
+    
+    return { processed, detected, categories };
+  }
+
+  generateImageAnalysisResponse(analysis: ImageAnalysisResult): string {
+    const severityEmoji = {
+      low: 'ℹ️',
+      medium: '⚠️',
+      high: '🚨',
+      urgent: '🔴',
+    };
+    
+    let response = `${severityEmoji[analysis.severityLevel]} **图片分析结果**\n\n`;
+    response += `**分析类型**: ${analysis.analysisType}\n`;
+    response += `**置信度**: ${Math.round(analysis.confidence * 100)}%\n`;
+    response += `**严重程度**: ${analysis.severityLevel}\n\n`;
+    
+    response += `**检测到的问题**:\n`;
+    for (const issue of analysis.detectedIssues) {
+      response += `• ${issue}\n`;
+    }
+    
+    response += `\n**建议措施**:\n`;
+    for (const rec of analysis.recommendations) {
+      response += `• ${rec}\n`;
+    }
+    
+    if (analysis.petType) {
+      response += `\n**针对${analysis.petType === 'cat' ? '猫咪' : '狗狗'}的补充建议**:\n`;
+      if (analysis.petType === 'cat') {
+        response += `• 猫咪容易隐藏症状，请密切观察\n`;
+        response += `• 注意食欲、饮水量和精神状态变化\n`;
+      } else {
+        response += `• 狗狗症状较明显，注意行为异常\n`;
+        response += `• 观察活动量和社交意愿变化\n`;
+      }
+    }
+    
+    return response;
+  }
+
+  generateVoiceInputResponse(voiceResult: VoiceRecognitionResult): string {
+    let response = `🎤 **语音输入已识别**\n\n`;
+    response += `**识别内容**: "${voiceResult.transcript}"\n`;
+    response += `**置信度**: ${Math.round(voiceResult.confidence * 100)}%\n`;
+    response += `**语言**: ${voiceResult.language}\n`;
+    response += `**时长**: ${Math.round(voiceResult.duration)}秒\n\n`;
+    
+    if (voiceResult.detectedKeywords.length > 0) {
+      response += `**检测到的关键词**:\n`;
+      for (const keyword of voiceResult.detectedKeywords) {
+        response += `• ${keyword}\n`;
+      }
+      response += '\n';
+    }
+    
+    const intentAnalysis = this.analyzeIntent(voiceResult.transcript);
+    if (intentAnalysis.intents.length > 0) {
+      response += `**识别到的意图**: ${intentAnalysis.intents.join('、')}\n\n`;
+    }
+    
+    response += '正在为您分析问题...\n\n';
+    
+    const analysisResponse = this.analyzeQuestion(voiceResult.transcript);
+    response += analysisResponse.content;
+    
+    return response;
+  }
+
+  async sendMessageWithImage(
+    consultationId: string,
+    content: string,
+    imageUrl: string,
+    petType?: string
+  ): Promise<AIMessage> {
+    await this.simulateDelay(1200 + Math.random() * 600);
+    
+    const imageAnalysis = await this.analyzeImage(imageUrl, petType, content);
+    const analysisResponse = this.generateImageAnalysisResponse(imageAnalysis);
+    
+    let fullResponse = '';
+    if (content && content.trim().length > 0) {
+      const textAnalysis = this.analyzeQuestion(content, petType);
+      fullResponse = `📝 **您描述的问题**:\n${content}\n\n`;
+      fullResponse += textAnalysis.content + '\n\n---\n\n';
+    }
+    fullResponse += analysisResponse;
+    
+    return {
+      id: Date.now().toString(),
+      role: 'assistant',
+      content: fullResponse,
+      messageType: 'image',
+      createdAt: new Date().toISOString(),
+    };
+  }
+
+  async sendMessageWithVoice(
+    consultationId: string,
+    audioUrl: string,
+    transcript?: string,
+    petType?: string
+  ): Promise<AIMessage> {
+    await this.simulateDelay(1000 + Math.random() * 500);
+    
+    const voiceResult = await this.processVoiceInput(audioUrl, transcript);
+    const voiceResponse = this.generateVoiceInputResponse(voiceResult);
+    
+    return {
+      id: Date.now().toString(),
+      role: 'assistant',
+      content: voiceResponse,
+      messageType: 'voice',
+      createdAt: new Date().toISOString(),
+    };
   }
 
   private simulateDelay(ms: number): Promise<void> {

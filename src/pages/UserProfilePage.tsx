@@ -13,8 +13,7 @@ import {
   Camera,
   Moon,
   Palette,
-  Globe,
-  ChevronDown
+  Globe
 } from 'lucide-react';
 import { Card, Button } from '../components/DesignSystem';
 import { useAppStore } from '../store/appStore';
@@ -26,26 +25,31 @@ interface UserProfilePageProps {
 }
 
 export const UserProfilePage: React.FC<UserProfilePageProps> = ({ onNavigate }) => {
-  const { user, updateUser } = useAppStore();
+  const { user, logout } = useAppStore();
   const { pets } = usePetStore();
   const { totalPoints, badges, streakDays } = useBondStore();
   
   const [editMode, setEditMode] = useState(false);
-  const [editUser, setEditUser] = useState(user);
+  const [editUsername, setEditUsername] = useState(user?.username || '');
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
 
   const handleSave = () => {
-    updateUser(editUser);
+    if (user) {
+      useAppStore.getState().setUser({
+        ...user,
+        username: editUsername
+      });
+    }
     setEditMode(false);
   };
 
   const menuItems = [
-    { icon: Bell, label: '通知设置', description: '管理消息推送', page: 'notifications' },
-    { icon: Shield, label: '隐私安全', description: '账户安全设置', page: 'privacy' },
-    { icon: Palette, label: '主题设置', description: '个性化外观', page: 'theme' },
-    { icon: Globe, label: '语言设置', description: '简体中文', page: 'language' },
-    { icon: Moon, label: '深色模式', description: '切换外观模式', page: 'dark-mode' },
-    { icon: HelpCircle, label: '帮助中心', description: '常见问题解答', page: 'help' },
+    { icon: Bell, label: '通知设置', description: '管理消息推送', page: 'settings' },
+    { icon: Shield, label: '隐私安全', description: '账户安全设置', page: 'settings' },
+    { icon: Palette, label: '主题设置', description: '个性化外观', page: 'settings' },
+    { icon: Globe, label: '语言设置', description: '简体中文', page: 'settings' },
+    { icon: Moon, label: '深色模式', description: '切换外观模式', page: 'settings' },
+    { icon: HelpCircle, label: '帮助中心', description: '常见问题解答', page: 'help-feedback' },
   ];
 
   return (
@@ -73,13 +77,25 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({ onNavigate }) 
 
           {showSettingsMenu && (
             <div className="absolute right-4 top-20 bg-white rounded-xl shadow-xl p-2 z-20 w-48">
-              <button className="w-full px-4 py-3 text-left hover:bg-neutral-100 rounded-lg flex items-center gap-2">
+              <button 
+                onClick={() => {
+                  setEditMode(true);
+                  setShowSettingsMenu(false);
+                }}
+                className="w-full px-4 py-3 text-left hover:bg-neutral-100 rounded-lg flex items-center gap-2"
+              >
                 <Edit3 className="w-4 h-4 text-neutral-500" />
                 <span className="text-sm text-neutral-700">编辑资料</span>
               </button>
-              <button className="w-full px-4 py-3 text-left hover:bg-neutral-100 rounded-lg flex items-center gap-2">
-                <LogOut className="w-4 h-4 text-danger-500" />
-                <span className="text-sm text-danger-600">退出登录</span>
+              <button 
+                onClick={() => {
+                  logout();
+                  onNavigate('home');
+                }}
+                className="w-full px-4 py-3 text-left hover:bg-neutral-100 rounded-lg flex items-center gap-2"
+              >
+                <LogOut className="w-4 h-4 text-red-500" />
+                <span className="text-sm text-red-600">退出登录</span>
               </button>
             </div>
           )}
@@ -87,7 +103,6 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({ onNavigate }) 
       </header>
 
       <main className="max-w-md mx-auto px-4 -mt-6 space-y-5">
-        {/* Profile Card */}
         <Card variant="elevated" padding="lg" className="bg-white">
           <div className="flex items-center gap-4">
             <div className="relative">
@@ -103,21 +118,16 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({ onNavigate }) 
                 <>
                   <input
                     type="text"
-                    value={editUser.name}
-                    onChange={(e) => setEditUser({...editUser, name: e.target.value})}
+                    value={editUsername}
+                    onChange={(e) => setEditUsername(e.target.value)}
                     className="w-full px-2 py-1 text-lg font-bold text-neutral-800 border-b border-primary-300 focus:outline-none"
                   />
-                  <input
-                    type="text"
-                    value={editUser.email}
-                    onChange={(e) => setEditUser({...editUser, email: e.target.value})}
-                    className="w-full px-2 py-1 text-sm text-neutral-500 border-b border-neutral-200 focus:outline-none"
-                  />
+                  <p className="text-sm text-neutral-500 mt-1">{user?.email}</p>
                 </>
               ) : (
                 <>
-                  <h2 className="text-lg font-bold text-neutral-800">{user.name}</h2>
-                  <p className="text-sm text-neutral-500">{user.email}</p>
+                  <h2 className="text-lg font-bold text-neutral-800">{user?.username || '用户'}</h2>
+                  <p className="text-sm text-neutral-500">{user?.email}</p>
                 </>
               )}
             </div>
@@ -125,7 +135,7 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({ onNavigate }) 
               onClick={editMode ? handleSave : () => setEditMode(true)}
               className={`p-2 rounded-full transition-colors ${
                 editMode 
-                  ? 'bg-success-100 text-success-600' 
+                  ? 'bg-green-100 text-green-600' 
                   : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200'
               }`}
             >
@@ -134,7 +144,6 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({ onNavigate }) 
           </div>
         </Card>
 
-        {/* Stats Cards */}
         <div className="grid grid-cols-3 gap-3">
           <Card className="text-center p-4">
             <div className="w-10 h-10 mx-auto rounded-xl bg-gradient-to-br from-yellow-100 to-orange-100 flex items-center justify-center mb-2">
@@ -159,7 +168,6 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({ onNavigate }) 
           </Card>
         </div>
 
-        {/* My Pets */}
         <Card className="p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-neutral-800">我的毛孩子</h3>
@@ -188,7 +196,6 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({ onNavigate }) 
           </div>
         </Card>
 
-        {/* Settings Menu */}
         <Card className="overflow-hidden">
           {menuItems.map((item, index) => (
             <button
@@ -210,7 +217,6 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({ onNavigate }) 
           ))}
         </Card>
 
-        {/* Version Info */}
         <div className="text-center text-xs text-neutral-400 py-4">
           PawSync Pro v1.0.0
         </div>

@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback } from 'react';
+import React, { memo, useRef, useCallback, useEffect } from 'react';
 import { cn } from '../../lib/utils';
 
 interface GlassCardProps {
@@ -11,49 +11,77 @@ interface GlassCardProps {
   enable3D?: boolean;
 }
 
-export function GlassCard({ 
+const tiltCache = new Map<string, { x: number; y: number }>();
+
+export const GlassCard = memo(({ 
   children, 
   className, 
   variant = 'default', 
   padding = 'md', 
   onClick, 
-  asChild = false,
   enable3D = false 
-}: GlassCardProps) {
+}: GlassCardProps) => {
   const cardRef = useRef<HTMLDivElement>(null);
-  const [tiltStyle, setTiltStyle] = useState<React.CSSProperties>({});
-  const [isHovering, setIsHovering] = useState(false);
+  const rafRef = useRef<number>(0);
+  const isHoveringRef = useRef(false);
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (!enable3D || !cardRef.current) return;
 
-    const card = cardRef.current;
-    const rect = card.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const centerX = rect.width / 2;
-    const centerY = rect.height / 2;
-    
-    const rotateX = (y - centerY) / 12;
-    const rotateY = (centerX - x) / 12;
-    
-    setTiltStyle({
-      transform: `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.01, 1.01, 1.01)`,
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+    }
+
+    rafRef.current = requestAnimationFrame(() => {
+      const card = cardRef.current;
+      if (!card) return;
+      
+      const rect = card.getBoundingClientRect();
+      const cacheKey = `${rect.width}-${rect.height}`;
+      const cached = tiltCache.get(cacheKey);
+      
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const centerX = cached?.x ?? rect.width / 2;
+      const centerY = cached?.y ?? rect.height / 2;
+      
+      if (!cached) {
+        tiltCache.set(cacheKey, { x: centerX, y: centerY });
+      }
+      
+      const rotateX = (y - centerY) / 12;
+      const rotateY = (centerX - x) / 12;
+      
+      card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.01, 1.01, 1.01)`;
+      card.style.willChange = 'transform';
     });
   }, [enable3D]);
 
   const handleMouseEnter = useCallback(() => {
-    if (enable3D) setIsHovering(true);
+    if (enable3D) {
+      isHoveringRef.current = true;
+      if (cardRef.current) {
+        cardRef.current.style.transition = 'transform 0.1s ease-out';
+      }
+    }
   }, [enable3D]);
 
   const handleMouseLeave = useCallback(() => {
-    if (enable3D) {
-      setIsHovering(false);
-      setTiltStyle({
-        transform: 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)',
-      });
+    if (enable3D && cardRef.current) {
+      isHoveringRef.current = false;
+      cardRef.current.style.transition = 'transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+      cardRef.current.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)';
+      cardRef.current.style.willChange = 'auto';
     }
   }, [enable3D]);
+
+  useEffect(() => {
+    return () => {
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+      }
+    };
+  }, []);
 
   const paddingClasses = {
     none: '',
@@ -67,14 +95,6 @@ export function GlassCard({
     subtle: 'shadow-soft'
   };
 
-  const combinedStyle: React.CSSProperties = {
-    ...tiltStyle,
-    transition: isHovering 
-      ? 'transform 0.1s ease-out' 
-      : 'transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease',
-    willChange: isHovering ? 'transform' : 'auto',
-  };
-
   return (
     <div 
       ref={cardRef}
@@ -86,7 +106,6 @@ export function GlassCard({
         onClick && 'cursor-pointer',
         className
       )} 
-      style={combinedStyle}
       onClick={onClick}
       onMouseMove={handleMouseMove}
       onMouseEnter={handleMouseEnter}
@@ -95,20 +114,24 @@ export function GlassCard({
       {children}
     </div>
   );
-}
+});
+
+GlassCard.displayName = 'GlassCard';
 
 interface GlassSurfaceProps {
   children: React.ReactNode;
   className?: string;
 }
 
-export function GlassSurface({ children, className }: GlassSurfaceProps) {
+export const GlassSurface = memo(({ children, className }: GlassSurfaceProps) => {
   return (
     <div className={cn('glass-surface dark:glass-surface-dark rounded-lg', className)}>
       {children}
     </div>
   );
-}
+});
+
+GlassSurface.displayName = 'GlassSurface';
 
 interface GlassButtonProps {
   children: React.ReactNode;
@@ -120,7 +143,7 @@ interface GlassButtonProps {
   loading?: boolean;
 }
 
-export function GlassButton({ 
+export const GlassButton = memo(({ 
   children, 
   className, 
   variant = 'primary', 
@@ -128,7 +151,13 @@ export function GlassButton({
   onClick, 
   disabled = false, 
   loading = false 
-}: GlassButtonProps) {
+}: GlassButtonProps) => {
+  const handleClick = useCallback(() => {
+    if (!disabled && !loading && onClick) {
+      onClick();
+    }
+  }, [disabled, loading, onClick]);
+
   const variantClasses = {
     primary: 'bg-gradient-primary text-white hover:opacity-90',
     secondary: 'bg-secondary-500 text-white hover:bg-secondary-600',
@@ -150,7 +179,7 @@ export function GlassButton({
         sizeClasses[size],
         className
       )} 
-      onClick={onClick} 
+      onClick={handleClick} 
       disabled={disabled || loading}
     >
       {loading ? (
@@ -166,4 +195,6 @@ export function GlassButton({
       )}
     </button>
   );
-}
+});
+
+GlassButton.displayName = 'GlassButton';

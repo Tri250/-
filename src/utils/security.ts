@@ -1,11 +1,11 @@
 /**
  * Security Utilities - 企业级安全工具库
  * PawSync Pro - 安全防护核心
+ * 
+ * F-SEC-002 隐私数据保护 - 增强加密机制
  */
 
-// 加密工具
 export const cryptoUtils = {
-  // Base64编码（用于简单的数据混淆）
   encodeBase64: (str: string): string => {
     try {
       return btoa(unescape(encodeURIComponent(str)));
@@ -14,7 +14,6 @@ export const cryptoUtils = {
     }
   },
 
-  // Base64解码
   decodeBase64: (encoded: string): string => {
     try {
       return decodeURIComponent(escape(atob(encoded)));
@@ -23,30 +22,146 @@ export const cryptoUtils = {
     }
   },
 
-  // 简单加密（XOR混淆，不适用于高度敏感数据）
   xorEncrypt: (str: string, key: string): string => {
     return str.split('').map((char, i) => {
       return String.fromCharCode(char.charCodeAt(0) ^ key.charCodeAt(i % key.length));
     }).join('');
   },
 
-  // 生成随机字符串
+  xorDecrypt: (encrypted: string, key: string): string => {
+    return cryptoUtils.xorEncrypt(encrypted, key);
+  },
+
   generateRandomString: (length: number): string => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     let result = '';
+    const randomValues = new Uint8Array(length);
+    crypto.getRandomValues(randomValues);
     for (let i = 0; i < length; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
+      result += chars.charAt(randomValues[i] % chars.length);
     }
     return result;
   },
 
-  // SHA-256哈希（简化实现）
+  generateSecureKey: async (length: number = 32): Promise<string> => {
+    const keyBytes = new Uint8Array(length);
+    crypto.getRandomValues(keyBytes);
+    return Array.from(keyBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+  },
+
   sha256: async (str: string): Promise<string> => {
     const encoder = new TextEncoder();
     const data = encoder.encode(str);
     const hashBuffer = await crypto.subtle.digest('SHA-256', data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  },
+
+  sha512: async (str: string): Promise<string> => {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(str);
+    const hashBuffer = await crypto.subtle.digest('SHA-512', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  },
+
+  aesEncrypt: async (data: string, key: string): Promise<string> => {
+    try {
+      const encoder = new TextEncoder();
+      const dataBytes = encoder.encode(data);
+      
+      const keyBytes = encoder.encode(key.substring(0, 32));
+      const paddedKey = new Uint8Array(32);
+      paddedKey.set(keyBytes.slice(0, 32));
+      
+      const cryptoKey = await crypto.subtle.importKey(
+        'raw',
+        paddedKey,
+        { name: 'AES-GCM' },
+        false,
+        ['encrypt']
+      );
+      
+      const iv = new Uint8Array(12);
+      crypto.getRandomValues(iv);
+      
+      const encrypted = await crypto.subtle.encrypt(
+        { name: 'AES-GCM', iv },
+        cryptoKey,
+        dataBytes
+      );
+      
+      const combined = new Uint8Array(iv.length + encrypted.byteLength);
+      combined.set(iv);
+      combined.set(new Uint8Array(encrypted), iv.length);
+      
+      return btoa(String.fromCharCode(...combined));
+    } catch (error) {
+      console.error('AES encryption failed:', error);
+      return cryptoUtils.xorEncrypt(data, key);
+    }
+  },
+
+  aesDecrypt: async (encryptedData: string, key: string): Promise<string> => {
+    try {
+      const combined = Uint8Array.from(atob(encryptedData), c => c.charCodeAt(0));
+      
+      const iv = combined.slice(0, 12);
+      const encrypted = combined.slice(12);
+      
+      const encoder = new TextEncoder();
+      const keyBytes = encoder.encode(key.substring(0, 32));
+      const paddedKey = new Uint8Array(32);
+      paddedKey.set(keyBytes.slice(0, 32));
+      
+      const cryptoKey = await crypto.subtle.importKey(
+        'raw',
+        paddedKey,
+        { name: 'AES-GCM' },
+        false,
+        ['decrypt']
+      );
+      
+      const decrypted = await crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv },
+        cryptoKey,
+        encrypted
+      );
+      
+      return new TextDecoder().decode(decrypted);
+    } catch (error) {
+      console.error('AES decryption failed:', error);
+      return cryptoUtils.xorDecrypt(encryptedData, key);
+    }
+  },
+
+  pbkdf2: async (password: string, salt: string, iterations: number = 100000): Promise<string> => {
+    const encoder = new TextEncoder();
+    const passwordBytes = encoder.encode(password);
+    const saltBytes = encoder.encode(salt);
+    
+    const keyMaterial = await crypto.subtle.importKey(
+      'raw',
+      passwordBytes,
+      'PBKDF2',
+      false,
+      ['deriveBits']
+    );
+    
+    const derivedBits = await crypto.subtle.deriveBits(
+      {
+        name: 'PBKDF2',
+        salt: saltBytes,
+        iterations,
+        hash: 'SHA-256'
+      },
+      keyMaterial,
+      256
+    );
+    
+    return Array.from(new Uint8Array(derivedBits))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
   },
 };
 
@@ -125,51 +240,157 @@ export const validationUtils = {
   },
 };
 
-// 安全存储
+// 安全存储 - F-SEC-002 增强版
 export const secureStorage = {
-  // 安全存储Key前缀
   PREFIX: 'PS_',
+  SENSITIVE_PREFIX: 'PSS_',
+  encryptionCache: new Map<string, string>(),
+  _self: null as any,
 
-  // 设置安全存储
-  set: (key: string, value: any, encrypt: boolean = true): void => {
+  init: function() {
+    this._self = this;
+  },
+
+  set: async function(key: string, value: any, encrypt: boolean = true, sensitive: boolean = false): Promise<void> {
+    const self = this._self || this;
     try {
       const serialized = JSON.stringify(value);
-      const finalValue = encrypt ? cryptoUtils.xorEncrypt(serialized, getEncryptionKey()) : serialized;
-      localStorage.setItem(this.PREFIX + key, finalValue);
+      const prefix = sensitive ? self.SENSITIVE_PREFIX : self.PREFIX;
+      
+      if (encrypt) {
+        const encryptionKey = await self.getOrCreateKey(sensitive);
+        if (sensitive) {
+          const encrypted = await cryptoUtils.aesEncrypt(serialized, encryptionKey);
+          localStorage.setItem(prefix + key, encrypted);
+        } else {
+          const encrypted = cryptoUtils.xorEncrypt(serialized, encryptionKey);
+          localStorage.setItem(prefix + key, encrypted);
+        }
+      } else {
+        localStorage.setItem(prefix + key, serialized);
+      }
     } catch (error) {
       console.error('Storage set error:', error);
     }
   },
 
-  // 获取安全存储
-  get: <T = any>(key: string, decrypt: boolean = true): T | null => {
+  setSync: function(key: string, value: any, encrypt: boolean = true): void {
+    const self = this._self || this;
     try {
-      const value = localStorage.getItem(this.PREFIX + key);
+      const serialized = JSON.stringify(value);
+      if (encrypt) {
+        const encryptionKey = getEncryptionKeySync();
+        const encrypted = cryptoUtils.xorEncrypt(serialized, encryptionKey);
+        localStorage.setItem(self.PREFIX + key, encrypted);
+      } else {
+        localStorage.setItem(self.PREFIX + key, serialized);
+      }
+    } catch (error) {
+      console.error('Storage set error:', error);
+    }
+  },
+
+  get: async function<T = any>(key: string, decrypt: boolean = true, sensitive: boolean = false): Promise<T | null> {
+    const self = this._self || this;
+    try {
+      const prefix = sensitive ? self.SENSITIVE_PREFIX : self.PREFIX;
+      const value = localStorage.getItem(prefix + key);
       if (!value) return null;
-      const finalValue = decrypt ? cryptoUtils.xorEncrypt(value, getEncryptionKey()) : value;
-      return JSON.parse(finalValue);
+      
+      if (decrypt) {
+        const encryptionKey = await self.getOrCreateKey(sensitive);
+        if (sensitive) {
+          const decrypted = await cryptoUtils.aesDecrypt(value, encryptionKey);
+          return JSON.parse(decrypted);
+        } else {
+          const decrypted = cryptoUtils.xorDecrypt(value, encryptionKey);
+          return JSON.parse(decrypted);
+        }
+      }
+      return JSON.parse(value);
     } catch (error) {
       console.error('Storage get error:', error);
       return null;
     }
   },
 
-  // 移除安全存储
-  remove: (key: string): void => {
-    localStorage.removeItem(this.PREFIX + key);
+  getSync: function<T = any>(key: string, decrypt: boolean = true): T | null {
+    const self = this._self || this;
+    try {
+      const value = localStorage.getItem(self.PREFIX + key);
+      if (!value) return null;
+      
+      if (decrypt) {
+        const encryptionKey = getEncryptionKeySync();
+        const decrypted = cryptoUtils.xorDecrypt(value, encryptionKey);
+        return JSON.parse(decrypted);
+      }
+      return JSON.parse(value);
+    } catch (error) {
+      console.error('Storage get error:', error);
+      return null;
+    }
   },
 
-  // 清除所有安全存储
-  clear: (): void => {
+  remove: function(key: string, sensitive: boolean = false): void {
+    const self = this._self || this;
+    const prefix = sensitive ? self.SENSITIVE_PREFIX : self.PREFIX;
+    localStorage.removeItem(prefix + key);
+  },
+
+  clear: function(): void {
+    const self = this._self || this;
     Object.keys(localStorage)
-      .filter(key => key.startsWith(this.PREFIX))
+      .filter(key => key.startsWith(self.PREFIX) || key.startsWith(self.SENSITIVE_PREFIX))
       .forEach(key => localStorage.removeItem(key));
+    self.encryptionCache.clear();
+  },
+
+  clearSensitive: function(): void {
+    const self = this._self || this;
+    Object.keys(localStorage)
+      .filter(key => key.startsWith(self.SENSITIVE_PREFIX))
+      .forEach(key => localStorage.removeItem(key));
+  },
+
+  getOrCreateKey: async function(sensitive: boolean): Promise<string> {
+    const self = this._self || this;
+    const keyType = sensitive ? 'sensitive' : 'normal';
+    if (self.encryptionCache.has(keyType)) {
+      return self.encryptionCache.get(keyType)!;
+    }
+    
+    let key: string;
+    if (sensitive) {
+      key = await cryptoUtils.generateSecureKey(32);
+    } else {
+      key = getEncryptionKeySync();
+    }
+    
+    self.encryptionCache.set(keyType, key);
+    return key;
+  },
+
+  hasKey: function(key: string, sensitive: boolean = false): boolean {
+    const self = this._self || this;
+    const prefix = sensitive ? self.SENSITIVE_PREFIX : self.PREFIX;
+    return localStorage.getItem(prefix + key) !== null;
+  },
+
+  getAllKeys: function(sensitive: boolean = false): string[] {
+    const self = this._self || this;
+    const prefix = sensitive ? self.SENSITIVE_PREFIX : self.PREFIX;
+    return Object.keys(localStorage)
+      .filter(k => k.startsWith(prefix))
+      .map(k => k.substring(prefix.length));
   },
 };
 
-// 获取加密密钥（基于设备指纹）
+secureStorage.init();
+
 let cachedKey: string | null = null;
-const getEncryptionKey = (): string => {
+
+const getEncryptionKeySync = (): string => {
   if (cachedKey) return cachedKey;
   
   const fingerprint = [
@@ -184,19 +405,17 @@ const getEncryptionKey = (): string => {
   return cachedKey;
 };
 
+const getEncryptionKey = async (): Promise<string> => {
+  return getEncryptionKeySync();
+};
+
 // 防暴力破解
 export const bruteForceProtection = {
-  // 登录尝试记录
   attempts: new Map<string, { count: number; lastAttempt: number }>(),
-  
-  // 最大尝试次数
   MAX_ATTEMPTS: 5,
-  
-  // 锁定时间（毫秒）
-  LOCK_DURATION: 15 * 60 * 1000, // 15分钟
+  LOCK_DURATION: 15 * 60 * 1000,
 
-  // 检查是否锁定
-  isLocked: (identifier: string): boolean => {
+  isLocked: function(identifier: string): boolean {
     const record = this.attempts.get(identifier);
     if (!record) return false;
     
@@ -209,28 +428,24 @@ export const bruteForceProtection = {
     return record.count >= this.MAX_ATTEMPTS;
   },
 
-  // 记录失败尝试
-  recordFailedAttempt: (identifier: string): void => {
+  recordFailedAttempt: function(identifier: string): void {
     const record = this.attempts.get(identifier) || { count: 0, lastAttempt: 0 };
     record.count += 1;
     record.lastAttempt = Date.now();
     this.attempts.set(identifier, record);
   },
 
-  // 重置尝试次数
-  resetAttempts: (identifier: string): void => {
+  resetAttempts: function(identifier: string): void {
     this.attempts.delete(identifier);
   },
 
-  // 获取剩余尝试次数
-  getRemainingAttempts: (identifier: string): number => {
+  getRemainingAttempts: function(identifier: string): number {
     const record = this.attempts.get(identifier);
     if (!record) return this.MAX_ATTEMPTS;
     return Math.max(0, this.MAX_ATTEMPTS - record.count);
   },
 
-  // 获取锁定剩余时间
-  getLockRemainingTime: (identifier: string): number => {
+  getLockRemainingTime: function(identifier: string): number {
     const record = this.attempts.get(identifier);
     if (!record || record.count < this.MAX_ATTEMPTS) return 0;
     
@@ -241,33 +456,28 @@ export const bruteForceProtection = {
 
 // CSRF防护
 export const csrfProtection = {
-  // 生成CSRF Token
   generateToken: (): string => {
     return cryptoUtils.generateRandomString(32);
   },
 
-  // 验证CSRF Token
   validateToken: (token: string, storedToken: string): boolean => {
     if (!token || !storedToken) return false;
     return token === storedToken && token.length === 32;
   },
 
-  // 获取当前Token（从secureStorage）
   getToken: (): string | null => {
-    return secureStorage.get<string>('csrf_token', false);
+    return secureStorage.getSync<string>('csrf_token', false);
   },
 
-  // 设置Token
   setToken: (token: string): void => {
-    secureStorage.set('csrf_token', token, false);
+    secureStorage.setSync('csrf_token', token, false);
   },
 
-  // 初始化Token
   init: (): string => {
-    let token = this.getToken();
+    let token = csrfProtection.getToken();
     if (!token) {
-      token = this.generateToken();
-      this.setToken(token);
+      token = csrfProtection.generateToken();
+      csrfProtection.setToken(token);
     }
     return token;
   },
@@ -308,42 +518,34 @@ export const securityHeaders = {
 
 // 会话管理
 export const sessionManager = {
-  // 会话超时时间
-  SESSION_TIMEOUT: 30 * 60 * 1000, // 30分钟
-  
-  // 最后活动时间
+  SESSION_TIMEOUT: 30 * 60 * 1000,
   lastActivity: Date.now(),
 
-  // 更新活动时间
-  updateActivity: (): void => {
+  updateActivity: function(): void {
     this.lastActivity = Date.now();
   },
 
-  // 检查会话是否过期
-  isSessionExpired: (): boolean => {
+  isSessionExpired: function(): boolean {
     return Date.now() - this.lastActivity > this.SESSION_TIMEOUT;
   },
 
-  // 安全登出
-  logout: (): void => {
+  logout: function(): void {
     secureStorage.clear();
     bruteForceProtection.resetAttempts('login');
     sessionStorage.clear();
   },
 
-  // 初始化会话
-  initSession: (userId: string): void => {
+  initSession: function(userId: string): void {
     this.updateActivity();
-    secureStorage.set('session', {
+    secureStorage.setSync('session', {
       userId,
       startTime: Date.now(),
       lastActivity: this.lastActivity,
     }, true);
   },
 
-  // 获取会话信息
-  getSession: (): any | null => {
-    return secureStorage.get('session', true);
+  getSession: function(): any | null {
+    return secureStorage.getSync('session', true);
   },
 };
 

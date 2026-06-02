@@ -20,9 +20,15 @@ import {
   ChevronRight,
   AlertCircle,
   Check,
-  X
+  X,
+  Download,
+  UserX,
+  ShieldAlert
 } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
+import { dataExportManager } from '../services/dataExportService';
+import { contentSecurityManager } from '../services/contentSecurityService';
+import { permissionManager, PermissionType } from '../services/permissionService';
 
 interface SettingsPageProps {
   onNavigate: (page: string) => void;
@@ -50,7 +56,14 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
   const [showUserAgreementModal, setShowUserAgreementModal] = useState(false);
   const [showPrivacyPolicyModal, setShowPrivacyPolicyModal] = useState(false);
   const [showThemeModal, setShowThemeModal] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+  const [deleteConfirmationInput, setDeleteConfirmationInput] = useState('');
   const [toastMessage, setToastMessage] = useState('');
+  const [isExporting, setIsExporting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [permissionStatuses, setPermissionStatuses] = useState<Map<PermissionType, any>>(new Map());
   const [privacySettings, setPrivacySettings] = useState({
     dataAnalysis: true,
     personalizedRecommendations: true,
@@ -68,7 +81,60 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
     } else {
       document.documentElement.classList.remove('dark');
     }
+    
+    permissionManager.checkAllPermissions().then(statuses => {
+      setPermissionStatuses(statuses);
+    });
   }, [settings.darkMode]);
+
+  const handleExportData = async () => {
+    setIsExporting(true);
+    try {
+      await dataExportManager.downloadExportFile('json');
+      showToast('数据导出成功');
+      setShowExportModal(false);
+    } catch (error) {
+      showToast('数据导出失败，请重试');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmationInput !== 'DELETE') {
+      showToast('请输入 DELETE 确认删除');
+      return;
+    }
+    
+    setIsDeleting(true);
+    try {
+      const result = await dataExportManager.deleteAccount();
+      if (result.success) {
+        showToast(`账号已注销，确认码: ${result.confirmationCode}`);
+        setShowDeleteConfirmModal(false);
+        setShowDeleteAccountModal(false);
+        onNavigate('auth');
+      } else {
+        showToast('账号注销失败，请联系客服');
+      }
+    } catch (error) {
+      showToast('账号注销失败，请重试');
+    } finally {
+      setIsDeleting(false);
+      setDeleteConfirmationInput('');
+    }
+  };
+
+  const handleRequestPermission = async (type: PermissionType) => {
+    const granted = await permissionManager.requestPermission(type);
+    if (granted) {
+      showToast(`${permissionManager.getConfig(type).description} 权限已开启`);
+      const statuses = await permissionManager.checkAllPermissions();
+      setPermissionStatuses(statuses);
+    } else {
+      showToast(permissionManager.getFallbackMessage(type));
+    }
+  };
 
   const handleClearData = () => {
     clearAllData();
@@ -157,11 +223,25 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
           onClick: () => setShowPermissionModal(true)
         },
         {
+          icon: Download,
+          label: '数据导出',
+          description: '导出您的所有数据',
+          type: 'link',
+          onClick: () => setShowExportModal(true)
+        },
+        {
           icon: Trash2,
           label: '清除数据',
           description: '清除所有本地数据',
           type: 'action',
           onClick: () => setShowClearDataModal(true)
+        },
+        {
+          icon: UserX,
+          label: '账号注销',
+          description: '永久删除账号和数据',
+          type: 'link',
+          onClick: () => setShowDeleteAccountModal(true)
         },
       ]
     },
@@ -599,6 +679,142 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
           <p><strong>五、您的权利</strong></p>
           <p>您有权访问、更正、删除您的个人信息，可在应用设置中操作。</p>
           <p className="text-xs text-gray-400 pt-4">最后更新：2026年6月2日</p>
+        </div>
+      </Modal>
+
+      <Modal show={showExportModal} onClose={() => setShowExportModal(false)} title="数据导出">
+        <div className="space-y-4">
+          <div className="p-4 bg-blue-50 rounded-xl">
+            <p className="text-sm text-blue-700">
+              您可以导出所有个人数据，包括宠物信息、翻译记录、健康数据等。
+              导出文件为JSON格式，包含完整的数据备份。
+            </p>
+          </div>
+          <div className="space-y-2 text-sm text-gray-600">
+            <p className="font-medium">导出内容包括：</p>
+            <ul className="list-disc list-inside space-y-1">
+              <li>用户账户信息</li>
+              <li>宠物档案数据</li>
+              <li>所有翻译分析记录</li>
+              <li>健康提醒历史</li>
+              <li>应用设置偏好</li>
+            </ul>
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowExportModal(false)}
+              className="flex-1 py-3 rounded-xl bg-gray-100 font-medium"
+              disabled={isExporting}
+            >
+              取消
+            </button>
+            <button
+              onClick={handleExportData}
+              className="flex-1 py-3 rounded-xl bg-purple-500 text-white font-medium flex items-center justify-center gap-2"
+              disabled={isExporting}
+            >
+              {isExporting ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  导出中...
+                </>
+              ) : (
+                <>
+                  <Download className="w-4 h-4" />
+                  开始导出
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal show={showDeleteAccountModal} onClose={() => setShowDeleteAccountModal(false)} title="账号注销">
+        <div className="space-y-4">
+          <div className="flex items-center gap-3 p-4 bg-red-50 rounded-xl">
+            <ShieldAlert className="w-6 h-6 text-red-500" />
+            <div>
+              <p className="font-medium text-red-700">严重警告</p>
+              <p className="text-sm text-red-600">账号注销将永久删除您的所有数据，此操作不可恢复！</p>
+            </div>
+          </div>
+          <div className="space-y-2 text-sm text-gray-600">
+            <p className="font-medium">注销后将删除：</p>
+            <ul className="list-disc list-inside space-y-1">
+              <li>您的账户信息和登录凭证</li>
+              <li>所有宠物档案和照片</li>
+              <li>翻译记录和分析历史</li>
+              <li>健康数据和提醒设置</li>
+              <li>所有本地存储数据</li>
+            </ul>
+          </div>
+          <div className="p-3 bg-yellow-50 rounded-xl text-sm text-yellow-700">
+            建议：在注销前先导出您的数据备份
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowDeleteAccountModal(false)}
+              className="flex-1 py-3 rounded-xl bg-gray-100 font-medium"
+            >
+              取消
+            </button>
+            <button
+              onClick={() => {
+                setShowDeleteAccountModal(false);
+                setShowDeleteConfirmModal(true);
+              }}
+              className="flex-1 py-3 rounded-xl bg-red-500 text-white font-medium"
+            >
+              继续注销
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal show={showDeleteConfirmModal} onClose={() => setShowDeleteConfirmModal(false)} title="最终确认">
+        <div className="space-y-4">
+          <div className="p-4 bg-red-100 rounded-xl">
+            <p className="text-center text-red-700 font-medium">
+              请输入 "DELETE" 确认永久删除账号
+            </p>
+          </div>
+          <input
+            type="text"
+            value={deleteConfirmationInput}
+            onChange={(e) => setDeleteConfirmationInput(e.target.value)}
+            placeholder="输入 DELETE"
+            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-red-500 focus:outline-none text-center font-medium"
+          />
+          <div className="flex gap-3">
+            <button
+              onClick={() => {
+                setShowDeleteConfirmModal(false);
+                setDeleteConfirmationInput('');
+              }}
+              className="flex-1 py-3 rounded-xl bg-gray-100 font-medium"
+              disabled={isDeleting}
+            >
+              取消
+            </button>
+            <button
+              onClick={handleDeleteAccount}
+              className={`flex-1 py-3 rounded-xl font-medium ${
+                deleteConfirmationInput === 'DELETE' 
+                  ? 'bg-red-500 text-white' 
+                  : 'bg-gray-300 text-gray-500'
+              }`}
+              disabled={isDeleting || deleteConfirmationInput !== 'DELETE'}
+            >
+              {isDeleting ? (
+                <span className="flex items-center justify-center gap-2">
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  注销中...
+                </span>
+              ) : (
+                '确认注销'
+              )}
+            </button>
+          </div>
         </div>
       </Modal>
     </div>
