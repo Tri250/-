@@ -68,12 +68,6 @@ export const AddReminderModal: React.FC<AddReminderModalProps> = ({
   const [notifyBefore, setNotifyBefore] = useState(60);
   const [smartRecommendations, setSmartRecommendations] = useState<Array<{ type: ReminderType; suggestedDate: string; suggestedTime: string; reason: string }>>([]);
 
-  useEffect(() => {
-    if (isOpen) {
-      generateSmartRecommendations();
-    }
-  }, [isOpen, generateSmartRecommendations]);
-
   const generateSmartRecommendations = React.useCallback(() => {
     const recommendations: Array<{ type: ReminderType; suggestedDate: string; suggestedTime: string; reason: string }> = [];
     const today = new Date();
@@ -131,6 +125,12 @@ export const AddReminderModal: React.FC<AddReminderModalProps> = ({
 
     setSmartRecommendations(recommendations);
   }, [petBirthday, lastVaccineDate, lastDewormingDate]);
+
+  useEffect(() => {
+    if (isOpen) {
+      generateSmartRecommendations();
+    }
+  }, [isOpen, generateSmartRecommendations]);
 
   const applyRecommendation = (rec: { type: ReminderType; suggestedDate: string; suggestedTime: string; reason: string }) => {
     setSelectedType(rec.type);
