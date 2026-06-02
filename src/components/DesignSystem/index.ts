@@ -1,4 +1,4 @@
-export { Card } from './Card';
+export { Card, SkeletonCard, SkeletonQuickActions } from './Card';
 export { Button } from './Button';
 export { Badge } from './Badge';
 export { ProgressRing } from './ProgressRing';

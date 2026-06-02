@@ -6,7 +6,6 @@ import {
   Volume2, 
   VolumeX, 
   Maximize2, 
-  RotateCcw,
   ZoomIn,
   ZoomOut,
   ChevronUp,
@@ -15,15 +14,14 @@ import {
   ChevronRight,
   CameraOff,
   RefreshCw,
-  Play,
-  Pause,
-  Square,
   Settings,
   AlertCircle,
-  Eye
+  Eye,
+  Plus
 } from 'lucide-react';
-import { GlassCard, GlassButton, GlassModal } from '../components/DesignSystem';
+import { GlassCard, GlassModal } from '../components/DesignSystem';
 import { cameraAdapterService } from '../services/cameraAdapterService';
+import { DevicePairing } from '../components/camera/DevicePairing';
 import type { CameraDevice } from '../types/camera';
 
 interface CameraMonitorPageProps {
@@ -33,13 +31,13 @@ interface CameraMonitorPageProps {
 export const CameraMonitorPage: React.FC<CameraMonitorPageProps> = ({ onNavigate }) => {
   const [cameras, setCameras] = useState<CameraDevice[]>([]);
   const [selectedCamera, setSelectedCamera] = useState<CameraDevice | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [isStreaming, setIsStreaming] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [isMicOn, setIsMicOn] = useState(false);
   const [zoom, setZoom] = useState(100);
   const [showSettings, setShowSettings] = useState(false);
   const [showCameraList, setShowCameraList] = useState(false);
+  const [showPairingModal, setShowPairingModal] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'streaming' | 'error'>('connecting');
 
   useEffect(() => {
@@ -48,7 +46,6 @@ export const CameraMonitorPage: React.FC<CameraMonitorPageProps> = ({ onNavigate
       if (devices.length > 0) {
         setSelectedCamera(devices[0]);
       }
-      setIsLoading(false);
     });
   }, []);
 
@@ -72,6 +69,17 @@ export const CameraMonitorPage: React.FC<CameraMonitorPageProps> = ({ onNavigate
   };
 
   const handleRefresh = () => {
+    setConnectionStatus('connecting');
+    setTimeout(() => {
+      setConnectionStatus('streaming');
+      setIsStreaming(true);
+    }, 1500);
+  };
+
+  const handleDevicePaired = async (device: CameraDevice) => {
+    setCameras(prev => [...prev, device]);
+    setSelectedCamera(device);
+    setShowPairingModal(false);
     setConnectionStatus('connecting');
     setTimeout(() => {
       setConnectionStatus('streaming');
@@ -342,7 +350,30 @@ export const CameraMonitorPage: React.FC<CameraMonitorPageProps> = ({ onNavigate
               )}
             </button>
           ))}
+          
+          <button
+            onClick={() => {
+              setShowCameraList(false);
+              setShowPairingModal(true);
+            }}
+            className="w-full flex items-center gap-3 p-3 rounded-xl bg-primary-500/10 border border-primary-500/30 hover:bg-primary-500/20 transition-colors"
+          >
+            <div className="w-8 h-8 rounded-full bg-primary-500/20 flex items-center justify-center">
+              <Plus className="w-4 h-4 text-primary-400" />
+            </div>
+            <div className="flex-1 text-left">
+              <h4 className="font-medium text-primary-400">添加新设备</h4>
+              <p className="text-xs text-primary-400/60">支持多种品牌摄像头</p>
+            </div>
+          </button>
         </div>
+      </GlassModal>
+
+      <GlassModal isOpen={showPairingModal} onClose={() => setShowPairingModal(false)} title="">
+        <DevicePairing 
+          onPaired={handleDevicePaired} 
+          onCancel={() => setShowPairingModal(false)} 
+        />
       </GlassModal>
 
       <GlassModal isOpen={showSettings} onClose={() => setShowSettings(false)} title="摄像头设置">

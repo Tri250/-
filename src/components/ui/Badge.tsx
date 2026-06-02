@@ -2,7 +2,7 @@ import React from 'react';
 
 interface BadgeProps {
   children: React.ReactNode;
-  color?: 'orange' | 'green' | 'blue' | 'red' | 'gray' | 'yellow' | 'purple' | 'pink';
+  color?: 'orange' | 'green' | 'blue' | 'red' | 'gray' | 'yellow' | 'purple' | 'pink' | 'teal';
   size?: 'small' | 'medium';
   className?: string;
   icon?: React.ReactNode;
@@ -17,6 +17,7 @@ const colorClasses = {
   yellow: 'bg-yellow-50 text-yellow-600',
   purple: 'bg-purple-50 text-purple-600',
   pink: 'bg-pink-50 text-pink-600',
+  teal: 'bg-teal-50 text-teal-600',
 };
 
 const sizeClasses = {

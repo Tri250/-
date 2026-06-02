@@ -13,11 +13,15 @@ interface CameraPlayerProps {
   className?: string;
 }
 
-const qualityLabels: Record<StreamQuality, string> = {
+const qualityLabels: Partial<Record<StreamQuality, string>> = {
   auto: '自动',
   '1080p': '1080P',
   '720p': '720P',
   '480p': '480P',
+  low: '低',
+  medium: '中',
+  high: '高',
+  ultra: '超高清',
 };
 
 export function CameraPlayer({
@@ -52,7 +56,7 @@ export function CameraPlayer({
     
     try {
       if (videoRef.current) {
-        videoRef.current.src = device.thumbnailUrl || '';
+        videoRef.current.src = device.thumbnail || '';
         if (autoPlay) {
           await videoRef.current.play();
           setIsPlaying(true);

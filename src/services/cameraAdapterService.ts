@@ -343,42 +343,47 @@ class CameraAdapterService {
  };
  }
  private getModelByBrand(brand: CameraBrand): string {
- const models: Record<CameraBrand, string> = {
- ezviz: 'CS-C6CN',
- tapo: 'Tapo C100',
- xiaomi: 'Mi Home Camera',
- hikvision: 'DS-2CD2043G0-I',
- dahua: 'IPC-HFW1230S',
- '360': '360 Camera',
- eufy: 'eufyCam 2C',
- haier: 'Haier Camera',
- onvif: 'Generic ONVIF',
- generic: 'Generic Camera'
- };
- return models[brand] || 'Unknown';
- }
+    const models: Record<CameraBrand, string> = {
+      ezviz: 'CS-C6CN',
+      tapo: 'Tapo C100',
+      xiaomi: 'Mi Home Camera',
+      hikvision: 'DS-2CD2043G0-I',
+      dahua: 'IPC-HFW1230S',
+      '360': '360 Camera',
+      eufy: 'eufyCam 2C',
+      haier: 'Haier Camera',
+      onvif: 'Generic ONVIF',
+      generic: 'Generic Camera',
+      huawei: 'HW Camera',
+      honor: 'Honor Camera',
+      yi: 'Yi Camera',
+      ring: 'Ring Doorbell',
+      nest: 'Nest Cam',
+    };
+    return models[brand] || 'Unknown';
+  }
  private getDefaultCapabilities(brand: CameraBrand): CameraDevice['capabilities'] {
- const baseCapabilities = [
- { type: 'live_stream', enabled: true },
- { type: 'night_vision', enabled: true },
- { type: 'motion_detection', enabled: true },
- { type: 'sd_card', enabled: true }
- ];
- if (brand === 'ezviz' || brand === 'xiaomi') {
- return [
- ...baseCapabilities,
- { type: 'two_way_audio', enabled: true },
- { type: 'ptz', enabled: true },
- { type: 'cloud_storage', enabled: true }
- ];
- }
- return [
- ...baseCapabilities,
- { type: 'two_way_audio', enabled: false },
- { type: 'ptz', enabled: false },
- { type: 'cloud_storage', enabled: false }
- ];
- }
+     const baseCapabilities: CameraDevice['capabilities'] = [
+       { type: 'live_stream', enabled: true },
+       { type: 'night_vision', enabled: true },
+       { type: 'motion_detection', enabled: true },
+       { type: 'sd_card', enabled: true }
+     ];
+     if (brand === 'ezviz' || brand === 'xiaomi') {
+       return [
+         ...baseCapabilities,
+         { type: 'two_way_audio', enabled: true },
+         { type: 'ptz', enabled: true },
+         { type: 'cloud_storage', enabled: true }
+       ];
+     }
+     return [
+       ...baseCapabilities,
+       { type: 'two_way_audio', enabled: false },
+       { type: 'ptz', enabled: false },
+       { type: 'cloud_storage', enabled: false }
+     ];
+   }
  private getDefaultSettings(): CameraDevice['settings'] {
  return {
  resolution: '1080p',

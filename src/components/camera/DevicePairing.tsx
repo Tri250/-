@@ -1,38 +1,68 @@
 import { useState } from 'react';
-import { Camera, Smartphone, CheckCircle, AlertCircle, Loader } from 'lucide-react';
-import type { CameraBrand, PairingProgress } from '../../types/camera';
+import { Camera, Smartphone, CheckCircle, AlertCircle, Loader, Wifi, User, Link } from 'lucide-react';
+import { BRAND_INFO } from '../../services/cameraService';
+import type { CameraBrand, BrandInfo, PairingProgress, CameraDevice } from '../../types/camera';
 
 interface DevicePairingProps {
-  onPaired: (device: any) => void;
+  onPaired: (device: CameraDevice) => void;
   onCancel: () => void;
 }
 
-type PairingStage = 'select-brand' | 'enter-code' | 'pairing' | 'success' | 'error';
-
-const brandInfo: Array<{ brand: CameraBrand; name: string; icon: string; color: string }> = [
-  { brand: 'xiaomi', name: '小米米家', icon: '📱', color: 'hover:border-orange-400' },
-  { brand: 'huawei', name: '华为海雀', icon: '🐦', color: 'hover:border-blue-400' },
-  { brand: 'honor', name: '荣耀小值', icon: '✨', color: 'hover:border-red-400' },
-];
+type PairingStage = 'select-brand' | 'enter-info' | 'pairing' | 'success' | 'error';
 
 export function DevicePairing({ onPaired, onCancel }: DevicePairingProps) {
   const [stage, setStage] = useState<PairingStage>('select-brand');
-  const [selectedBrand, setSelectedBrand] = useState<CameraBrand | null>(null);
+  const [selectedBrand, setSelectedBrand] = useState<BrandInfo | null>(null);
   const [deviceCode, setDeviceCode] = useState('');
   const [deviceName, setDeviceName] = useState('');
+  const [ipAddress, setIpAddress] = useState('');
+  const [port, setPort] = useState('554');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [accountId, setAccountId] = useState('');
   const [progress, setProgress] = useState<PairingProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const handleBrandSelect = (brand: CameraBrand) => {
+  const handleBrandSelect = (brand: BrandInfo) => {
     setSelectedBrand(brand);
-    setStage('enter-code');
+    setStage('enter-info');
+    setError(null);
+  };
+
+  const validateInputs = (): boolean => {
+    if (!selectedBrand) return false;
+
+    switch (selectedBrand.pairingMethod) {
+      case 'code':
+        if (!deviceCode.trim()) {
+          setError('请输入设备码');
+          return false;
+        }
+        break;
+      case 'ip':
+        if (!ipAddress.trim()) {
+          setError('请输入IP地址');
+          return false;
+        }
+        if (!username.trim() || !password.trim()) {
+          setError('请输入用户名和密码');
+          return false;
+        }
+        break;
+      case 'account':
+        if (!accountId.trim()) {
+          setError('请输入账号ID或授权码');
+          return false;
+        }
+        break;
+      case 'qr':
+        break;
+    }
+    return true;
   };
 
   const handleStartPairing = async () => {
-    if (!deviceCode.trim()) {
-      setError('请输入设备码');
-      return;
-    }
+    if (!validateInputs()) return;
 
     setStage('pairing');
     setError(null);
@@ -60,24 +90,174 @@ export function DevicePairing({ onPaired, onCancel }: DevicePairingProps) {
     setProgress({ stage: 'completed', message: '配对成功！', progress: 100 });
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    setStage('success');
-    onPaired({
+    const newDevice: CameraDevice = {
       id: `cam-${Date.now()}`,
-      brand: selectedBrand,
-      model: deviceCode,
-      name: deviceName || `${brandInfo.find(b => b.brand === selectedBrand)?.name}摄像头`,
+      brand: selectedBrand!.id,
+      model: deviceCode || 'IP Camera',
+      name: deviceName || `${selectedBrand!.name}摄像头`,
       status: 'online',
-      streamUrl: `https://example.com/stream/${deviceCode}`,
-      thumbnailUrl: `https://picsum.photos/400/300?random=${Date.now()}`,
-      lastOnline: new Date().toISOString(),
-    });
+      streamUrl: ipAddress 
+        ? `rtsp://${username}:${password}@${ipAddress}:${port}/stream` 
+        : `https://example.com/stream/${deviceCode || Date.now()}`,
+      thumbnail: `https://picsum.photos/400/300?random=${Date.now()}`,
+      lastActive: new Date().toISOString(),
+      ipAddress: ipAddress || undefined,
+      port: port ? parseInt(port) : undefined,
+      capabilities: [],
+      settings: {
+        resolution: '1080p',
+        nightVisionMode: 'auto',
+        motionDetection: { enabled: true, sensitivity: 60, notificationEnabled: true },
+        recording: { mode: 'motion', quality: 'high', storage: 'sd' },
+        audio: { enabled: true, volume: 80, noiseReduction: true },
+        aiTracking: { enabled: false, targetType: 'pet', smoothTracking: false },
+      },
+      protocol: ipAddress ? 'rtsp' : 'webrtc',
+    };
+
+    setStage('success');
+    onPaired(newDevice);
   };
 
   const handleRetry = () => {
-    setStage('enter-code');
-    setDeviceCode('');
+    setStage('enter-info');
     setError(null);
     setProgress(null);
+  };
+
+  const renderInfoInput = () => {
+    if (!selectedBrand) return null;
+
+    switch (selectedBrand.pairingMethod) {
+      case 'code':
+        return (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                设备码 <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={deviceCode}
+                onChange={(e) => setDeviceCode(e.target.value)}
+                placeholder="请输入设备背面的设备码"
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 outline-none transition-all bg-white text-gray-800"
+              />
+            </div>
+            <div className="bg-blue-50 rounded-xl p-4">
+              <div className="flex items-start gap-3">
+                <Smartphone className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-blue-700">
+                  <p className="font-medium mb-1">如何获取设备码？</p>
+                  <p className="text-blue-600">在摄像头机身底部或说明书上找到设备码</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      case 'ip':
+        return (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                IP地址 <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={ipAddress}
+                onChange={(e) => setIpAddress(e.target.value)}
+                placeholder="例如: 192.168.1.100"
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 outline-none transition-all bg-white text-gray-800"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                端口
+              </label>
+              <input
+                type="text"
+                value={port}
+                onChange={(e) => setPort(e.target.value)}
+                placeholder="默认: 554"
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 outline-none transition-all bg-white text-gray-800"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                用户名 <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="设备登录用户名"
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 outline-none transition-all bg-white text-gray-800"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                密码 <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="设备登录密码"
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 outline-none transition-all bg-white text-gray-800"
+              />
+            </div>
+            <div className="bg-blue-50 rounded-xl p-4">
+              <div className="flex items-start gap-3">
+                <Wifi className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-blue-700">
+                  <p className="font-medium mb-1">IP摄像头配置</p>
+                  <p className="text-blue-600">请确保摄像头与手机在同一网络，并在摄像头设置中启用RTSP协议</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      case 'account':
+        return (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                账号授权码 <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={accountId}
+                onChange={(e) => setAccountId(e.target.value)}
+                placeholder="请输入账号授权码"
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 outline-none transition-all bg-white text-gray-800"
+              />
+            </div>
+            <div className="bg-blue-50 rounded-xl p-4">
+              <div className="flex items-start gap-3">
+                <User className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-blue-700">
+                  <p className="font-medium mb-1">账号授权</p>
+                  <p className="text-blue-600">请在品牌官方App中获取授权码或API访问权限</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      case 'qr':
+        return (
+          <div className="space-y-4">
+            <div className="bg-blue-50 rounded-xl p-4">
+              <div className="flex items-start gap-3">
+                <Link className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-blue-700">
+                  <p className="font-medium mb-1">扫码配对</p>
+                  <p className="text-blue-600">请使用品牌官方App扫描二维码完成配对</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+    }
   };
 
   return (
@@ -87,22 +267,24 @@ export function DevicePairing({ onPaired, onCancel }: DevicePairingProps) {
           <Camera className="w-8 h-8 text-orange-500" />
         </div>
         <h2 className="text-xl font-bold text-gray-800">添加摄像头设备</h2>
-        <p className="text-sm text-gray-500 mt-1">支持小米、华为、荣耀等主流品牌</p>
+        <p className="text-sm text-gray-500 mt-1">支持小米、华为、萤石、TP-Link等主流品牌</p>
       </div>
 
       {stage === 'select-brand' && (
         <div className="space-y-3">
           <p className="text-sm text-gray-600 mb-4">请选择摄像头品牌</p>
-          {brandInfo.map((brand) => (
-            <button
-              key={brand.brand}
-              onClick={() => handleBrandSelect(brand.brand)}
-              className={`w-full p-4 rounded-xl border-2 border-gray-200 ${brand.color} hover:shadow-md transition-all flex items-center gap-4`}
-            >
-              <span className="text-4xl">{brand.icon}</span>
-              <span className="font-medium text-gray-800">{brand.name}</span>
-            </button>
-          ))}
+          <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
+            {BRAND_INFO.map((brand) => (
+              <button
+                key={brand.id}
+                onClick={() => handleBrandSelect(brand)}
+                className={`p-3 rounded-xl border-2 border-gray-200 ${brand.color} hover:shadow-md transition-all flex flex-col items-center gap-2`}
+              >
+                <span className="text-2xl">{brand.icon}</span>
+                <span className="font-medium text-gray-800 text-sm">{brand.name}</span>
+              </button>
+            ))}
+          </div>
           
           <button
             onClick={onCancel}
@@ -113,7 +295,7 @@ export function DevicePairing({ onPaired, onCancel }: DevicePairingProps) {
         </div>
       )}
 
-      {stage === 'enter-code' && (
+      {stage === 'enter-info' && (
         <div className="space-y-4">
           <button
             onClick={() => setStage('select-brand')}
@@ -121,19 +303,16 @@ export function DevicePairing({ onPaired, onCancel }: DevicePairingProps) {
           >
             ← 返回选择品牌
           </button>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              设备码 <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={deviceCode}
-              onChange={(e) => setDeviceCode(e.target.value)}
-              placeholder="请输入设备背面的设备码"
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 outline-none transition-all"
-            />
+
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-neutral-100">
+            <span className="text-2xl">{selectedBrand?.icon}</span>
+            <div>
+              <h4 className="font-medium text-gray-800">{selectedBrand?.name}</h4>
+              <p className="text-xs text-gray-500">{selectedBrand?.description}</p>
+            </div>
           </div>
+
+          {renderInfoInput()}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -144,18 +323,8 @@ export function DevicePairing({ onPaired, onCancel }: DevicePairingProps) {
               value={deviceName}
               onChange={(e) => setDeviceName(e.target.value)}
               placeholder="例如：客厅摄像头"
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 outline-none transition-all"
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 outline-none transition-all bg-white text-gray-800"
             />
-          </div>
-
-          <div className="bg-blue-50 rounded-xl p-4">
-            <div className="flex items-start gap-3">
-              <Smartphone className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
-              <div className="text-sm text-blue-700">
-                <p className="font-medium mb-1">如何获取设备码？</p>
-                <p className="text-blue-600">在摄像头机身底部或说明书上找到以"MB"或"HW"开头的设备码</p>
-              </div>
-            </div>
           </div>
 
           {error && (
@@ -213,7 +382,7 @@ export function DevicePairing({ onPaired, onCancel }: DevicePairingProps) {
         <div className="text-center py-8">
           <AlertCircle className="w-16 h-16 mx-auto mb-4 text-red-500" />
           <p className="font-bold text-gray-800 text-lg mb-2">配对失败</p>
-          <p className="text-sm text-gray-500 mb-6">请检查设备码是否正确，或尝试重新配对</p>
+          <p className="text-sm text-gray-500 mb-6">请检查输入信息是否正确，或尝试重新配对</p>
           <div className="flex gap-3 justify-center">
             <button
               onClick={onCancel}

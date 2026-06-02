@@ -6,7 +6,31 @@
 // 描述: 摄像头监控系统完整类型定义
 // ============================================
 
-export type CameraBrand = 'ezviz' | 'tapo' | 'xiaomi' | 'hikvision' | 'dahua' | '360' | 'eufy' | 'haier' | 'onvif' | 'generic';
+export type CameraBrand = 
+  | 'xiaomi' 
+  | 'huawei' 
+  | 'honor' 
+  | 'ezviz' 
+  | 'tapo' 
+  | 'hikvision' 
+  | 'dahua' 
+  | 'yi' 
+  | 'ring' 
+  | 'nest' 
+  | 'eufy' 
+  | '360' 
+  | 'haier' 
+  | 'onvif' 
+  | 'generic';
+
+export interface BrandInfo {
+  id: CameraBrand;
+  name: string;
+  icon: string;
+  color: string;
+  description: string;
+  pairingMethod: 'qr' | 'code' | 'account' | 'ip';
+}
 
 export type ConnectionProtocol = 'rtsp' | 'onvif' | 'ezopen' | 'webrtc' | 'hls' | 'rtmp';
 
@@ -17,7 +41,9 @@ export interface CameraDevice {
   model: string;
   status: 'online' | 'offline' | 'error' | 'updating';
   lastActive: string;
+  lastOnline?: string;
   thumbnail?: string;
+  thumbnailUrl?: string;
   streamUrl?: string;
   webrtcUrl?: string;
   capabilities: CameraCapability[];
@@ -245,9 +271,11 @@ export interface CameraDiscoveryState {
   lastDiscoveryTime?: string;
 }
 
-export interface StreamQuality {
+export type StreamQuality = 'auto' | 'low' | 'medium' | 'high' | 'ultra' | '1080p' | '720p' | '480p';
+
+export interface StreamQualityOption {
   label: string;
-  value: string;
+  value: StreamQuality;
   resolution: string;
   fps: number;
 }
@@ -257,4 +285,45 @@ export interface CameraShareInfo {
   sharedBy?: string;
   permission: 'view' | 'control' | 'admin';
   sharedAt?: string;
+}
+
+export interface DeviceConfig {
+  brand: CameraBrand;
+  deviceCode?: string;
+  ipAddress?: string;
+  port?: number;
+  username?: string;
+  password?: string;
+  accountId?: string;
+  streamUrl?: string;
+  name?: string;
+  location?: string;
+}
+
+export interface DeviceCapability {
+  brand: string;
+  supports1080p: boolean;
+  supports720p: boolean;
+  supports480p: boolean;
+  supportsAudio: boolean;
+  supportsNightVision: boolean;
+  maxResolution: string;
+}
+
+export interface PairingProgress {
+  stage: 'scanning' | 'connecting' | 'verifying' | 'completed' | 'error';
+  message: string;
+  progress: number;
+}
+
+export interface StreamOptions {
+  resolution?: '480p' | '720p' | '1080p' | '2k' | '4k';
+  audioEnabled?: boolean;
+  nightVision?: 'auto' | 'on' | 'off' | 'color';
+}
+
+export interface CameraError {
+  code: string;
+  message: string;
+  device?: CameraDevice;
 }

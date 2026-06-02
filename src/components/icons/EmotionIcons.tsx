@@ -3,7 +3,7 @@
 // 
 // 作者: 带娃的小陈工
 // 日期: 2026-05-26
-// 描述: 动物主题情感图标组件（猫咪造型）
+// 描述: 动物主题情感图标组件（猫咪造型）- 扩展版
 // ============================================
 
 import React from 'react';
@@ -28,6 +28,23 @@ export const EmotionIcons = {
       <path d="M26 46 Q32 52, 38 46" stroke="#333" strokeWidth="2" strokeLinecap="round" fill="none"/>
       <path d="M18 28 Q14 24, 18 20" stroke="#FF6B6B" strokeWidth="2" fill="none"/>
       <path d="M46 28 Q50 24, 46 20" stroke="#FF6B6B" strokeWidth="2" fill="none"/>
+    </svg>
+  ),
+  
+  curious: ({ className = '', size = 24 }: EmotionIconProps) => (
+    <svg className={className} width={size} height={size} viewBox="0 0 64 64" fill="none">
+      <ellipse cx="32" cy="36" rx="22" ry="18" fill="#B8A9C9"/>
+      <ellipse cx="32" cy="36" rx="20" ry="16" fill="#D4C4E8"/>
+      <ellipse cx="20" cy="18" rx="8" ry="12" fill="#B8A9C9" transform="rotate(-20 20 18)"/>
+      <ellipse cx="44" cy="18" rx="8" ry="12" fill="#B8A9C9" transform="rotate(20 44 18)"/>
+      <ellipse cx="24" cy="32" rx="5" ry="6" fill="white"/>
+      <ellipse cx="40" cy="32" rx="5" ry="6" fill="white"/>
+      <circle cx="25" cy="30" r="2.5" fill="#333"/>
+      <circle cx="41" cy="30" r="2.5" fill="#333"/>
+      <ellipse cx="32" cy="40" rx="5" ry="3" fill="#9B8BB8"/>
+      <path d="M28 44 L32 46 L36 44" stroke="#333" strokeWidth="2" strokeLinecap="round" fill="none"/>
+      <path d="M20 28 Q16 32, 20 36" stroke="#C4B4D8" strokeWidth="2" strokeLinecap="round" fill="none"/>
+      <path d="M44 28 Q48 32, 44 36" stroke="#C4B4D8" strokeWidth="2" strokeLinecap="round" fill="none"/>
     </svg>
   ),
   
@@ -84,6 +101,57 @@ export const EmotionIcons = {
       <ellipse cx="32" cy="40" rx="3" ry="2" fill="#FF69B4"/>
       <path d="M18 40 Q16 36, 18 32" stroke="#FFB6C1" strokeWidth="2" strokeLinecap="round" fill="none"/>
       <path d="M46 40 Q48 36, 46 32" stroke="#FFB6C1" strokeWidth="2" strokeLinecap="round" fill="none"/>
+    </svg>
+  ),
+  
+  calm: ({ className = '', size = 24 }: EmotionIconProps) => (
+    <svg className={className} width={size} height={size} viewBox="0 0 64 64" fill="none">
+      <ellipse cx="32" cy="36" rx="22" ry="18" fill="#C0C0C0"/>
+      <ellipse cx="32" cy="36" rx="20" ry="16" fill="#D3D3D3"/>
+      <ellipse cx="20" cy="18" rx="8" ry="12" fill="#C0C0C0" transform="rotate(-20 20 18)"/>
+      <ellipse cx="44" cy="18" rx="8" ry="12" fill="#C0C0C0" transform="rotate(20 44 18)"/>
+      <ellipse cx="24" cy="32" rx="4" ry="5" fill="white"/>
+      <ellipse cx="40" cy="32" rx="4" ry="5" fill="white"/>
+      <circle cx="25" cy="33" r="2" fill="#666"/>
+      <circle cx="41" cy="33" r="2" fill="#666"/>
+      <ellipse cx="32" cy="40" rx="5" ry="3" fill="#A0A0A0"/>
+      <path d="M27 46 L37 46" stroke="#666" strokeWidth="2" strokeLinecap="round"/>
+    </svg>
+  ),
+  
+  excited: ({ className = '', size = 24 }: EmotionIconProps) => (
+    <svg className={className} width={size} height={size} viewBox="0 0 64 64" fill="none">
+      <ellipse cx="32" cy="36" rx="22" ry="18" fill="#FFB6C1"/>
+      <ellipse cx="32" cy="36" rx="20" ry="16" fill="#FFD1DC"/>
+      <ellipse cx="20" cy="18" rx="8" ry="12" fill="#FFB6C1" transform="rotate(-20 20 18)"/>
+      <ellipse cx="44" cy="18" rx="8" ry="12" fill="#FFB6C1" transform="rotate(20 44 18)"/>
+      <ellipse cx="24" cy="30" rx="5" ry="6" fill="white"/>
+      <ellipse cx="40" cy="30" rx="5" ry="6" fill="white"/>
+      <circle cx="25" cy="28" r="3" fill="#333"/>
+      <circle cx="41" cy="28" r="3" fill="#333"/>
+      <ellipse cx="32" cy="38" rx="6" ry="4" fill="#FF69B4"/>
+      <path d="M26 44 Q32 50, 38 44" stroke="#333" strokeWidth="2" strokeLinecap="round" fill="none"/>
+      <path d="M16 26 Q12 22, 16 18" stroke="#FF1493" strokeWidth="2" strokeLinecap="round" fill="none"/>
+      <path d="M48 26 Q52 22, 48 18" stroke="#FF1493" strokeWidth="2" strokeLinecap="round" fill="none"/>
+      <circle cx="16" cy="14" r="3" fill="#FFD700"/>
+      <circle cx="48" cy="14" r="3" fill="#FFD700"/>
+    </svg>
+  ),
+  
+  safe: ({ className = '', size = 24 }: EmotionIconProps) => (
+    <svg className={className} width={size} height={size} viewBox="0 0 64 64" fill="none">
+      <ellipse cx="32" cy="36" rx="22" ry="18" fill="#80CBC4"/>
+      <ellipse cx="32" cy="36" rx="20" ry="16" fill="#B2DFDB"/>
+      <ellipse cx="20" cy="18" rx="8" ry="12" fill="#80CBC4" transform="rotate(-20 20 18)"/>
+      <ellipse cx="44" cy="18" rx="8" ry="12" fill="#80CBC4" transform="rotate(20 44 18)"/>
+      <ellipse cx="24" cy="32" rx="4" ry="5" fill="white"/>
+      <ellipse cx="40" cy="32" rx="4" ry="5" fill="white"/>
+      <circle cx="25" cy="33" r="2" fill="#333"/>
+      <circle cx="41" cy="33" r="2" fill="#333"/>
+      <ellipse cx="32" cy="40" rx="5" ry="3" fill="#4DB6AC"/>
+      <path d="M26 46 Q32 50, 38 46" stroke="#333" strokeWidth="2" strokeLinecap="round" fill="none"/>
+      <path d="M18 28 Q14 24, 18 20" stroke="#26A69A" strokeWidth="2" strokeLinecap="round" fill="none"/>
+      <path d="M46 28 Q50 24, 46 20" stroke="#26A69A" strokeWidth="2" strokeLinecap="round" fill="none"/>
     </svg>
   ),
   

@@ -11,18 +11,21 @@ import {
   Video
 } from 'lucide-react';
 import { Card, FAB, Timeline, TimelineItem, EmptyState } from '../components/DesignSystem';
+import { AddRecordModal } from '../components/AddRecordModal';
 import { useHealthRecordStore } from '../store/healthRecordStore';
 import { usePetStore } from '../store/petStore';
-import { DEFAULT_TAGS } from '../types/health-record';
+import { DEFAULT_TAGS, RecordType } from '../types/health-record';
 
 interface HealthRecordsPageProps {
   onNavigate: (page: string) => void;
 }
 
 export const HealthRecordsPage: React.FC<HealthRecordsPageProps> = ({ onNavigate }) => {
-  const { records, tags, selectedTag, searchQuery, getFilteredRecords, setSelectedTag, setSearchQuery } = useHealthRecordStore();
+  const { records, tags, selectedTag, searchQuery, getFilteredRecords, setSelectedTag, setSearchQuery, addRecord } = useHealthRecordStore();
   const { currentPetId } = usePetStore();
   const [fabOpen, setFabOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedRecordType, setSelectedRecordType] = useState<RecordType>('text');
 
   const filteredRecords = currentPetId ? getFilteredRecords(currentPetId) : [];
   
@@ -31,10 +34,31 @@ export const HealthRecordsPage: React.FC<HealthRecordsPageProps> = ({ onNavigate
     return acc;
   }, {} as Record<string, string>);
 
-  const handleAddRecord = (type: any) => {
+  const handleAddRecord = (type: RecordType) => {
     setFabOpen(false);
-    // 实际项目中会打开创建记录的表单
-    console.log('Adding record:', type);
+    setSelectedRecordType(type);
+    setIsModalOpen(true);
+  };
+
+  const handleModalSubmit = (recordData: {
+    type: RecordType;
+    title: string;
+    content: string;
+    tags: string[];
+    isImportant: boolean;
+  }) => {
+    if (!currentPetId) return;
+
+    addRecord({
+      petId: currentPetId,
+      type: recordData.type,
+      title: recordData.title,
+      content: recordData.content,
+      tags: recordData.tags,
+      isImportant: recordData.isImportant,
+    });
+    
+    setIsModalOpen(false);
   };
 
   return (
@@ -139,6 +163,14 @@ export const HealthRecordsPage: React.FC<HealthRecordsPageProps> = ({ onNavigate
 
       {/* FAB */}
       <FAB onAction={handleAddRecord} />
+
+      {/* Add Record Modal */}
+      <AddRecordModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={handleModalSubmit}
+        availableTags={tags}
+      />
     </div>
   );
 };

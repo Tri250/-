@@ -16,17 +16,23 @@ import { Card, Button, EmptyState } from '../components/DesignSystem';
 import { useReminderStore } from '../store/reminderStore';
 import { usePetStore } from '../store/petStore';
 import { REMINDER_TYPES } from '../types/reminder';
+import { AddReminderModal } from '../components/AddReminderModal';
 
 interface RemindersPageProps {
   onNavigate: (page: string) => void;
 }
 
 export const RemindersPage: React.FC<RemindersPageProps> = ({ onNavigate }) => {
-  const { reminders, selectedType, viewMode, getFilteredReminders, getUpcomingReminders, setSelectedType, setViewMode, toggleComplete } = useReminderStore();
+  const { reminders, selectedType, viewMode, getFilteredReminders, getUpcomingReminders, setSelectedType, setViewMode, toggleComplete, addReminder } = useReminderStore();
   const { currentPetId } = usePetStore();
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   const filteredReminders = currentPetId ? getFilteredReminders(currentPetId) : [];
   const upcomingReminders = currentPetId ? getUpcomingReminders(currentPetId, 5) : [];
+
+  const handleAddReminder = (reminderData: Parameters<typeof addReminder>[0]) => {
+    addReminder(reminderData);
+  };
 
   const getIconForType = (type: string) => {
     const typeConfig = REMINDER_TYPES.find(t => t.id === type);
@@ -71,7 +77,10 @@ export const RemindersPage: React.FC<RemindersPageProps> = ({ onNavigate }) => {
               <h1 className="text-xl font-bold">智能提醒</h1>
               <p className="text-sm text-white/80">不错过任何重要时间</p>
             </div>
-            <button className="p-2 rounded-full bg-white/20 backdrop-blur hover:bg-white/30 transition-all">
+            <button 
+              onClick={() => setIsAddModalOpen(true)}
+              className="p-2 rounded-full bg-white/20 backdrop-blur hover:bg-white/30 transition-all"
+            >
               <Plus className="w-6 h-6" />
             </button>
           </div>
@@ -204,7 +213,10 @@ export const RemindersPage: React.FC<RemindersPageProps> = ({ onNavigate }) => {
                 title="还没有提醒"
                 description="创建您的第一个提醒吧"
                 action={
-                  <button className="px-6 py-2.5 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-xl font-medium hover:shadow-lg hover:shadow-purple-500/30 transition-all">
+                  <button 
+                    onClick={() => setIsAddModalOpen(true)}
+                    className="px-6 py-2.5 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-xl font-medium hover:shadow-lg hover:shadow-purple-500/30 transition-all"
+                  >
                     添加提醒
                   </button>
                 }
@@ -257,6 +269,13 @@ export const RemindersPage: React.FC<RemindersPageProps> = ({ onNavigate }) => {
           </div>
         </div>
       </div>
+
+      <AddReminderModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onSubmit={handleAddReminder}
+        currentPetId={currentPetId}
+      />
     </div>
   );
 };

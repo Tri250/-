@@ -1,4 +1,6 @@
-export type StreamQuality = 'auto' | '1080p' | '720p' | '480p';
+import type { StreamQuality as CameraStreamQuality } from './camera';
+
+export type StreamQuality = CameraStreamQuality;
 
 export type EventType = 'behavior' | 'emotion' | 'environment';
 

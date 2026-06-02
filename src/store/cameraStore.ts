@@ -1,6 +1,8 @@
 import { create } from 'zustand';
-import type { CameraDevice, CameraBrand, StreamQuality, PairingProgress } from '../types/camera';
+import type { CameraDevice, CameraBrand, PairingProgress } from '../types/camera';
 import { cameraManager } from '../services/cameraService';
+
+type StreamQuality = 'auto' | 'low' | 'medium' | 'high' | 'ultra';
 
 interface CameraState {
   devices: CameraDevice[];
@@ -66,7 +68,7 @@ export const useCameraStore = create<CameraState>((set, get) => ({
     
     try {
       const device = await cameraManager.pairDevice(
-        { brand, deviceCode, deviceName },
+        { brand, deviceCode, name: deviceName },
         (progress) => set({ pairingProgress: progress })
       );
       

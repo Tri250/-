@@ -1,26 +1,41 @@
 import { create } from 'zustand';
-import { AIConsultation, AIMessage, TrendReport, QUICK_QUESTIONS } from '../types/ai-consultation';
+import { AIConsultation, AIMessage, TrendReport, ConversationContext, ConversationHistory, QUICK_QUESTIONS, MessageAttachment } from '../types/ai-consultation';
+import { aiConsultationService } from '../services/aiConsultationService';
 
 interface AIConsultationStore {
   consultations: AIConsultation[];
+  conversationHistories: ConversationHistory[];
   currentConsultationId: string | null;
   reports: TrendReport[];
   isTyping: boolean;
   quickQuestions: string[];
   
-  // Actions
   createConsultation: (petId: string, type: AIConsultation['type'], title: string) => string;
   addMessage: (consultationId: string, message: Omit<AIMessage, 'id' | 'createdAt'>) => void;
-  sendAIMessage: (consultationId: string, content: string) => Promise<void>;
+  sendAIMessage: (consultationId: string, content: string, attachments?: MessageAttachment[]) => Promise<void>;
   setCurrentConsultation: (id: string | null) => void;
+  updateContext: (consultationId: string, context: Partial<ConversationContext>) => void;
+  
+  loadConversationHistory: (petId: string) => ConversationHistory[];
+  deleteConversation: (consultationId: string) => void;
+  clearAllConversations: () => void;
   
   generateReport: (petId: string, period: '7d' | '30d' | '90d') => void;
   
   getCurrentMessages: () => AIMessage[];
+  getCurrentContext: () => ConversationContext | null;
 }
+
+const initialContext: ConversationContext = {
+  petInfo: {},
+  discussedTopics: [],
+  mentionedSymptoms: [],
+  lastIntent: undefined,
+};
 
 export const useAIConsultationStore = create<AIConsultationStore>((set, get) => ({
   consultations: [],
+  conversationHistories: [],
   currentConsultationId: null,
   reports: [],
   isTyping: false,
@@ -34,6 +49,7 @@ export const useAIConsultationStore = create<AIConsultationStore>((set, get) => 
       type,
       title,
       messages: [],
+      context: { ...initialContext },
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -47,7 +63,7 @@ export const useAIConsultationStore = create<AIConsultationStore>((set, get) => 
   addMessage: (consultationId, message) => {
     const newMessage: AIMessage = {
       ...message,
-      id: Date.now().toString(),
+      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
       createdAt: new Date().toISOString(),
     };
     set((state) => ({
@@ -59,36 +75,104 @@ export const useAIConsultationStore = create<AIConsultationStore>((set, get) => 
     }));
   },
 
-  sendAIMessage: async (consultationId, content) => {
-    // 添加用户消息
-    get().addMessage(consultationId, {
+  updateContext: (consultationId, contextUpdate) => {
+    set((state) => ({
+      consultations: state.consultations.map((c) =>
+        c.id === consultationId
+          ? { ...c, context: { ...c.context, ...contextUpdate } }
+          : c
+      ),
+    }));
+  },
+
+  sendAIMessage: async (consultationId, content, attachments = []) => {
+    const state = get();
+    const consultation = state.consultations.find((c) => c.id === consultationId);
+    
+    if (!consultation) return;
+
+    const userMessage: Omit<AIMessage, 'id' | 'createdAt'> = {
       role: 'user',
       content,
-    });
+      messageType: attachments.length > 0 ? 'image' : 'text',
+      attachments: attachments.length > 0 ? attachments : undefined,
+      status: 'sent',
+    };
+    
+    get().addMessage(consultationId, userMessage);
 
     set({ isTyping: true });
 
-    // 模拟AI思考和回复
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    try {
+      const petType = consultation.context.petInfo?.type;
+      const contextMessages = consultation.messages.slice(-10);
+      
+      const aiResponse = await aiConsultationService.sendMessageWithContext(
+        content,
+        contextMessages,
+        consultation.context,
+        petType
+      );
 
-    // 模拟AI回复
-    const aiResponses = [
-      '根据您描述的情况，建议先观察24小时。如果症状持续或加重，请及时就医。',
-      '这是一个常见的问题，通常有以下几种处理方法...',
-      '从症状来看，可能是以下原因导致的。建议您...',
-      '感谢您的咨询！根据您提供的信息，我的建议是...',
-    ];
-    const randomResponse = aiResponses[Math.floor(Math.random() * aiResponses.length)];
+      const contextUpdate = aiConsultationService.extractContextInfo(content, consultation.context);
+      if (Object.keys(contextUpdate).length > 0) {
+        get().updateContext(consultationId, contextUpdate);
+      }
 
-    get().addMessage(consultationId, {
-      role: 'assistant',
-      content: randomResponse,
-    });
-
-    set({ isTyping: false });
+      get().addMessage(consultationId, {
+        role: 'assistant',
+        content: aiResponse.content,
+        messageType: 'text',
+        status: 'sent',
+      });
+    } catch (error) {
+      get().addMessage(consultationId, {
+        role: 'system',
+        content: '抱歉，消息发送失败，请稍后重试。',
+        messageType: 'system',
+        status: 'error',
+      });
+    } finally {
+      set({ isTyping: false });
+    }
   },
 
   setCurrentConsultation: (id) => set({ currentConsultationId: id }),
+
+  loadConversationHistory: (petId) => {
+    const state = get();
+    const histories: ConversationHistory[] = state.consultations
+      .filter((c) => c.petId === petId)
+      .map((c) => ({
+        id: c.id,
+        petId: c.petId,
+        title: c.title,
+        lastMessage: c.messages[c.messages.length - 1]?.content || '暂无消息',
+        messageCount: c.messages.length,
+        createdAt: c.createdAt,
+        updatedAt: c.updatedAt,
+      }));
+    
+    set({ conversationHistories: histories });
+    return histories;
+  },
+
+  deleteConversation: (consultationId) => {
+    set((state) => ({
+      consultations: state.consultations.filter((c) => c.id !== consultationId),
+      currentConsultationId: state.currentConsultationId === consultationId 
+        ? null 
+        : state.currentConsultationId,
+    }));
+  },
+
+  clearAllConversations: () => {
+    set({
+      consultations: [],
+      currentConsultationId: null,
+      conversationHistories: [],
+    });
+  },
 
   generateReport: (petId, period) => {
     const report: TrendReport = {
@@ -120,5 +204,11 @@ export const useAIConsultationStore = create<AIConsultationStore>((set, get) => 
     const state = get();
     const consultation = state.consultations.find((c) => c.id === state.currentConsultationId);
     return consultation?.messages || [];
+  },
+
+  getCurrentContext: () => {
+    const state = get();
+    const consultation = state.consultations.find((c) => c.id === state.currentConsultationId);
+    return consultation?.context || null;
   },
 }));

@@ -12,11 +12,15 @@ interface LiveStreamProps {
   className?: string;
 }
 
-const qualityLabels: Record<StreamQuality, string> = {
+const qualityLabels: Partial<Record<StreamQuality, string>> = {
   auto: '自动',
   '1080p': '1080P',
   '720p': '720P',
   '480p': '480P',
+  low: '低',
+  medium: '中',
+  high: '高',
+  ultra: '超高清',
 };
 
 export function LiveStream({
@@ -29,7 +33,7 @@ export function LiveStream({
 }: LiveStreamProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isMuted, setIsMuted] = useState(false);
-  const [currentQuality, setCurrentQuality] = useState<StreamQuality>(monitoring.streamQuality);
+  const [currentQuality, setCurrentQuality] = useState<StreamQuality>('auto');
   const [showSettings, setShowSettings] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [hasEvent, setHasEvent] = useState(false);
@@ -49,7 +53,7 @@ export function LiveStream({
     setIsLoading(true);
     try {
       if (videoRef.current) {
-        videoRef.current.src = device.thumbnailUrl || '';
+        videoRef.current.src = device.thumbnail || '';
         await videoRef.current.play();
       }
     } catch (error) {
