@@ -86,9 +86,9 @@ describe('HealthService', () => {
     it('应该成功添加健康记录', async () => {
       const newRecord = await healthService.addHealthRecord({
         petId: 'pet-1',
-        date: '2024-01-16',
+        date: '2026-01-16',
         metrics: [
-          { id: 'test-m-1', petId: 'pet-1', type: 'weight', value: 4.5, unit: 'kg', timestamp: '2024-01-16T10:00:00Z' },
+          { id: 'test-m-1', petId: 'pet-1', type: 'weight', value: 4.5, unit: 'kg', timestamp: '2026-01-16T10:00:00Z' },
         ],
         overallStatus: 'good',
         vetVisit: false,
@@ -96,7 +96,7 @@ describe('HealthService', () => {
       
       expect(newRecord).toHaveProperty('id');
       expect(newRecord.petId).toBe('pet-1');
-      expect(newRecord.date).toBe('2024-01-16');
+      expect(newRecord.date).toBe('2026-01-16');
     });
   });
 

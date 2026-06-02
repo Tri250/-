@@ -133,23 +133,23 @@ export function DevicePairing({ onPaired, onCancel }: DevicePairingProps) {
         return (
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                设备码 <span className="text-red-500">*</span>
+              <label className="block text-sm font-medium text-neutral-300 mb-2">
+                设备码 <span className="text-danger-400">*</span>
               </label>
               <input
                 type="text"
                 value={deviceCode}
                 onChange={(e) => setDeviceCode(e.target.value)}
                 placeholder="请输入设备背面的设备码"
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 outline-none transition-all bg-white text-gray-800"
+                className="w-full px-4 py-3 rounded-xl border border-neutral-700 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none transition-all bg-neutral-800 text-white placeholder-neutral-500"
               />
             </div>
-            <div className="bg-blue-50 rounded-xl p-4">
+            <div className="bg-primary-500/10 border border-primary-500/20 rounded-xl p-4">
               <div className="flex items-start gap-3">
-                <Smartphone className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
-                <div className="text-sm text-blue-700">
+                <Smartphone className="w-5 h-5 text-primary-400 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-primary-300">
                   <p className="font-medium mb-1">如何获取设备码？</p>
-                  <p className="text-blue-600">在摄像头机身底部或说明书上找到设备码</p>
+                  <p className="text-primary-400/70">在摄像头机身底部或说明书上找到设备码</p>
                 </div>
               </div>
             </div>
@@ -159,19 +159,19 @@ export function DevicePairing({ onPaired, onCancel }: DevicePairingProps) {
         return (
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                IP地址 <span className="text-red-500">*</span>
+              <label className="block text-sm font-medium text-neutral-300 mb-2">
+                IP地址 <span className="text-danger-400">*</span>
               </label>
               <input
                 type="text"
                 value={ipAddress}
                 onChange={(e) => setIpAddress(e.target.value)}
                 placeholder="例如: 192.168.1.100"
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 outline-none transition-all bg-white text-gray-800"
+                className="w-full px-4 py-3 rounded-xl border border-neutral-700 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none transition-all bg-neutral-800 text-white placeholder-neutral-500"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-neutral-300 mb-2">
                 端口
               </label>
               <input
@@ -179,39 +179,39 @@ export function DevicePairing({ onPaired, onCancel }: DevicePairingProps) {
                 value={port}
                 onChange={(e) => setPort(e.target.value)}
                 placeholder="默认: 554"
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 outline-none transition-all bg-white text-gray-800"
+                className="w-full px-4 py-3 rounded-xl border border-neutral-700 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none transition-all bg-neutral-800 text-white placeholder-neutral-500"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                用户名 <span className="text-red-500">*</span>
+              <label className="block text-sm font-medium text-neutral-300 mb-2">
+                用户名 <span className="text-danger-400">*</span>
               </label>
               <input
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="设备登录用户名"
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 outline-none transition-all bg-white text-gray-800"
+                className="w-full px-4 py-3 rounded-xl border border-neutral-700 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none transition-all bg-neutral-800 text-white placeholder-neutral-500"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                密码 <span className="text-red-500">*</span>
+              <label className="block text-sm font-medium text-neutral-300 mb-2">
+                密码 <span className="text-danger-400">*</span>
               </label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="设备登录密码"
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 outline-none transition-all bg-white text-gray-800"
+                className="w-full px-4 py-3 rounded-xl border border-neutral-700 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none transition-all bg-neutral-800 text-white placeholder-neutral-500"
               />
             </div>
-            <div className="bg-blue-50 rounded-xl p-4">
+            <div className="bg-primary-500/10 border border-primary-500/20 rounded-xl p-4">
               <div className="flex items-start gap-3">
-                <Wifi className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
-                <div className="text-sm text-blue-700">
+                <Wifi className="w-5 h-5 text-primary-400 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-primary-300">
                   <p className="font-medium mb-1">IP摄像头配置</p>
-                  <p className="text-blue-600">请确保摄像头与手机在同一网络，并在摄像头设置中启用RTSP协议</p>
+                  <p className="text-primary-400/70">请确保摄像头与手机在同一网络，并在摄像头设置中启用RTSP协议</p>
                 </div>
               </div>
             </div>
@@ -221,23 +221,23 @@ export function DevicePairing({ onPaired, onCancel }: DevicePairingProps) {
         return (
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                账号授权码 <span className="text-red-500">*</span>
+              <label className="block text-sm font-medium text-neutral-300 mb-2">
+                账号授权码 <span className="text-danger-400">*</span>
               </label>
               <input
                 type="text"
                 value={accountId}
                 onChange={(e) => setAccountId(e.target.value)}
                 placeholder="请输入账号授权码"
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 outline-none transition-all bg-white text-gray-800"
+                className="w-full px-4 py-3 rounded-xl border border-neutral-700 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none transition-all bg-neutral-800 text-white placeholder-neutral-500"
               />
             </div>
-            <div className="bg-blue-50 rounded-xl p-4">
+            <div className="bg-primary-500/10 border border-primary-500/20 rounded-xl p-4">
               <div className="flex items-start gap-3">
-                <User className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
-                <div className="text-sm text-blue-700">
+                <User className="w-5 h-5 text-primary-400 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-primary-300">
                   <p className="font-medium mb-1">账号授权</p>
-                  <p className="text-blue-600">请在品牌官方App中获取授权码或API访问权限</p>
+                  <p className="text-primary-400/70">请在品牌官方App中获取授权码或API访问权限</p>
                 </div>
               </div>
             </div>
@@ -246,12 +246,12 @@ export function DevicePairing({ onPaired, onCancel }: DevicePairingProps) {
       case 'qr':
         return (
           <div className="space-y-4">
-            <div className="bg-blue-50 rounded-xl p-4">
+            <div className="bg-primary-500/10 border border-primary-500/20 rounded-xl p-4">
               <div className="flex items-start gap-3">
-                <Link className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
-                <div className="text-sm text-blue-700">
+                <Link className="w-5 h-5 text-primary-400 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-primary-300">
                   <p className="font-medium mb-1">扫码配对</p>
-                  <p className="text-blue-600">请使用品牌官方App扫描二维码完成配对</p>
+                  <p className="text-primary-400/70">请使用品牌官方App扫描二维码完成配对</p>
                 </div>
               </div>
             </div>
@@ -261,34 +261,34 @@ export function DevicePairing({ onPaired, onCancel }: DevicePairingProps) {
   };
 
   return (
-    <div className="bg-white rounded-2xl p-6 shadow-lg max-w-md mx-auto">
+    <div className="bg-neutral-900 rounded-2xl p-6 shadow-lg max-w-md mx-auto border border-neutral-800">
       <div className="text-center mb-6">
-        <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-gradient-to-br from-orange-100 to-peach-100 flex items-center justify-center">
-          <Camera className="w-8 h-8 text-orange-500" />
+        <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-gradient-to-br from-primary-500/20 to-primary-600/20 flex items-center justify-center border border-primary-500/30">
+          <Camera className="w-8 h-8 text-primary-400" />
         </div>
-        <h2 className="text-xl font-bold text-gray-800">添加摄像头设备</h2>
-        <p className="text-sm text-gray-500 mt-1">支持小米、华为、萤石、TP-Link等主流品牌</p>
+        <h2 className="text-xl font-bold text-white">添加摄像头设备</h2>
+        <p className="text-sm text-neutral-400 mt-1">支持小米、华为、萤石、TP-Link等主流品牌</p>
       </div>
 
       {stage === 'select-brand' && (
         <div className="space-y-3">
-          <p className="text-sm text-gray-600 mb-4">请选择摄像头品牌</p>
-          <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
+          <p className="text-sm text-neutral-300 mb-4">请选择摄像头品牌</p>
+          <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto pr-1">
             {BRAND_INFO.map((brand) => (
               <button
                 key={brand.id}
                 onClick={() => handleBrandSelect(brand)}
-                className={`p-3 rounded-xl border-2 border-gray-200 ${brand.color} hover:shadow-md transition-all flex flex-col items-center gap-2`}
+                className={`p-3 rounded-xl border-2 border-neutral-700 bg-neutral-800/50 hover:border-primary-500/50 hover:bg-neutral-800 transition-all flex flex-col items-center gap-2 group`}
               >
-                <span className="text-2xl">{brand.icon}</span>
-                <span className="font-medium text-gray-800 text-sm">{brand.name}</span>
+                <span className="text-2xl group-hover:scale-110 transition-transform">{brand.icon}</span>
+                <span className="font-medium text-neutral-200 text-sm">{brand.name}</span>
               </button>
             ))}
           </div>
           
           <button
             onClick={onCancel}
-            className="w-full py-3 text-gray-500 hover:text-gray-700 transition-colors"
+            className="w-full py-3 text-neutral-400 hover:text-neutral-200 transition-colors"
           >
             取消
           </button>
@@ -299,23 +299,23 @@ export function DevicePairing({ onPaired, onCancel }: DevicePairingProps) {
         <div className="space-y-4">
           <button
             onClick={() => setStage('select-brand')}
-            className="text-sm text-orange-500 hover:text-orange-600"
+            className="text-sm text-primary-400 hover:text-primary-300"
           >
             ← 返回选择品牌
           </button>
 
-          <div className="flex items-center gap-3 p-3 rounded-xl bg-neutral-100">
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-neutral-800/50 border border-neutral-700">
             <span className="text-2xl">{selectedBrand?.icon}</span>
             <div>
-              <h4 className="font-medium text-gray-800">{selectedBrand?.name}</h4>
-              <p className="text-xs text-gray-500">{selectedBrand?.description}</p>
+              <h4 className="font-medium text-white">{selectedBrand?.name}</h4>
+              <p className="text-xs text-neutral-400">{selectedBrand?.description}</p>
             </div>
           </div>
 
           {renderInfoInput()}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-neutral-300 mb-2">
               设备名称（选填）
             </label>
             <input
@@ -323,27 +323,27 @@ export function DevicePairing({ onPaired, onCancel }: DevicePairingProps) {
               value={deviceName}
               onChange={(e) => setDeviceName(e.target.value)}
               placeholder="例如：客厅摄像头"
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 outline-none transition-all bg-white text-gray-800"
+              className="w-full px-4 py-3 rounded-xl border border-neutral-700 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none transition-all bg-neutral-800 text-white placeholder-neutral-500"
             />
           </div>
 
           {error && (
-            <div className="bg-red-50 rounded-xl p-4 flex items-center gap-3">
-              <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
-              <p className="text-sm text-red-700">{error}</p>
+            <div className="bg-danger-500/10 border border-danger-500/30 rounded-xl p-4 flex items-center gap-3">
+              <AlertCircle className="w-5 h-5 text-danger-400 flex-shrink-0" />
+              <p className="text-sm text-danger-300">{error}</p>
             </div>
           )}
 
           <div className="flex gap-3">
             <button
               onClick={onCancel}
-              className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+              className="flex-1 py-3 rounded-xl border border-neutral-700 text-neutral-300 hover:bg-neutral-800 transition-colors"
             >
               取消
             </button>
             <button
               onClick={handleStartPairing}
-              className="flex-1 py-3 rounded-xl bg-orange-500 text-white hover:bg-orange-600 transition-colors font-medium"
+              className="flex-1 py-3 rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 text-white hover:from-primary-600 hover:to-primary-700 transition-all font-medium shadow-lg shadow-primary-500/20"
             >
               开始配对
             </button>
@@ -353,11 +353,11 @@ export function DevicePairing({ onPaired, onCancel }: DevicePairingProps) {
 
       {stage === 'pairing' && progress && (
         <div className="text-center py-8">
-          <Loader className="w-12 h-12 mx-auto mb-4 text-orange-500 animate-spin" />
-          <p className="font-medium text-gray-800 mb-2">{progress.message}</p>
-          <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+          <Loader className="w-12 h-12 mx-auto mb-4 text-primary-400 animate-spin" />
+          <p className="font-medium text-white mb-2">{progress.message}</p>
+          <div className="w-full bg-neutral-700 rounded-full h-2 overflow-hidden">
             <div
-              className="h-full bg-gradient-to-r from-orange-400 to-peach-500 transition-all duration-300"
+              className="h-full bg-gradient-to-r from-primary-400 to-primary-500 transition-all duration-300"
               style={{ width: `${progress.progress}%` }}
             />
           </div>
@@ -366,12 +366,12 @@ export function DevicePairing({ onPaired, onCancel }: DevicePairingProps) {
 
       {stage === 'success' && (
         <div className="text-center py-8">
-          <CheckCircle className="w-16 h-16 mx-auto mb-4 text-green-500" />
-          <p className="font-bold text-gray-800 text-lg mb-2">配对成功！</p>
-          <p className="text-sm text-gray-500 mb-6">设备已添加到您的摄像头列表</p>
+          <CheckCircle className="w-16 h-16 mx-auto mb-4 text-success-400" />
+          <p className="font-bold text-white text-lg mb-2">配对成功！</p>
+          <p className="text-sm text-neutral-400 mb-6">设备已添加到您的摄像头列表</p>
           <button
             onClick={onCancel}
-            className="px-8 py-3 rounded-xl bg-orange-500 text-white hover:bg-orange-600 transition-colors font-medium"
+            className="px-8 py-3 rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 text-white hover:from-primary-600 hover:to-primary-700 transition-all font-medium shadow-lg shadow-primary-500/20"
           >
             完成
           </button>
@@ -380,19 +380,19 @@ export function DevicePairing({ onPaired, onCancel }: DevicePairingProps) {
 
       {stage === 'error' && (
         <div className="text-center py-8">
-          <AlertCircle className="w-16 h-16 mx-auto mb-4 text-red-500" />
-          <p className="font-bold text-gray-800 text-lg mb-2">配对失败</p>
-          <p className="text-sm text-gray-500 mb-6">请检查输入信息是否正确，或尝试重新配对</p>
+          <AlertCircle className="w-16 h-16 mx-auto mb-4 text-danger-400" />
+          <p className="font-bold text-white text-lg mb-2">配对失败</p>
+          <p className="text-sm text-neutral-400 mb-6">请检查输入信息是否正确，或尝试重新配对</p>
           <div className="flex gap-3 justify-center">
             <button
               onClick={onCancel}
-              className="px-6 py-3 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+              className="px-6 py-3 rounded-xl border border-neutral-700 text-neutral-300 hover:bg-neutral-800 transition-colors"
             >
               取消
             </button>
             <button
               onClick={handleRetry}
-              className="px-6 py-3 rounded-xl bg-orange-500 text-white hover:bg-orange-600 transition-colors font-medium"
+              className="px-6 py-3 rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 text-white hover:from-primary-600 hover:to-primary-700 transition-all font-medium shadow-lg shadow-primary-500/20"
             >
               重试
             </button>

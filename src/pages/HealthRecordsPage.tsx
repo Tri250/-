@@ -1,16 +1,9 @@
 import React, { useState } from 'react';
 import { 
   ChevronLeft, 
-  FileText, 
-  Search, 
-  Filter, 
-  Plus,
-  Mic,
-  Image,
-  File,
-  Video
+  Search
 } from 'lucide-react';
-import { Card, FAB, Timeline, TimelineItem, EmptyState } from '../components/DesignSystem';
+import { FAB, Timeline, TimelineItem, EmptyState } from '../components/DesignSystem';
 import { AddRecordModal } from '../components/AddRecordModal';
 import { useHealthRecordStore } from '../store/healthRecordStore';
 import { usePetStore } from '../store/petStore';
@@ -21,9 +14,8 @@ interface HealthRecordsPageProps {
 }
 
 export const HealthRecordsPage: React.FC<HealthRecordsPageProps> = ({ onNavigate }) => {
-  const { records, tags, selectedTag, searchQuery, getFilteredRecords, setSelectedTag, setSearchQuery, addRecord } = useHealthRecordStore();
+  const { tags, selectedTag, searchQuery, getFilteredRecords, setSelectedTag, setSearchQuery, addRecord } = useHealthRecordStore();
   const { currentPetId } = usePetStore();
-  const [fabOpen, setFabOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedRecordType, setSelectedRecordType] = useState<RecordType>('text');
 
@@ -35,7 +27,6 @@ export const HealthRecordsPage: React.FC<HealthRecordsPageProps> = ({ onNavigate
   }, {} as Record<string, string>);
 
   const handleAddRecord = (type: RecordType) => {
-    setFabOpen(false);
     setSelectedRecordType(type);
     setIsModalOpen(true);
   };
@@ -138,7 +129,7 @@ export const HealthRecordsPage: React.FC<HealthRecordsPageProps> = ({ onNavigate
               description="开始记录您宠物的健康状况吧"
               action={
                 <button 
-                  onClick={() => setFabOpen(true)}
+                  onClick={() => setIsModalOpen(true)}
                   className="px-6 py-2.5 bg-gradient-to-r from-primary-500 to-primary-600 text-white rounded-xl font-medium hover:shadow-lg hover:shadow-primary-500/30 transition-all"
                 >
                   开始记录
@@ -147,7 +138,7 @@ export const HealthRecordsPage: React.FC<HealthRecordsPageProps> = ({ onNavigate
             />
           ) : (
             <Timeline>
-              {filteredRecords.map((record, index) => (
+              {filteredRecords.map((record) => (
                 <TimelineItem
                   key={record.id}
                   date={record.createdAt}
@@ -174,6 +165,7 @@ export const HealthRecordsPage: React.FC<HealthRecordsPageProps> = ({ onNavigate
         onClose={() => setIsModalOpen(false)}
         onSubmit={handleModalSubmit}
         availableTags={tags}
+        initialType={selectedRecordType}
       />
     </div>
   );

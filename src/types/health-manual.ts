@@ -73,7 +73,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 8,
     isPopular: true,
     tags: ['猫粮', '营养', '喂养', '幼猫', '老年猫'],
-    createdAt: '2024-01-01',
+    createdAt: '2026-01-01',
     updatedAt: '2026-03-15',
     author: '宠物营养研究院',
     references: ['Journal of Feline Medicine and Surgery 2026', 'AVMA Nutrition Guidelines']
@@ -120,7 +120,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 6,
     isPopular: true,
     tags: ['行为', '健康信号', '异常行为', '狗狗沟通'],
-    createdAt: '2024-01-02',
+    createdAt: '2026-01-02',
     updatedAt: '2026-02-20',
     author: '动物行为研究中心'
   },
@@ -171,7 +171,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 10,
     isPopular: true,
     tags: ['急救', '安全', '中毒', 'CPR', '中暑'],
-    createdAt: '2024-01-03',
+    createdAt: '2026-01-03',
     updatedAt: '2026-01-10',
     author: '宠物急救中心'
   },
@@ -217,7 +217,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 6,
     isPopular: true,
     tags: ['口腔', '护理', '牙齿', '牙周病'],
-    createdAt: '2024-01-04',
+    createdAt: '2026-01-04',
     updatedAt: '2026-03-01',
     author: '宠物口腔健康协会'
   },
@@ -271,7 +271,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 8,
     isPopular: true,
     tags: ['狗狗营养', '蛋白质', '维生素', '体型'],
-    createdAt: '2024-01-05',
+    createdAt: '2026-01-05',
     updatedAt: '2026-02-15',
     author: '宠物营养研究院'
   },
@@ -316,7 +316,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 6,
     isPopular: false,
     tags: ['毛发护理', '梳毛', '洗澡', '猫咪美容'],
-    createdAt: '2024-01-06',
+    createdAt: '2026-01-06',
     author: '宠物美容协会'
   },
   {
@@ -381,7 +381,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 8,
     isPopular: true,
     tags: ['疾病预防', 'FIP', '肾病', '糖尿病', '牙周病'],
-    createdAt: '2024-01-07',
+    createdAt: '2026-01-07',
     updatedAt: '2026-03-10',
     author: '猫咪健康研究中心'
   },
@@ -453,7 +453,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 9,
     isPopular: true,
     tags: ['疾病预防', '犬瘟热', '细小病毒', '心丝虫', '髋关节'],
-    createdAt: '2024-01-08',
+    createdAt: '2026-01-08',
     updatedAt: '2026-02-28',
     author: '犬类健康研究协会'
   },
@@ -510,7 +510,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 7,
     isPopular: true,
     tags: ['分离焦虑', '行为问题', '心理健康', '训练'],
-    createdAt: '2024-01-09',
+    createdAt: '2026-01-09',
     updatedAt: '2026-01-25',
     author: '动物行为治疗中心'
   },
@@ -570,7 +570,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 8,
     isPopular: true,
     tags: ['社会化训练', '幼犬', '行为培养', '训练'],
-    createdAt: '2024-01-10',
+    createdAt: '2026-01-10',
     author: '犬类训练协会'
   },
   {
@@ -630,7 +630,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 7,
     isPopular: true,
     tags: ['食品安全', '有毒食物', '巧克力', '葡萄', '中毒'],
-    createdAt: '2024-01-11',
+    createdAt: '2026-01-11',
     updatedAt: '2026-02-10',
     author: '宠物食品安全中心'
   },
@@ -684,7 +684,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 7,
     isPopular: true,
     tags: ['驱虫', '寄生虫', '跳蚤', '蜱虫', '心丝虫'],
-    createdAt: '2024-01-12',
+    createdAt: '2026-01-12',
     updatedAt: '2026-03-05',
     author: '宠物寄生虫防治中心'
   },
@@ -741,7 +741,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 6,
     isPopular: false,
     tags: ['骨折', '急救', '外伤', '骨骼'],
-    createdAt: '2024-01-13',
+    createdAt: '2026-01-13',
     author: '宠物急救中心'
   },
   {
@@ -799,7 +799,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 6,
     isPopular: false,
     tags: ['眼睛护理', '眼部疾病', '结膜炎', '白内障'],
-    createdAt: '2024-01-14',
+    createdAt: '2026-01-14',
     author: '宠物眼科中心'
   },
   {
@@ -867,7 +867,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 7,
     isPopular: true,
     tags: ['肥胖', '减肥', '体重管理', '健康饮食'],
-    createdAt: '2024-01-15',
+    createdAt: '2026-01-15',
     updatedAt: '2026-02-20',
     author: '宠物营养健康中心'
   },
@@ -936,7 +936,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 8,
     isPopular: true,
     tags: ['猫咪行为', '抓家具', '猫砂盆', '攻击行为'],
-    createdAt: '2024-01-16',
+    createdAt: '2026-01-16',
     author: '猫咪行为研究中心'
   },
   {
@@ -1005,7 +1005,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 7,
     isPopular: false,
     tags: ['压力管理', '心理健康', '焦虑', '环境适应'],
-    createdAt: '2024-01-17',
+    createdAt: '2026-01-17',
     author: '动物心理健康中心'
   },
   {
@@ -1063,7 +1063,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 6,
     isPopular: false,
     tags: ['耳朵护理', '耳螨', '耳炎', '清洁'],
-    createdAt: '2024-01-18',
+    createdAt: '2026-01-18',
     author: '宠物耳鼻喉中心'
   },
   {
@@ -1135,7 +1135,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 9,
     isPopular: false,
     tags: ['癌症', '肿瘤', '早期发现', '治疗'],
-    createdAt: '2024-01-19',
+    createdAt: '2026-01-19',
     updatedAt: '2026-03-12',
     author: '宠物肿瘤研究中心'
   },
@@ -1205,7 +1205,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 7,
     isPopular: true,
     tags: ['老年宠物', '营养', '关节保健', '肾脏保护'],
-    createdAt: '2024-01-20',
+    createdAt: '2026-01-20',
     author: '老年宠物护理中心'
   },
   {
@@ -1281,7 +1281,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 10,
     isPopular: true,
     tags: ['训练', '基础指令', '正面强化', '行为培养'],
-    createdAt: '2024-01-21',
+    createdAt: '2026-01-21',
     author: '犬类训练协会'
   },
   {
@@ -1359,7 +1359,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 8,
     isPopular: true,
     tags: ['中毒', '急救', '有毒食物', '有毒植物'],
-    createdAt: '2024-01-22',
+    createdAt: '2026-01-22',
     author: '宠物中毒急救中心'
   },
   {
@@ -1423,7 +1423,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 6,
     isPopular: false,
     tags: ['指甲护理', '修剪', '足部健康', '美容'],
-    createdAt: '2024-01-23',
+    createdAt: '2026-01-23',
     author: '宠物美容协会'
   },
   {
@@ -1506,7 +1506,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 8,
     isPopular: true,
     tags: ['皮肤病', '过敏', '真菌感染', '寄生虫'],
-    createdAt: '2024-01-24',
+    createdAt: '2026-01-24',
     author: '宠物皮肤科中心'
   },
   {
@@ -1573,7 +1573,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 8,
     isPopular: false,
     tags: ['老年认知', '认知障碍', '老年宠物', '心理健康'],
-    createdAt: '2024-01-25',
+    createdAt: '2026-01-25',
     updatedAt: '2026-02-18',
     author: '老年宠物研究中心'
   },
@@ -1637,7 +1637,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 8,
     isPopular: true,
     tags: ['幼犬', '幼猫', '营养', '喂养', '断奶'],
-    createdAt: '2024-01-26',
+    createdAt: '2026-01-26',
     updatedAt: '2026-03-08',
     author: '宠物营养研究院'
   },
@@ -1709,7 +1709,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 8,
     isPopular: true,
     tags: ['多宠物', '和谐相处', '引入新宠物', '社交'],
-    createdAt: '2024-01-27',
+    createdAt: '2026-01-27',
     author: '动物行为研究中心'
   },
   {
@@ -1781,7 +1781,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 7,
     isPopular: true,
     tags: ['中暑', '急救', '夏季安全', '高温'],
-    createdAt: '2024-01-28',
+    createdAt: '2026-01-28',
     author: '宠物急救中心'
   },
   {
@@ -1852,7 +1852,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 7,
     isPopular: false,
     tags: ['洗澡', '清洁', '美容', '护理'],
-    createdAt: '2024-01-29',
+    createdAt: '2026-01-29',
     author: '宠物美容协会'
   },
   {
@@ -1927,7 +1927,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 9,
     isPopular: false,
     tags: ['糖尿病', '胰岛素', '慢性病', '饮食管理'],
-    createdAt: '2024-01-30',
+    createdAt: '2026-01-30',
     updatedAt: '2026-02-25',
     author: '宠物内分泌中心'
   },
@@ -2008,7 +2008,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 8,
     isPopular: true,
     tags: ['自制食物', '营养均衡', '食谱', '饮食'],
-    createdAt: '2024-01-31',
+    createdAt: '2026-01-31',
     author: '宠物营养研究院'
   },
   {
@@ -2078,7 +2078,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 7,
     isPopular: false,
     tags: ['社会化', '猫咪训练', '适应能力', '行为培养'],
-    createdAt: '2024-02-01',
+    createdAt: '2026-02-01',
     author: '猫咪行为研究中心'
   },
   {
@@ -2165,7 +2165,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 8,
     isPopular: false,
     tags: ['恐惧症', '心理健康', '脱敏训练', '行为治疗'],
-    createdAt: '2024-02-02',
+    createdAt: '2026-02-02',
     author: '动物行为治疗中心'
   },
   {
@@ -2249,7 +2249,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 7,
     isPopular: false,
     tags: ['外伤', '急救', '止血', '伤口处理'],
-    createdAt: '2024-02-03',
+    createdAt: '2026-02-03',
     author: '宠物急救中心'
   },
   {
@@ -2319,7 +2319,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 8,
     isPopular: true,
     tags: ['疫苗', '免疫', '预防', '狂犬病'],
-    createdAt: '2024-02-04',
+    createdAt: '2026-02-04',
     author: '宠物免疫中心'
   },
   {
@@ -2400,7 +2400,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 8,
     isPopular: false,
     tags: ['心脏病', '心脏健康', '预防', '慢性病'],
-    createdAt: '2024-02-05',
+    createdAt: '2026-02-05',
     author: '宠物心脏中心'
   },
   {
@@ -2493,7 +2493,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 6,
     isPopular: true,
     tags: ['零食', '奖励', '训练', '健康饮食'],
-    createdAt: '2024-02-06',
+    createdAt: '2026-02-06',
     author: '宠物营养研究院'
   },
   {
@@ -2577,7 +2577,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 7,
     isPopular: true,
     tags: ['吠叫', '行为问题', '训练', '安静'],
-    createdAt: '2024-02-07',
+    createdAt: '2026-02-07',
     author: '犬类训练协会'
   },
   {
@@ -2657,7 +2657,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 7,
     isPopular: true,
     tags: ['关节', '关节炎', '保健', '预防'],
-    createdAt: '2024-02-08',
+    createdAt: '2026-02-08',
     updatedAt: '2026-03-01',
     author: '宠物骨科中心'
   },
@@ -2736,7 +2736,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 7,
     isPopular: false,
     tags: ['癫痫', '急救', '神经系统', '发作'],
-    createdAt: '2024-02-09',
+    createdAt: '2026-02-09',
     author: '宠物神经科中心'
   },
   {
@@ -2824,7 +2824,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 8,
     isPopular: false,
     tags: ['肾脏疾病', '肾病', '慢性病', '饮食管理'],
-    createdAt: '2024-02-10',
+    createdAt: '2026-02-10',
     author: '宠物肾脏中心'
   },
   {
@@ -2905,7 +2905,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 7,
     isPopular: false,
     tags: ['抑郁症', '心理健康', '情绪', '行为问题'],
-    createdAt: '2024-02-11',
+    createdAt: '2026-02-11',
     author: '动物心理健康中心'
   },
   {
@@ -2986,7 +2986,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 6,
     isPopular: false,
     tags: ['补水', '饮水', '泌尿健康', '脱水'],
-    createdAt: '2024-02-12',
+    createdAt: '2026-02-12',
     author: '宠物健康中心'
   },
   {
@@ -3071,7 +3071,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 8,
     isPopular: false,
     tags: ['攻击行为', '行为矫正', '训练', '安全'],
-    createdAt: '2024-02-13',
+    createdAt: '2026-02-13',
     author: '犬类行为矫正中心'
   },
   {
@@ -3155,7 +3155,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 8,
     isPopular: true,
     tags: ['绝育', '手术', '健康', '行为'],
-    createdAt: '2024-02-14',
+    createdAt: '2026-02-14',
     updatedAt: '2026-02-28',
     author: '宠物外科中心'
   },
@@ -3235,7 +3235,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 7,
     isPopular: true,
     tags: ['泌尿系统', '尿结石', '尿路感染', '预防'],
-    createdAt: '2024-02-15',
+    createdAt: '2026-02-15',
     updatedAt: '2026-03-05',
     author: '宠物泌尿中心'
   },
@@ -3332,7 +3332,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 6,
     isPopular: false,
     tags: ['过敏', '急救', '过敏性休克', '过敏原'],
-    createdAt: '2024-02-16',
+    createdAt: '2026-02-16',
     author: '宠物急救中心'
   },
   {
@@ -3421,7 +3421,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 7,
     isPopular: true,
     tags: ['环境丰富化', '幸福感', '益智玩具', '心理健康'],
-    createdAt: '2024-02-17',
+    createdAt: '2026-02-17',
     author: '动物福利中心'
   },
   {
@@ -3509,7 +3509,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 7,
     isPopular: false,
     tags: ['旅行', '出行', '安全', '准备'],
-    createdAt: '2024-02-18',
+    createdAt: '2026-02-18',
     author: '宠物旅行指南'
   },
   {
@@ -3597,7 +3597,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 8,
     isPopular: true,
     tags: ['传染病', '预防', '疫苗', '犬瘟热', '猫瘟'],
-    createdAt: '2024-02-19',
+    createdAt: '2026-02-19',
     author: '宠物传染病防治中心'
   },
   {
@@ -3678,7 +3678,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 6,
     isPopular: true,
     tags: ['抓挠', '行为管理', '猫抓板', '家具保护'],
-    createdAt: '2024-02-20',
+    createdAt: '2026-02-20',
     author: '猫咪行为研究中心'
   },
   {
@@ -3765,7 +3765,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 6,
     isPopular: false,
     tags: ['食品安全', '储存', '保质期', '喂食'],
-    createdAt: '2024-02-21',
+    createdAt: '2026-02-21',
     author: '宠物食品安全中心'
   },
   {
@@ -3850,7 +3850,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 8,
     isPopular: true,
     tags: ['老年宠物', '护理', '生活质量', '健康监测'],
-    createdAt: '2024-02-22',
+    createdAt: '2026-02-22',
     author: '老年宠物护理中心'
   },
   {
@@ -3931,7 +3931,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 7,
     isPopular: false,
     tags: ['呼吸困难', '急救', '窒息', '呼吸道'],
-    createdAt: '2024-02-23',
+    createdAt: '2026-02-23',
     author: '宠物急救中心'
   },
   {
@@ -4030,7 +4030,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 7,
     isPopular: false,
     tags: ['玩耍', '心理健康', '玩具', '游戏'],
-    createdAt: '2024-02-24',
+    createdAt: '2026-02-24',
     author: '动物行为研究中心'
   },
   {
@@ -4119,7 +4119,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 8,
     isPopular: true,
     tags: ['口腔疾病', '牙周病', '牙齿护理', '预防'],
-    createdAt: '2024-02-25',
+    createdAt: '2026-02-25',
     updatedAt: '2026-03-10',
     author: '宠物口腔健康中心'
   },
@@ -4208,7 +4208,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 7,
     isPopular: false,
     tags: ['破坏行为', '行为管理', '训练', '预防'],
-    createdAt: '2024-02-26',
+    createdAt: '2026-02-26',
     author: '动物行为研究中心'
   },
   {
@@ -4289,7 +4289,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 7,
     isPopular: false,
     tags: ['营养补充剂', '关节保健', '益生菌', 'Omega-3'],
-    createdAt: '2024-02-27',
+    createdAt: '2026-02-27',
     updatedAt: '2026-02-15',
     author: '宠物营养研究院'
   },
@@ -4374,7 +4374,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 6,
     isPopular: true,
     tags: ['夏季护理', '中暑', '防暑', '寄生虫'],
-    createdAt: '2024-02-28',
+    createdAt: '2026-02-28',
     author: '宠物护理中心'
   },
   {
@@ -4461,7 +4461,7 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     readTime: 7,
     isPopular: false,
     tags: ['呕吐', '腹泻', '消化问题', '急救'],
-    createdAt: '2024-02-29',
+    createdAt: '2026-02-29',
     author: '宠物急救中心'
   }
 ];

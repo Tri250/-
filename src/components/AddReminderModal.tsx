@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { X, Calendar, Clock, Syringe, Droplets, Activity, Scissors, Pill, Star } from 'lucide-react';
-import { GlassModal } from './DesignSystem/Modal';
-import { GlassInput, GlassSelect, GlassTextarea } from './DesignSystem/Input';
+import { Syringe, Droplets, Activity, Scissors, Pill, Star, Sparkles } from 'lucide-react';
+import { GlassModal, GlassInput, GlassSelect, GlassTextarea } from './DesignSystem';
 import { REMINDER_TYPES, ReminderType, RepeatType } from '../types/reminder';
 
 interface AddReminderModalProps {
@@ -33,7 +32,7 @@ const TYPE_ICONS: Record<ReminderType, React.ElementType> = {
   deworming: Droplets,
   checkup: Activity,
   bath: Droplets,
-  brush_teeth: Pill,
+  brush_teeth: Sparkles,
   medicine: Pill,
   grooming: Scissors,
   custom: Star,

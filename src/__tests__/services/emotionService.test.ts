@@ -154,12 +154,12 @@ describe('EmotionService', () => {
         {
           id: '1',
           emotion: 'happy',
-          timestamp: '2024-01-15T10:00:00Z',
+          timestamp: '2026-01-15T10:00:00Z',
         },
         {
           id: '2',
           emotion: 'anxious',
-          timestamp: '2024-01-15T11:00:00Z',
+          timestamp: '2026-01-15T11:00:00Z',
         },
       ]);
 

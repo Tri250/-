@@ -4,7 +4,9 @@ import {
   Heart, 
   Mail,
   Calendar,
-  MapPin
+  MapPin,
+  Music,
+  BookOpen
 } from 'lucide-react';
 import { Card } from '../components/DesignSystem';
 
@@ -19,12 +21,12 @@ export const DeveloperInfoPage: React.FC<DeveloperInfoPageProps> = ({ onNavigate
     avatar: '👨‍💻',
     bio: '一个热爱编程、热爱生活、热爱宠物的开发者。在带娃之余，用代码创造美好，让科技温暖每一个毛孩子。',
     location: '中国',
-    joinDate: '2024',
+    joinDate: '2026',
   };
 
   const contactLinks = [
-    { icon: Mail, label: '抖音', value: '搜索"带娃的小陈工"', color: 'bg-black text-white' },
-    { icon: Mail, label: '小红书', value: '搜索"带娃的小陈工"', color: 'bg-red-500 text-white' },
+    { icon: Music, label: '抖音', value: '搜索"带娃的小陈工"', color: 'bg-black text-white' },
+    { icon: BookOpen, label: '小红书', value: '搜索"带娃的小陈工"', color: 'bg-red-500 text-white' },
   ];
 
   return (
@@ -75,7 +77,7 @@ export const DeveloperInfoPage: React.FC<DeveloperInfoPageProps> = ({ onNavigate
 
         <Card className="p-4">
           <h3 className="font-semibold text-neutral-800 mb-4 flex items-center gap-2">
-            <Mail className="w-5 h-5 text-blue-500" />
+            <Heart className="w-5 h-5 text-pink-500" />
             联系方式
           </h3>
           <div className="space-y-3">

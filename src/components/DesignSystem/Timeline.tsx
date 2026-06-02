@@ -105,8 +105,8 @@ export const TimelineItem: React.FC<TimelineItemProps> = ({
               {tags.slice(0, 3).map((tag) => (
                 <span
                   key={tag}
-                  className="px-2 py-0.5 bg-neutral-100 text-neutral-600 rounded-full text-xs"
-                  style={{ backgroundColor: tagColors[tag] }}
+                  className="px-2 py-0.5 rounded-full text-xs"
+                  style={{ backgroundColor: tagColors[tag] ? `${tagColors[tag]}20` : undefined, color: tagColors[tag] }}
                 >
                   {tag}
                 </span>

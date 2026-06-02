@@ -10,7 +10,9 @@ import {
   AlertTriangle,
   Sparkles,
   TrendingUp,
-  Clock
+  Clock,
+  Pill,
+  Brain
 } from 'lucide-react';
 import { GlassCard, SkeletonCard } from '../components/DesignSystem';
 import { useHealthManualStore } from '../store/healthManualStore';
@@ -87,6 +89,8 @@ export const HealthManualPage: React.FC<HealthManualPageProps> = ({ onNavigate }
     'care': Bath,
     'behavior': PawPrint,
     'emergency': AlertTriangle,
+    'disease': Pill,
+    'mental': Brain,
   };
 
   const categoryGradients: Record<string, string> = {
@@ -94,6 +98,8 @@ export const HealthManualPage: React.FC<HealthManualPageProps> = ({ onNavigate }
     'care': 'from-blue-400 via-cyan-500 to-sky-500',
     'behavior': 'from-purple-400 via-violet-500 to-fuchsia-500',
     'emergency': 'from-red-400 via-rose-500 to-orange-500',
+    'disease': 'from-violet-400 via-purple-500 to-indigo-500',
+    'mental': 'from-pink-400 via-rose-500 to-fuchsia-500',
   };
 
   return (

@@ -51,6 +51,11 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
   const [showPrivacyPolicyModal, setShowPrivacyPolicyModal] = useState(false);
   const [showThemeModal, setShowThemeModal] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+  const [privacySettings, setPrivacySettings] = useState({
+    dataAnalysis: true,
+    personalizedRecommendations: true,
+    locationInfo: false,
+  });
 
   const showToast = (message: string) => {
     setToastMessage(message);
@@ -408,10 +413,13 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
               <p className="text-xs text-gray-500">允许收集匿名使用数据以改进产品</p>
             </div>
             <button
-              onClick={() => showToast('设置已更新')}
-              className="w-12 h-7 rounded-full bg-purple-500 relative"
+              onClick={() => {
+                setPrivacySettings(prev => ({ ...prev, dataAnalysis: !prev.dataAnalysis }));
+                showToast('设置已更新');
+              }}
+              className={`w-12 h-7 rounded-full transition-all relative ${privacySettings.dataAnalysis ? 'bg-purple-500' : 'bg-gray-300'}`}
             >
-              <div className="w-5 h-5 rounded-full bg-white shadow-md absolute right-1 top-1" />
+              <div className={`w-5 h-5 rounded-full bg-white shadow-md absolute top-1 transition-all ${privacySettings.dataAnalysis ? 'right-1' : 'left-1'}`} />
             </button>
           </div>
           <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
@@ -420,10 +428,13 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
               <p className="text-xs text-gray-500">根据使用习惯推荐内容</p>
             </div>
             <button
-              onClick={() => showToast('设置已更新')}
-              className="w-12 h-7 rounded-full bg-purple-500 relative"
+              onClick={() => {
+                setPrivacySettings(prev => ({ ...prev, personalizedRecommendations: !prev.personalizedRecommendations }));
+                showToast('设置已更新');
+              }}
+              className={`w-12 h-7 rounded-full transition-all relative ${privacySettings.personalizedRecommendations ? 'bg-purple-500' : 'bg-gray-300'}`}
             >
-              <div className="w-5 h-5 rounded-full bg-white shadow-md absolute right-1 top-1" />
+              <div className={`w-5 h-5 rounded-full bg-white shadow-md absolute top-1 transition-all ${privacySettings.personalizedRecommendations ? 'right-1' : 'left-1'}`} />
             </button>
           </div>
           <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
@@ -432,10 +443,13 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
               <p className="text-xs text-gray-500">用于附近宠物服务推荐</p>
             </div>
             <button
-              onClick={() => showToast('设置已更新')}
-              className="w-12 h-7 rounded-full bg-gray-300 relative"
+              onClick={() => {
+                setPrivacySettings(prev => ({ ...prev, locationInfo: !prev.locationInfo }));
+                showToast('设置已更新');
+              }}
+              className={`w-12 h-7 rounded-full transition-all relative ${privacySettings.locationInfo ? 'bg-purple-500' : 'bg-gray-300'}`}
             >
-              <div className="w-5 h-5 rounded-full bg-white shadow-md absolute left-1 top-1" />
+              <div className={`w-5 h-5 rounded-full bg-white shadow-md absolute top-1 transition-all ${privacySettings.locationInfo ? 'right-1' : 'left-1'}`} />
             </button>
           </div>
         </div>

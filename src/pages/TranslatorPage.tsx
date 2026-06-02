@@ -7,16 +7,16 @@
 // ============================================
 
 import { useState, useEffect, useRef } from 'react';
-import { Mic, MicOff, Image, Share2, RefreshCw, Sparkles, Heart, ChevronDown, ChevronUp, Activity, Waves, Music2, Camera, Upload, X } from 'lucide-react';
-import { useAppStore } from '../store/appStore';
+import { Mic, Share2, RefreshCw, Sparkles, Heart, ChevronDown, ChevronUp, ChevronLeft, Activity, Waves, Music2, Camera, Upload, X, History, Clock } from 'lucide-react';
+import { useAppStore, type Analysis } from '../store/appStore';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { EmotionIcons } from '../components/icons/EmotionIcons';
 import { ShareModal } from '../components/ShareModal';
 import { emotionService } from '../services/emotionService';
-import { EMOTION_CONFIGS, TRANSLATIONS } from '../types/emotion';
-import type { PrimaryEmotion, EmotionAnalysis, AudioFeatures, EmotionScores } from '../types/emotion';
+import { EMOTION_CONFIGS } from '../types/emotion';
+import type { PrimaryEmotion, EmotionAnalysis } from '../types/emotion';
 
 type AppStoreEmotion = 'happy' | 'anxious' | 'angry' | 'needs' | 'neutral';
 
@@ -47,17 +47,42 @@ function PawPrintIcon({ className = '' }: { className?: string }) {
 }
 
 function SoundWave({ active, color }: { active: boolean; color: string }) {
+  const [barHeights, setBarHeights] = useState<number[]>([20, 20, 20, 20, 20, 20, 20]);
   const bars = [1, 2, 3, 4, 5, 6, 7];
+  
+  useEffect(() => {
+    if (active) {
+      const interval = setInterval(() => {
+        setBarHeights(bars.map(() => 20 + Math.random() * 60));
+      }, 150);
+      return () => clearInterval(interval);
+    } else {
+      setBarHeights(bars.map(() => 20));
+    }
+  }, [active]);
+  
+  const colorMap: Record<string, string> = {
+    'green': '#22c55e',
+    'purple': '#a855f7',
+    'yellow': '#eab308',
+    'red': '#ef4444',
+    'blue': '#3b82f6',
+    'gray': '#6b7280',
+    'pink': '#ec4899',
+    'teal': '#14b8a6',
+  };
+  
+  const actualColor = colorMap[color] || '#f97316';
   
   return (
     <div className="flex items-end justify-center gap-1 h-16">
       {bars.map((_, index) => (
         <div
           key={index}
-          className={`w-1.5 rounded-full transition-all ${active ? 'animate-pulse' : ''}`}
+          className={`w-1.5 rounded-full transition-all duration-150 ${active ? 'animate-pulse' : ''}`}
           style={{
-            height: active ? `${20 + Math.random() * 60}%` : '20%',
-            backgroundColor: active ? color : '#d1d5db',
+            height: `${barHeights[index]}%`,
+            backgroundColor: active ? actualColor : '#d1d5db',
             animationDelay: `${index * 0.1}s`,
             animationDuration: '0.8s',
           }}
@@ -464,8 +489,8 @@ function AnalysisDetailPanel({ analysis }: { analysis: EmotionAnalysis }) {
   );
 }
 
-export function TranslatorPage() {
-  const { currentPet, addAnalysis, setCurrentEmotion } = useAppStore();
+export function TranslatorPage({ onNavigate }: { onNavigate?: (page: string) => void }) {
+  const { currentPet, addAnalysis, setCurrentEmotion, analyses } = useAppStore();
   const [isRecording, setIsRecording] = useState(false);
   const [showResult, setShowResult] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
@@ -480,6 +505,8 @@ export function TranslatorPage() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [analysisSource, setAnalysisSource] = useState<'voice' | 'image'>('voice');
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [selectedHistoryItem, setSelectedHistoryItem] = useState<Analysis | null>(null);
   const timerRef = useRef<number | null>(null);
   const animationRef = useRef<number | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -723,12 +750,52 @@ export function TranslatorPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-orange-50/50 via-white to-peach-50/30 pb-20">
       <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-lg border-b border-orange-100">
-        <div className="max-w-md mx-auto px-4 py-4">
-          <h1 className="text-xl font-bold text-gray-800 text-center flex items-center justify-center gap-2">
-            <Heart className="w-5 h-5 text-orange-500" />
-            AI 情感翻译机
-          </h1>
-          <p className="text-xs text-gray-400 text-center">倾听 {currentPet?.name} 的心声 · 精准度95%+</p>
+        <div className="max-w-md mx-auto px-4 py-3">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => onNavigate?.('home')}
+              className="p-2 hover:bg-orange-50 rounded-full transition-colors"
+              aria-label="返回首页"
+            >
+              <ChevronLeft className="w-6 h-6 text-gray-600" />
+            </button>
+            
+            <div className="flex flex-col items-center">
+              <h1 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                <Heart className="w-5 h-5 text-orange-500" />
+                AI 情感翻译机
+              </h1>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className={`w-2 h-2 rounded-full ${
+                  isRecording ? 'bg-red-500 animate-pulse' : 
+                  isAnalyzing ? 'bg-orange-500 animate-pulse' : 
+                  'bg-green-500'
+                }`} />
+                <span className="text-xs text-gray-400">
+                  {isRecording ? '录音中' : isAnalyzing ? '分析中' : '就绪'}
+                </span>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setShowHistoryModal(true)}
+                className="p-2 hover:bg-orange-50 rounded-full transition-colors"
+                aria-label="查看历史"
+                disabled={analyses.length === 0}
+              >
+                <History className={`w-5 h-5 ${analyses.length > 0 ? 'text-gray-600' : 'text-gray-300'}`} />
+              </button>
+              <button
+                onClick={handleShare}
+                disabled={!showResult}
+                className="p-2 hover:bg-orange-50 rounded-full transition-colors disabled:opacity-50"
+                aria-label="分享"
+              >
+                <Share2 className={`w-5 h-5 ${showResult ? 'text-orange-500' : 'text-gray-300'}`} />
+              </button>
+            </div>
+          </div>
         </div>
       </header>
 
@@ -744,8 +811,12 @@ export function TranslatorPage() {
           </Button>
           <Button
             variant="secondary"
-            icon={<Image className="w-5 h-5" />}
-            onClick={() => setShowImageModal(true)}
+            icon={<Camera className="w-5 h-5" />}
+            onClick={() => {
+              setSelectedImage(null);
+              setSelectedFile(null);
+              setShowImageModal(true);
+            }}
             disabled={isRecording || isAnalyzing}
             className={isRecording || isAnalyzing ? 'opacity-50 cursor-not-allowed' : ''}
           >
@@ -778,16 +849,27 @@ export function TranslatorPage() {
               transition-all duration-300 shadow-2xl
               ${isAnalyzing ? 'bg-gradient-to-br from-gray-300 to-gray-400 cursor-not-allowed' : ''}
               ${isRecording ? 'bg-gradient-to-br from-red-400 to-red-600 scale-110' : ''}
-              ${!isRecording && !isAnalyzing ? 'bg-gradient-to-br from-orange-400 to-peach-500 hover:scale-105' : ''}
+              ${!isRecording && !isAnalyzing ? 'bg-gradient-to-br from-orange-400 to-peach-500 hover:scale-105 active:scale-95' : ''}
             `}
             aria-label={isRecording ? '停止录音' : '开始录音'}
           >
             {isAnalyzing ? (
-              <Sparkles className="w-14 h-14 text-white animate-spin" />
+              <div className="flex flex-col items-center">
+                <Sparkles className="w-12 h-12 text-white animate-spin" />
+                <span className="text-xs text-white mt-1 font-medium">分析中</span>
+              </div>
             ) : isRecording ? (
-              <MicOff className="w-14 h-14 text-white" />
+              <div className="flex flex-col items-center">
+                <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
+                  <div className="w-6 h-6 bg-white rounded-sm" />
+                </div>
+                <span className="text-xs text-white mt-1 font-medium">停止</span>
+              </div>
             ) : (
-              <PawPrintIcon className="w-16 h-16 text-white" />
+              <div className="flex flex-col items-center">
+                <PawPrintIcon className="w-14 h-14 text-white" />
+                <span className="text-xs text-white mt-1 font-medium">开始</span>
+              </div>
             )}
 
             {isRecording && (
@@ -801,6 +883,17 @@ export function TranslatorPage() {
             )}
           </button>
 
+          {!isRecording && !isAnalyzing && !showResult && (
+            <div className="text-center space-y-2">
+              <p className="text-gray-500 text-sm">
+                点击爪印按钮开始录音
+              </p>
+              <p className="text-gray-400 text-xs">
+                或使用拍照分析功能
+              </p>
+            </div>
+          )}
+
           {isRecording && (
             <div className="text-center space-y-3">
               <div className="flex items-center justify-center gap-3">
@@ -811,11 +904,25 @@ export function TranslatorPage() {
                 <Heart className="w-5 h-5 text-red-500 animate-pulse" />
               </div>
               
-              <p className="text-2xl font-bold text-gray-800">
-                {formatTime(recordingTime)}
-              </p>
+              <div className="inline-flex items-center justify-center px-4 py-2 bg-red-50 rounded-full">
+                <Clock className="w-4 h-4 text-red-500 mr-2" />
+                <p className="text-2xl font-bold text-red-600 tabular-nums">
+                  {formatTime(recordingTime)}
+                </p>
+              </div>
               
               <SoundWave active={isRecording} color={config.color.split('-')[1]} />
+              
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-xs text-gray-400">音量:</span>
+                <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-gradient-to-r from-green-400 to-red-500 rounded-full transition-all duration-100"
+                    style={{ width: `${Math.min(100, audioLevel)}%` }}
+                  />
+                </div>
+                <span className="text-xs text-gray-500">{Math.round(audioLevel)}%</span>
+              </div>
 
               <p className="text-xs text-gray-400">
                 点击按钮结束录音
@@ -857,7 +964,7 @@ export function TranslatorPage() {
         {showResult && (
           <Card variant="gradient" padding="large" className="animate-fadeIn">
             {analysisSource === 'image' && selectedImage && (
-              <div className="mb-4 rounded-xl overflow-hidden">
+              <div className="mb-4 rounded-xl overflow-hidden shadow-md">
                 <img
                   src={selectedImage}
                   alt="分析图片"
@@ -865,27 +972,32 @@ export function TranslatorPage() {
                 />
               </div>
             )}
+            
             <div className="text-center mb-4">
-              <Badge 
-                color={getBadgeColor(emotion)} 
-                size="medium"
-              >
-                <span className="inline-flex mr-1">
-                  {(() => {
-                    const IconComponent = EmotionIcons[emotion];
-                    return <IconComponent size={28} />;
-                  })()}
-                </span>
-                {config.label}
-              </Badge>
-              {confidence >= 95 && (
-                <span className="ml-2 text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full">
-                  高置信度
-                </span>
-              )}
+              <div className="inline-flex items-center justify-center p-3 rounded-full bg-white shadow-lg mb-2">
+                {(() => {
+                  const IconComponent = EmotionIcons[emotion];
+                  return <IconComponent size={48} />;
+                })()}
+              </div>
+              
+              <div className="flex items-center justify-center gap-2">
+                <Badge 
+                  color={getBadgeColor(emotion)} 
+                  size="medium"
+                >
+                  <span className="text-lg mr-1">{config.emoji}</span>
+                  {config.label}
+                </Badge>
+                {confidence >= 95 && (
+                  <span className="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full font-semibold animate-pulse">
+                    ✓ 高置信度
+                  </span>
+                )}
+              </div>
             </div>
 
-            <div className="relative bg-white/80 backdrop-blur-sm rounded-2xl p-6 mb-4 shadow-inner">
+            <div className="relative bg-white/80 backdrop-blur-sm rounded-2xl p-6 mb-4 shadow-inner border border-gray-100">
               <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-8 border-r-8 border-b-8 border-transparent border-b-white/80" />
               
               <p className="text-gray-700 text-center text-lg leading-relaxed font-medium">
@@ -893,16 +1005,26 @@ export function TranslatorPage() {
               </p>
               
               <div className="flex justify-center mt-4">
-                <span className="text-sm text-gray-400">— {currentPet?.name}</span>
+                <span className="text-sm text-gray-400 flex items-center gap-1">
+                  <PawPrintIcon className="w-4 h-4 text-orange-400" />
+                  {currentPet?.name}
+                </span>
               </div>
             </div>
 
             <div className="mb-4">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-xs text-gray-500">情感置信度</p>
-                {confidence >= 95 && (
-                  <p className="text-xs text-green-500 font-semibold">✓ 达到95%+标准</p>
-                )}
+                <p className="text-xs text-gray-500 flex items-center gap-1">
+                  <Activity className="w-3.5 h-3.5" />
+                  情感置信度
+                </p>
+                <p className={`text-xs font-semibold ${
+                  confidence >= 95 ? 'text-green-500' : 
+                  confidence >= 85 ? 'text-blue-500' : 'text-yellow-500'
+                }`}>
+                  {confidence >= 95 ? '✓ 达到95%+标准' : 
+                   confidence >= 85 ? '良好置信度' : '建议重新分析'}
+                </p>
               </div>
               <EmotionMeter confidence={confidence} guaranteed />
             </div>
@@ -986,6 +1108,121 @@ export function TranslatorPage() {
         content={translation}
         petName={currentPet?.name}
       />
+
+      {showHistoryModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl p-6 mx-4 max-w-sm w-full shadow-2xl animate-fadeIn max-h-[80vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                <History className="w-5 h-5 text-orange-500" />
+                分析历史
+              </h3>
+              <button
+                onClick={() => {
+                  setShowHistoryModal(false);
+                  setSelectedHistoryItem(null);
+                }}
+                className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            
+            {selectedHistoryItem ? (
+              <div className="space-y-4 overflow-y-auto flex-1">
+                <div className="bg-gradient-to-r from-orange-50 to-peach-50 rounded-xl p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <Badge color={getBadgeColor(selectedHistoryItem.result.emotion as PrimaryEmotion)} size="medium">
+                      {EMOTION_CONFIGS[selectedHistoryItem.result.emotion as PrimaryEmotion]?.emoji || '😊'}
+                      {EMOTION_CONFIGS[selectedHistoryItem.result.emotion as PrimaryEmotion]?.label || '平静'}
+                    </Badge>
+                    {selectedHistoryItem.result.confidence >= 95 && (
+                      <span className="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full">
+                        95%+
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-gray-700 text-center text-base leading-relaxed font-medium mt-3">
+                    "{selectedHistoryItem.result.translation}"
+                  </p>
+                </div>
+                
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <div className="flex items-center justify-between text-xs text-gray-500">
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-3.5 h-3.5" />
+                      {new Date(selectedHistoryItem.createdAt).toLocaleString('zh-CN')}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      {selectedHistoryItem.type === 'voice' ? '🎤 语音' : '📷 图片'}
+                    </span>
+                  </div>
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <EmotionMeter confidence={selectedHistoryItem.result.confidence} />
+                </div>
+                
+                <Button
+                  variant="secondary"
+                  size="small"
+                  onClick={() => setSelectedHistoryItem(null)}
+                  className="w-full"
+                >
+                  返回列表
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-2 overflow-y-auto flex-1">
+                {analyses.length === 0 ? (
+                  <div className="text-center py-8">
+                    <History className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-500 text-sm">暂无分析记录</p>
+                    <p className="text-gray-400 text-xs mt-1">开始录音或拍照分析吧</p>
+                  </div>
+                ) : (
+                  analyses
+                    .filter(a => a.petId === currentPet?.id)
+                    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                    .slice(0, 20)
+                    .map((analysis) => (
+                      <button
+                        key={analysis.id}
+                        onClick={() => setSelectedHistoryItem(analysis)}
+                        className="w-full p-3 bg-gray-50 hover:bg-orange-50 rounded-xl transition-colors flex items-center gap-3"
+                      >
+                        <div className="text-2xl">
+                          {EMOTION_CONFIGS[analysis.result.emotion as PrimaryEmotion]?.emoji || '😊'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-700 truncate">
+                            "{analysis.result.translation}"
+                          </p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-xs text-gray-400 flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {new Date(analysis.createdAt).toLocaleDateString('zh-CN')}
+                            </span>
+                            <span className="text-xs text-gray-400">
+                              {analysis.type === 'voice' ? '🎤' : '📷'}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <span className={`text-xs font-semibold ${
+                            analysis.result.confidence >= 95 ? 'text-green-500' : 'text-gray-500'
+                          }`}>
+                            {analysis.result.confidence}%
+                          </span>
+                        </div>
+                      </button>
+                    ))
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {showImageModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">

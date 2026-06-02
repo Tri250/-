@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Edit, History, Settings, Crown, Star, Heart, ChevronRight, Camera, X, Code } from 'lucide-react';
+import { Edit, History, Settings, Crown, Star, Heart, ChevronRight, Camera, X, Code, Check } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 
 interface ProfilePageProps {
@@ -15,11 +15,22 @@ const menuItems = [
 ];
 
 export function ProfilePage({ onNavigate }: ProfilePageProps) {
-  const { currentPet, analyses } = useAppStore();
+  const { currentPet, analyses, updateCurrentPet } = useAppStore();
   const [showEdit, setShowEdit] = useState(false);
   const [petName, setPetName] = useState(currentPet?.name || '');
   const [petBreed, setPetBreed] = useState(currentPet?.breed || '');
   const [petAge, setPetAge] = useState(currentPet?.age.toString() || '');
+
+  const handleSaveEdit = () => {
+    if (currentPet) {
+      updateCurrentPet({
+        name: petName,
+        breed: petBreed,
+        age: parseInt(petAge) || 0,
+      });
+    }
+    setShowEdit(false);
+  };
 
   const recentAnalyses = analyses.slice(-3).reverse();
 
@@ -44,7 +55,7 @@ export function ProfilePage({ onNavigate }: ProfilePageProps) {
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
           <div className="flex items-center gap-4">
             <div className="relative">
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-orange-400 to-peach-500 flex items-center justify-center text-4xl shadow-lg">
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-orange-400 to-orange-500 flex items-center justify-center text-4xl shadow-lg">
                 {emotionEmoji[analyses.length > 0 ? analyses[analyses.length - 1].result.emotion : 'happy']}
               </div>
               <button className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-purple-500 text-white flex items-center justify-center shadow-md">
@@ -61,13 +72,19 @@ export function ProfilePage({ onNavigate }: ProfilePageProps) {
                     className="text-xl font-bold text-gray-800 bg-transparent border-b border-purple-300 focus:outline-none"
                   />
                 ) : (
-                  <h2 className="text-xl font-bold text-gray-800">{petName}</h2>
+                  <h2 className="text-xl font-bold text-gray-800">{currentPet?.name || petName}</h2>
                 )}
                 <button
-                  onClick={() => setShowEdit(!showEdit)}
+                  onClick={() => {
+                    if (showEdit) {
+                      handleSaveEdit();
+                    } else {
+                      setShowEdit(true);
+                    }
+                  }}
                   className="p-1.5 rounded-full hover:bg-gray-100 transition-colors"
                 >
-                  {showEdit ? <X className="w-4 h-4 text-gray-500" /> : <Edit className="w-4 h-4 text-gray-500" />}
+                  {showEdit ? <Check className="w-4 h-4 text-green-500" /> : <Edit className="w-4 h-4 text-gray-500" />}
                 </button>
               </div>
               <div className="flex items-center gap-2 mt-1">

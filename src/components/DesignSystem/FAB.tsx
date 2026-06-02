@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { Plus, X, Mic, Image, FileText, Video } from 'lucide-react';
+import { RecordType } from '../../types/health-record';
 
 interface FABProps {
-  onAction: (type: 'text' | 'voice' | 'photo' | 'video' | 'file') => void;
+  onAction: (type: RecordType) => void;
 }
 
 export const FAB: React.FC<FABProps> = ({ onAction }) => {
   const [isOpen, setIsOpen] = useState(false);
 
-  const actions = [
+  const actions: { type: RecordType; icon: React.ElementType; label: string; color: string }[] = [
     { type: 'text', icon: FileText, label: '文字记录', color: 'from-blue-500 to-blue-600' },
     { type: 'voice', icon: Mic, label: '语音记录', color: 'from-purple-500 to-purple-600' },
     { type: 'photo', icon: Image, label: '拍照记录', color: 'from-green-500 to-green-600' },
@@ -23,7 +24,7 @@ export const FAB: React.FC<FABProps> = ({ onAction }) => {
             <button
               key={action.type}
               onClick={() => {
-                onAction(action.type as any);
+                onAction(action.type);
                 setIsOpen(false);
               }}
               className="flex items-center gap-2 px-4 py-2 bg-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300"

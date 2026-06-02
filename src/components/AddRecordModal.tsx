@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Mic, Image, Video, FileText, Check, Star, Square, Play, Pause, Camera, Upload } from 'lucide-react';
 import { GlassModal, GlassInput, GlassTextarea } from './DesignSystem';
-import { HealthTag, RecordType, DEFAULT_TAGS } from '../types/health-record';
+import { HealthTag, RecordType } from '../types/health-record';
 
 interface AddRecordModalProps {
   isOpen: boolean;
@@ -16,6 +16,7 @@ interface AddRecordModalProps {
     voiceDuration?: number;
   }) => void;
   availableTags: HealthTag[];
+  initialType?: RecordType;
 }
 
 const RECORD_TYPE_CONFIG: {
@@ -35,8 +36,9 @@ export const AddRecordModal: React.FC<AddRecordModalProps> = ({
   onClose,
   onSubmit,
   availableTags,
+  initialType = 'text',
 }) => {
-  const [recordType, setRecordType] = useState<RecordType>('text');
+  const [recordType, setRecordType] = useState<RecordType>(initialType);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -114,7 +116,7 @@ export const AddRecordModal: React.FC<AddRecordModalProps> = ({
   const handleClose = () => {
     stopRecording();
     stopVideoRecording();
-    setRecordType('text');
+    setRecordType(initialType);
     setTitle('');
     setContent('');
     setSelectedTags([]);
@@ -129,6 +131,7 @@ export const AddRecordModal: React.FC<AddRecordModalProps> = ({
     setVideoRecordingTime(0);
     audioChunksRef.current = [];
     videoChunksRef.current = [];
+    onClose();
   };
 
   const toggleTag = (tagId: string) => {
@@ -574,27 +577,30 @@ export const AddRecordModal: React.FC<AddRecordModalProps> = ({
             标签
           </label>
           <div className="flex flex-wrap gap-2">
-            {availableTags.map((tag) => (
-              <button
-                key={tag.id}
-                onClick={() => toggleTag(tag.id)}
-                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
-                  selectedTags.includes(tag.id)
-                    ? 'ring-2 ring-offset-1'
-                    : 'opacity-70 hover:opacity-100'
-                }`}
-                style={{
-                  backgroundColor: tag.color + '20',
-                  color: tag.color,
-                  ...(selectedTags.includes(tag.id) && { ringColor: tag.color }),
-                }}
-              >
-                {selectedTags.includes(tag.id) && (
-                  <Check className="w-3 h-3 inline mr-1" />
-                )}
-                {tag.name}
-              </button>
-            ))}
+            {availableTags.map((tag) => {
+              const isSelected = selectedTags.includes(tag.id);
+              return (
+                <button
+                  key={tag.id}
+                  onClick={() => toggleTag(tag.id)}
+                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
+                    isSelected
+                      ? 'ring-2 ring-offset-1 shadow-sm'
+                      : 'opacity-70 hover:opacity-100'
+                  }`}
+                  style={{
+                    backgroundColor: `${tag.color}20`,
+                    color: tag.color,
+                    ...(isSelected && { ringColor: tag.color, boxShadow: `0 0 0 2px ${tag.color}` }),
+                  }}
+                >
+                  {isSelected && (
+                    <Check className="w-3 h-3 inline mr-1" />
+                  )}
+                  {tag.name}
+                </button>
+              );
+            })}
           </div>
         </div>
 

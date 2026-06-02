@@ -37,9 +37,9 @@ export const FavoritesPage: React.FC<FavoritesPageProps> = ({ onNavigate }) => {
   const favoriteTranslations = analyses.slice().reverse().slice(0, 10);
 
   const favoritePhotos = [
-    { id: 1, date: '2024-01-15', description: '小橘在阳光下打盹', emoji: '🐱' },
-    { id: 2, date: '2024-01-14', description: '第一次成功握手', emoji: '🐕' },
-    { id: 3, date: '2024-01-13', description: '玩球时的开心模样', emoji: '😺' },
+    { id: 1, date: '2026-01-15', description: '小橘在阳光下打盹', emoji: '🐱' },
+    { id: 2, date: '2026-01-14', description: '第一次成功握手', emoji: '🐕' },
+    { id: 3, date: '2026-01-13', description: '玩球时的开心模样', emoji: '😺' },
   ];
 
   return (

@@ -84,6 +84,7 @@ interface AppState {
   logout: () => void;
   completeOnboarding: () => void;
   setCurrentPet: (pet: Pet) => void;
+  updateCurrentPet: (pet: Partial<Pet>) => void;
   addPet: (pet: Omit<Pet, 'id'>) => void;
   addAnalysis: (analysis: Omit<Analysis, 'id' | 'createdAt'>) => void;
   addHealthAlert: (alert: Omit<HealthAlert, 'id'>) => void;
@@ -124,7 +125,7 @@ export const useAppStore = create<AppState>((set) => ({
       type: 'abnormal',
       severity: 'low',
       message: '轻微活动异常，建议观察',
-      timestamp: '2024-01-15 14:30',
+      timestamp: '2026-01-15 14:30',
     },
   ],
   currentEmotion: 'happy',
@@ -208,6 +209,14 @@ export const useAppStore = create<AppState>((set) => ({
   logout: () => set({ user: null, isAuthenticated: false, isOnboardingComplete: false }),
   completeOnboarding: () => set({ isOnboardingComplete: true }),
   setCurrentPet: (pet) => set({ currentPet: pet }),
+  updateCurrentPet: (petUpdate) => set((state) => {
+    if (!state.currentPet) return state;
+    const updatedPet = { ...state.currentPet, ...petUpdate };
+    return {
+      currentPet: updatedPet,
+      pets: state.pets.map(p => p.id === updatedPet.id ? updatedPet : p),
+    };
+  }),
   addPet: (pet) => set((state) => ({
     pets: [...state.pets, { ...pet, id: Date.now().toString() }],
   })),

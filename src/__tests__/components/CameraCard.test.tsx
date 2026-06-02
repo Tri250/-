@@ -73,7 +73,7 @@ describe('CameraCard', () => {
   });
 
   it('应该显示最后在线时间', () => {
-    const lastOnline = '2024-01-15T10:30:00.000Z';
+    const lastOnline = '2026-01-15T10:30:00.000Z';
     const device = createMockDevice({ lastOnline });
     render(<CameraCard device={device} />);
     expect(screen.getByText(/最后在线:/)).toBeInTheDocument();
