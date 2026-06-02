@@ -192,105 +192,106 @@ export const useHealthManualStore = create<HealthManualStore>()(
           folderBookmarks: newFolderBookmarks,
         };
       }),
-  })),
-  setSearchQuery: (query) => {
-    set({ searchQuery: query });
-    if (query.trim().length > 0) {
-      get().performSearch(query);
-    } else {
-      set({ searchResults: [], isSearching: false });
-    }
-  },
-  setPetTypeFilter: (type) => set({ petTypeFilter: type }),
+      
+      setSearchQuery: (query) => {
+        set({ searchQuery: query });
+        if (query.trim().length > 0) {
+          get().performSearch(query);
+        } else {
+          set({ searchResults: [], isSearching: false });
+        }
+      },
+      
+      setPetTypeFilter: (type) => set({ petTypeFilter: type }),
 
-  performSearch: (query) => {
-    const startTime = performance.now();
-    set({ isSearching: true });
-    
-    const state = get();
-    let manualsToSearch = [...state.manuals];
-    
-    if (state.selectedCategory) {
-      manualsToSearch = manualsToSearch.filter((m) => m.category === state.selectedCategory);
-    }
-    
-    if (state.petTypeFilter !== 'both') {
-      manualsToSearch = manualsToSearch.filter((m) => 
-        m.forType === state.petTypeFilter || m.forType === 'both'
-      );
-    }
-    
-    const results: SearchResult[] = manualsToSearch
-      .map((manual) => ({
-        ...manual,
-        relevanceScore: calculateRelevance(manual, query),
-        matchedFields: getMatchedFields(manual, query),
-      }))
-      .filter((result) => result.relevanceScore > 0)
-      .sort((a, b) => b.relevanceScore - a.relevanceScore);
-    
-    const endTime = performance.now();
-    const searchTime = endTime - startTime;
-    
-    set({ 
-      searchResults: results,
-      isSearching: false,
-      lastSearchTime: searchTime,
-    });
-  },
+      performSearch: (query) => {
+        const startTime = performance.now();
+        set({ isSearching: true });
+        
+        const state = get();
+        let manualsToSearch = [...state.manuals];
+        
+        if (state.selectedCategory) {
+          manualsToSearch = manualsToSearch.filter((m) => m.category === state.selectedCategory);
+        }
+        
+        if (state.petTypeFilter !== 'both') {
+          manualsToSearch = manualsToSearch.filter((m) => 
+            m.forType === state.petTypeFilter || m.forType === 'both'
+          );
+        }
+        
+        const results: SearchResult[] = manualsToSearch
+          .map((manual) => ({
+            ...manual,
+            relevanceScore: calculateRelevance(manual, query),
+            matchedFields: getMatchedFields(manual, query),
+          }))
+          .filter((result) => result.relevanceScore > 0)
+          .sort((a, b) => b.relevanceScore - a.relevanceScore);
+        
+        const endTime = performance.now();
+        const searchTime = endTime - startTime;
+        
+        set({ 
+          searchResults: results,
+          isSearching: false,
+          lastSearchTime: searchTime,
+        });
+      },
 
-  highlightText: (text: string, query: string) => {
-    if (!query.trim()) return text;
-    
-    const lowerText = text.toLowerCase();
-    const lowerQuery = query.toLowerCase();
-    
-    let result = '';
-    let lastIndex = 0;
-    let index = lowerText.indexOf(lowerQuery);
-    
-    while (index !== -1) {
-      result += text.slice(lastIndex, index);
-      result += `<mark class="bg-yellow-200 px-0.5 rounded">${text.slice(index, index + query.length)}</mark>`;
-      lastIndex = index + query.length;
-      index = lowerText.indexOf(lowerQuery, lastIndex);
-    }
-    
-    result += text.slice(lastIndex);
-    return result;
-  },
+      highlightText: (text: string, query: string) => {
+        if (!query.trim()) return text;
+        
+        const lowerText = text.toLowerCase();
+        const lowerQuery = query.toLowerCase();
+        
+        let result = '';
+        let lastIndex = 0;
+        let index = lowerText.indexOf(lowerQuery);
+        
+        while (index !== -1) {
+          result += text.slice(lastIndex, index);
+          result += `<mark class="bg-yellow-200 px-0.5 rounded">${text.slice(index, index + query.length)}</mark>`;
+          lastIndex = index + query.length;
+          index = lowerText.indexOf(lowerQuery, lastIndex);
+        }
+        
+        result += text.slice(lastIndex);
+        return result;
+      },
 
-  getFilteredManuals: () => {
-    const state = get();
-    
-    if (state.searchQuery.trim().length > 0 && state.searchResults.length > 0) {
-      return state.searchResults;
-    }
-    
-    let filtered = [...state.manuals];
-    
-    if (state.selectedCategory) {
-      filtered = filtered.filter((m) => m.category === state.selectedCategory);
-    }
-    
-    if (state.petTypeFilter !== 'both') {
-      filtered = filtered.filter((m) => 
-        m.forType === state.petTypeFilter || m.forType === 'both'
-      );
-    }
-    
-    if (state.searchQuery) {
-      const query = state.searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (m) => 
-          m.title.toLowerCase().includes(query) || 
-          m.summary.toLowerCase().includes(query) ||
-          m.tags.some((tag) => tag.toLowerCase().includes(query))
-      );
-    }
-    
-    return filtered;
-  },
+      getFilteredManuals: () => {
+        const state = get();
+        
+        if (state.searchQuery.trim().length > 0 && state.searchResults.length > 0) {
+          return state.searchResults;
+        }
+        
+        let filtered = [...state.manuals];
+        
+        if (state.selectedCategory) {
+          filtered = filtered.filter((m) => m.category === state.selectedCategory);
+        }
+        
+        if (state.petTypeFilter !== 'both') {
+          filtered = filtered.filter((m) => 
+            m.forType === state.petTypeFilter || m.forType === 'both'
+          );
+        }
+        
+        if (state.searchQuery) {
+          const query = state.searchQuery.toLowerCase();
+          filtered = filtered.filter(
+            (m) => 
+              m.title.toLowerCase().includes(query) || 
+              m.summary.toLowerCase().includes(query) ||
+              m.tags.some((tag) => tag.toLowerCase().includes(query))
+          );
+        }
+        
+        return filtered;
+      },
 
       getCurrentManual: () => {
         const state = get();
