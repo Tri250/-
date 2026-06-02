@@ -1,4 +1,5 @@
-import { PrismaClient, PetType, PetGender, HealthStatus, ManualCategory } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
+import { PetType, PetGender, HealthStatus, ManualCategory } from '../src/types/enums';
 import { hashPassword } from '../src/lib/auth';
 
 const prisma = new PrismaClient();
@@ -60,7 +61,7 @@ async function main() {
         type: 'TEXT',
         title: '日常检查',
         content: '今天毛球精神很好，食欲正常，大便正常。继续保持。',
-        tags: ['日常', '健康'],
+        tags: JSON.stringify(['日常', '健康']),
         isImportant: false,
       },
       {
@@ -68,7 +69,7 @@ async function main() {
         type: 'TEXT',
         title: '驱虫记录',
         content: '2026年1月15日进行体内外驱虫，使用拜宠清。',
-        tags: ['驱虫', '医疗'],
+        tags: JSON.stringify(['驱虫', '医疗']),
         isImportant: true,
       },
       {
@@ -76,7 +77,7 @@ async function main() {
         type: 'TEXT',
         title: '疫苗接种',
         content: '完成六联疫苗接种，下次加强针在6个月后。',
-        tags: ['疫苗', '医疗'],
+        tags: JSON.stringify(['疫苗', '医疗']),
         isImportant: true,
       },
     ],
@@ -161,7 +162,7 @@ async function main() {
         `.trim(),
         category: ManualCategory.NUTRITION,
         petType: PetType.CAT,
-        tags: ['饮食', '营养', '猫粮'],
+        tags: JSON.stringify(['饮食', '营养', '猫粮']),
         author: '兽医团队',
         isOfficial: true,
       },
@@ -187,7 +188,7 @@ async function main() {
         `.trim(),
         category: ManualCategory.CARE,
         petType: PetType.DOG,
-        tags: ['护理', '毛发', '口腔'],
+        tags: JSON.stringify(['护理', '毛发', '口腔']),
         author: '兽医团队',
         isOfficial: true,
       },
@@ -216,7 +217,7 @@ async function main() {
 4. 调整环境
         `.trim(),
         category: ManualCategory.BEHAVIOR,
-        tags: ['行为', '异常', '健康'],
+        tags: JSON.stringify(['行为', '异常', '健康']),
         author: '兽医团队',
         isOfficial: true,
       },
@@ -246,7 +247,7 @@ async function main() {
 - 紧急联系方式
         `.trim(),
         category: ManualCategory.EMERGENCY,
-        tags: ['急救', '紧急', '安全'],
+        tags: JSON.stringify(['急救', '紧急', '安全']),
         author: '兽医团队',
         isOfficial: true,
       },
@@ -273,7 +274,7 @@ async function main() {
         `.trim(),
         category: ManualCategory.TRAINING,
         petType: PetType.DOG,
-        tags: ['训练', '幼犬', '教育'],
+        tags: JSON.stringify(['训练', '幼犬', '教育']),
         author: '训犬师团队',
         isOfficial: true,
       },

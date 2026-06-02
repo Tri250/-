@@ -23,7 +23,6 @@ export function TrainingPage() {
   const handleStartCourse = (courseId: string) => {
     startSession(courseId);
     addDailyActivity({
-      date: new Date(),
       type: 'training',
       description: '开始训练课程',
       points: 10

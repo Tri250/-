@@ -213,23 +213,23 @@ describe('CameraService', () => {
     it('应该更新设备的流配置', async () => {
       const devices = await cameraManager.getAllDevices();
       const device = devices[0];
-      
+
       vi.useFakeTimers();
-      const promise = cameraManager.updateStream(device.id, { 
-        quality: '1080p',
+      const promise = cameraManager.updateStream(device.id, {
+        resolution: '1080p',
         audioEnabled: true,
-        nightVision: false 
+        nightVision: 'off' as const
       });
       vi.advanceTimersByTime(300);
       const result = await promise;
       vi.useRealTimers();
-      
+
       expect(result).toBe(true);
     });
 
     it('不存在的设备应该返回false', async () => {
       vi.useFakeTimers();
-      const promise = cameraManager.updateStream('non-existent', { quality: '1080p', audioEnabled: false, nightVision: false });
+      const promise = cameraManager.updateStream('non-existent', { resolution: '1080p', audioEnabled: false, nightVision: 'off' as const });
       vi.advanceTimersByTime(300);
       const result = await promise;
       vi.useRealTimers();

@@ -322,7 +322,7 @@ export const modalTokens = {
       background: 'rgba(255, 255, 255, 0.95)',
       backdropFilter: 'blur(24px)',
       border: '1px solid rgba(255, 255, 255, 0.3)',
-      shadow: shadows.glass.heavy,
+      shadow: shadows.glass.md,
     },
   },
 };

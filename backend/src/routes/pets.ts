@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { body, validationResult, query } from 'express-validator';
 import prisma from '../lib/prisma';
 import { authenticateToken } from '../middleware';
-import { PetType, PetGender, HealthStatus } from '@prisma/client';
+import { PetType, PetGender, HealthStatus } from '../types/enums';
 
 const router = Router();
 
@@ -236,7 +236,7 @@ router.post('/:id/checkups', async (req: Request, res: Response) => {
         weight,
         vet,
         notes,
-        attachments,
+        attachments: JSON.stringify(attachments),
       },
     });
 

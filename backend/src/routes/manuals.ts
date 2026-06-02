@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { query } from 'express-validator';
 import prisma from '../lib/prisma';
 import { authenticateToken } from '../middleware';
-import { ManualCategory, PetType } from '@prisma/client';
+import { ManualCategory, PetType } from '../types/enums';
 
 const router = Router();
 
@@ -45,9 +45,8 @@ router.get('/search', async (req: Request, res: Response) => {
     const manuals = await prisma.healthManual.findMany({
       where: {
         OR: [
-          { title: { contains: q as string, mode: 'insensitive' } },
-          { content: { contains: q as string, mode: 'insensitive' } },
-          { tags: { hasSome: [q as string] } },
+          { title: { contains: q as string } },
+          { content: { contains: q as string } },
         ],
       },
       orderBy: { viewCount: 'desc' },

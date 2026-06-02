@@ -35,9 +35,11 @@ router.post('/chat', [body('petId').isString(), body('message').isString()], asy
       timestamp: new Date().toISOString(),
     };
 
-    const messages = conversation 
-      ? [...conversation.messages, userMessage, aiResponse]
-      : [userMessage, aiResponse];
+    const previousMessages: unknown[] = conversation
+      ? safeJsonParse(conversation.messages)
+      : [];
+
+    const messages = JSON.stringify([...previousMessages, userMessage, aiResponse]);
 
     if (conversation) {
       conversation = await prisma.aIConversation.update({
@@ -60,6 +62,15 @@ router.post('/chat', [body('petId').isString(), body('message').isString()], asy
     res.status(500).json({ error: '对话失败' });
   }
 });
+
+function safeJsonParse(value: string): unknown[] {
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
 
 router.get('/conversations/:petId', async (req: Request, res: Response) => {
   try {

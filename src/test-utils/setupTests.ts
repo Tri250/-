@@ -1,6 +1,11 @@
 import '@testing-library/jest-dom';
 import { cleanup } from '@testing-library/react';
-import { afterEach } from 'vitest';
+import { afterEach, beforeEach, vi } from 'vitest';
+
+beforeEach(() => {
+  localStorage.clear();
+  sessionStorage.clear();
+});
 
 afterEach(() => {
   cleanup();
@@ -42,3 +47,22 @@ Object.defineProperty(window, 'cancelAnimationFrame', {
   writable: true,
   value: (id: number) => clearTimeout(id),
 });
+
+class MockAudioContext {
+  state = 'running';
+  currentTime = 0;
+  destination = {};
+  createMediaStreamSource = vi.fn().mockReturnValue({ connect: vi.fn() });
+  createAnalyser = vi.fn().mockReturnValue({
+    fftSize: 2048,
+    getFloatTimeDomainData: vi.fn(),
+    connect: vi.fn(),
+  });
+  close = vi.fn().mockResolvedValue(undefined);
+  resume = vi.fn().mockResolvedValue(undefined);
+}
+
+if (typeof window !== 'undefined' && !(window as any).AudioContext) {
+  (window as any).AudioContext = MockAudioContext;
+  (global as any).AudioContext = MockAudioContext;
+}

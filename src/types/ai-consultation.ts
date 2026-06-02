@@ -126,16 +126,16 @@ export const INPUT_VALIDATION_CONFIG = {
 };
 
 export const PROHIBITED_CONTENT_PATTERNS = [
-  { pattern: /暴力|虐待|打|踢|摔|扔|砸|杀|死|毒|药死/gi, category: 'violence', severity: 'high' },
-  { pattern: /色情|裸体|性/gi, category: 'adult', severity: 'high' },
+  { pattern: /暴力虐待|虐待动物|虐打|施暴/gi, category: 'violence', severity: 'high' },
+  { pattern: /色情|裸体|性交|自慰/gi, category: 'adult', severity: 'high' },
   { pattern: /赌博|赌钱|赌狗/gi, category: 'gambling', severity: 'medium' },
-  { pattern: /毒品|吸毒|贩毒/gi, category: 'drugs', severity: 'high' },
-  { pattern: /诈骗|骗钱|骗人/gi, category: 'fraud', severity: 'medium' },
-  { pattern: /政治敏感|反动|颠覆/gi, category: 'political', severity: 'high' },
-  { pattern: /恐怖|恐怖主义|恐怖分子/gi, category: 'terrorism', severity: 'high' },
-  { pattern: /歧视|种族歧视|性别歧视/gi, category: 'discrimination', severity: 'medium' },
-  { pattern: /诅咒|咒骂|骂人/gi, category: 'profanity', severity: 'low' },
-  { pattern: /广告|推销|营销|卖货/gi, category: 'spam', severity: 'low' },
+  { pattern: /吸毒|贩毒|注射毒品/gi, category: 'drugs', severity: 'high' },
+  { pattern: /诈骗|骗钱|骗人|骗取/gi, category: 'fraud', severity: 'medium' },
+  { pattern: /政治敏感|反动言论|颠覆国家/gi, category: 'political', severity: 'high' },
+  { pattern: /恐怖袭击|恐怖主义|恐怖分子/gi, category: 'terrorism', severity: 'high' },
+  { pattern: /种族歧视|性别歧视|地域歧视/gi, category: 'discrimination', severity: 'medium' },
+  { pattern: /诅咒|咒骂|骂人|辱骂/gi, category: 'profanity', severity: 'low' },
+  { pattern: /广告推销|卖货|虚假宣传/gi, category: 'spam', severity: 'low' },
 ];
 
 export const MULTILINGUAL_CONFIG = {

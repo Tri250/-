@@ -274,7 +274,7 @@ export const glassmorphism = {
 export const presets = {
   // 卡片悬停
   cardHover: {
-    duration: duration.gentle,
+    duration: duration.slow,
     easing: easing.spring,
     scale: 1.02,
     shadow: shadows.warm.lg,

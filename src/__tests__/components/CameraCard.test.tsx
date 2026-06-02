@@ -9,6 +9,17 @@ const createMockDevice = (overrides = {}): CameraDevice => ({
   model: 'MJSXJ02CM',
   name: '客厅摄像头',
   status: 'online',
+  lastActive: new Date().toISOString(),
+  capabilities: [],
+  settings: {
+    resolution: '1080p',
+    nightVisionMode: 'auto',
+    motionDetection: { enabled: true, sensitivity: 0.5, notificationEnabled: true },
+    recording: { mode: 'motion', quality: 'high', storage: 'cloud' },
+    audio: { enabled: true, volume: 50, noiseReduction: true },
+    aiTracking: { enabled: false, targetType: 'pet', smoothTracking: false },
+  },
+  protocol: 'rtsp',
   streamUrl: 'rtsp://example.com/stream',
   thumbnailUrl: undefined,
   lastOnline: new Date().toISOString(),
@@ -124,7 +135,7 @@ describe('CameraCard', () => {
   });
 
   it('当有缩略图时应该显示图片', () => {
-    const device = createMockDevice({ thumbnailUrl: 'https://example.com/thumb.jpg' });
+    const device = createMockDevice({ thumbnail: 'https://example.com/thumb.jpg' });
     render(<CameraCard device={device} />);
     const img = screen.getByAltText('客厅摄像头') as HTMLImageElement;
     expect(img).toBeInTheDocument();
@@ -132,7 +143,7 @@ describe('CameraCard', () => {
   });
 
   it('当没有缩略图时应该显示相机图标', () => {
-    const device = createMockDevice({ thumbnailUrl: undefined });
+    const device = createMockDevice({ thumbnail: undefined });
     const { container } = render(<CameraCard device={device} />);
     const cameraIcon = container.querySelector('svg');
     expect(cameraIcon).toBeTruthy();

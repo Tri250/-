@@ -129,9 +129,9 @@ export function CameraListComponent() {
 
   const getStatusConfig = (status: string) => {
     const configs = {
-      online: { color: 'bg-green-500', text: 'text-green-600', label: '在线', icon: Wifi },
-      offline: { color: 'bg-gray-400', text: 'text-gray-500', label: '离线', icon: WifiOff },
-      error: { color: 'bg-red-500', text: 'text-red-600', label: '异常', icon: AlertCircle }
+      online: { color: 'bg-green-500', textColor: 'text-green-600', label: '在线', icon: Wifi },
+      offline: { color: 'bg-gray-400', textColor: 'text-gray-500', label: '离线', icon: WifiOff },
+      error: { color: 'bg-red-500', textColor: 'text-red-600', label: '异常', icon: AlertCircle }
     };
     return configs[status as keyof typeof configs] || configs.offline;
   };

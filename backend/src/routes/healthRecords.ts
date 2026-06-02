@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { body, validationResult, query } from 'express-validator';
 import prisma from '../lib/prisma';
 import { authenticateToken } from '../middleware';
-import { RecordType } from '@prisma/client';
+import { RecordType } from '../types/enums';
 
 const router = Router();
 
@@ -26,11 +26,11 @@ router.get(
       });
       const petIds = userPets.map(p => p.id);
 
-      const where: any = { petId: { in: petIds } };
-      
-      if (petId) where.petId = petId;
-      if (type) where.type = type;
-      if (tag) where.tags = { has: tag };
+      const where: Record<string, unknown> = { petId: { in: petIds } };
+
+      if (petId) where.petId = petId as string;
+      if (type) where.type = type as string;
+      if (tag) where.tags = { contains: `"${tag as string}"` };
       if (important === 'true') where.isImportant = true;
 
       const records = await prisma.healthRecord.findMany({
@@ -58,16 +58,16 @@ router.get('/search', async (req: Request, res: Response) => {
     const petIds = userPets.map(p => p.id);
 
     const records = await prisma.healthRecord.findMany({
-      where: {
-        petId: { in: petIds },
-        OR: [
-          { title: { contains: q as string, mode: 'insensitive' } },
-          { content: { contains: q as string, mode: 'insensitive' } },
-        ],
-      },
-      include: { pet: true },
-      orderBy: { createdAt: 'desc' },
-    });
+        where: {
+          petId: { in: petIds },
+          OR: [
+            { title: { contains: q as string } },
+            { content: { contains: q as string } },
+          ],
+        },
+        include: { pet: true },
+        orderBy: { createdAt: 'desc' },
+      });
 
     res.json({ records });
   } catch (error) {
@@ -107,8 +107,8 @@ router.post(
           type: type as RecordType,
           title,
           content,
-          tags,
-          attachments,
+          tags: JSON.stringify(tags),
+          attachments: JSON.stringify(attachments),
           voiceDuration,
           isImportant: isImportant || false,
         },
@@ -148,18 +148,16 @@ router.put('/:id', async (req: Request, res: Response) => {
   try {
     const { title, content, tags, attachments, isImportant } = req.body;
 
+    const data: Record<string, unknown> = { title, content, isImportant };
+    if (tags !== undefined) data.tags = JSON.stringify(tags);
+    if (attachments !== undefined) data.attachments = JSON.stringify(attachments);
+
     const record = await prisma.healthRecord.updateMany({
       where: {
         id: req.params.id,
         pet: { userId: req.userId },
       },
-      data: {
-        title,
-        content,
-        tags,
-        attachments,
-        isImportant,
-      },
+      data,
     });
 
     if (record.count === 0) {

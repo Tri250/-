@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { body, validationResult, query } from 'express-validator';
 import prisma from '../lib/prisma';
 import { authenticateToken } from '../middleware';
-import { ReminderType, RepeatType } from '@prisma/client';
+import { ReminderType, RepeatType } from '../types/enums';
 
 const router = Router();
 

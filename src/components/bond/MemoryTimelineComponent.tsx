@@ -43,11 +43,12 @@ interface MemoryItem {
 
 interface Milestone {
   id: string;
-  type: 'birthday' | 'adoption' | 'vaccination' | 'training' | 'first_time' | 'achievement';
+  type: 'birthday' | 'adoption' | 'vaccination' | 'training' | 'first_time' | 'achievement' | 'custom';
   title: string;
   description: string;
   date: string;
   photos: string[];
+  celebrationCount: number;
 }
 
 interface MemoryTimelineComponentProps {

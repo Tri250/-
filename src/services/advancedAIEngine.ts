@@ -164,7 +164,7 @@ class ImageEmotionModel extends AIModel {
       this.calculateIntensity(result.confidence),
       result.confidence,
       result.secondary,
-      features as Record<string, number>,
+      features as unknown as Record<string, number>,
       processingTime
     );
   }
@@ -253,7 +253,7 @@ class ImageEmotionModel extends AIModel {
     if (features.earPosition.left > 0.4 || features.earPosition.right > 0.4) {
       emotionScores.anxious += 0.2;
       emotionScores.fearful += 0.2;
-      emotionScores.alert = 0.1;
+      emotionScores.excited += 0.1;
     }
 
     // 身体姿态分析
@@ -345,7 +345,7 @@ class VoiceEmotionModel extends AIModel {
       this.calculateIntensity(result.confidence),
       result.confidence,
       result.secondary,
-      features as Record<string, number>,
+      features as unknown as Record<string, number>,
       processingTime
     );
   }
