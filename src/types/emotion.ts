@@ -7,12 +7,22 @@ export interface AudioFeatures {
     mean: number;
     variance: number;
     range: [number, number];
-    trend: 'rising' | 'falling' | 'stable';
+    trend: 'rising' | 'falling' | 'stable' | 'fluctuating';
+    bands?: Record<string, number>;
+    quartiles?: { q1: number; q3: number; iqr: number };
+    stability?: number;
   };
   intensity: {
     mean: number;
     peak: number;
     variance: number;
+    dynamicRange?: number;
+    envelope?: { attack: number; decay: number; sustain: number; release: number };
+    contour?: 'flat' | 'rising' | 'falling' | 'peaked' | 'undulating';
+    crestFactor?: number;
+    peakCount?: number;
+    avgPeakInterval?: number;
+    rmsVariation?: number;
   };
   frequency: {
     dominant: number;
@@ -22,7 +32,14 @@ export interface AudioFeatures {
   rhythm: {
     tempo: number;
     regularity: number;
-    pattern: 'steady' | 'irregular' | 'accelerating' | 'decelerating';
+    pattern: 'steady' | 'irregular' | 'accelerating' | 'decelerating' | 'staccato' | 'legato' | 'pulsing' | 'syncopated';
+    complexity?: number;
+    syncopation?: number;
+    groove?: number;
+    meter?: number;
+    subdivisions?: number;
+    peakCount?: number;
+    avgInterval?: number;
   };
   timbre: {
     brightness: number;

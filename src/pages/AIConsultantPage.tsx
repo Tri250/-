@@ -57,6 +57,7 @@ export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }
   const [showHistory, setShowHistory] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -66,24 +67,37 @@ export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }
   const messages = getCurrentMessages();
 
   useEffect(() => {
-    try {
-      if (!currentConsultationId && currentPetId) {
-        const newId = createConsultation(currentPetId, 'chat', '健康咨询');
-        if (newId) {
+    const initializeConsultation = () => {
+      try {
+        if (!currentConsultationId) {
+          const petId = currentPetId || 'default-pet';
+          const newId = createConsultation(petId, 'chat', '健康咨询');
+          if (newId) {
+            setIsInitialized(true);
+            if (pendingMessage) {
+              sendAIMessage(newId, pendingMessage);
+              setPendingMessage(null);
+            }
+          }
+        } else if (currentConsultationId) {
           setIsInitialized(true);
+          if (pendingMessage) {
+            sendAIMessage(currentConsultationId, pendingMessage);
+            setPendingMessage(null);
+          }
         }
-      } else if (currentConsultationId) {
-        setIsInitialized(true);
+        
+        if (currentPetId) {
+          loadConversationHistory(currentPetId);
+        }
+      } catch (err) {
+        console.error('初始化失败:', err);
+        setError('页面初始化失败，请刷新重试');
       }
-      
-      if (currentPetId) {
-        loadConversationHistory(currentPetId);
-      }
-    } catch (err) {
-      console.error('初始化失败:', err);
-      setError('页面初始化失败，请刷新重试');
-    }
-  }, [currentConsultationId, currentPetId, createConsultation, loadConversationHistory]);
+    };
+    
+    initializeConsultation();
+  }, [currentConsultationId, currentPetId, createConsultation, loadConversationHistory, pendingMessage]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -94,9 +108,16 @@ export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }
       const text = inputText.trim();
       
       if (!text && attachments.length === 0) return;
-      if (!currentConsultationId) {
-        setError('会话未创建，请刷新页面');
-        return;
+      
+      let consultationId = currentConsultationId;
+      
+      if (!consultationId) {
+        const petId = currentPetId || 'default-pet';
+        consultationId = createConsultation(petId, 'chat', '健康咨询');
+        if (!consultationId) {
+          setError('无法创建会话，请刷新页面');
+          return;
+        }
       }
       
       setInputText('');
@@ -106,7 +127,7 @@ export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }
         textareaRef.current.style.height = '44px';
       }
       
-      await sendAIMessage(currentConsultationId, text, attachments as any);
+      await sendAIMessage(consultationId, text, attachments as any);
       setError(null);
     } catch (err) {
       console.error('发送消息失败:', err);
@@ -116,12 +137,21 @@ export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }
 
   const handleQuickQuestion = async (question: string) => {
     try {
-      if (!currentConsultationId) {
-        setError('会话未创建，请刷新页面');
+      let consultationId = currentConsultationId;
+      
+      if (!consultationId) {
+        const petId = currentPetId || 'default-pet';
+        consultationId = createConsultation(petId, 'chat', '健康咨询');
+        if (!consultationId) {
+          setError('无法创建会话，请刷新页面');
+          return;
+        }
+        setPendingMessage(question);
         return;
       }
+      
       setInputText('');
-      await sendAIMessage(currentConsultationId, question);
+      await sendAIMessage(consultationId, question);
       setError(null);
     } catch (err) {
       console.error('发送快速问题失败:', err);
@@ -300,12 +330,14 @@ export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }
             <button 
               className="p-2 rounded-full hover:bg-neutral-100 transition-colors"
               onClick={() => setShowHistory(!showHistory)}
+              title="历史记录"
             >
               <History className="w-5 h-5 text-neutral-600" />
             </button>
             <button 
               className="p-2 rounded-full hover:bg-neutral-100 transition-colors"
-              onClick={() => onNavigate('health-analytics')}
+              onClick={() => onNavigate('advanced-health')}
+              title="健康分析"
             >
               <BarChart3 className="w-5 h-5 text-neutral-600" />
             </button>
@@ -378,19 +410,25 @@ export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }
         <div className="max-w-md mx-auto">
           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
             <button 
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-primary-100 to-primary-200 text-primary-700 text-sm font-medium whitespace-nowrap hover:from-primary-200 hover:to-primary-300 transition-all"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-primary-100 to-primary-200 text-primary-700 text-sm font-medium whitespace-nowrap hover:from-primary-200 hover:to-primary-300 transition-all active:scale-95"
+              onClick={() => {
+                const randomQuestion = QUICK_QUESTIONS[Math.floor(Math.random() * QUICK_QUESTIONS.length)];
+                handleQuickQuestion(randomQuestion);
+              }}
             >
               <Zap className="w-4 h-4" />
               快速咨询
             </button>
             <button 
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-100 to-blue-200 text-blue-700 text-sm font-medium whitespace-nowrap hover:from-blue-200 hover:to-blue-300 transition-all"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-100 to-blue-200 text-blue-700 text-sm font-medium whitespace-nowrap hover:from-blue-200 hover:to-blue-300 transition-all active:scale-95"
+              onClick={() => onNavigate('health-report')}
             >
               <FileText className="w-4 h-4" />
               健康报告
             </button>
             <button 
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-green-100 to-green-200 text-green-700 text-sm font-medium whitespace-nowrap hover:from-green-200 hover:to-green-300 transition-all"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-green-100 to-green-200 text-green-700 text-sm font-medium whitespace-nowrap hover:from-green-200 hover:to-green-300 transition-all active:scale-95"
+              onClick={() => handleQuickQuestion('请帮我进行症状自查，我的宠物最近有什么异常表现？')}
             >
               <Activity className="w-4 h-4" />
               症状自查
@@ -585,8 +623,7 @@ export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }
                 onKeyDown={handleKeyDown}
                 placeholder="描述宠物的情况或病情... (Enter发送)"
                 rows={1}
-                disabled={!currentConsultationId}
-                className="w-full px-4 py-2.5 bg-neutral-100 rounded-2xl text-sm border-none focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:bg-white focus:shadow-sm transition-all resize-none overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full px-4 py-2.5 bg-neutral-100 rounded-2xl text-sm border-none focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:bg-white focus:shadow-sm transition-all resize-none overflow-hidden"
                 style={{ minHeight: '44px', maxHeight: '120px' }}
               />
               

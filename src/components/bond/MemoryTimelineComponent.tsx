@@ -50,15 +50,26 @@ interface Milestone {
   photos: string[];
 }
 
-export function MemoryTimelineComponent() {
+interface MemoryTimelineComponentProps {
+  externalShowUploadModal?: boolean;
+  onExternalShowUploadModalChange?: (show: boolean) => void;
+}
+
+export function MemoryTimelineComponent({ 
+  externalShowUploadModal, 
+  onExternalShowUploadModalChange 
+}: MemoryTimelineComponentProps) {
   const { currentPet } = useAppStore();
   const [memories, setMemories] = useState<MemoryItem[]>([]);
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedItem, setSelectedItem] = useState<MemoryItem | null>(null);
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
-  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [internalShowUploadModal, setInternalShowUploadModal] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  
+  const showUploadModal = externalShowUploadModal ?? internalShowUploadModal;
+  const setShowUploadModal = onExternalShowUploadModalChange ?? setInternalShowUploadModal;
   const { scrollYProgress } = useScroll();
   
   const y = useTransform(scrollYProgress, [0, 1], [0, -50]);

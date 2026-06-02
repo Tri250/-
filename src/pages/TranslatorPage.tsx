@@ -154,6 +154,32 @@ function AnalysisDetailPanel({ analysis }: { analysis: EmotionAnalysis }) {
   
   const config = EMOTION_CONFIGS[analysis.primaryEmotion];
   
+  const renderFrequencyBands = (bands?: Record<string, number>) => {
+    if (!bands) return null;
+    const bandLabels: Record<string, { label: string; color: string }> = {
+      subBass: { label: '超低频', color: 'bg-red-100 text-red-700' },
+      bass: { label: '低频', color: 'bg-orange-100 text-orange-700' },
+      lowMid: { label: '中低频', color: 'bg-yellow-100 text-yellow-700' },
+      mid: { label: '中频', color: 'bg-green-100 text-green-700' },
+      highMid: { label: '中高频', color: 'bg-blue-100 text-blue-700' },
+      high: { label: '高频', color: 'bg-indigo-100 text-indigo-700' },
+      veryHigh: { label: '超高频', color: 'bg-purple-100 text-purple-700' },
+    };
+    
+    return (
+      <div className="flex flex-wrap gap-1 mt-2">
+        {Object.entries(bands).map(([band, value]) => {
+          const info = bandLabels[band] || { label: band, color: 'bg-gray-100 text-gray-700' };
+          return (
+            <span key={band} className={`text-xs px-2 py-0.5 rounded-full ${info.color}`}>
+              {info.label}: {Math.round(value)}%
+            </span>
+          );
+        })}
+      </div>
+    );
+  };
+  
   return (
     <div className="mt-4 border-t border-gray-100 pt-4">
       <button
@@ -162,19 +188,27 @@ function AnalysisDetailPanel({ analysis }: { analysis: EmotionAnalysis }) {
       >
         <span className="flex items-center gap-2">
           <Activity className="w-4 h-4" />
-          分析详情
+          专业分析报告
         </span>
-        {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+        <span className="flex items-center gap-1">
+          {detail.confidence >= 95 && (
+            <span className="text-xs bg-green-100 text-green-600 px-1.5 py-0.5 rounded-full">95%+</span>
+          )}
+          {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+        </span>
       </button>
       
       {expanded && (
         <div className="mt-3 space-y-4 animate-fadeIn">
-          <div className="bg-gray-50 rounded-lg p-3">
-            <p className="text-xs font-semibold text-gray-600 mb-2">情感分布</p>
-            <div className="space-y-1">
+          <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg p-3">
+            <p className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-1">
+              <span className="text-lg">{config.emoji}</span>
+              情感分布分析
+            </p>
+            <div className="space-y-1.5">
               {(Object.entries(detail.scores) as [PrimaryEmotion, number][])
                 .sort((a, b) => b[1] - a[1])
-                .slice(0, 5)
+                .slice(0, 8)
                 .map(([emotion, score]) => (
                   <EmotionScoreBar
                     key={emotion}
@@ -186,8 +220,11 @@ function AnalysisDetailPanel({ analysis }: { analysis: EmotionAnalysis }) {
             </div>
           </div>
           
-          <div className="bg-gray-50 rounded-lg p-3">
-            <p className="text-xs font-semibold text-gray-600 mb-2">音频特征</p>
+          <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg p-3">
+            <p className="text-xs font-semibold text-purple-700 mb-2 flex items-center gap-1">
+              <Music2 className="w-3.5 h-3.5" />
+              音调特征分析
+            </p>
             <div className="grid grid-cols-2 gap-2">
               <AudioFeatureCard
                 title="音调均值"
@@ -197,12 +234,79 @@ function AnalysisDetailPanel({ analysis }: { analysis: EmotionAnalysis }) {
                 color="text-purple-500"
               />
               <AudioFeatureCard
-                title="强度水平"
+                title="音调范围"
+                value={detail.audioFeatures.pitch.range[1] - detail.audioFeatures.pitch.range[0]}
+                unit="Hz"
+                icon={<Waves className="w-3 h-3 text-purple-500" />}
+                color="text-purple-500"
+              />
+              {detail.audioFeatures.pitch.stability !== undefined && (
+                <AudioFeatureCard
+                  title="稳定性"
+                  value={detail.audioFeatures.pitch.stability}
+                  unit="%"
+                  icon={<Activity className="w-3 h-3 text-purple-500" />}
+                  color="text-purple-500"
+                />
+              )}
+              <AudioFeatureCard
+                title="趋势"
+                value={0}
+                unit={detail.audioFeatures.pitch.trend === 'rising' ? '上升' : detail.audioFeatures.pitch.trend === 'falling' ? '下降' : detail.audioFeatures.pitch.trend === 'fluctuating' ? '波动' : '稳定'}
+                icon={<Activity className="w-3 h-3 text-purple-500" />}
+                color="text-purple-500"
+              />
+            </div>
+            {renderFrequencyBands(detail.audioFeatures.pitch.bands)}
+          </div>
+          
+          <div className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg p-3">
+            <p className="text-xs font-semibold text-orange-700 mb-2 flex items-center gap-1">
+              <Activity className="w-3.5 h-3.5" />
+              强度特征分析
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <AudioFeatureCard
+                title="平均强度"
                 value={detail.audioFeatures.intensity.mean * 100}
                 unit="%"
                 icon={<Activity className="w-3 h-3 text-orange-500" />}
                 color="text-orange-500"
               />
+              <AudioFeatureCard
+                title="峰值强度"
+                value={detail.audioFeatures.intensity.peak}
+                unit="%"
+                icon={<Activity className="w-3 h-3 text-orange-500" />}
+                color="text-orange-500"
+              />
+              {detail.audioFeatures.intensity.dynamicRange !== undefined && (
+                <AudioFeatureCard
+                  title="动态范围"
+                  value={detail.audioFeatures.intensity.dynamicRange}
+                  unit="dB"
+                  icon={<Waves className="w-3 h-3 text-orange-500" />}
+                  color="text-orange-500"
+                />
+              )}
+              {detail.audioFeatures.intensity.contour !== undefined && (
+                <AudioFeatureCard
+                  title="强度轮廓"
+                  value={0}
+                  unit={detail.audioFeatures.intensity.contour === 'flat' ? '平稳' : detail.audioFeatures.intensity.contour === 'rising' ? '渐强' : detail.audioFeatures.intensity.contour === 'falling' ? '渐弱' : detail.audioFeatures.intensity.contour === 'peaked' ? '峰值型' : '起伏型'}
+                  icon={<Activity className="w-3 h-3 text-orange-500" />}
+                  color="text-orange-500"
+                />
+              )}
+            </div>
+          </div>
+          
+          <div className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg p-3">
+            <p className="text-xs font-semibold text-blue-700 mb-2 flex items-center gap-1">
+              <Waves className="w-3.5 h-3.5" />
+              频率特征分析
+            </p>
+            <div className="grid grid-cols-2 gap-2">
               <AudioFeatureCard
                 title="主导频率"
                 value={detail.audioFeatures.frequency.dominant}
@@ -211,34 +315,121 @@ function AnalysisDetailPanel({ analysis }: { analysis: EmotionAnalysis }) {
                 color="text-blue-500"
               />
               <AudioFeatureCard
+                title="谐波数量"
+                value={detail.audioFeatures.frequency.harmonics.length}
+                unit="个"
+                icon={<Music2 className="w-3 h-3 text-blue-500" />}
+                color="text-blue-500"
+              />
+            </div>
+          </div>
+          
+          <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-3">
+            <p className="text-xs font-semibold text-green-700 mb-2 flex items-center gap-1">
+              <Music2 className="w-3.5 h-3.5" />
+              节奏特征分析
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <AudioFeatureCard
                 title="节奏速度"
                 value={detail.audioFeatures.rhythm.tempo}
                 unit="BPM"
                 icon={<Music2 className="w-3 h-3 text-green-500" />}
                 color="text-green-500"
               />
+              <AudioFeatureCard
+                title="规律性"
+                value={detail.audioFeatures.rhythm.regularity}
+                unit="%"
+                icon={<Activity className="w-3 h-3 text-green-500" />}
+                color="text-green-500"
+              />
+              {detail.audioFeatures.rhythm.complexity !== undefined && (
+                <AudioFeatureCard
+                  title="复杂度"
+                  value={detail.audioFeatures.rhythm.complexity * 100}
+                  unit="%"
+                  icon={<Activity className="w-3 h-3 text-green-500" />}
+                  color="text-green-500"
+                />
+              )}
+              {detail.audioFeatures.rhythm.meter !== undefined && (
+                <AudioFeatureCard
+                  title="节拍类型"
+                  value={0}
+                  unit={`${detail.audioFeatures.rhythm.meter}/4拍`}
+                  icon={<Music2 className="w-3 h-3 text-green-500" />}
+                  color="text-green-500"
+                />
+              )}
+            </div>
+            <div className="mt-2">
+              <span className={`text-xs px-2 py-1 rounded-full ${
+                detail.audioFeatures.rhythm.pattern === 'steady' ? 'bg-green-100 text-green-700' :
+                detail.audioFeatures.rhythm.pattern === 'irregular' ? 'bg-yellow-100 text-yellow-700' :
+                detail.audioFeatures.rhythm.pattern === 'accelerating' ? 'bg-orange-100 text-orange-700' :
+                detail.audioFeatures.rhythm.pattern === 'staccato' ? 'bg-red-100 text-red-700' :
+                detail.audioFeatures.rhythm.pattern === 'legato' ? 'bg-blue-100 text-blue-700' :
+                detail.audioFeatures.rhythm.pattern === 'pulsing' ? 'bg-pink-100 text-pink-700' :
+                'bg-purple-100 text-purple-700'
+              }`}>
+                节奏模式: {detail.audioFeatures.rhythm.pattern === 'steady' ? '稳定' : 
+                  detail.audioFeatures.rhythm.pattern === 'irregular' ? '不规则' :
+                  detail.audioFeatures.rhythm.pattern === 'accelerating' ? '加速' :
+                  detail.audioFeatures.rhythm.pattern === 'decelerating' ? '减速' :
+                  detail.audioFeatures.rhythm.pattern === 'staccato' ? '断奏型' :
+                  detail.audioFeatures.rhythm.pattern === 'legato' ? '连奏型' :
+                  detail.audioFeatures.rhythm.pattern === 'pulsing' ? '脉冲型' : '切分型'}
+              </span>
+            </div>
+          </div>
+          
+          <div className="bg-gradient-to-r from-pink-50 to-rose-50 rounded-lg p-3">
+            <p className="text-xs font-semibold text-pink-700 mb-2 flex items-center gap-1">
+              <Sparkles className="w-3.5 h-3.5" />
+              音色特征分析
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="text-center">
+                <p className="text-xs text-gray-500">明亮度</p>
+                <p className="text-sm font-semibold text-pink-600">{Math.round(detail.audioFeatures.timbre.brightness)}%</p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-gray-500">温暖度</p>
+                <p className="text-sm font-semibold text-pink-600">{Math.round(detail.audioFeatures.timbre.warmth)}%</p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-gray-500">粗糙度</p>
+                <p className="text-sm font-semibold text-pink-600">{Math.round(detail.audioFeatures.timbre.roughness)}%</p>
+              </div>
             </div>
           </div>
           
           <div className="bg-gray-50 rounded-lg p-3">
-            <p className="text-xs font-semibold text-gray-600 mb-2">分析依据</p>
-            <ul className="space-y-1">
+            <p className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-1">
+              <Activity className="w-3.5 h-3.5" />
+              专业分析依据
+            </p>
+            <ul className="space-y-1.5">
               {detail.reasoning.map((reason, index) => (
-                <li key={index} className="text-xs text-gray-500 flex items-start gap-1">
-                  <span className="text-gray-400">•</span>
-                  {reason}
+                <li key={index} className="text-xs text-gray-600 flex items-start gap-1">
+                  <span className="text-gray-400 shrink-0">•</span>
+                  <span className="flex-1">{reason}</span>
                 </li>
               ))}
             </ul>
           </div>
           
           {detail.behaviorIndicators.length > 0 && (
-            <div className="bg-gray-50 rounded-lg p-3">
-              <p className="text-xs font-semibold text-gray-600 mb-2">行为特征</p>
+            <div className="bg-gradient-to-r from-teal-50 to-cyan-50 rounded-lg p-3">
+              <p className="text-xs font-semibold text-teal-700 mb-2 flex items-center gap-1">
+                <Heart className="w-3.5 h-3.5" />
+                行为特征识别
+              </p>
               <ul className="space-y-1">
                 {detail.behaviorIndicators.map((behavior, index) => (
-                  <li key={index} className="text-xs text-gray-500 flex items-start gap-1">
-                    <span className="text-gray-400">•</span>
+                  <li key={index} className="text-xs text-gray-600 flex items-start gap-1">
+                    <span className="text-teal-400">•</span>
                     {behavior}
                   </li>
                 ))}
@@ -246,9 +437,26 @@ function AnalysisDetailPanel({ analysis }: { analysis: EmotionAnalysis }) {
             </div>
           )}
           
-          <div className="flex items-center justify-between text-xs text-gray-400">
-            <span>置信度等级: {detail.confidenceLevel === 'high' ? '高 (95%+)' : detail.confidenceLevel === 'medium' ? '中 (85-95%)' : '低 (<85%)'}</span>
-            <span>音频质量: {Math.round(detail.audioFeatures.quality)}%</span>
+          <div className="flex items-center justify-between text-xs bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-2">
+            <div className="flex items-center gap-2">
+              <span className="text-gray-600">置信度等级:</span>
+              <span className={`font-semibold ${
+                detail.confidenceLevel === 'high' ? 'text-green-600' : 
+                detail.confidenceLevel === 'medium' ? 'text-yellow-600' : 'text-red-600'
+              }`}>
+                {detail.confidenceLevel === 'high' ? '高 (95%+)' : 
+                 detail.confidenceLevel === 'medium' ? '中 (85-95%)' : '低 (<85%)'}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-gray-600">音频质量:</span>
+              <span className={`font-semibold ${
+                detail.audioFeatures.quality > 85 ? 'text-green-600' :
+                detail.audioFeatures.quality > 70 ? 'text-blue-600' : 'text-yellow-600'
+              }`}>
+                {Math.round(detail.audioFeatures.quality)}%
+              </span>
+            </div>
           </div>
         </div>
       )}

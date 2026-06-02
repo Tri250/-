@@ -1,14 +1,12 @@
 import { useState } from 'react';
-import { User, Edit, History, Settings, Crown, Star, Heart, ChevronRight, Camera, X, Gift, Code } from 'lucide-react';
+import { Edit, History, Settings, Crown, Star, Heart, ChevronRight, Camera, X, Code } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
-import { ReferralProgram } from '../components/ReferralProgram';
 
 interface ProfilePageProps {
   onNavigate?: (page: string) => void;
 }
 
 const menuItems = [
-  { icon: Gift, label: '邀请好友', description: '邀请得会员奖励', page: 'referral' },
   { icon: History, label: '分析历史', description: '查看所有翻译记录', page: 'history' },
   { icon: Settings, label: '设置', description: '隐私、通知等设置', page: 'settings' },
   { icon: Heart, label: '收藏', description: '收藏的精彩时刻', page: 'favorites' },
@@ -150,8 +148,6 @@ export function ProfilePage({ onNavigate }: ProfilePageProps) {
             </div>
           )}
         </div>
-
-        <ReferralProgram />
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           {menuItems.map((item) => {

@@ -107,8 +107,6 @@ export default function App() {
         return <DeveloperInfoPage onNavigate={setCurrentPage} />;
       case 'history':
         return <TranslatorPage />;
-      case 'referral':
-        return <ProfilePage onNavigate={setCurrentPage} />;
       default:
         return <HomePage onNavigate={setCurrentPage} />;
     }

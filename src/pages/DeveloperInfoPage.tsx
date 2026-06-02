@@ -2,12 +2,7 @@ import React from 'react';
 import { 
   ChevronLeft, 
   Heart, 
-  Code, 
-  Mail, 
-  Github,
-  Globe,
-  Sparkles,
-  Coffee,
+  Mail,
   Calendar,
   MapPin
 } from 'lucide-react';
@@ -19,40 +14,17 @@ interface DeveloperInfoPageProps {
 
 export const DeveloperInfoPage: React.FC<DeveloperInfoPageProps> = ({ onNavigate }) => {
   const developerInfo = {
-    name: '热爱生活的小陈工',
+    name: '热爱生活的小陈',
     title: '全栈开发者 & 宠物爱好者',
     avatar: '👨‍💻',
     bio: '一个热爱编程、热爱生活、热爱宠物的开发者。在带娃之余，用代码创造美好，让科技温暖每一个毛孩子。',
-    tags: ['React', 'TypeScript', 'Node.js', 'AI', '宠物科技'],
     location: '中国',
     joinDate: '2024',
-    stats: {
-      projects: 10,
-      stars: 128,
-      coffee: 999
-    }
   };
 
-  const techStack = [
-    { name: 'React', color: 'bg-blue-100 text-blue-600' },
-    { name: 'TypeScript', color: 'bg-indigo-100 text-indigo-600' },
-    { name: 'Tailwind CSS', color: 'bg-cyan-100 text-cyan-600' },
-    { name: 'Node.js', color: 'bg-green-100 text-green-600' },
-    { name: 'AI/ML', color: 'bg-purple-100 text-purple-600' },
-    { name: 'Vite', color: 'bg-yellow-100 text-yellow-600' },
-  ];
-
-  const milestones = [
-    { year: '2024', event: 'PawSync Pro 项目启动', emoji: '🚀' },
-    { year: '2024', event: '宠物翻译AI引擎开发', emoji: '🧠' },
-    { year: '2024', event: '健康监测系统上线', emoji: '📊' },
-    { year: '2025', event: '用户突破10000+', emoji: '🎉' },
-  ];
-
   const contactLinks = [
-    { icon: Mail, label: '邮箱', value: 'developer@pawsync.com', color: 'bg-red-50 text-red-500' },
-    { icon: Github, label: 'GitHub', value: '@pawsync-dev', color: 'bg-gray-100 text-gray-600' },
-    { icon: Globe, label: '网站', value: 'pawsync.com', color: 'bg-blue-50 text-blue-500' },
+    { icon: Mail, label: '抖音', value: '搜索"带娃的小陈工"', color: 'bg-black text-white' },
+    { icon: Mail, label: '小红书', value: '搜索"带娃的小陈工"', color: 'bg-red-500 text-white' },
   ];
 
   return (
@@ -98,67 +70,6 @@ export const DeveloperInfoPage: React.FC<DeveloperInfoPageProps> = ({ onNavigate
           <div className="flex items-center justify-center gap-1 mt-4">
             <Heart className="w-4 h-4 text-pink-500 fill-current" />
             <span className="text-sm text-pink-500">热爱生活 · 热爱编程 · 热爱宠物</span>
-          </div>
-        </Card>
-
-        <div className="grid grid-cols-3 gap-3">
-          <Card className="text-center p-4">
-            <div className="w-10 h-10 mx-auto rounded-xl bg-gradient-to-br from-orange-100 to-pink-100 flex items-center justify-center mb-2">
-              <Code className="w-5 h-5 text-orange-500" />
-            </div>
-            <p className="text-2xl font-bold text-neutral-800">{developerInfo.stats.projects}</p>
-            <p className="text-xs text-neutral-500">项目</p>
-          </Card>
-          <Card className="text-center p-4">
-            <div className="w-10 h-10 mx-auto rounded-xl bg-gradient-to-br from-yellow-100 to-orange-100 flex items-center justify-center mb-2">
-              <Sparkles className="w-5 h-5 text-yellow-500" />
-            </div>
-            <p className="text-2xl font-bold text-neutral-800">{developerInfo.stats.stars}</p>
-            <p className="text-xs text-neutral-500">获赞</p>
-          </Card>
-          <Card className="text-center p-4">
-            <div className="w-10 h-10 mx-auto rounded-xl bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center mb-2">
-              <Coffee className="w-5 h-5 text-amber-500" />
-            </div>
-            <p className="text-2xl font-bold text-neutral-800">{developerInfo.stats.coffee}</p>
-            <p className="text-xs text-neutral-500">杯咖啡</p>
-          </Card>
-        </div>
-
-        <Card className="p-4">
-          <h3 className="font-semibold text-neutral-800 mb-4 flex items-center gap-2">
-            <Code className="w-5 h-5 text-orange-500" />
-            技术栈
-          </h3>
-          <div className="flex flex-wrap gap-2">
-            {techStack.map((tech) => (
-              <span 
-                key={tech.name}
-                className={`px-3 py-1.5 rounded-full text-sm font-medium ${tech.color}`}
-              >
-                {tech.name}
-              </span>
-            ))}
-          </div>
-        </Card>
-
-        <Card className="p-4">
-          <h3 className="font-semibold text-neutral-800 mb-4 flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-pink-500" />
-            开发历程
-          </h3>
-          <div className="space-y-3">
-            {milestones.map((milestone, index) => (
-              <div key={index} className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-100 to-pink-100 flex items-center justify-center text-lg">
-                  {milestone.emoji}
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-neutral-800">{milestone.event}</p>
-                  <p className="text-xs text-neutral-500">{milestone.year}</p>
-                </div>
-              </div>
-            ))}
           </div>
         </Card>
 

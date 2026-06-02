@@ -56,6 +56,15 @@ export interface CareTip {
   priority: 'high' | 'medium' | 'low';
 }
 
+export interface AppSettings {
+  notifications: boolean;
+  soundEnabled: boolean;
+  darkMode: boolean;
+  fontSize: 'small' | 'medium' | 'large';
+  autoPlay: boolean;
+  language: 'zh-CN' | 'en-US';
+}
+
 interface AppState {
   user: User | null;
   isAuthenticated: boolean;
@@ -68,6 +77,7 @@ interface AppState {
   healthScore: number;
   isRecording: boolean;
   careTips: CareTip[];
+  settings: AppSettings;
   setUser: (user: User | null) => void;
   login: (email: string, password: string) => Promise<boolean>;
   register: (email: string, password: string, username: string) => Promise<boolean>;
@@ -80,6 +90,8 @@ interface AppState {
   setIsRecording: (isRecording: boolean) => void;
   setCurrentEmotion: (emotion: 'happy' | 'anxious' | 'angry' | 'needs' | 'neutral') => void;
   setHealthScore: (score: number) => void;
+  updateSettings: (settings: Partial<AppSettings>) => void;
+  clearAllData: () => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -118,6 +130,14 @@ export const useAppStore = create<AppState>((set) => ({
   currentEmotion: 'happy',
   healthScore: 92,
   isRecording: false,
+  settings: {
+    notifications: true,
+    soundEnabled: true,
+    darkMode: false,
+    fontSize: 'medium',
+    autoPlay: true,
+    language: 'zh-CN',
+  },
   careTips: [
     {
       id: '1',
@@ -161,7 +181,7 @@ export const useAppStore = create<AppState>((set) => ({
     },
   ],
   setUser: (user) => set({ user, isAuthenticated: !!user }),
-  login: async (email, password) => {
+  login: async (email, _password) => {
     await new Promise(resolve => setTimeout(resolve, 1000));
     const mockUser: User = {
       id: '1',
@@ -173,7 +193,7 @@ export const useAppStore = create<AppState>((set) => ({
     set({ user: mockUser, isAuthenticated: true });
     return true;
   },
-  register: async (email, password, username) => {
+  register: async (email, _password, username) => {
     await new Promise(resolve => setTimeout(resolve, 1000));
     const mockUser: User = {
       id: Date.now().toString(),
@@ -207,4 +227,13 @@ export const useAppStore = create<AppState>((set) => ({
   setIsRecording: (isRecording) => set({ isRecording }),
   setCurrentEmotion: (emotion) => set({ currentEmotion: emotion }),
   setHealthScore: (score) => set({ healthScore: score }),
+  updateSettings: (newSettings) => set((state) => ({
+    settings: { ...state.settings, ...newSettings },
+  })),
+  clearAllData: () => set({
+    analyses: [],
+    healthAlerts: [],
+    pets: [],
+    currentPet: null,
+  }),
 }));
