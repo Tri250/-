@@ -3,16 +3,13 @@
 buildscript {
     
     repositories {
-        maven { url 'https://maven.aliyun.com/repository/google' }
-        maven { url 'https://maven.aliyun.com/repository/central' }
-        maven { url 'https://maven.aliyun.com/repository/public' }
-        maven { url 'https://maven.tencent.com/nexus/repository/google' }
+        maven { url 'https://mirrors.cloud.tencent.com/nexus/repository/maven-public/' }
+        maven { url 'https://mirrors.tuna.tsinghua.edu.cn/gradle/' }
         google()
         mavenCentral()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:8.13.0'
-        classpath 'com.google.gms:google-services:4.4.4'
+        classpath 'com.android.tools.build:gradle:8.5.2'
 
         // NOTE: Do not place your application dependencies here; they belong
         // in the individual module build.gradle files
@@ -23,10 +20,8 @@ apply from: "variables.gradle"
 
 allprojects {
     repositories {
-        maven { url 'https://maven.aliyun.com/repository/google' }
-        maven { url 'https://maven.aliyun.com/repository/central' }
-        maven { url 'https://maven.aliyun.com/repository/public' }
-        maven { url 'https://maven.tencent.com/nexus/repository/google' }
+        maven { url 'https://mirrors.cloud.tencent.com/nexus/repository/maven-public/' }
+        maven { url 'https://mirrors.tuna.tsinghua.edu.cn/gradle/' }
         google()
         mavenCentral()
     }
