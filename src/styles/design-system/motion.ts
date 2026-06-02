@@ -83,6 +83,9 @@ export const duration = {
   
   // 持续动画
   continuous: 2000, // 2s及以上
+
+  // 柔和动画
+  gentle: 600,      // 600ms
 };
 
 // ============================================================================
@@ -136,6 +139,7 @@ export const shadows = {
     sm: '0 4px 6px -1px rgb(0 0 0 / 0.05)',
     DEFAULT: '0 10px 15px -3px rgb(0 0 0 / 0.05), 0 4px 6px -4px rgb(0 0 0 / 0.05)',
     md: '0 20px 25px -5px rgb(0 0 0 / 0.05), 0 8px 10px -6px rgb(0 0 0 / 0.05)',
+    heavy: '0 25px 50px -12px rgb(0 0 0 / 0.25), 0 12px 24px -8px rgb(0 0 0 / 0.15)',
   },
   
   // 内阴影

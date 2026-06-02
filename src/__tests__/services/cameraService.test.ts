@@ -216,9 +216,9 @@ describe('CameraService', () => {
       
       vi.useFakeTimers();
       const promise = cameraManager.updateStream(device.id, { 
-        quality: '1080p',
+        resolution: '1080p',
         audioEnabled: true,
-        nightVision: false 
+        nightVision: 'auto' 
       });
       vi.advanceTimersByTime(300);
       const result = await promise;
@@ -229,7 +229,7 @@ describe('CameraService', () => {
 
     it('不存在的设备应该返回false', async () => {
       vi.useFakeTimers();
-      const promise = cameraManager.updateStream('non-existent', { quality: '1080p', audioEnabled: false, nightVision: false });
+      const promise = cameraManager.updateStream('non-existent', { resolution: '1080p', audioEnabled: false, nightVision: 'auto' });
       vi.advanceTimersByTime(300);
       const result = await promise;
       vi.useRealTimers();

@@ -221,6 +221,7 @@ export interface DailyActivity {
   description: string;
   points: number;
   timestamp: string;
+  date?: string;
 }
 
 export interface Badge {

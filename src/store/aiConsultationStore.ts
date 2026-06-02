@@ -83,7 +83,7 @@ const createInitialShortTermContext = (): ShortTermContext => ({
 
 const loadLongTermMemoriesFromStorage = (userId: string): LongTermMemory[] => {
   try {
-    const stored = secureStorage.get<LongTermMemory[]>(`${STORAGE_KEY_PREFIX}${userId}_longterm`, false);
+    const stored = secureStorage.getSync<LongTermMemory[]>(`${STORAGE_KEY_PREFIX}${userId}_longterm`, false);
     return stored || [];
   } catch {
     return [];

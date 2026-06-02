@@ -27,6 +27,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { useAppStore } from '../../store/appStore';
+import type { Milestone as MilestoneType } from '../../types/bond';
 
 interface MemoryItem {
   id: string;
@@ -41,14 +42,7 @@ interface MemoryItem {
   isHighlight: boolean;
 }
 
-interface Milestone {
-  id: string;
-  type: 'birthday' | 'adoption' | 'vaccination' | 'training' | 'first_time' | 'achievement';
-  title: string;
-  description: string;
-  date: string;
-  photos: string[];
-}
+type Milestone = MilestoneType;
 
 interface MemoryTimelineComponentProps {
   externalShowUploadModal?: boolean;
@@ -149,6 +143,7 @@ export function MemoryTimelineComponent({
       const mockMilestones: Milestone[] = [
         {
           id: 'ms-1',
+          petId,
           type: 'birthday',
           title: '🎂 2岁生日',
           description: `${petName}的2岁生日派对`,
@@ -161,6 +156,7 @@ export function MemoryTimelineComponent({
         },
         {
           id: 'ms-2',
+          petId,
           type: 'adoption',
           title: '🏠 领养纪念日',
           description: `${petName}成为我们家庭成员的日子`,
@@ -172,6 +168,7 @@ export function MemoryTimelineComponent({
         },
         {
           id: 'ms-3',
+          petId,
           type: 'first_time',
           title: '✨ 第一次外出',
           description: `${petName}第一次去公园`,

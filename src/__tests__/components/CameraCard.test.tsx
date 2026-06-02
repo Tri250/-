@@ -9,6 +9,33 @@ const createMockDevice = (overrides = {}): CameraDevice => ({
   model: 'MJSXJ02CM',
   name: '客厅摄像头',
   status: 'online',
+  lastActive: new Date().toISOString(),
+  capabilities: [],
+  settings: {
+    resolution: '1080p',
+    nightVisionMode: 'auto',
+    motionDetection: {
+      enabled: true,
+      sensitivity: 50,
+      notificationEnabled: true,
+    },
+    recording: {
+      mode: 'motion',
+      quality: 'high',
+      storage: 'sd',
+    },
+    audio: {
+      enabled: true,
+      volume: 50,
+      noiseReduction: true,
+    },
+    aiTracking: {
+      enabled: true,
+      targetType: 'pet',
+      smoothTracking: true,
+    },
+  },
+  protocol: 'rtsp',
   streamUrl: 'rtsp://example.com/stream',
   thumbnailUrl: undefined,
   lastOnline: new Date().toISOString(),

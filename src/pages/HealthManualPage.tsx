@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { GlassCard, SkeletonCard } from '../components/DesignSystem';
 import { useHealthManualStore } from '../store/healthManualStore';
-import { MANUAL_CATEGORIES } from '../types/health-manual';
+import { MANUAL_CATEGORIES, type ManualCategory } from '../types/health-manual';
 import '../styles/animations.css';
 
 interface HealthManualPageProps {

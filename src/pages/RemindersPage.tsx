@@ -16,7 +16,7 @@ import {
 import { Card, EmptyState } from '../components/DesignSystem';
 import { useReminderStore } from '../store/reminderStore';
 import { usePetStore } from '../store/petStore';
-import { REMINDER_TYPES } from '../types/reminder';
+import { REMINDER_TYPES, type ReminderType } from '../types/reminder';
 import { AddReminderModal } from '../components/AddReminderModal';
 
 interface RemindersPageProps {

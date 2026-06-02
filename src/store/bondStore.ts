@@ -111,7 +111,7 @@ export const useBondStore = create<BondStore>((set, get) => ({
   }),
 
   addDailyActivity: (activity) => set((state) => ({
-    dailyActivities: [{ ...activity, id: Date.now().toString() }, ...state.dailyActivities],
+    dailyActivities: [{ ...activity, id: Date.now().toString(), timestamp: new Date().toISOString() }, ...state.dailyActivities],
     totalPoints: state.totalPoints + activity.points
   })),
 
