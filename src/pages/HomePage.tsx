@@ -431,7 +431,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
                 </div>
                 
                 <div className="grid grid-cols-3 gap-2.5">
-                  {quickActions.slice(0, 3).map((action, index) => (
+                  {quickActions.map((action, index) => (
                     <button
                       key={action.page}
                       onClick={() => handleCardClick(action.page)}
@@ -459,34 +459,6 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
                         <p className="text-[11px] text-neutral-400 dark:text-neutral-500 text-center truncate">{action.description}</p>
                         
                         <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-transparent to-transparent group-hover:via-[action.color] transition-all duration-500 opacity-0 group-hover:opacity-100" />
-                      </div>
-                    </button>
-                  ))}
-                </div>
-
-                <div className="grid grid-cols-3 gap-2.5">
-                  {quickActions.slice(3).map((action, index) => (
-                    <button
-                      key={action.page}
-                      onClick={() => handleCardClick(action.page)}
-                      className="group relative col-span-1 active-scale overflow-hidden rounded-2xl"
-                      style={{ animationDelay: `${0.35 + index * 0.06}s` }}
-                      aria-label={action.label}
-                    >
-                      <div className="relative bg-white dark:bg-neutral-900 rounded-2xl p-3 h-full border border-neutral-100 dark:border-neutral-800 group-hover:border-neutral-200 dark:group-hover:border-neutral-700 group-hover:shadow-lg dark:group-hover:shadow-black/20 transition-all duration-300">
-                        <div className="relative mb-2.5">
-                          <div className={`w-11 h-11 mx-auto rounded-xl bg-gradient-to-br ${action.bgGradient} bg-opacity-10 flex items-center justify-center transform group-hover:scale-105 transition-all duration-300`}>
-                            <action.icon className="w-5 h-5 text-white" strokeWidth={2} />
-                          </div>
-                          {action.badge && (
-                            <div className={`absolute -top-1 -right-1 ${action.badgeColor || 'bg-neutral-400'} text-white text-[9px] font-semibold px-1 py-0.5 rounded-full shadow-sm leading-none`}>
-                              {action.badge}
-                            </div>
-                          )}
-                        </div>
-                        
-                        <h4 className="font-semibold text-[13px] text-neutral-800 dark:text-neutral-100 text-center mb-0.5 truncate">{action.label}</h4>
-                        <p className="text-[10px] text-neutral-400 dark:text-neutral-500 text-center truncate">{action.description}</p>
                       </div>
                     </button>
                   ))}
