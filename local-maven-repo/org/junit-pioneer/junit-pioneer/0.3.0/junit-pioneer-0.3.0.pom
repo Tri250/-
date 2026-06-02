@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>org.junit-pioneer</groupId>
+  <artifactId>junit-pioneer</artifactId>
+  <version>0.3.0</version>
+  <dependencies>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-api</artifactId>
+      <version>5.1.1</version>
+      <scope>compile</scope>
+    </dependency>
+  </dependencies>
+  <name>junit-pioneer</name>
+  <packaging>jar</packaging>
+  <url>https://github.com/junit-pioneer/junit-pioneer</url>
+  <description>JUnit 5 Extension Pack</description>
+  <licenses>
+    <license>
+      <name>The MIT License</name>
+      <url>https://github.com/junit-pioneer/junit-pioneer/blob/master/LICENSE</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+  <scm>
+    <url>https://github.com/junit-pioneer/junit-pioneer.git</url>
+  </scm>
+  <issueManagement>
+    <url>https://github.com/junit-pioneer/junit-pioneer/issues</url>
+    <system>GitHub issues</system>
+  </issueManagement>
+  <ciManagement>
+    <url>https://travis-ci.org/junit-pioneer/junit-pioneer</url>
+    <system>TravisCI</system>
+  </ciManagement>
+  <developers>
+    <developer>
+      <id>nicolaiparlog</id>
+      <name>Nicolai Parlog</name>
+      <roles>
+        <role>Core developer</role>
+      </roles>
+      <url>https://github.com/nicolaiparlog</url>
+    </developer>
+  </developers>
+  <contributors>
+    <contributor>
+      <name>Marc Philipp</name>
+      <url>https://github.com/marcphilipp</url>
+    </contributor>
+    <contributor>
+      <name>shipkit.org automated bot</name>
+      <url>https://github.com/shipkit-org</url>
+    </contributor>
+    <contributor>
+      <name>Benedikt Ritter</name>
+      <url>https://github.com/britter</url>
+    </contributor>
+    <contributor>
+      <name>Christian Stein</name>
+      <url>https://github.com/sormuras</url>
+    </contributor>
+    <contributor>
+      <name>Steve Moyer</name>
+      <url>https://github.com/smoyer64</url>
+    </contributor>
+  </contributors>
+</project>

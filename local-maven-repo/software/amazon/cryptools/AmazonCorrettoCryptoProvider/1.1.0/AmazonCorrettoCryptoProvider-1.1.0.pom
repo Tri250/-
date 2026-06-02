@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>software.amazon.cryptools</groupId>
+  <artifactId>AmazonCorrettoCryptoProvider</artifactId>
+  <version>1.1.0</version>
+  <name>Amazon Corretto Crypto Provider</name>
+  <description>The Amazon Corretto Crypto Provider (ACCP) is a collection of high-performance cryptographic implementations exposed via the standard JCA/JCE interfaces.</description>
+  <url>https://github.com/corretto/amazon-corretto-crypto-provider</url>
+  <licenses>
+    <license>
+      <name>The Apache License, Version 2.0</name>
+      <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+    </license>
+  </licenses>
+  <developers>
+    <developer>
+      <id>amazonwebservices</id>
+      <organization>Amazon Web Services</organization>
+      <organizationUrl>https://aws.amazon.com</organizationUrl>
+    </developer>
+  </developers>
+  <scm>
+    <connection>scm:git:git@github.com:corretto/amazon-corretto-crypto-provider.git</connection>
+    <developerConnection>scm:git:git@github.com:corretto/amazon-corretto-crypto-provider.git</developerConnection>
+    <url>https://github.com/corretto/amazon-corretto-crypto-provider.git</url>
+  </scm>
+</project>
