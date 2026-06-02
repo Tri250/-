@@ -526,6 +526,15 @@ export function TranslatorPage({ onNavigate }: { onNavigate?: (page: string) => 
   }, []);
 
   const startRecording = async () => {
+    setIsRecording(true);
+    setRecordingTime(0);
+    audioChunksRef.current = [];
+    
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = window.setInterval(() => {
+      setRecordingTime((prev) => prev + 1);
+    }, 1000);
+    
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaStreamRef.current = stream;
@@ -538,17 +547,9 @@ export function TranslatorPage({ onNavigate }: { onNavigate?: (page: string) => 
       analyser.fftSize = 2048;
       source.connect(analyser);
       analyserRef.current = analyser;
-      
-      setIsRecording(true);
-      setRecordingTime(0);
-      audioChunksRef.current = [];
-      
-      timerRef.current = window.setInterval(() => {
-        setRecordingTime((prev) => prev + 1);
-      }, 1000);
 
       const captureAudio = () => {
-        if (!isRecording || !analyserRef.current) return;
+        if (!analyserRef.current) return;
         
         const dataArray = new Float32Array(analyser.fftSize);
         analyser.getFloatTimeDomainData(dataArray);
@@ -562,7 +563,7 @@ export function TranslatorPage({ onNavigate }: { onNavigate?: (page: string) => 
       captureAudio();
     } catch (error) {
       console.error('无法访问麦克风:', error);
-      simulateRecording();
+      simulateAudioLevel();
     }
   };
 
@@ -570,16 +571,20 @@ export function TranslatorPage({ onNavigate }: { onNavigate?: (page: string) => 
     setIsRecording(true);
     setRecordingTime(0);
     
+    if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = window.setInterval(() => {
       setRecordingTime((prev) => prev + 1);
     }, 1000);
 
-    const simulateAudioLevel = () => {
-      if (!isRecording) return;
-      setAudioLevel(Math.random() * 100);
-      animationRef.current = requestAnimationFrame(simulateAudioLevel);
-    };
     simulateAudioLevel();
+  };
+
+  const simulateAudioLevel = () => {
+    const loop = () => {
+      setAudioLevel(Math.random() * 100);
+      animationRef.current = requestAnimationFrame(loop);
+    };
+    loop();
   };
 
   const stopRecording = () => {
@@ -765,6 +770,9 @@ export function TranslatorPage({ onNavigate }: { onNavigate?: (page: string) => 
                 <Heart className="w-5 h-5 text-orange-500" />
                 AI 情感翻译机
               </h1>
+              <p className="text-xs text-gray-400 mt-0.5">
+                倾听 {currentPet?.name || '小橘'} 的心声
+              </p>
               <div className="flex items-center gap-1.5 mt-0.5">
                 <span className={`w-2 h-2 rounded-full ${
                   isRecording ? 'bg-red-500 animate-pulse' : 

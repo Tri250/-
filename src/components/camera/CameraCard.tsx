@@ -31,9 +31,9 @@ export function CameraCard({ device, onClick, onStreamClick, onDelete }: CameraC
     >
       <div className="flex gap-4">
         <div className="relative w-24 h-24 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
-          {device.thumbnail ? (
+          {device.thumbnail || device.thumbnailUrl ? (
             <img
-              src={device.thumbnail}
+              src={device.thumbnail || device.thumbnailUrl}
               alt={device.name}
               className="w-full h-full object-cover"
             />

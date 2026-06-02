@@ -126,7 +126,7 @@ export const INPUT_VALIDATION_CONFIG = {
 };
 
 export const PROHIBITED_CONTENT_PATTERNS = [
-  { pattern: /暴力|虐待|打|踢|摔|扔|砸|杀|死|毒|药死/gi, category: 'violence', severity: 'high' },
+  { pattern: /暴力|虐待|踢|摔|扔|砸|毒|药死/gi, category: 'violence', severity: 'high' },
   { pattern: /色情|裸体|性/gi, category: 'adult', severity: 'high' },
   { pattern: /赌博|赌钱|赌狗/gi, category: 'gambling', severity: 'medium' },
   { pattern: /毒品|吸毒|贩毒/gi, category: 'drugs', severity: 'high' },

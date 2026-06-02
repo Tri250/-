@@ -1,6 +1,6 @@
 // 健康记录相关类型
 
-export type RecordType = 'text' | 'voice' | 'photo' | 'video' | 'file';
+export type RecordType = 'text' | 'voice' | 'photo' | 'video' | 'file' | 'pdf';
 
 export interface HealthTag {
   id: string;

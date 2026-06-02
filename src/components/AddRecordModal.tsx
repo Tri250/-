@@ -14,6 +14,8 @@ interface AddRecordModalProps {
     isImportant: boolean;
     attachments?: string[];
     voiceDuration?: number;
+    voiceTranscription?: string | null;
+    pdfFileName?: string | null;
   }) => void;
   availableTags: HealthTag[];
   initialType?: RecordType;
