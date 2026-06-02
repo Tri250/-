@@ -14,8 +14,6 @@ import { HealthPage } from './pages/HealthPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { CameraPage } from './pages/CameraPage';
 import { MonitorPage } from './pages/MonitorPage';
-import { AuthPage } from './pages/AuthPage';
-import { OnboardingPage } from './pages/OnboardingPage';
 import { TrainingPage } from './pages/TrainingPage';
 import { ServicesPage } from './pages/ServicesPage';
 import { InsurancePage } from './pages/InsurancePage';
@@ -68,8 +66,6 @@ function LoadingScreen({ progress, message }: { progress: number; message: strin
 export default function App() {
   const [currentPage, setCurrentPage] = useState('home');
   const { 
-    isAuthenticated, 
-    isOnboardingComplete, 
     isInitialized, 
     initProgress, 
     initMessage,
@@ -91,23 +87,8 @@ export default function App() {
     }
   }, [settings.darkMode]);
 
-  const handleAuthSuccess = () => {
-  };
-
-  const handleOnboardingComplete = () => {
-    useAppStore.getState().completeOnboarding();
-  };
-
   if (!isInitialized) {
     return <LoadingScreen progress={initProgress} message={initMessage} />;
-  }
-
-  if (!isAuthenticated) {
-    return <AuthPage onSuccess={handleAuthSuccess} />;
-  }
-
-  if (!isOnboardingComplete) {
-    return <OnboardingPage onComplete={handleOnboardingComplete} />;
   }
 
   const renderPage = () => {

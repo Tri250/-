@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { Syringe, Droplets, Activity, Scissors, Pill, Star, Sparkles } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Syringe, Droplets, Activity, Scissors, Pill, Star, Sparkles, Cake, Bell, Settings } from 'lucide-react';
 import { GlassModal, GlassInput, GlassSelect, GlassTextarea } from './DesignSystem';
-import { REMINDER_TYPES, ReminderType, RepeatType } from '../types/reminder';
+import { REMINDER_TYPES, ReminderType, RepeatType, NOTIFICATION_CHANNELS, NotificationChannel, NOTIFY_BEFORE_OPTIONS } from '../types/reminder';
 
 interface AddReminderModalProps {
   isOpen: boolean;
@@ -15,8 +15,15 @@ interface AddReminderModalProps {
     time: string;
     repeat: RepeatType;
     endDate?: string;
+    notification?: {
+      channels: NotificationChannel[];
+      notifyBefore: number;
+    };
   }) => void;
   currentPetId: string | null;
+  petBirthday?: string;
+  lastVaccineDate?: string;
+  lastDewormingDate?: string;
 }
 
 const REPEAT_OPTIONS = [
@@ -35,6 +42,7 @@ const TYPE_ICONS: Record<ReminderType, React.ElementType> = {
   brush_teeth: Sparkles,
   medicine: Pill,
   grooming: Scissors,
+  birthday: Cake,
   custom: Star,
 };
 
@@ -43,6 +51,9 @@ export const AddReminderModal: React.FC<AddReminderModalProps> = ({
   onClose,
   onSubmit,
   currentPetId,
+  petBirthday,
+  lastVaccineDate,
+  lastDewormingDate,
 }) => {
   const [selectedType, setSelectedType] = useState<ReminderType>('vaccine');
   const [title, setTitle] = useState('');
@@ -52,6 +63,82 @@ export const AddReminderModal: React.FC<AddReminderModalProps> = ({
   const [repeat, setRepeat] = useState<RepeatType>('once');
   const [endDate, setEndDate] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [showNotificationSettings, setShowNotificationSettings] = useState(false);
+  const [selectedChannels, setSelectedChannels] = useState<NotificationChannel[]>(['app', 'push']);
+  const [notifyBefore, setNotifyBefore] = useState(60);
+  const [smartRecommendations, setSmartRecommendations] = useState<Array<{ type: ReminderType; suggestedDate: string; suggestedTime: string; reason: string }>>([]);
+
+  useEffect(() => {
+    if (isOpen) {
+      generateSmartRecommendations();
+    }
+  }, [isOpen, generateSmartRecommendations]);
+
+  const generateSmartRecommendations = React.useCallback(() => {
+    const recommendations: Array<{ type: ReminderType; suggestedDate: string; suggestedTime: string; reason: string }> = [];
+    const today = new Date();
+
+    if (petBirthday) {
+      const birthday = new Date(petBirthday);
+      const thisYearBirthday = new Date(today.getFullYear(), birthday.getMonth(), birthday.getDate());
+      if (thisYearBirthday < today) {
+        thisYearBirthday.setFullYear(today.getFullYear() + 1);
+      }
+      recommendations.push({
+        type: 'birthday',
+        suggestedDate: thisYearBirthday.toISOString().split('T')[0],
+        suggestedTime: '09:00',
+        reason: `${thisYearBirthday.getFullYear() - birthday.getFullYear()}岁生日即将到来`,
+      });
+    }
+
+    if (lastVaccineDate) {
+      const lastVaccine = new Date(lastVaccineDate);
+      const nextVaccine = new Date(lastVaccine);
+      nextVaccine.setFullYear(nextVaccine.getFullYear() + 1);
+      if (nextVaccine > today && nextVaccine < new Date(today.getTime() + 90 * 24 * 60 * 60 * 1000)) {
+        recommendations.push({
+          type: 'vaccine',
+          suggestedDate: nextVaccine.toISOString().split('T')[0],
+          suggestedTime: '10:00',
+          reason: '疫苗年度加强接种时间',
+        });
+      }
+    }
+
+    if (lastDewormingDate) {
+      const lastDeworming = new Date(lastDewormingDate);
+      const nextDeworming = new Date(lastDeworming);
+      nextDeworming.setMonth(nextDeworming.getMonth() + 3);
+      if (nextDeworming > today && nextDeworming < new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000)) {
+        recommendations.push({
+          type: 'deworming',
+          suggestedDate: nextDeworming.toISOString().split('T')[0],
+          suggestedTime: '09:00',
+          reason: '季度驱虫提醒',
+        });
+      }
+    }
+
+    const nextCheckup = new Date(today);
+    nextCheckup.setMonth(nextCheckup.getMonth() + 6);
+    recommendations.push({
+      type: 'checkup',
+      suggestedDate: nextCheckup.toISOString().split('T')[0],
+      suggestedTime: '10:00',
+      reason: '建议每半年进行一次体检',
+    });
+
+    setSmartRecommendations(recommendations);
+  }, [petBirthday, lastVaccineDate, lastDewormingDate]);
+
+  const applyRecommendation = (rec: { type: ReminderType; suggestedDate: string; suggestedTime: string; reason: string }) => {
+    setSelectedType(rec.type);
+    setDate(rec.suggestedDate);
+    setTime(rec.suggestedTime);
+    setTitle(REMINDER_TYPES.find(t => t.id === rec.type)?.name || '提醒');
+    setNotes(rec.reason);
+  };
 
   const resetForm = () => {
     setSelectedType('vaccine');
@@ -62,6 +149,9 @@ export const AddReminderModal: React.FC<AddReminderModalProps> = ({
     setRepeat('once');
     setEndDate('');
     setErrors({});
+    setShowNotificationSettings(false);
+    setSelectedChannels(['app', 'push']);
+    setNotifyBefore(60);
   };
 
   const handleClose = () => {
@@ -104,6 +194,10 @@ export const AddReminderModal: React.FC<AddReminderModalProps> = ({
       time,
       repeat,
       endDate: endDate || undefined,
+      notification: {
+        channels: selectedChannels,
+        notifyBefore,
+      },
     });
 
     handleClose();
@@ -112,6 +206,14 @@ export const AddReminderModal: React.FC<AddReminderModalProps> = ({
   const getTodayDate = () => {
     const today = new Date();
     return today.toISOString().split('T')[0];
+  };
+
+  const toggleChannel = (channel: NotificationChannel) => {
+    setSelectedChannels(prev => 
+      prev.includes(channel) 
+        ? prev.filter(c => c !== channel)
+        : [...prev, channel]
+    );
   };
 
   return (
@@ -225,6 +327,99 @@ export const AddReminderModal: React.FC<AddReminderModalProps> = ({
           placeholder="添加备注信息..."
           rows={2}
         />
+
+        {smartRecommendations.length > 0 && (
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-neutral-700 flex items-center gap-1">
+              <Star className="w-4 h-4 text-yellow-500" />
+              智能推荐
+            </label>
+            <div className="space-y-2">
+              {smartRecommendations.slice(0, 3).map((rec, index) => {
+                const typeConfig = REMINDER_TYPES.find(t => t.id === rec.type);
+                return (
+                  <button
+                    key={index}
+                    type="button"
+                    onClick={() => applyRecommendation(rec)}
+                    className="w-full p-3 rounded-xl bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 text-left hover:border-yellow-300 transition-all"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{typeConfig?.icon}</span>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-neutral-700">{typeConfig?.name}</p>
+                        <p className="text-xs text-neutral-500">{rec.reason}</p>
+                      </div>
+                      <div className="text-xs text-neutral-400">
+                        {new Date(rec.suggestedDate).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={() => setShowNotificationSettings(!showNotificationSettings)}
+            className="w-full flex items-center justify-between p-3 rounded-xl bg-neutral-50 border border-neutral-200 hover:border-neutral-300 transition-all"
+          >
+            <div className="flex items-center gap-2">
+              <Bell className="w-4 h-4 text-purple-500" />
+              <span className="text-sm font-medium text-neutral-700">通知设置</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-neutral-500">{selectedChannels.length}个渠道</span>
+              <Settings className={`w-4 h-4 text-neutral-400 transition-transform ${showNotificationSettings ? 'rotate-90' : ''}`} />
+            </div>
+          </button>
+
+          {showNotificationSettings && (
+            <div className="p-4 rounded-xl bg-purple-50 border border-purple-200 space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-neutral-700">通知渠道</label>
+                <div className="flex flex-wrap gap-2">
+                  {NOTIFICATION_CHANNELS.map((channel) => {
+                    const isSelected = selectedChannels.includes(channel.id);
+                    return (
+                      <button
+                        key={channel.id}
+                        type="button"
+                        onClick={() => toggleChannel(channel.id)}
+                        className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
+                          isSelected
+                            ? 'bg-purple-500 text-white'
+                            : 'bg-white border border-neutral-200 text-neutral-600 hover:border-purple-300'
+                        }`}
+                      >
+                        <span className="mr-1">{channel.icon}</span>
+                        {channel.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-neutral-700">提前提醒时间</label>
+                <select
+                  value={notifyBefore}
+                  onChange={(e) => setNotifyBefore(parseInt(e.target.value))}
+                  className="w-full rounded-lg px-4 py-2.5 text-sm bg-white border border-neutral-200 focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-200"
+                >
+                  {NOTIFY_BEFORE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+        </div>
 
         <div className="flex gap-3 pt-2">
           <button

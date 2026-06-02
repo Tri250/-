@@ -44,6 +44,7 @@ export const RemindersPage: React.FC<RemindersPageProps> = ({ onNavigate }) => {
       case 'brush_teeth': return Sparkles;
       case 'medicine': return Pill;
       case 'grooming': return Scissors;
+      case 'birthday': return Star;
       default: return Calendar;
     }
   };

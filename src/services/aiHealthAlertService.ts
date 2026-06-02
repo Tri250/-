@@ -615,6 +615,20 @@ class AIHealthAlertService {
   async getGrowthCurveData(petId: string): Promise<GrowthCurveData> {
     await this.simulateDelay(MOCK_DELAY);
     
+    const today = new Date();
+    const history = [];
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i * 30);
+      const baseWeight = 4.0;
+      const weightVariation = (i * 0.05) + (Math.random() * 0.1 - 0.05);
+      history.push({
+        date: date.toISOString().split('T')[0],
+        weight: Math.round((baseWeight + weightVariation) * 100) / 100,
+        trend: weightVariation > 0.02 ? 'gaining' : weightVariation < -0.02 ? 'losing' : 'stable'
+      });
+    }
+    
     return {
       petId,
       petBreed: '英短蓝猫',
@@ -630,7 +644,8 @@ class AIHealthAlertService {
         heightMax: 33
       },
       percentile: 55,
-      trajectory: 'normal'
+      trajectory: 'normal',
+      history
     };
   }
 

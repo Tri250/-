@@ -6,7 +6,7 @@
 // 描述: 动态数据可视化图表 - 弹性动画活动量曲线、睡眠报告、成长曲线
 // ============================================
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Activity, 
@@ -18,35 +18,54 @@ import {
   ChevronDown,
   ChevronUp,
   PawPrint,
-  Calendar
+  Calendar,
+  FileText,
+  AlertTriangle,
+  Download,
+  Users
 } from 'lucide-react';
 import { aiHealthAlertService } from '../../services/aiHealthAlertService';
 import type { ActivityChartData, SleepChartData, GrowthCurveData } from '../../types/advanced-health';
+
+type TimeDimension = 'week' | 'month' | 'quarter';
 
 interface DynamicChartsComponentProps {
   petId: string;
   petName: string;
   petBreed?: string;
+  onNavigateToRecord?: (recordId: string) => void;
 }
 
-export function DynamicChartsComponent({ petId, petName, petBreed }: DynamicChartsComponentProps) {
+export function DynamicChartsComponent({ petId, petName, petBreed, onNavigateToRecord }: DynamicChartsComponentProps) {
   const [activityData, setActivityData] = useState<ActivityChartData[]>([]);
   const [sleepData, setSleepData] = useState<SleepChartData[]>([]);
   const [growthData, setGrowthData] = useState<GrowthCurveData | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState<ActivityChartData | null>(null);
   const [chartType, setChartType] = useState<'activity' | 'sleep' | 'growth'>('activity');
+  const [timeDimension, setTimeDimension] = useState<TimeDimension>('week');
+  const [showCompareModal, setShowCompareModal] = useState(false);
+
+  const getDaysForDimension = useCallback((dimension: TimeDimension): number => {
+    switch (dimension) {
+      case 'week': return 7;
+      case 'month': return 30;
+      case 'quarter': return 90;
+      default: return 7;
+    }
+  }, []);
 
   useEffect(() => {
     loadChartData();
-  }, [petId]);
+  }, [petId, timeDimension]);
 
   const loadChartData = async () => {
     setLoading(true);
     try {
+      const days = getDaysForDimension(timeDimension);
       const [activity, sleep, growth] = await Promise.all([
-        aiHealthAlertService.getActivityChartData(petId, 7),
-        aiHealthAlertService.getSleepChartData(petId, 7),
+        aiHealthAlertService.getActivityChartData(petId, days),
+        aiHealthAlertService.getSleepChartData(petId, days),
         aiHealthAlertService.getGrowthCurveData(petId)
       ]);
       setActivityData(activity);
@@ -193,6 +212,18 @@ export function DynamicChartsComponent({ petId, petName, petBreed }: DynamicChar
                 <span>🎾 玩耍: {selectedDay.activities.playing}分钟</span>
                 <span>😴 休息: {selectedDay.activities.resting}分钟</span>
               </div>
+
+              {onNavigateToRecord && (
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => handleChartClick(selectedDay.date)}
+                  className="mt-3 w-full py-2 bg-white/80 text-green-600 rounded-lg flex items-center justify-center gap-2 text-sm font-medium hover:bg-white transition-colors"
+                >
+                  <FileText className="w-4 h-4" />
+                  查看当日详细记录
+                </motion.button>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -200,7 +231,6 @@ export function DynamicChartsComponent({ petId, petName, petBreed }: DynamicChar
     );
   };
 
-  // 睡眠环形报告图
   const renderSleepChart = () => {
     if (!sleepData.length) return null;
 
@@ -474,8 +504,66 @@ export function DynamicChartsComponent({ petId, petName, petBreed }: DynamicChar
     );
   }
 
+  const handleExportPDF = async () => {
+    try {
+      const result = await aiHealthAlertService.generateHealthReport(petId, timeDimension === 'week' ? 'weekly' : timeDimension === 'month' ? 'monthly' : 'monthly');
+      if (result) {
+        alert(`健康报告已生成！报告ID: ${result.id}`);
+      }
+    } catch (error) {
+      console.error('Export failed:', error);
+      alert('导出失败，请稍后重试');
+    }
+  };
+
+  const handleChartClick = (date: string) => {
+    if (onNavigateToRecord) {
+      onNavigateToRecord(date);
+    }
+  };
+
   return (
     <div className="space-y-4">
+      {/* 时间维度切换 */}
+      <div className="flex items-center justify-between">
+        <div className="flex bg-gray-100 rounded-xl p-1">
+          {[
+            { key: 'week', label: '周' },
+            { key: 'month', label: '月' },
+            { key: 'quarter', label: '季度' }
+          ].map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setTimeDimension(key as TimeDimension)}
+              className={`px-4 py-1.5 rounded-lg text-sm transition-all ${
+                timeDimension === key
+                  ? 'bg-white shadow-sm text-gray-800 font-medium'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        
+        <div className="flex gap-2">
+          <button
+            onClick={handleExportPDF}
+            className="flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors text-sm"
+          >
+            <Download className="w-4 h-4" />
+            导出PDF
+          </button>
+          <button
+            onClick={() => setShowCompareModal(true)}
+            className="flex items-center gap-1 px-3 py-1.5 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 transition-colors text-sm"
+          >
+            <Users className="w-4 h-4" />
+            多宠物对比
+          </button>
+        </div>
+      </div>
+
       {/* 图表切换标签 */}
       <div className="flex bg-gray-100 rounded-xl p-1">
         {[
@@ -512,6 +600,79 @@ export function DynamicChartsComponent({ petId, petName, petBreed }: DynamicChar
           {chartType === 'sleep' && renderSleepChart()}
           {chartType === 'growth' && renderGrowthChart()}
         </motion.div>
+      </AnimatePresence>
+
+      {/* 多宠物对比模态框 */}
+      <AnimatePresence>
+        {showCompareModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setShowCompareModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-3xl w-full max-w-md p-6"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                  <Users className="w-5 h-5 text-purple-500" />
+                  多宠物健康对比
+                </h3>
+                <button
+                  onClick={() => setShowCompareModal(false)}
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <ChevronDown className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                      <PawPrint className="w-5 h-5 text-green-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-800">{petName}</p>
+                      <p className="text-xs text-gray-500">{petBreed || '宠物'}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div>
+                      <p className="text-lg font-bold text-green-600">{activityData.reduce((sum, d) => sum + d.totalMinutes, 0)}</p>
+                      <p className="text-xs text-gray-500">活动分钟</p>
+                    </div>
+                    <div>
+                      <p className="text-lg font-bold text-purple-600">{sleepData.length > 0 ? sleepData.reduce((sum, d) => sum + d.duration, 0).toFixed(1) : 0}</p>
+                      <p className="text-xs text-gray-500">睡眠小时</p>
+                    </div>
+                    <div>
+                      <p className="text-lg font-bold text-orange-600">{growthData?.petWeight || 0}</p>
+                      <p className="text-xs text-gray-500">体重kg</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <p className="text-sm text-gray-500 text-center">
+                  添加更多宠物以进行健康数据对比分析
+                </p>
+                
+                <button
+                  onClick={() => setShowCompareModal(false)}
+                  className="w-full py-3 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 transition-colors font-medium"
+                >
+                  关闭
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
       </AnimatePresence>
     </div>
   );

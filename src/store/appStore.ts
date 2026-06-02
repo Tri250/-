@@ -156,9 +156,15 @@ const defaultSettings: AppSettings = {
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
-      user: null,
-      isAuthenticated: false,
-      isOnboardingComplete: false,
+      user: {
+        id: 'default-user',
+        email: 'user@pawsync.local',
+        username: '宠物主人',
+        isPremium: false,
+        createdAt: new Date().toISOString(),
+      },
+      isAuthenticated: true,
+      isOnboardingComplete: true,
       isInitialized: false,
       initProgress: 0,
       initMessage: '正在启动应用...',

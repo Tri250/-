@@ -6,7 +6,7 @@
 // 描述: 电子病历OCR识别与管理 - 支持上传体检报告、化验单、处方单
 // ============================================
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   FileText, 
@@ -28,10 +28,12 @@ import {
   AlertCircle,
   CheckCircle2,
   ChevronRight,
-  Image as ImageIcon
+  Image as ImageIcon,
+  AlertTriangle,
+  Info
 } from 'lucide-react';
 import { medicalRecordOCRService } from '../../services/medicalRecordOCRService';
-import type { MedicalRecord } from '../../types/advanced-health';
+import type { MedicalRecord, LabResult } from '../../types/advanced-health';
 
 interface MedicalRecordsComponentProps {
   petId: string;
@@ -49,6 +51,13 @@ export function MedicalRecordsComponent({ petId, petName }: MedicalRecordsCompon
   const [ocrResult, setOcrResult] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [showAbnormalAlert, setShowAbnormalAlert] = useState(false);
+  const [selectedAbnormalResult, setSelectedAbnormalResult] = useState<LabResult | null>(null);
+
+  const abnormalResults = useMemo(() => {
+    if (!selectedRecord?.labResults) return [];
+    return selectedRecord.labResults.filter(r => r.status === 'abnormal' || r.status === 'critical');
+  }, [selectedRecord]);
 
   useEffect(() => {
     loadRecords();
@@ -436,13 +445,57 @@ export function MedicalRecordsComponent({ petId, petName }: MedicalRecordsCompon
               {/* 化验结果 */}
               {selectedRecord.labResults && selectedRecord.labResults.length > 0 && (
                 <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-3">化验结果</h4>
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-sm font-medium text-gray-700">化验结果</h4>
+                    {abnormalResults.length > 0 && (
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => setShowAbnormalAlert(true)}
+                        className="flex items-center gap-1 px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-medium"
+                      >
+                        <AlertTriangle className="w-3 h-3" />
+                        {abnormalResults.length}项异常
+                      </motion.button>
+                    )}
+                  </div>
                   <div className="space-y-2">
                     {selectedRecord.labResults.map((result, idx) => (
-                      <div key={idx} className="bg-gray-50 rounded-xl p-3 flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-gray-800">{result.testName}</p>
-                          <p className="text-xs text-gray-500">参考值: {result.referenceRange} {result.unit}</p>
+                      <motion.div
+                        key={idx}
+                        whileHover={{ scale: result.status !== 'normal' ? 1.02 : 1 }}
+                        onClick={() => {
+                          if (result.status !== 'normal') {
+                            setSelectedAbnormalResult(result);
+                            setShowAbnormalAlert(true);
+                          }
+                        }}
+                        className={`rounded-xl p-3 flex items-center justify-between cursor-pointer transition-all ${
+                          result.status === 'normal' 
+                            ? 'bg-gray-50 hover:bg-gray-100' 
+                            : result.status === 'abnormal'
+                              ? 'bg-orange-50 border-2 border-orange-300 hover:border-orange-400'
+                              : 'bg-red-50 border-2 border-red-300 hover:border-red-400 animate-pulse'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          {result.status !== 'normal' && (
+                            <motion.div
+                              animate={{ scale: [1, 1.2, 1] }}
+                              transition={{ duration: 1, repeat: Infinity }}
+                              className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                                result.status === 'critical' ? 'bg-red-200' : 'bg-orange-200'
+                              }`}
+                            >
+                              <AlertTriangle className={`w-3 h-3 ${
+                                result.status === 'critical' ? 'text-red-600' : 'text-orange-600'
+                              }`} />
+                            </motion.div>
+                          )}
+                          <div>
+                            <p className="text-sm font-medium text-gray-800">{result.testName}</p>
+                            <p className="text-xs text-gray-500">参考范围: {result.referenceRange} {result.unit}</p>
+                          </div>
                         </div>
                         <div className="text-right">
                           <p className={`text-lg font-bold ${getLabStatusColor(result.status)}`}>
@@ -456,7 +509,7 @@ export function MedicalRecordsComponent({ petId, petName }: MedicalRecordsCompon
                             {result.status === 'normal' ? '正常' : result.status === 'abnormal' ? '异常' : '危急'}
                           </span>
                         </div>
-                      </div>
+                      </motion.div>
                     ))}
                   </div>
                 </div>
@@ -516,6 +569,118 @@ export function MedicalRecordsComponent({ petId, petName }: MedicalRecordsCompon
                 <Download className="w-4 h-4" />
                 导出PDF
               </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+
+  const AbnormalAlertModal = () => (
+    <AnimatePresence>
+      {showAbnormalAlert && selectedAbnormalResult && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
+          onClick={() => setShowAbnormalAlert(false)}
+        >
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-3xl w-full max-w-sm overflow-hidden"
+          >
+            <div className="bg-gradient-to-r from-red-500 to-orange-500 p-6 text-white">
+              <div className="flex items-center gap-3 mb-4">
+                <motion.div
+                  animate={{ rotate: [0, 10, -10, 0] }}
+                  transition={{ duration: 0.5, repeat: Infinity }}
+                  className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center"
+                >
+                  <AlertTriangle className="w-6 h-6" />
+                </motion.div>
+                <div>
+                  <h3 className="text-lg font-bold">异常数据提示</h3>
+                  <p className="text-sm text-white/80">请关注以下化验结果</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="bg-gray-50 rounded-xl p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm font-medium text-gray-700">{selectedAbnormalResult.testName}</span>
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    selectedAbnormalResult.status === 'critical' 
+                      ? 'bg-red-100 text-red-700' 
+                      : 'bg-orange-100 text-orange-700'
+                  }`}>
+                    {selectedAbnormalResult.status === 'critical' ? '危急值' : '异常'}
+                  </span>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="text-center">
+                    <p className="text-xs text-gray-500 mb-1">检测值</p>
+                    <p className={`text-2xl font-bold ${
+                      selectedAbnormalResult.status === 'critical' ? 'text-red-600' : 'text-orange-600'
+                    }`}>
+                      {selectedAbnormalResult.result}
+                    </p>
+                    <p className="text-xs text-gray-400">{selectedAbnormalResult.unit}</p>
+                  </div>
+                  <div className="text-center bg-green-50 rounded-lg p-2">
+                    <p className="text-xs text-gray-500 mb-1">参考范围</p>
+                    <p className="text-lg font-bold text-green-600">{selectedAbnormalResult.referenceRange}</p>
+                    <p className="text-xs text-gray-400">{selectedAbnormalResult.unit}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-blue-50 rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Info className="w-4 h-4 text-blue-500" />
+                  <span className="text-sm font-medium text-blue-700">建议措施</span>
+                </div>
+                <ul className="space-y-2 text-sm text-gray-600">
+                  <li className="flex items-start gap-2">
+                    <span className="w-1.5 h-1.5 bg-blue-400 rounded-full mt-1.5" />
+                    建议尽快咨询兽医进行进一步检查
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="w-1.5 h-1.5 bg-blue-400 rounded-full mt-1.5" />
+                    记录宠物近期饮食和行为变化
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="w-1.5 h-1.5 bg-blue-400 rounded-full mt-1.5" />
+                    如有用药，请告知兽医完整用药史
+                  </li>
+                </ul>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowAbnormalAlert(false)}
+                  className="flex-1 py-3 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 transition-colors font-medium"
+                >
+                  关闭
+                </button>
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => {
+                    setShowAbnormalAlert(false);
+                    setShowDetailModal(false);
+                  }}
+                  className="flex-1 py-3 bg-gradient-to-r from-red-500 to-orange-500 text-white rounded-xl font-medium flex items-center justify-center gap-2"
+                >
+                  <Stethoscope className="w-4 h-4" />
+                  咨询兽医
+                </motion.button>
+              </div>
             </div>
           </motion.div>
         </motion.div>
@@ -649,6 +814,7 @@ export function MedicalRecordsComponent({ petId, petName }: MedicalRecordsCompon
       {/* 模态框 */}
       <UploadModal />
       <DetailModal />
+      <AbnormalAlertModal />
     </div>
   );
 }

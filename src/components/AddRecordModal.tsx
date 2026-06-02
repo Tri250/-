@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { X, Mic, Image, Video, FileText, Check, Star, Square, Play, Pause, Camera, Upload } from 'lucide-react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { X, Mic, Image, Video, FileText, Check, Star, Square, Play, Pause, Camera, Upload, File, Volume2 } from 'lucide-react';
 import { GlassModal, GlassInput, GlassTextarea } from './DesignSystem';
 import { HealthTag, RecordType } from '../types/health-record';
 
@@ -28,6 +28,7 @@ const RECORD_TYPE_CONFIG: {
   { type: 'text', label: '文字', icon: FileText, color: 'bg-blue-500' },
   { type: 'voice', label: '语音', icon: Mic, color: 'bg-purple-500' },
   { type: 'photo', label: '图片', icon: Image, color: 'bg-green-500' },
+  { type: 'pdf', label: 'PDF', icon: File, color: 'bg-orange-500' },
   { type: 'video', label: '视频', icon: Video, color: 'bg-red-500' },
 ];
 
@@ -51,8 +52,12 @@ export const AddRecordModal: React.FC<AddRecordModalProps> = ({
   
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
+  const [selectedPdf, setSelectedPdf] = useState<string | null>(null);
+  const [pdfFileName, setPdfFileName] = useState<string | null>(null);
   const [isVideoRecording, setIsVideoRecording] = useState(false);
   const [videoRecordingTime, setVideoRecordingTime] = useState(0);
+  const [voiceTranscription, setVoiceTranscription] = useState<string | null>(null);
+  const [isTranscribing, setIsTranscribing] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -65,6 +70,7 @@ export const AddRecordModal: React.FC<AddRecordModalProps> = ({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
   const videoInputRef = useRef<HTMLInputElement | null>(null);
+  const pdfInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     return () => {
@@ -81,11 +87,13 @@ export const AddRecordModal: React.FC<AddRecordModalProps> = ({
     if (recordType === 'text' && !content.trim()) return;
     if (recordType === 'voice' && !audioBlob && recordingTime === 0) return;
     if (recordType === 'photo' && !selectedImage) return;
+    if (recordType === 'pdf' && !selectedPdf) return;
     if (recordType === 'video' && !selectedVideo && videoRecordingTime === 0) return;
 
     const attachments: string[] = [];
     if (selectedImage) attachments.push(selectedImage);
     if (selectedVideo) attachments.push(selectedVideo);
+    if (selectedPdf) attachments.push(selectedPdf);
 
     onSubmit({
       type: recordType,
@@ -95,6 +103,8 @@ export const AddRecordModal: React.FC<AddRecordModalProps> = ({
       isImportant,
       attachments,
       voiceDuration: recordType === 'voice' ? recordingTime : undefined,
+      voiceTranscription: voiceTranscription,
+      pdfFileName: pdfFileName,
     });
 
     handleClose();
@@ -103,9 +113,11 @@ export const AddRecordModal: React.FC<AddRecordModalProps> = ({
   const getDefaultContent = () => {
     switch (recordType) {
       case 'voice':
-        return `语音记录 (${recordingTime}秒)`;
+        return voiceTranscription || `语音记录 (${recordingTime}秒)`;
       case 'photo':
         return '图片记录';
+      case 'pdf':
+        return pdfFileName || 'PDF文档记录';
       case 'video':
         return `视频记录 (${videoRecordingTime}秒)`;
       default:
@@ -127,8 +139,12 @@ export const AddRecordModal: React.FC<AddRecordModalProps> = ({
     setIsPlaying(false);
     setSelectedImage(null);
     setSelectedVideo(null);
+    setSelectedPdf(null);
+    setPdfFileName(null);
     setIsVideoRecording(false);
     setVideoRecordingTime(0);
+    setVoiceTranscription(null);
+    setIsTranscribing(false);
     audioChunksRef.current = [];
     videoChunksRef.current = [];
     onClose();
@@ -234,6 +250,38 @@ export const AddRecordModal: React.FC<AddRecordModalProps> = ({
     }
   };
 
+  const handlePdfSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setPdfFileName(file.name);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setSelectedPdf(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const transcribeVoice = useCallback(async () => {
+    if (!audioBlob) return;
+    
+    setIsTranscribing(true);
+    
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
+    const mockTranscriptions = [
+      '今天猫咪精神状态良好，食欲正常，排便正常。',
+      '狗狗今天有点咳嗽，可能是感冒了，需要注意观察。',
+      '宠物体检结果正常，各项指标都在标准范围内。',
+      '今天给宠物喂了驱虫药，按照医嘱服用。',
+      '宠物疫苗接种完成，下次接种时间是三个月后。',
+    ];
+    
+    const randomTranscription = mockTranscriptions[Math.floor(Math.random() * mockTranscriptions.length)];
+    setVoiceTranscription(randomTranscription);
+    setIsTranscribing(false);
+  }, [audioBlob]);
+
   const startVideoRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -303,6 +351,8 @@ export const AddRecordModal: React.FC<AddRecordModalProps> = ({
         return !audioBlob && recordingTime === 0;
       case 'photo':
         return !selectedImage;
+      case 'pdf':
+        return !selectedPdf;
       case 'video':
         return !selectedVideo && videoRecordingTime === 0;
       default:
@@ -410,18 +460,115 @@ export const AddRecordModal: React.FC<AddRecordModalProps> = ({
                       onClick={() => {
                         setAudioBlob(null);
                         setRecordingTime(0);
+                        setVoiceTranscription(null);
                       }}
                       className="px-4 py-2 text-sm text-purple-600 hover:text-purple-800"
                     >
                       重新录制
                     </button>
                   </div>
+                  
+                  {!voiceTranscription && !isTranscribing && (
+                    <button
+                      onClick={transcribeVoice}
+                      className="mt-4 w-full py-3 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-500 text-white font-medium flex items-center justify-center gap-2 hover:shadow-lg transition-all"
+                    >
+                      <Volume2 className="w-4 h-4" />
+                      转为文字
+                    </button>
+                  )}
+                  
+                  {isTranscribing && (
+                    <div className="mt-4 w-full py-3 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center gap-2">
+                      <div className="w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                      正在识别语音内容...
+                    </div>
+                  )}
+                  
+                  {voiceTranscription && (
+                    <div className="mt-4 p-3 rounded-xl bg-white border border-purple-200">
+                      <p className="text-sm font-medium text-purple-700 mb-1">语音转文字结果:</p>
+                      <p className="text-sm text-neutral-600">{voiceTranscription}</p>
+                      <button
+                        onClick={() => setVoiceTranscription(null)}
+                        className="mt-2 text-xs text-purple-500 hover:text-purple-700"
+                      >
+                        清除转文字结果
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
               <GlassTextarea
                 label="备注（可选）"
                 placeholder="添加语音记录的补充说明..."
+                value={content}
+                onChange={setContent}
+                rows={2}
+              />
+            </div>
+          )}
+
+          {recordType === 'pdf' && (
+            <div className="space-y-3">
+              <label className="block text-sm font-medium text-neutral-700">PDF文档记录</label>
+              
+              <input
+                ref={pdfInputRef}
+                type="file"
+                accept=".pdf,application/pdf"
+                onChange={handlePdfSelect}
+                className="hidden"
+              />
+
+              {!selectedPdf && (
+                <button
+                  onClick={() => pdfInputRef.current?.click()}
+                  className="w-full py-8 rounded-xl border-2 border-dashed border-orange-300 bg-orange-50 hover:bg-orange-100 hover:border-orange-400 transition-all cursor-pointer"
+                >
+                  <div className="flex flex-col items-center gap-3">
+                    <Upload className="w-10 h-10 text-orange-500" />
+                    <span className="font-medium text-orange-700">点击上传PDF文档</span>
+                    <span className="text-sm text-orange-600">支持 PDF 格式，可在线预览</span>
+                  </div>
+                </button>
+              )}
+
+              {selectedPdf && (
+                <div className="relative rounded-xl overflow-hidden bg-orange-50 border border-orange-200">
+                  <div className="p-4 flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-xl bg-orange-500 flex items-center justify-center">
+                      <File className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-orange-700">PDF文档已选择</p>
+                      <p className="text-xs text-orange-600 truncate">{pdfFileName}</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setSelectedPdf(null);
+                        setPdfFileName(null);
+                      }}
+                      className="p-2 bg-white rounded-full shadow hover:bg-gray-100 transition-colors"
+                    >
+                      <X className="w-4 h-4 text-gray-600" />
+                    </button>
+                  </div>
+                  
+                  <div className="border-t border-orange-200 p-3 bg-white">
+                    <iframe
+                      src={selectedPdf}
+                      className="w-full h-64 rounded-lg border border-orange-100"
+                      title="PDF预览"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <GlassTextarea
+                label="备注（可选）"
+                placeholder="添加PDF文档的补充说明..."
                 value={content}
                 onChange={setContent}
                 rows={2}

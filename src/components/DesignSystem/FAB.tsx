@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, X, Mic, Image, FileText, Video } from 'lucide-react';
+import { Plus, X, Mic, Image, FileText, Video, File } from 'lucide-react';
 import { RecordType } from '../../types/health-record';
 
 interface FABProps {
@@ -13,6 +13,7 @@ export const FAB: React.FC<FABProps> = ({ onAction }) => {
     { type: 'text', icon: FileText, label: '文字记录', color: 'from-blue-500 to-blue-600' },
     { type: 'voice', icon: Mic, label: '语音记录', color: 'from-purple-500 to-purple-600' },
     { type: 'photo', icon: Image, label: '拍照记录', color: 'from-green-500 to-green-600' },
+    { type: 'pdf', icon: File, label: 'PDF文档', color: 'from-orange-500 to-orange-600' },
     { type: 'video', icon: Video, label: '视频记录', color: 'from-red-500 to-red-600' },
   ];
 

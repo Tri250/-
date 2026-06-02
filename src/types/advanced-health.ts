@@ -191,6 +191,11 @@ export interface GrowthCurveData {
   breedStandard: BreedStandard;
   percentile: number;
   trajectory: 'above' | 'normal' | 'below';
+  history: Array<{
+    date: string;
+    weight: number;
+    trend: 'gaining' | 'losing' | 'stable';
+  }>;
 }
 
 export interface BreedStandard {

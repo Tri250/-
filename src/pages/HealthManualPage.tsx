@@ -71,7 +71,12 @@ export const HealthManualPage: React.FC<HealthManualPageProps> = ({ onNavigate }
     setSearchQuery, 
     setPetTypeFilter, 
     toggleBookmark, 
-    bookmarks 
+    bookmarks,
+    searchResults,
+    isSearching,
+    lastSearchTime,
+    highlightText,
+    getCategoryArticleCount
   } = useHealthManualStore();
 
   const [isLoading, setIsLoading] = useState(true);
@@ -147,6 +152,21 @@ export const HealthManualPage: React.FC<HealthManualPageProps> = ({ onNavigate }
               </button>
             )}
           </div>
+          {searchQuery.trim().length > 0 && !isSearching && (
+            <div className="flex items-center justify-between mt-2 px-1 animate-fadeIn">
+              <span className="text-xs text-white/70">
+                找到 {searchResults.length > 0 ? searchResults.length : filteredManuals.length} 条结果
+              </span>
+              <span className="text-xs text-white/70">
+                搜索耗时 {lastSearchTime > 0 ? `${lastSearchTime.toFixed(1)}ms` : '<500ms'}
+              </span>
+            </div>
+          )}
+          {isSearching && (
+            <div className="flex items-center justify-center mt-2 animate-pulse">
+              <span className="text-xs text-white/70">正在搜索...</span>
+            </div>
+          )}
         </div>
       </header>
 
@@ -229,6 +249,9 @@ export const HealthManualPage: React.FC<HealthManualPageProps> = ({ onNavigate }
                       />
                     </div>
                     <h3 className="font-semibold text-neutral-800 text-sm">{category.name}</h3>
+                    <p className="text-xs text-neutral-400 mt-0.5">
+                      {getCategoryArticleCount(category.id as ManualCategory)}篇
+                    </p>
                   </button>
                 );
               })}
@@ -285,6 +308,14 @@ export const HealthManualPage: React.FC<HealthManualPageProps> = ({ onNavigate }
                                 <Clock className="w-3 h-3" />
                                 {manual.readTime}分钟
                               </span>
+                              {manual.verifiedByVet && (
+                                <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-600">
+                                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.642.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 00-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 00-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 00-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                  </svg>
+                                  执业兽医审核
+                                </span>
+                              )}
                             </div>
                           </div>
                           <button
@@ -384,6 +415,14 @@ export const HealthManualPage: React.FC<HealthManualPageProps> = ({ onNavigate }
                               >
                                 {MANUAL_CATEGORIES.find(c => c.id === manual.category)?.name}
                               </span>
+                              {manual.verifiedByVet && (
+                                <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-600">
+                                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.642.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 00-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 00-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 00-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                  </svg>
+                                  执业兽医审核
+                                </span>
+                              )}
                             </div>
                           </div>
                           <button

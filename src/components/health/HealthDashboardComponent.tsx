@@ -6,7 +6,7 @@
 // 描述: 沉浸式健康仪表盘 - 0-100分整体健康评分+四维度环形图
 // ============================================
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Shield, 
@@ -20,10 +20,17 @@ import {
   ChevronRight,
   RefreshCw,
   Calendar,
-  Target
+  Target,
+  Syringe,
+  Stethoscope,
+  BarChart3,
+  Filter
 } from 'lucide-react';
 import { aiHealthAlertService } from '../../services/aiHealthAlertService';
+import { medicalRecordOCRService } from '../../services/medicalRecordOCRService';
 import type { ComprehensiveHealthScore, HealthDashboard } from '../../types/advanced-health';
+
+type StatsTimeFilter = 'year' | 'quarter' | 'month';
 
 interface HealthDashboardComponentProps {
   petId: string;
@@ -36,22 +43,52 @@ export function HealthDashboardComponent({ petId, onNavigateToDetails }: HealthD
   const [loading, setLoading] = useState(true);
   const [selectedDimension, setSelectedDimension] = useState<string | null>(null);
   const [animationComplete, setAnimationComplete] = useState(false);
+  const [statsTimeFilter, setStatsTimeFilter] = useState<StatsTimeFilter>('year');
+  const [vaccineStats, setVaccineStats] = useState<{ completed: number; total: number; rate: number }>({ completed: 0, total: 0, rate: 0 });
+  const [medicalVisitStats, setMedicalVisitStats] = useState<{ count: number; lastVisit: string }>({ count: 0, lastVisit: '' });
 
   useEffect(() => {
     loadData();
-  }, [petId]);
+  }, [petId, statsTimeFilter]);
 
   const loadData = async () => {
     setLoading(true);
     try {
-      const [score, dash] = await Promise.all([
+      const [score, dash, records] = await Promise.all([
         aiHealthAlertService.getComprehensiveHealthScore(petId),
-        aiHealthAlertService.getHealthDashboard(petId)
+        aiHealthAlertService.getHealthDashboard(petId),
+        medicalRecordOCRService.getMedicalRecords(petId)
       ]);
       setHealthScore(score);
       setDashboard(dash);
       
-      // 延迟触发完成动画
+      const vaccineData = dash.vaccination.vaccines;
+      const completedVaccines = vaccineData.filter(v => v.status === 'completed').length;
+      const totalVaccines = vaccineData.length;
+      setVaccineStats({
+        completed: completedVaccines,
+        total: totalVaccines,
+        rate: totalVaccines > 0 ? Math.round((completedVaccines / totalVaccines) * 100) : 0
+      });
+
+      const now = new Date();
+      const filterStartDate = new Date(now);
+      if (statsTimeFilter === 'year') {
+        filterStartDate.setFullYear(filterStartDate.getFullYear() - 1);
+      } else if (statsTimeFilter === 'quarter') {
+        filterStartDate.setMonth(filterStartDate.getMonth() - 3);
+      } else {
+        filterStartDate.setMonth(filterStartDate.getMonth() - 1);
+      }
+
+      const filteredRecords = records.filter(r => new Date(r.date) >= filterStartDate);
+      const visitCount = filteredRecords.filter(r => r.type === 'checkup' || r.type === 'lab_report').length;
+      const lastVisitRecord = filteredRecords.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+      setMedicalVisitStats({
+        count: visitCount,
+        lastVisit: lastVisitRecord?.date || '无记录'
+      });
+      
       setTimeout(() => setAnimationComplete(true), 2000);
     } catch (error) {
       console.error('Failed to load health data:', error);
@@ -372,6 +409,106 @@ export function HealthDashboardComponent({ petId, onNavigateToDetails }: HealthD
               className="h-full bg-gradient-to-r from-green-400 to-green-600 rounded-full"
             />
           </div>
+        </div>
+      </div>
+
+      {/* 多维度统计 */}
+      <div className="bg-white rounded-2xl p-4 shadow-sm">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+            <BarChart3 className="w-4 h-4" />
+            多维度统计
+          </h3>
+          <div className="flex bg-gray-100 rounded-lg p-1">
+            {[
+              { key: 'year', label: '年度' },
+              { key: 'quarter', label: '季度' },
+              { key: 'month', label: '月度' }
+            ].map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => setStatsTimeFilter(key as StatsTimeFilter)}
+                className={`px-2 py-1 rounded text-xs transition-all ${
+                  statsTimeFilter === key
+                    ? 'bg-white shadow-sm text-gray-800 font-medium'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          {/* 疫苗完成率 */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4"
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                <Syringe className="w-4 h-4 text-green-600" />
+              </div>
+              <span className="text-sm font-medium text-gray-700">疫苗完成率</span>
+            </div>
+            <div className="relative h-16 flex items-center justify-center">
+              <svg className="w-16 h-16 transform -rotate-90">
+                <circle
+                  cx="32"
+                  cy="32"
+                  r="28"
+                  stroke="#e5e7eb"
+                  strokeWidth="4"
+                  fill="none"
+                />
+                <motion.circle
+                  cx="32"
+                  cy="32"
+                  r="28"
+                  stroke="#22C55E"
+                  strokeWidth="4"
+                  fill="none"
+                  strokeLinecap="round"
+                  initial={{ strokeDasharray: '0 176' }}
+                  animate={{ strokeDasharray: `${(vaccineStats.rate / 100) * 176} 176` }}
+                  transition={{ duration: 1.5, ease: 'easeOut' }}
+                />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-xl font-bold text-green-600">{vaccineStats.rate}%</span>
+              </div>
+            </div>
+            <p className="text-xs text-gray-500 text-center mt-2">
+              {vaccineStats.completed}/{vaccineStats.total} 已完成
+            </p>
+          </motion.div>
+
+          {/* 就医频次 */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4"
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                <Stethoscope className="w-4 h-4 text-blue-600" />
+              </div>
+              <span className="text-sm font-medium text-gray-700">就医频次</span>
+            </div>
+            <div className="text-center py-2">
+              <p className="text-3xl font-bold text-blue-600">{medicalVisitStats.count}</p>
+              <p className="text-xs text-gray-500 mt-1">次就医记录</p>
+            </div>
+            <div className="mt-2 pt-2 border-t border-blue-200">
+              <p className="text-xs text-gray-500">
+                最近就医: <span className="font-medium text-gray-700">{medicalVisitStats.lastVisit}</span>
+              </p>
+            </div>
+          </motion.div>
         </div>
       </div>
 

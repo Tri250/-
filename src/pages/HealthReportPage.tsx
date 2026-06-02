@@ -49,9 +49,198 @@ export function HealthReportPage({ onNavigate }: HealthReportPageProps) {
   const petId = currentPet?.id || '1';
   const petName = currentPet?.name || '毛孩子';
 
+  const [exporting, setExporting] = useState(false);
+
   useEffect(() => {
     loadReportData();
   }, [petId, reportPeriod]);
+
+  const handleExportPDF = async () => {
+    setExporting(true);
+    try {
+      const reportContent = generatePDFContent();
+      const blob = new Blob([reportContent], { type: 'text/html;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${petName}_健康报告_${new Date().toLocaleDateString('zh-CN')}.html`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('导出失败:', error);
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const generatePDFContent = (): string => {
+    const periodLabel = periodLabels[reportPeriod];
+    const exportTime = new Date().toLocaleString('zh-CN');
+    
+    let content = `
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>${petName}健康报告</title>
+  <style>
+    body { font-family: 'Microsoft YaHei', sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; }
+    .header { text-align: center; border-bottom: 2px solid #22C55E; padding-bottom: 20px; margin-bottom: 30px; }
+    .header h1 { color: #22C55E; font-size: 28px; margin: 0; }
+    .header p { color: #666; margin-top: 10px; }
+    .section { margin-bottom: 30px; }
+    .section-title { font-size: 18px; color: #333; border-left: 4px solid #22C55E; padding-left: 10px; margin-bottom: 15px; }
+    .score-box { background: linear-gradient(135deg, #22C55E, #10B981); color: white; padding: 20px; border-radius: 10px; text-align: center; margin-bottom: 20px; }
+    .score-box .score { font-size: 48px; font-weight: bold; }
+    .dimension-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
+    .dimension-card { background: #f8f9fa; padding: 15px; border-radius: 8px; }
+    .dimension-card h3 { margin: 0 0 10px 0; color: #333; }
+    .dimension-card .score { font-size: 24px; font-weight: bold; }
+    .alert-item { padding: 10px; margin-bottom: 10px; border-radius: 5px; }
+    .alert-red { background: #fee2e2; border: 1px solid #ef4444; }
+    .alert-orange { background: #ffedd5; border: 1px solid #f97316; }
+    .alert-yellow { background: #fef3c7; border: 1px solid #eab308; }
+    .alert-green { background: #dcfce7; border: 1px solid #22c55e; }
+    .recommendation { background: #f0fdf4; padding: 15px; border-radius: 8px; margin-top: 20px; }
+    .recommendation li { margin-bottom: 8px; }
+    .footer { text-align: center; color: #999; font-size: 12px; margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px; }
+    .disclaimer { background: #fff7ed; padding: 15px; border-radius: 8px; border: 1px solid #fed7aa; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🐾 ${petName}的健康报告</h1>
+    <p>报告类型: ${periodLabel} | 生成时间: ${exportTime}</p>
+  </div>
+`;
+
+    if (healthScore) {
+      content += `
+  <div class="section">
+    <div class="section-title">整体健康评分</div>
+    <div class="score-box">
+      <div class="score">${healthScore.overall}</div>
+      <p>健康趋势: ${healthScore.trend === 'up' ? '上升' : healthScore.trend === 'down' ? '下降' : '稳定'}</p>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">四维度健康分析</div>
+    <div class="dimension-grid">
+      ${healthScore.dimensions.map(dim => {
+        const config = dimensionConfigs[dim.id as keyof typeof dimensionConfigs];
+        return `
+        <div class="dimension-card">
+          <h3>${config?.label || dim.name}</h3>
+          <div class="score" style="color: ${config?.color || '#333'}">${dim.score}</div>
+          <p>趋势: ${dim.trend === 'up' ? '上升 +' + dim.change : dim.trend === 'down' ? '下降 ' + dim.change : '稳定'}</p>
+          <ul>
+            ${dim.metrics.map(m => `<li>${m}</li>`).join('')}
+          </ul>
+        </div>
+        `;
+      }).join('')}
+    </div>
+  </div>
+`;
+    }
+
+    if (healthScore?.prediction) {
+      content += `
+  <div class="section">
+    <div class="section-title">AI健康建议</div>
+    <div class="recommendation">
+      <p><strong>风险评估:</strong> ${healthScore.prediction.riskLevel === 'low' ? '低风险' : '需关注'}</p>
+      ${healthScore.prediction.predictedIssues.length > 0 ? `
+      <p><strong>需要关注的问题:</strong></p>
+      <ul>
+        ${healthScore.prediction.predictedIssues.map(issue => `<li>${issue}</li>`).join('')}
+      </ul>
+      ` : '<p>当前各项指标正常，继续保持良好的护理习惯</p>'}
+    </div>
+  </div>
+`;
+    }
+
+    if (dashboard) {
+      content += `
+  <div class="section">
+    <div class="section-title">数据概览</div>
+    <table style="width: 100%; border-collapse: collapse;">
+      <tr>
+        <td style="padding: 10px; border: 1px solid #eee;"><strong>活动时间</strong></td>
+        <td style="padding: 10px; border: 1px solid #eee;">${dashboard.activity.daily} 分钟/天</td>
+      </tr>
+      <tr>
+        <td style="padding: 10px; border: 1px solid #eee;"><strong>睡眠时长</strong></td>
+        <td style="padding: 10px; border: 1px solid #eee;">${dashboard.sleep.duration.toFixed(1)} 小时</td>
+      </tr>
+      <tr>
+        <td style="padding: 10px; border: 1px solid #eee;"><strong>摄入热量</strong></td>
+        <td style="padding: 10px; border: 1px solid #eee;">${dashboard.nutrition.calories} kcal</td>
+      </tr>
+      <tr>
+        <td style="padding: 10px; border: 1px solid #eee;"><strong>当前体重</strong></td>
+        <td style="padding: 10px; border: 1px solid #eee;">${dashboard.weight.current} kg (目标: ${dashboard.weight.target} kg)</td>
+      </tr>
+    </table>
+  </div>
+`;
+    }
+
+    if (alerts.length > 0) {
+      content += `
+  <div class="section">
+    <div class="section-title">健康警报记录</div>
+    ${alerts.slice(0, 5).map(alert => `
+    <div class="alert-item alert-${alert.alertLevel}">
+      <p><strong>${alert.description}</strong></p>
+      <p>${alert.recommendation}</p>
+      <p style="font-size: 12px; color: #666;">${new Date(alert.timestamp).toLocaleString('zh-CN')}</p>
+    </div>
+    `).join('')}
+  </div>
+`;
+    }
+
+    content += `
+  <div class="disclaimer">
+    <p><strong>⚠️ 免责声明</strong></p>
+    <p>本报告为AI辅助分析，不构成医疗诊断。如有健康问题，请以专业兽医意见为准。</p>
+  </div>
+
+  <div class="footer">
+    <p>PawSync Pro - 智能宠物健康管理平台</p>
+    <p>报告生成时间: ${exportTime}</p>
+  </div>
+</body>
+</html>
+`;
+
+    return content;
+  };
+
+  const handleShareReport = async () => {
+    try {
+      const shareData = {
+        title: `${petName}的健康报告`,
+        text: `${petName}的健康评分: ${healthScore?.overall || 'N/A'}分，查看详细报告请点击链接`,
+        url: window.location.href
+      };
+      
+      if (navigator.share && navigator.canShare(shareData)) {
+        await navigator.share(shareData);
+      } else {
+        const textToCopy = `${petName}的健康报告\n健康评分: ${healthScore?.overall || 'N/A'}分\n生成时间: ${new Date().toLocaleString('zh-CN')}\n查看详情: ${window.location.href}`;
+        await navigator.clipboard.writeText(textToCopy);
+        alert('报告信息已复制到剪贴板，可分享给他人');
+      }
+    } catch (error) {
+      console.error('分享失败:', error);
+    }
+  };
 
   const loadReportData = async () => {
     setLoading(true);
@@ -388,12 +577,14 @@ export function HealthReportPage({ onNavigate }: HealthReportPageProps) {
         {/* 操作按钮 */}
         <div className="flex gap-3">
           <button
+            onClick={handleExportPDF}
             className="flex-1 flex items-center justify-center gap-2 py-3 bg-white rounded-xl shadow-sm border border-gray-100 text-gray-700 font-medium hover:shadow-md transition-shadow"
           >
             <Download className="w-5 h-5" />
             下载报告
           </button>
           <button
+            onClick={handleShareReport}
             className="flex-1 flex items-center justify-center gap-2 py-3 bg-white rounded-xl shadow-sm border border-gray-100 text-gray-700 font-medium hover:shadow-md transition-shadow"
           >
             <Share2 className="w-5 h-5" />

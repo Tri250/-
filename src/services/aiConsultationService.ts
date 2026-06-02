@@ -1048,6 +1048,102 @@ export class AIConsultationService {
     return response;
   }
 
+  private checkSevereSymptoms(message: string): { hasSevereSymptoms: boolean; response: string } {
+    const severeKeywords = [
+      { pattern: /抽搐|痉挛|癫痫|震颤/gi, name: '抽搐/痉挛', urgency: 'red' },
+      { pattern: /昏迷|昏厥|晕厥|意识不清/gi, name: '昏迷', urgency: 'red' },
+      { pattern: /呼吸困难|喘不过气|张口呼吸|呼吸急促且持续/gi, name: '呼吸困难', urgency: 'red' },
+      { pattern: /大量出血|血不止|喷血/gi, name: '大量出血', urgency: 'red' },
+      { pattern: /中毒|误食巧克力|误食洋葱|误食葡萄|吃老鼠药/gi, name: '中毒', urgency: 'red' },
+      { pattern: /尿闭|无法排尿|尿不出来|完全不尿/gi, name: '尿闭', urgency: 'red' },
+      { pattern: /骨折|断腿|断裂/gi, name: '骨折', urgency: 'red' },
+      { pattern: /持续呕吐|呕吐不止|吐血/gi, name: '持续呕吐', urgency: 'orange' },
+      { pattern: /严重腹泻|血便|拉血/gi, name: '严重腹泻', urgency: 'orange' },
+      { pattern: /高烧|体温超过40|体温41/gi, name: '高烧', urgency: 'orange' },
+      { pattern: /瘫痪|站不起来|完全不能动/gi, name: '瘫痪', urgency: 'red' },
+      { pattern: /眼球突出|眼睛受伤严重/gi, name: '眼部重伤', urgency: 'red' },
+    ];
+
+    for (const keyword of severeKeywords) {
+      if (keyword.pattern.test(message)) {
+        const isRed = keyword.urgency === 'red';
+        const response = isRed 
+          ? `🚨 **紧急情况警告** 🚨
+
+您描述的症状「${keyword.name}」属于**紧急情况**，需要立即就医！
+
+**请立即采取以下措施：**
+1. ⏰ 立即联系最近的24小时宠物医院
+2. 🚗 尽快将宠物送往医院，途中保持安静和温暖
+3. 📝 记录症状发生的时间和表现
+4. ⛔ 不要自行用药或处理，等待专业兽医
+
+**时间非常关键！** 这种情况延误可能导致严重后果。
+
+需要我帮您查找附近的宠物医院吗？`
+          : `⚠️ **紧急提示** ⚠️
+
+您描述的症状「${keyword.name}」需要**尽快就医**（建议24小时内）。
+
+**建议措施：**
+1. 📞 尽快预约宠物医院
+2. 👀 继续观察症状变化，如有加重立即就医
+3. 📝 记录症状详情供兽医参考
+4. ⛔ 避免自行用药
+
+如果症状加重或出现其他严重表现，请立即就医！`;
+
+        return { hasSevereSymptoms: true, response };
+      }
+    }
+
+    return { hasSevereSymptoms: false, response: '' };
+  }
+
+  private checkOutOfScope(message: string): { isOutOfScope: boolean; response: string } {
+    const outOfScopePatterns = [
+      { pattern: /天气|股票|新闻|政治|体育|电影|音乐|游戏|旅游|美食推荐|餐厅|酒店|航班|火车票|购物|衣服|鞋子|包包|化妆品|手机|电脑|汽车|房子|装修|理财|投资|贷款|信用卡|保险(?!宠物)|法律|诉讼|离婚|结婚|恋爱|相亲|求职|招聘|考试|学校|大学|留学|签证|移民|护照|税务|报税|社保|公积金|医保(?!宠物)/gi, category: '生活其他' },
+      { pattern: /做饭|菜谱|食谱|烹饪|烘焙|健身|瑜伽|跑步|减肥(?!宠物)|美容(?!宠物)|化妆|穿搭|发型|护肤(?!宠物)/gi, category: '个人生活' },
+      { pattern: /编程|代码|软件|开发|设计|营销|运营|产品|项目管理|数据分析|人工智能(?!宠物)|机器学习(?!宠物)/gi, category: '工作技术' },
+      { pattern: /娱乐|明星|八卦|综艺|电视剧|小说|漫画|动漫|偶像|粉丝|演唱会|音乐节|酒吧|夜店|派对|聚会|喝酒|吸烟|赌博|彩票/gi, category: '娱乐休闲' },
+    ];
+
+    const petRelatedKeywords = ['猫', '狗', '宠物', '毛孩子', '猫咪', '狗狗', '小狗', '大狗', '小猫', '大猫', '兽医', '医院', '疫苗', '驱虫', '体检', '症状', '生病', '健康', '食欲', '呕吐', '腹泻', '咳嗽', '发烧', '皮肤', '耳朵', '眼睛', '牙齿', '关节', '行为', '训练', '喂养', '饮食', '洗澡', '美容', '绝育', '配种', '怀孕', '生产'];
+
+    const hasPetKeyword = petRelatedKeywords.some(keyword => message.includes(keyword));
+
+    if (!hasPetKeyword) {
+      for (const pattern of outOfScopePatterns) {
+        if (pattern.pattern.test(message)) {
+          const response = `📌 **服务范围提示**
+
+您好！我是**宠物健康顾问**，专门解答宠物健康相关问题。
+
+您的问题似乎超出了我的服务范围（${pattern.category}）。
+
+**我可以帮助您解答：**
+• 🐾 宠物健康症状分析（呕吐、腹泻、食欲不振等）
+• 💊 护理和喂养建议
+• 🏥 就医判断和紧急情况处理
+• 💉 疫苗、驱虫、体检等预防保健
+• 🎯 行为训练和心理问题
+• 📋 日常养护知识
+
+**请描述您的宠物健康问题，我会尽力提供专业建议。**
+
+例如：
+- "我的猫咪最近食欲不振怎么办？"
+- "狗狗呕吐了需要去医院吗？"
+- "宠物驱虫多久一次？"`
+
+          return { isOutOfScope: true, response };
+        }
+      }
+    }
+
+    return { isOutOfScope: false, response: '' };
+  }
+
   private extractSymptoms(message: string): string[] {
     const foundSymptoms: string[] = [];
     for (const [symptom, synonyms] of Object.entries(symptomSynonyms)) {
@@ -1148,6 +1244,25 @@ export class AIConsultationService {
     }
     
     const sanitizedQuestion = validation.sanitizedContent || this.sanitizeInput(question);
+    
+    const severeSymptomCheck = this.checkSevereSymptoms(sanitizedQuestion);
+    if (severeSymptomCheck.hasSevereSymptoms) {
+      return {
+        content: severeSymptomCheck.response,
+        confidence: 0.95,
+        detectedIntents: ['emergency'],
+      };
+    }
+    
+    const outOfScopeCheck = this.checkOutOfScope(sanitizedQuestion);
+    if (outOfScopeCheck.isOutOfScope) {
+      return {
+        content: outOfScopeCheck.response,
+        confidence: 0.90,
+        detectedIntents: ['out_of_scope'],
+        needsClarification: true,
+      };
+    }
     
     if (validation.detectedLanguage && validation.detectedLanguage !== MULTILINGUAL_CONFIG.defaultLanguage) {
       return this.handleMixedLanguageInput(sanitizedQuestion);

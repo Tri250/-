@@ -3,7 +3,7 @@ export { Button } from './Button';
 export { Badge } from './Badge';
 export { ProgressRing } from './ProgressRing';
 export { FAB } from './FAB';
-export { Timeline, TimelineItem } from './Timeline';
+export { Timeline, TimelineItem, VirtualTimeline } from './Timeline';
 export { EmptyState } from './EmptyState';
 export { GlassCard, GlassSurface, GlassButton } from './GlassCard';
 export { GlassInput, GlassTextarea, GlassSelect } from './Input';

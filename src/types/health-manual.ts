@@ -17,6 +17,10 @@ export interface HealthManual {
   updatedAt?: string;
   author?: string;
   references?: string[];
+  verifiedByVet?: boolean;
+  vetVerifyDate?: string;
+  vetName?: string;
+  articleCount?: number;
 }
 
 export const MANUAL_CATEGORIES: { id: ManualCategory; name: string; icon: string; color: string }[] = [
@@ -76,7 +80,10 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     createdAt: '2026-01-01',
     updatedAt: '2026-03-15',
     author: '宠物营养研究院',
-    references: ['Journal of Feline Medicine and Surgery 2026', 'AVMA Nutrition Guidelines']
+    references: ['Journal of Feline Medicine and Surgery 2026', 'AVMA Nutrition Guidelines'],
+    verifiedByVet: true,
+    vetVerifyDate: '2026-03-15',
+    vetName: '李医生(执业兽医)'
   },
   {
     id: '2',
@@ -122,7 +129,10 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     tags: ['行为', '健康信号', '异常行为', '狗狗沟通'],
     createdAt: '2026-01-02',
     updatedAt: '2026-02-20',
-    author: '动物行为研究中心'
+    author: '动物行为研究中心',
+    verifiedByVet: true,
+    vetVerifyDate: '2026-02-20',
+    vetName: '王医生(执业兽医)'
   },
   {
     id: '3',
@@ -173,7 +183,10 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     tags: ['急救', '安全', '中毒', 'CPR', '中暑'],
     createdAt: '2026-01-03',
     updatedAt: '2026-01-10',
-    author: '宠物急救中心'
+    author: '宠物急救中心',
+    verifiedByVet: true,
+    vetVerifyDate: '2026-01-10',
+    vetName: '张医生(执业兽医)'
   },
   {
     id: '4',
@@ -219,7 +232,10 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     tags: ['口腔', '护理', '牙齿', '牙周病'],
     createdAt: '2026-01-04',
     updatedAt: '2026-03-01',
-    author: '宠物口腔健康协会'
+    author: '宠物口腔健康协会',
+    verifiedByVet: true,
+    vetVerifyDate: '2026-03-01',
+    vetName: '陈医生(执业兽医)'
   },
   {
     id: '5',
@@ -273,7 +289,10 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     tags: ['狗狗营养', '蛋白质', '维生素', '体型'],
     createdAt: '2026-01-05',
     updatedAt: '2026-02-15',
-    author: '宠物营养研究院'
+    author: '宠物营养研究院',
+    verifiedByVet: true,
+    vetVerifyDate: '2026-02-15',
+    vetName: '刘医生(执业兽医)'
   },
   {
     id: '6',
@@ -383,7 +402,10 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     tags: ['疾病预防', 'FIP', '肾病', '糖尿病', '牙周病'],
     createdAt: '2026-01-07',
     updatedAt: '2026-03-10',
-    author: '猫咪健康研究中心'
+    author: '猫咪健康研究中心',
+    verifiedByVet: true,
+    vetVerifyDate: '2026-03-10',
+    vetName: '赵医生(执业兽医)'
   },
   {
     id: '8',
@@ -455,7 +477,10 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     tags: ['疾病预防', '犬瘟热', '细小病毒', '心丝虫', '髋关节'],
     createdAt: '2026-01-08',
     updatedAt: '2026-02-28',
-    author: '犬类健康研究协会'
+    author: '犬类健康研究协会',
+    verifiedByVet: true,
+    vetVerifyDate: '2026-02-28',
+    vetName: '周医生(执业兽医)'
   },
   {
     id: '9',
@@ -512,7 +537,10 @@ export const SAMPLE_MANUALS: HealthManual[] = [
     tags: ['分离焦虑', '行为问题', '心理健康', '训练'],
     createdAt: '2026-01-09',
     updatedAt: '2026-01-25',
-    author: '动物行为治疗中心'
+    author: '动物行为治疗中心',
+    verifiedByVet: true,
+    vetVerifyDate: '2026-01-25',
+    vetName: '吴医生(执业兽医)'
   },
   {
     id: '10',

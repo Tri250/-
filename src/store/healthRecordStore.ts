@@ -6,8 +6,8 @@ interface HealthRecordStore {
   tags: HealthTag[];
   selectedTag: string | null;
   searchQuery: string;
+  customTags: HealthTag[];
   
-  // Actions
   addRecord: (record: Omit<HealthRecord, 'id' | 'createdAt' | 'updatedAt'>) => void;
   updateRecord: (id: string, updates: Partial<HealthRecord>) => void;
   deleteRecord: (id: string) => void;
@@ -20,9 +20,9 @@ interface HealthRecordStore {
   setSearchQuery: (query: string) => void;
   
   getFilteredRecords: (petId: string) => HealthRecord[];
+  getFilteredRecordsByTags: (petId: string, tagIds: string[]) => HealthRecord[];
 }
 
-// 示例数据
 const INITIAL_RECORDS: HealthRecord[] = [
   {
     id: '1',
@@ -65,6 +65,7 @@ export const useHealthRecordStore = create<HealthRecordStore>((set, get) => ({
   tags: DEFAULT_TAGS,
   selectedTag: null,
   searchQuery: '',
+  customTags: [],
 
   addRecord: (record) => {
     const newRecord: HealthRecord = {
@@ -107,16 +108,18 @@ export const useHealthRecordStore = create<HealthRecordStore>((set, get) => ({
   addTag: (tag) => {
     const newTag: HealthTag = {
       ...tag,
-      id: Date.now().toString(),
+      id: `custom-${Date.now()}`,
     };
     set((state) => ({
       tags: [...state.tags, newTag],
+      customTags: [...state.customTags, newTag],
     }));
   },
 
   deleteTag: (id) => {
     set((state) => ({
       tags: state.tags.filter((tag) => tag.id !== id),
+      customTags: state.customTags.filter((tag) => tag.id !== id),
     }));
   },
 
@@ -125,10 +128,44 @@ export const useHealthRecordStore = create<HealthRecordStore>((set, get) => ({
 
   getFilteredRecords: (petId) => {
     const state = get();
-    let filtered = state.records.filter((r) => r.petId === petId);
+    const petRecords = state.records.filter((r) => r.petId === petId);
+    
+    if (!state.selectedTag && !state.searchQuery) {
+      return petRecords.sort((a, b) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+    }
+    
+    let filtered = petRecords;
     
     if (state.selectedTag) {
-      filtered = filtered.filter((r) => r.tags.includes(state.selectedTag));
+      filtered = filtered.filter((r) => r.tags.includes(state.selectedTag!));
+    }
+    
+    if (state.searchQuery) {
+      const query = state.searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (r) => 
+          r.title.toLowerCase().includes(query) || 
+          r.content.toLowerCase().includes(query) ||
+          (r.voiceTranscription && r.voiceTranscription.toLowerCase().includes(query)) ||
+          (r.pdfFileName && r.pdfFileName.toLowerCase().includes(query))
+      );
+    }
+    
+    return filtered.sort((a, b) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  },
+
+  getFilteredRecordsByTags: (petId, tagIds) => {
+    const state = get();
+    let filtered = state.records.filter((r) => r.petId === petId);
+    
+    if (tagIds.length > 0) {
+      filtered = filtered.filter((r) => 
+        tagIds.some(tagId => r.tags.includes(tagId))
+      );
     }
     
     if (state.searchQuery) {

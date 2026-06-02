@@ -17,6 +17,8 @@ export interface HealthRecord {
   tags: string[];
   attachments?: string[];
   voiceDuration?: number;
+  voiceTranscription?: string;
+  pdfFileName?: string;
   createdAt: string;
   updatedAt: string;
   isImportant: boolean;
