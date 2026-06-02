@@ -1,17 +1,22 @@
 import { useState } from 'react';
-import { User, Edit, History, Settings, Crown, Star, Heart, ChevronRight, Camera, X, Gift } from 'lucide-react';
+import { User, Edit, History, Settings, Crown, Star, Heart, ChevronRight, Camera, X, Gift, Code } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 import { ReferralProgram } from '../components/ReferralProgram';
 
+interface ProfilePageProps {
+  onNavigate?: (page: string) => void;
+}
+
 const menuItems = [
-  { icon: Gift, label: '邀请好友', description: '邀请得会员奖励' },
-  { icon: History, label: '分析历史', description: '查看所有翻译记录' },
-  { icon: Settings, label: '设置', description: '隐私、通知等设置' },
-  { icon: Heart, label: '收藏', description: '收藏的精彩时刻' },
-  { icon: Star, label: '帮助与反馈', description: '使用帮助与问题反馈' },
+  { icon: Gift, label: '邀请好友', description: '邀请得会员奖励', page: 'referral' },
+  { icon: History, label: '分析历史', description: '查看所有翻译记录', page: 'history' },
+  { icon: Settings, label: '设置', description: '隐私、通知等设置', page: 'settings' },
+  { icon: Heart, label: '收藏', description: '收藏的精彩时刻', page: 'favorites' },
+  { icon: Star, label: '帮助与反馈', description: '使用帮助与问题反馈', page: 'help-feedback' },
+  { icon: Code, label: '开发作者', description: '热爱生活的小陈工', page: 'developer-info' },
 ];
 
-export function ProfilePage() {
+export function ProfilePage({ onNavigate }: ProfilePageProps) {
   const { currentPet, analyses } = useAppStore();
   const [showEdit, setShowEdit] = useState(false);
   const [petName, setPetName] = useState(currentPet?.name || '');
@@ -154,6 +159,11 @@ export function ProfilePage() {
             return (
               <button
                 key={item.label}
+                onClick={() => {
+                  if (onNavigate && item.page) {
+                    onNavigate(item.page);
+                  }
+                }}
                 className="w-full flex items-center gap-3 p-4 hover:bg-gray-50 transition-colors"
               >
                 <div className="w-10 h-10 rounded-full bg-purple-50 flex items-center justify-center">

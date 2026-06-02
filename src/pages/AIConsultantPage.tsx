@@ -83,7 +83,7 @@ export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }
       console.error('初始化失败:', err);
       setError('页面初始化失败，请刷新重试');
     }
-  }, []);
+  }, [currentConsultationId, currentPetId, createConsultation, loadConversationHistory]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -165,12 +165,50 @@ export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }
     setAttachments(prev => prev.filter(a => a.id !== id));
   };
 
+  const [recognitionInstance, setRecognitionInstance] = useState<any>(null);
+  
   const startVoiceRecording = () => {
     setIsRecording(true);
+    
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+      const recognition = new SpeechRecognition();
+      
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.lang = 'zh-CN';
+      
+      recognition.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        setInputText(prev => prev + transcript);
+      };
+      
+      recognition.onerror = (event: any) => {
+        console.error('语音识别错误:', event.error);
+        setIsRecording(false);
+        if (event.error === 'not-allowed') {
+          setError('请允许使用麦克风权限');
+        }
+      };
+      
+      recognition.onend = () => {
+        setIsRecording(false);
+      };
+      
+      recognition.start();
+      setRecognitionInstance(recognition);
+    } else {
+      setError('您的浏览器不支持语音识别功能');
+      setIsRecording(false);
+    }
   };
 
   const stopVoiceRecording = () => {
     setIsRecording(false);
+    if (recognitionInstance) {
+      recognitionInstance.stop();
+      setRecognitionInstance(null);
+    }
   };
 
   const formatTime = (dateString: string) => {

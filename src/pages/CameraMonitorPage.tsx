@@ -125,6 +125,14 @@ export const CameraMonitorPage: React.FC<CameraMonitorPageProps> = ({ onNavigate
           </div>
           <div className="flex items-center gap-2">
             <button 
+              onClick={() => setShowPairingModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-500 hover:bg-primary-600 transition-colors text-sm font-medium"
+              aria-label="添加设备"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">添加设备</span>
+            </button>
+            <button 
               onClick={() => setShowCameraList(true)}
               className="p-2 rounded-lg hover:bg-neutral-800 transition-colors"
               aria-label="切换摄像头"

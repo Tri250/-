@@ -46,6 +46,8 @@ export const HealthRecordsPage: React.FC<HealthRecordsPageProps> = ({ onNavigate
     content: string;
     tags: string[];
     isImportant: boolean;
+    attachments?: string[];
+    voiceDuration?: number;
   }) => {
     if (!currentPetId) return;
 
@@ -56,6 +58,8 @@ export const HealthRecordsPage: React.FC<HealthRecordsPageProps> = ({ onNavigate
       content: recordData.content,
       tags: recordData.tags,
       isImportant: recordData.isImportant,
+      attachments: recordData.attachments,
+      voiceDuration: recordData.voiceDuration,
     });
     
     setIsModalOpen(false);

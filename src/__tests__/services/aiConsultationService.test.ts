@@ -166,8 +166,9 @@ describe('AI健康顾问服务 - 准确性测试', () => {
     it('应该生成有效的AI消息', () => {
       const userMessage = {
         id: '1',
-        role: 'user',
+        role: 'user' as const,
         content: '我的猫咪食欲不振',
+        messageType: 'text' as const,
         createdAt: new Date().toISOString(),
       };
 
@@ -183,8 +184,9 @@ describe('AI健康顾问服务 - 准确性测试', () => {
     it('应该包含专业建议', () => {
       const userMessage = {
         id: '1',
-        role: 'user',
+        role: 'user' as const,
         content: '狗狗呕吐了',
+        messageType: 'text' as const,
         createdAt: new Date().toISOString(),
       };
 

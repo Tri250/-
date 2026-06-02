@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronLeft, Plus, Trash2, Dog, Cat, Bird, Rabbit, Save } from 'lucide-react';
+import { ChevronLeft, Plus, Trash2, Dog, Cat, Rabbit, Save } from 'lucide-react';
 import { usePetStore } from '../store/petStore';
 
 interface PetsPageProps {
@@ -11,7 +11,7 @@ export const PetsPage: React.FC<PetsPageProps> = ({ onNavigate }) => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newPet, setNewPet] = useState({
     name: '',
-    type: 'cat' as 'cat' | 'dog' | 'bird' | 'rabbit',
+    type: 'cat' as 'cat' | 'dog' | 'other',
     breed: '',
     gender: 'male' as 'male' | 'female',
     birthday: '',
@@ -46,8 +46,7 @@ export const PetsPage: React.FC<PetsPageProps> = ({ onNavigate }) => {
   const petTypeIcons: Record<string, { icon: any; emoji: string; color: string }> = {
     cat: { icon: Cat, emoji: '🐱', color: 'bg-purple-100 text-purple-600' },
     dog: { icon: Dog, emoji: '🐕', color: 'bg-amber-100 text-amber-600' },
-    bird: { icon: Bird, emoji: '🐦', color: 'bg-blue-100 text-blue-600' },
-    rabbit: { icon: Rabbit, emoji: '🐰', color: 'bg-pink-100 text-pink-600' },
+    other: { icon: Rabbit, emoji: '🐾', color: 'bg-blue-100 text-blue-600' },
   };
 
   return (
@@ -191,8 +190,8 @@ export const PetsPage: React.FC<PetsPageProps> = ({ onNavigate }) => {
 
               <div>
                 <label className="block text-sm font-medium text-neutral-700 mb-2">宠物类型</label>
-                <div className="grid grid-cols-4 gap-2">
-                  {(['cat', 'dog', 'bird', 'rabbit'] as const).map((type) => {
+                <div className="grid grid-cols-3 gap-2">
+                  {(['cat', 'dog', 'other'] as const).map((type) => {
                     const info = petTypeIcons[type];
                     const TypeIcon = info.icon;
                     return (
@@ -211,7 +210,7 @@ export const PetsPage: React.FC<PetsPageProps> = ({ onNavigate }) => {
                       >
                         <TypeIcon className="w-6 h-6" />
                         <span className="text-xs font-medium">
-                          {type === 'cat' ? '猫咪' : type === 'dog' ? '狗狗' : type === 'bird' ? '鸟类' : '兔子'}
+                          {type === 'cat' ? '猫咪' : type === 'dog' ? '狗狗' : '其他'}
                         </span>
                       </button>
                     );

@@ -27,6 +27,12 @@ import { RemindersPage } from './pages/RemindersPage';
 import { AdvancedHealthPage } from './pages/AdvancedHealthPage';
 import { BondEmotionPage } from './pages/BondEmotionPage';
 import { CameraMonitorPage } from './pages/CameraMonitorPage';
+import { PetsPage } from './pages/PetsPage';
+import { HealthReportPage } from './pages/HealthReportPage';
+import { SettingsPage } from './pages/SettingsPage';
+import { FavoritesPage } from './pages/FavoritesPage';
+import { HelpFeedbackPage } from './pages/HelpFeedbackPage';
+import { DeveloperInfoPage } from './pages/DeveloperInfoPage';
 import { useAppStore } from './store/appStore';
 
 export default function App() {
@@ -55,6 +61,8 @@ export default function App() {
     switch (currentPage) {
       case 'home':
         return <HomePage onNavigate={setCurrentPage} />;
+      case 'pets':
+        return <PetsPage onNavigate={setCurrentPage} />;
       case 'translator':
         return <TranslatorPage />;
       case 'health':
@@ -76,17 +84,31 @@ export default function App() {
       case 'medical':
         return <MedicalPage />;
       case 'profile':
-        return <ProfilePage />;
+        return <ProfilePage onNavigate={setCurrentPage} />;
       case 'camera':
         return <CameraPage />;
       case 'monitor':
         return <MonitorPage />;
       case 'advanced-health':
-        return <AdvancedHealthPage />;
+        return <AdvancedHealthPage onNavigate={setCurrentPage} />;
       case 'bond-emotion':
         return <BondEmotionPage />;
       case 'camera-monitor':
         return <CameraMonitorPage onNavigate={setCurrentPage} />;
+      case 'health-report':
+        return <HealthReportPage onNavigate={setCurrentPage} />;
+      case 'settings':
+        return <SettingsPage onNavigate={setCurrentPage} />;
+      case 'favorites':
+        return <FavoritesPage onNavigate={setCurrentPage} />;
+      case 'help-feedback':
+        return <HelpFeedbackPage onNavigate={setCurrentPage} />;
+      case 'developer-info':
+        return <DeveloperInfoPage onNavigate={setCurrentPage} />;
+      case 'history':
+        return <TranslatorPage />;
+      case 'referral':
+        return <ProfilePage onNavigate={setCurrentPage} />;
       default:
         return <HomePage onNavigate={setCurrentPage} />;
     }

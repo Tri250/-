@@ -30,7 +30,11 @@ import { useAppStore } from '../store/appStore';
 
 type TabType = 'dashboard' | 'alerts' | 'records' | 'charts';
 
-export function AdvancedHealthPage() {
+interface AdvancedHealthPageProps {
+  onNavigate?: (page: string) => void;
+}
+
+export function AdvancedHealthPage({ onNavigate }: AdvancedHealthPageProps) {
   const { currentPet } = useAppStore();
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [showNavigation, setShowNavigation] = useState(true);
@@ -65,7 +69,10 @@ export function AdvancedHealthPage() {
                 AI多模态健康预警 · 全天候守护
               </p>
             </div>
-            <HealthDashboardComponent petId={petId} />
+            <HealthDashboardComponent 
+              petId={petId} 
+              onNavigateToDetails={() => onNavigate?.('health-report')}
+            />
           </motion.div>
         );
 
