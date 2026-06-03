@@ -1,375 +1,77 @@
-// ============================================
-// PawSync Pro - appStore.ts
-//
-// 作者: 带娃的小陈工
-// 日期: 2026-05-26
-// 描述: 应用主状态管理，包含用户、宠物、分析结果等状态
-// ============================================
-
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export interface User {
+interface AppNotification {
   id: string;
-  email: string;
-  username: string;
-  avatarUrl?: string;
-  isPremium: boolean;
-  createdAt: string;
-}
-
-export interface Pet {
-  id: string;
-  name: string;
-  breed: string;
-  age: number;
-  avatarUrl: string;
-  type: 'cat' | 'dog' | 'other';
-}
-
-export interface Analysis {
-  id: string;
-  petId: string;
-  type: 'voice' | 'image';
-  result: {
-    emotion: 'happy' | 'anxious' | 'angry' | 'needs' | 'neutral';
-    translation: string;
-    confidence: number;
-  };
-  createdAt: string;
-}
-
-export interface HealthAlert {
-  id: string;
-  petId: string;
-  type: 'cough' | 'vomit' | 'pain' | 'abnormal';
-  severity: 'low' | 'medium' | 'high';
-  message: string;
-  timestamp: string;
-}
-
-export interface CareTip {
-  id: string;
-  category: 'feeding' | 'exercise' | 'grooming' | 'health' | 'behavior';
   title: string;
-  content: string;
-  petType?: 'cat' | 'dog' | 'all';
-  priority: 'high' | 'medium' | 'low';
-}
-
-export interface AppSettings {
-  notifications: boolean;
-  soundEnabled: boolean;
-  darkMode: boolean;
-  fontSize: 'small' | 'medium' | 'large';
-  autoPlay: boolean;
-  language: 'zh-CN' | 'en-US';
+  message: string;
+  type: 'info' | 'warning' | 'success' | 'error';
+  read: boolean;
+  timestamp: number;
 }
 
 interface AppState {
-  user: User | null;
-  isAuthenticated: boolean;
-  isOnboardingComplete: boolean;
-  isInitialized: boolean;
-  initProgress: number;
-  initMessage: string;
-  pets: Pet[];
-  currentPet: Pet | null;
-  analyses: Analysis[];
-  healthAlerts: HealthAlert[];
-  currentEmotion: 'happy' | 'anxious' | 'angry' | 'needs' | 'neutral';
-  healthScore: number;
-  isRecording: boolean;
-  careTips: CareTip[];
-  settings: AppSettings;
-  setUser: (user: User | null) => void;
-  login: (email: string, password: string) => Promise<boolean>;
-  register: (email: string, password: string, username: string) => Promise<boolean>;
-  logout: () => void;
-  completeOnboarding: () => void;
-  setCurrentPet: (pet: Pet) => void;
-  updateCurrentPet: (pet: Partial<Pet>) => void;
-  addPet: (pet: Omit<Pet, 'id'>) => void;
-  addAnalysis: (analysis: Omit<Analysis, 'id' | 'createdAt'>) => void;
-  addHealthAlert: (alert: Omit<HealthAlert, 'id'>) => void;
-  setIsRecording: (isRecording: boolean) => void;
-  setCurrentEmotion: (emotion: 'happy' | 'anxious' | 'angry' | 'needs' | 'neutral') => void;
-  setHealthScore: (score: number) => void;
-  updateSettings: (settings: Partial<AppSettings>) => void;
-  clearAllData: () => void;
-  initializeApp: () => Promise<void>;
-  setInitProgress: (progress: number, message: string) => void;
+  isFirstLaunch: boolean;
+  notifications: AppNotification[];
+  defaultPetId: string | null;
+  defaultPetName: string;
+  theme: 'light' | 'dark' | 'auto';
+  language: 'zh-CN' | 'en-US';
+  
+  setFirstLaunch: (value: boolean) => void;
+  addNotification: (notification: Omit<AppNotification, 'id' | 'timestamp' | 'read'>) => void;
+  markNotificationRead: (id: string) => void;
+  clearNotifications: () => void;
+  setDefaultPet: (id: string, name: string) => void;
+  setTheme: (theme: 'light' | 'dark' | 'auto') => void;
+  setLanguage: (language: 'zh-CN' | 'en-US') => void;
 }
-
-const defaultCareTips: CareTip[] = [
-  {
-    id: '1',
-    category: 'feeding',
-    title: '定时定量喂食',
-    content: '成年猫每天需要2-3次定时喂食，保持规律的饮食习惯有助于消化系统健康。',
-    petType: 'cat',
-    priority: 'high',
-  },
-  {
-    id: '2',
-    category: 'health',
-    title: '定期体检',
-    content: '建议每年带宠物进行一次全面体检，及时发现潜在健康问题。',
-    petType: 'all',
-    priority: 'high',
-  },
-  {
-    id: '3',
-    category: 'grooming',
-    title: '毛发护理',
-    content: '定期梳理毛发可以促进血液循环，减少掉毛和毛球问题。',
-    petType: 'cat',
-    priority: 'medium',
-  },
-  {
-    id: '4',
-    category: 'exercise',
-    title: '每日互动玩耍',
-    content: '每天花15-30分钟与宠物互动玩耍，保持身心健康和良好的关系。',
-    petType: 'all',
-    priority: 'high',
-  },
-  {
-    id: '5',
-    category: 'behavior',
-    title: '观察异常行为',
-    content: '注意宠物的行为变化，如食欲不振、过度舔毛等可能是健康问题的信号。',
-    petType: 'all',
-    priority: 'medium',
-  },
-];
-
-const defaultSettings: AppSettings = {
-  notifications: true,
-  soundEnabled: true,
-  darkMode: false,
-  fontSize: 'medium',
-  autoPlay: true,
-  language: 'zh-CN',
-};
 
 export const useAppStore = create<AppState>()(
   persist(
-    (set, get) => ({
-      user: {
-        id: 'default-user',
-        email: 'user@pawsync.local',
-        username: '宠物主人',
-        isPremium: false,
-        createdAt: new Date().toISOString(),
-      },
-      isAuthenticated: true,
-      isOnboardingComplete: true,
-      isInitialized: false,
-      initProgress: 0,
-      initMessage: '正在启动应用...',
-      pets: [
-        {
-          id: '1',
-          name: '小橘',
-          breed: '橘猫',
-          age: 2,
-          avatarUrl: '',
-          type: 'cat',
-        },
-      ],
-      currentPet: {
-        id: '1',
-        name: '小橘',
-        breed: '橘猫',
-        age: 2,
-        avatarUrl: '',
-        type: 'cat',
-      },
-      analyses: [],
-      healthAlerts: [
-        {
-          id: 'default-1',
-          petId: '1',
-          type: 'abnormal',
-          severity: 'low',
-          message: '欢迎使用 PawSync Pro！建议添加宠物信息以获得个性化体验。',
-          timestamp: new Date().toISOString(),
-        },
-      ],
-      currentEmotion: 'happy',
-      healthScore: 92,
-      isRecording: false,
-      settings: defaultSettings,
-      careTips: defaultCareTips,
+    (set) => ({
+      isFirstLaunch: true,
+      notifications: [],
+      defaultPetId: null,
+      defaultPetName: '小橘',
+      theme: 'light',
+      language: 'zh-CN',
 
-      setInitProgress: (progress, message) => set({ initProgress: progress, initMessage: message }),
+      setFirstLaunch: (value) => set({ isFirstLaunch: value }),
 
-      initializeApp: async () => {
-        const { setInitProgress } = get();
-        
-        setInitProgress(10, '正在加载应用配置...');
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        setInitProgress(30, '正在初始化状态管理...');
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        setInitProgress(50, '正在加载用户数据...');
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        setInitProgress(70, '正在加载宠物信息...');
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        setInitProgress(90, '正在完成初始化...');
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        setInitProgress(100, '初始化完成');
-        
-        const state = get();
-        if (!state.pets.length && state.isAuthenticated) {
-          const defaultPet: Pet = {
-            id: '1',
-            name: '小橘',
-            breed: '橘猫',
-            age: 2,
-            avatarUrl: '',
-            type: 'cat',
-          };
-          set({ 
-            pets: [defaultPet], 
-            currentPet: defaultPet,
-          });
-        }
-        
-        set({ isInitialized: true });
-      },
+      addNotification: (notification) =>
+        set((state) => ({
+          notifications: [
+            {
+              ...notification,
+              id: `notif-${Date.now()}`,
+              timestamp: Date.now(),
+              read: false,
+            },
+            ...state.notifications,
+          ],
+        })),
 
-      setUser: (user) => set({ user, isAuthenticated: !!user }),
+      markNotificationRead: (id) =>
+        set((state) => ({
+          notifications: state.notifications.map((n) =>
+            n.id === id ? { ...n, read: true } : n
+          ),
+        })),
 
-      login: async (email, _password) => {
-        set({ initProgress: 30, initMessage: '正在验证账号...' });
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        set({ initProgress: 60, initMessage: '正在获取用户信息...' });
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        const mockUser: User = {
-          id: '1',
-          email,
-          username: email.split('@')[0],
-          isPremium: false,
-          createdAt: new Date().toISOString(),
-        };
-        
-        set({ 
-          user: mockUser, 
-          isAuthenticated: true,
-          initProgress: 100,
-          initMessage: '登录成功',
-        });
-        return true;
-      },
+      clearNotifications: () => set({ notifications: [] }),
 
-      register: async (email, _password, username) => {
-        set({ initProgress: 30, initMessage: '正在创建账号...' });
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        set({ initProgress: 60, initMessage: '正在初始化用户数据...' });
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        const mockUser: User = {
-          id: Date.now().toString(),
-          email,
-          username,
-          isPremium: false,
-          createdAt: new Date().toISOString(),
-        };
-        
-        set({ 
-          user: mockUser, 
-          isAuthenticated: true, 
-          isOnboardingComplete: false,
-          initProgress: 100,
-          initMessage: '注册成功',
-        });
-        return true;
-      },
+      setDefaultPet: (id, name) =>
+        set({ defaultPetId: id, defaultPetName: name }),
 
-      logout: () => {
-        set({ 
-          user: null, 
-          isAuthenticated: false, 
-          isOnboardingComplete: false,
-          pets: [],
-          currentPet: null,
-          analyses: [],
-          healthAlerts: [],
-        });
-      },
+      setTheme: (theme) => set({ theme }),
 
-      completeOnboarding: () => set({ isOnboardingComplete: true }),
-
-      setCurrentPet: (pet) => set({ currentPet: pet }),
-
-      updateCurrentPet: (petUpdate) => set((state) => {
-        if (!state.currentPet) return state;
-        const updatedPet = { ...state.currentPet, ...petUpdate };
-        return {
-          currentPet: updatedPet,
-          pets: state.pets.map(p => p.id === updatedPet.id ? updatedPet : p),
-        };
-      }),
-
-      addPet: (pet) => set((state) => ({
-        pets: [...state.pets, { ...pet, id: Date.now().toString() }],
-      })),
-
-      addAnalysis: (analysis) => set((state) => ({
-        analyses: [...state.analyses, {
-          ...analysis,
-          id: Date.now().toString(),
-          createdAt: new Date().toISOString(),
-        }],
-      })),
-
-      addHealthAlert: (alert) => set((state) => ({
-        healthAlerts: [...state.healthAlerts, {
-          ...alert,
-          id: Date.now().toString(),
-        }],
-      })),
-
-      setIsRecording: (isRecording) => set({ isRecording }),
-
-      setCurrentEmotion: (emotion) => set({ currentEmotion: emotion }),
-
-      setHealthScore: (score) => set({ healthScore: score }),
-
-      updateSettings: (newSettings) => set((state) => ({
-        settings: { ...state.settings, ...newSettings },
-      })),
-
-      clearAllData: () => set({
-        analyses: [],
-        healthAlerts: [],
-        pets: [],
-        currentPet: null,
-      }),
+      setLanguage: (language) => set({ language }),
     }),
     {
-      name: 'pawsync-storage',
-      storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({
-        user: state.user,
-        isAuthenticated: state.isAuthenticated,
-        isOnboardingComplete: state.isOnboardingComplete,
-        pets: state.pets,
-        currentPet: state.currentPet,
-        analyses: state.analyses.slice(-50),
-        healthAlerts: state.healthAlerts.slice(-20),
-        settings: state.settings,
-        healthScore: state.healthScore,
-      }),
+      name: 'app-storage',
+      storage: createJSONStorage(() => AsyncStorage),
     }
   )
 );

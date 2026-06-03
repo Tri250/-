@@ -1,790 +1,333 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { X, Mic, Image, Video, FileText, Check, Star, Square, Play, Pause, Camera, Upload, File, Volume2 } from 'lucide-react';
-import { GlassModal, GlassInput, GlassTextarea } from './DesignSystem';
-import { HealthTag, RecordType } from '../types/health-record';
+import React, { useState } from 'react';
+import { Modal, View, Text, TouchableOpacity, TextInput, StyleSheet, ScrollView } from 'react-native';
+import { useAuthStore } from '../../store/authStore';
+import { usePetStore } from '../../store/petStore';
+import { useRecordStore } from '../../store/recordStore';
+import { RecordType } from '../../types/health-record';
+import { VoiceTranscription } from '../common/VoiceTranscription';
+import { PDFUpload } from '../common/PDFUpload';
 
 interface AddRecordModalProps {
-  isOpen: boolean;
+  visible: boolean;
   onClose: () => void;
-  onSubmit: (record: {
-    type: RecordType;
-    title: string;
-    content: string;
-    tags: string[];
-    isImportant: boolean;
-    attachments?: string[];
-    voiceDuration?: number;
-    voiceTranscription?: string | null;
-    pdfFileName?: string | null;
-  }) => void;
-  availableTags: HealthTag[];
+  petId?: string;
   initialType?: RecordType;
+  voiceTranscription?: boolean;
+  pdfFileName?: string;
 }
 
-const RECORD_TYPE_CONFIG: {
-  type: RecordType;
-  label: string;
-  icon: React.ElementType;
-  color: string;
-}[] = [
-  { type: 'text', label: '文字', icon: FileText, color: 'bg-blue-500' },
-  { type: 'voice', label: '语音', icon: Mic, color: 'bg-purple-500' },
-  { type: 'photo', label: '图片', icon: Image, color: 'bg-green-500' },
-  { type: 'pdf', label: 'PDF', icon: File, color: 'bg-orange-500' },
-  { type: 'video', label: '视频', icon: Video, color: 'bg-red-500' },
-];
-
 export const AddRecordModal: React.FC<AddRecordModalProps> = ({
-  isOpen,
+  visible,
   onClose,
-  onSubmit,
-  availableTags,
-  initialType = 'text',
+  petId,
+  initialType = 'checkup',
+  voiceTranscription = false,
+  pdfFileName,
 }) => {
   const [recordType, setRecordType] = useState<RecordType>(initialType);
   const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [isImportant, setIsImportant] = useState(false);
-  
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordingTime, setRecordingTime] = useState(0);
-  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
-  const [selectedPdf, setSelectedPdf] = useState<string | null>(null);
-  const [pdfFileName, setPdfFileName] = useState<string | null>(null);
-  const [isVideoRecording, setIsVideoRecording] = useState(false);
-  const [videoRecordingTime, setVideoRecordingTime] = useState(0);
-  const [voiceTranscription, setVoiceTranscription] = useState<string | null>(null);
-  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [description, setDescription] = useState('');
+  const [date, setDate] = useState(new Date());
+  const [selectedPetId, setSelectedPetId] = useState(petId || '');
+  const [notes, setNotes] = useState('');
+  const [attachedFile, setAttachedFile] = useState<string | null>(null);
+  const [showVoiceTranscription, setShowVoiceTranscription] = useState(voiceTranscription);
+  const [voiceText, setVoiceText] = useState('');
+  const [pdfUrl, setPdfUrl] = useState<string | null>(pdfFileName || null);
 
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const videoStreamRef = useRef<MediaStream | null>(null);
-  const videoRecorderRef = useRef<MediaRecorder | null>(null);
-  const videoChunksRef = useRef<Blob[]>([]);
-  const videoTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const photoInputRef = useRef<HTMLInputElement | null>(null);
-  const videoInputRef = useRef<HTMLInputElement | null>(null);
-  const pdfInputRef = useRef<HTMLInputElement | null>(null);
+  const { user } = useAuthStore();
+  const { pets } = usePetStore();
+  const { addRecord } = useRecordStore();
 
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-      if (videoTimerRef.current) clearInterval(videoTimerRef.current);
-      if (videoStreamRef.current) {
-        videoStreamRef.current.getTracks().forEach(track => track.stop());
-      }
-    };
-  }, []);
+  const recordTypes: { value: RecordType; label: string }[] = [
+    { value: 'checkup', label: '体检' },
+    { value: 'vaccination', label: '疫苗接种' },
+    { value: 'medication', label: '用药' },
+    { value: 'surgery', label: '手术' },
+    { value: 'lab', label: '化验检查' },
+    { value: 'weight', label: '体重记录' },
+    { value: 'dental', label: '牙齿护理' },
+    { value: 'grooming', label: '美容' },
+    { value: 'emergency', label: '紧急情况' },
+    { value: 'pdf', label: 'PDF文档' },
+  ];
 
-  const handleSubmit = () => {
-    if (!title.trim()) return;
-    if (recordType === 'text' && !content.trim()) return;
-    if (recordType === 'voice' && !audioBlob && recordingTime === 0) return;
-    if (recordType === 'photo' && !selectedImage) return;
-    if (recordType === 'pdf' && !selectedPdf) return;
-    if (recordType === 'video' && !selectedVideo && videoRecordingTime === 0) return;
+  const handleSubmit = async () => {
+    if (!selectedPetId) {
+      alert('请选择宠物');
+      return;
+    }
+    if (!title.trim()) {
+      alert('请输入记录标题');
+      return;
+    }
 
-    const attachments: string[] = [];
-    if (selectedImage) attachments.push(selectedImage);
-    if (selectedVideo) attachments.push(selectedVideo);
-    if (selectedPdf) attachments.push(selectedPdf);
-
-    onSubmit({
+    const record = {
+      id: `record-${Date.now()}`,
+      petId: selectedPetId,
       type: recordType,
       title: title.trim(),
-      content: content.trim() || getDefaultContent(),
-      tags: selectedTags,
-      isImportant,
-      attachments,
-      voiceDuration: recordType === 'voice' ? recordingTime : undefined,
-      voiceTranscription: voiceTranscription,
-      pdfFileName: pdfFileName,
-    });
+      description: description.trim(),
+      date: date.toISOString(),
+      notes: notes.trim(),
+      attachedFile,
+      voiceTranscription: showVoiceTranscription ? voiceText : undefined,
+      pdfUrl: pdfUrl || undefined,
+      createdBy: user?.id || 'anonymous',
+      createdAt: new Date().toISOString(),
+    };
 
-    handleClose();
-  };
-
-  const getDefaultContent = () => {
-    switch (recordType) {
-      case 'voice':
-        return voiceTranscription || `语音记录 (${recordingTime}秒)`;
-      case 'photo':
-        return '图片记录';
-      case 'pdf':
-        return pdfFileName || 'PDF文档记录';
-      case 'video':
-        return `视频记录 (${videoRecordingTime}秒)`;
-      default:
-        return '';
-    }
-  };
-
-  const handleClose = () => {
-    stopRecording();
-    stopVideoRecording();
-    setRecordType(initialType);
-    setTitle('');
-    setContent('');
-    setSelectedTags([]);
-    setIsImportant(false);
-    setIsRecording(false);
-    setRecordingTime(0);
-    setAudioBlob(null);
-    setIsPlaying(false);
-    setSelectedImage(null);
-    setSelectedVideo(null);
-    setSelectedPdf(null);
-    setPdfFileName(null);
-    setIsVideoRecording(false);
-    setVideoRecordingTime(0);
-    setVoiceTranscription(null);
-    setIsTranscribing(false);
-    audioChunksRef.current = [];
-    videoChunksRef.current = [];
+    await addRecord(record);
     onClose();
+    resetForm();
   };
 
-  const toggleTag = (tagId: string) => {
-    setSelectedTags((prev) =>
-      prev.includes(tagId)
-        ? prev.filter((id) => id !== tagId)
-        : [...prev, tagId]
-    );
-  };
-
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        setAudioBlob(audioBlob);
-        stream.getTracks().forEach(track => track.stop());
-      };
-
-      mediaRecorder.start();
-      setIsRecording(true);
-      setRecordingTime(0);
-
-      timerRef.current = setInterval(() => {
-        setRecordingTime(prev => prev + 1);
-      }, 1000);
-    } catch (error) {
-      console.error('Failed to start recording:', error);
-      alert('无法访问麦克风，请检查权限设置');
-    }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-    }
-  };
-
-  const playAudio = () => {
-    if (audioBlob) {
-      const audioUrl = URL.createObjectURL(audioBlob);
-      if (!audioRef.current) {
-        audioRef.current = new Audio(audioUrl);
-        audioRef.current.onended = () => setIsPlaying(false);
-      } else {
-        audioRef.current.src = audioUrl;
-      }
-      audioRef.current.play();
-      setIsPlaying(true);
-    }
-  };
-
-  const pauseAudio = () => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      setIsPlaying(false);
-    }
-  };
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const handlePhotoSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setSelectedImage(e.target?.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleVideoSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setSelectedVideo(e.target?.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handlePdfSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setPdfFileName(file.name);
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setSelectedPdf(e.target?.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const transcribeVoice = useCallback(async () => {
-    if (!audioBlob) return;
-    
-    setIsTranscribing(true);
-    
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    const mockTranscriptions = [
-      '今天猫咪精神状态良好，食欲正常，排便正常。',
-      '狗狗今天有点咳嗽，可能是感冒了，需要注意观察。',
-      '宠物体检结果正常，各项指标都在标准范围内。',
-      '今天给宠物喂了驱虫药，按照医嘱服用。',
-      '宠物疫苗接种完成，下次接种时间是三个月后。',
-    ];
-    
-    const randomTranscription = mockTranscriptions[Math.floor(Math.random() * mockTranscriptions.length)];
-    setVoiceTranscription(randomTranscription);
-    setIsTranscribing(false);
-  }, [audioBlob]);
-
-  const startVideoRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'environment' }, 
-        audio: true 
-      });
-      videoStreamRef.current = stream;
-      
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.play();
-      }
-
-      const mediaRecorder = new MediaRecorder(stream);
-      videoRecorderRef.current = mediaRecorder;
-      videoChunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          videoChunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = () => {
-        const videoBlob = new Blob(videoChunksRef.current, { type: 'video/webm' });
-        const videoUrl = URL.createObjectURL(videoBlob);
-        setSelectedVideo(videoUrl);
-        stream.getTracks().forEach(track => track.stop());
-        if (videoRef.current) {
-          videoRef.current.srcObject = null;
-        }
-      };
-
-      mediaRecorder.start();
-      setIsVideoRecording(true);
-      setVideoRecordingTime(0);
-
-      videoTimerRef.current = setInterval(() => {
-        setVideoRecordingTime(prev => prev + 1);
-      }, 1000);
-    } catch (error) {
-      console.error('Failed to start video recording:', error);
-      alert('无法访问摄像头，请检查权限设置');
-    }
-  };
-
-  const stopVideoRecording = () => {
-    if (videoRecorderRef.current && isVideoRecording) {
-      videoRecorderRef.current.stop();
-      setIsVideoRecording(false);
-      if (videoTimerRef.current) {
-        clearInterval(videoTimerRef.current);
-        videoTimerRef.current = null;
-      }
-    }
-    if (videoStreamRef.current) {
-      videoStreamRef.current.getTracks().forEach(track => track.stop());
-    }
-  };
-
-  const isSubmitDisabled = () => {
-    if (!title.trim()) return true;
-    switch (recordType) {
-      case 'text':
-        return !content.trim();
-      case 'voice':
-        return !audioBlob && recordingTime === 0;
-      case 'photo':
-        return !selectedImage;
-      case 'pdf':
-        return !selectedPdf;
-      case 'video':
-        return !selectedVideo && videoRecordingTime === 0;
-      default:
-        return false;
-    }
+  const resetForm = () => {
+    setRecordType('checkup');
+    setTitle('');
+    setDescription('');
+    setDate(new Date());
+    setNotes('');
+    setAttachedFile(null);
+    setVoiceText('');
+    setPdfUrl(null);
+    setShowVoiceTranscription(false);
   };
 
   return (
-    <GlassModal isOpen={isOpen} onClose={handleClose} title="添加健康记录" size="md">
-      <div className="space-y-5">
-        <div>
-          <label className="block text-sm font-medium text-neutral-700 mb-2">
-            记录类型
-          </label>
-          <div className="grid grid-cols-4 gap-2">
-            {RECORD_TYPE_CONFIG.map((config) => (
-              <button
-                key={config.type}
-                onClick={() => {
-                  setRecordType(config.type);
-                  stopRecording();
-                  stopVideoRecording();
-                }}
-                className={`flex flex-col items-center gap-1.5 p-3 rounded-xl transition-all ${
-                  recordType === config.type
-                    ? 'bg-primary-50 border-2 border-primary-500'
-                    : 'bg-neutral-50 border-2 border-transparent hover:bg-neutral-100'
-                }`}
-              >
-                <div className={`w-8 h-8 rounded-full ${config.color} flex items-center justify-center`}>
-                  <config.icon className="w-4 h-4 text-white" />
-                </div>
-                <span className="text-xs font-medium text-neutral-600">{config.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <View style={styles.modalContainer}>
+        <View style={styles.modalContent}>
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>添加健康记录</Text>
+            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+              <Text style={styles.closeButtonText}>✕</Text>
+            </TouchableOpacity>
+          </View>
 
-        <GlassInput
-          label="标题"
-          placeholder="输入记录标题..."
-          value={title}
-          onChange={setTitle}
-          required
-        />
-
-        <div>
-          {recordType === 'text' && (
-            <GlassTextarea
-              label="内容"
-              placeholder="详细描述宠物的健康状况..."
-              value={content}
-              onChange={setContent}
-              rows={4}
-              required
-            />
-          )}
-
-          {recordType === 'voice' && (
-            <div className="space-y-3">
-              <label className="block text-sm font-medium text-neutral-700">语音记录</label>
-              
-              {!audioBlob && !isRecording && (
-                <button
-                  onClick={startRecording}
-                  className="w-full py-4 rounded-xl flex flex-col items-center justify-center gap-2 bg-purple-100 text-purple-700 hover:bg-purple-200 transition-all"
-                >
-                  <Mic className="w-8 h-8" />
-                  <span className="font-medium">点击开始录音</span>
-                </button>
-              )}
-
-              {isRecording && (
-                <div className="w-full py-4 rounded-xl flex flex-col items-center justify-center gap-3 bg-red-500 text-white">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 bg-white rounded-full animate-pulse" />
-                    <Mic className="w-6 h-6 animate-bounce" />
-                  </div>
-                  <span className="text-2xl font-bold">{formatTime(recordingTime)}</span>
-                  <span className="text-sm">正在录音...</span>
-                  <button
-                    onClick={stopRecording}
-                    className="mt-2 px-6 py-2 bg-white text-red-500 rounded-lg font-medium hover:bg-gray-100 transition-colors"
+          <ScrollView style={styles.form}>
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>宠物</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {pets.map((pet) => (
+                  <TouchableOpacity
+                    key={pet.id}
+                    onPress={() => setSelectedPetId(pet.id)}
+                    style={[
+                      styles.petChip,
+                      selectedPetId === pet.id && styles.petChipSelected,
+                    ]}
                   >
-                    <Square className="w-4 h-4 inline mr-2" />
-                    停止录音
-                  </button>
-                </div>
-              )}
+                    <Text style={[
+                      styles.petChipText,
+                      selectedPetId === pet.id && styles.petChipTextSelected,
+                    ]}>
+                      {pet.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
 
-              {audioBlob && !isRecording && (
-                <div className="w-full py-4 rounded-xl bg-purple-50 border border-purple-200">
-                  <div className="flex items-center justify-center gap-4">
-                    <button
-                      onClick={isPlaying ? pauseAudio : playAudio}
-                      className="w-12 h-12 rounded-full bg-purple-500 text-white flex items-center justify-center hover:bg-purple-600 transition-colors"
-                    >
-                      {isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6" />}
-                    </button>
-                    <div className="text-center">
-                      <p className="text-sm font-medium text-purple-700">录音完成</p>
-                      <p className="text-lg font-bold text-purple-600">{formatTime(recordingTime)}</p>
-                    </div>
-                    <button
-                      onClick={() => {
-                        setAudioBlob(null);
-                        setRecordingTime(0);
-                        setVoiceTranscription(null);
-                      }}
-                      className="px-4 py-2 text-sm text-purple-600 hover:text-purple-800"
-                    >
-                      重新录制
-                    </button>
-                  </div>
-                  
-                  {!voiceTranscription && !isTranscribing && (
-                    <button
-                      onClick={transcribeVoice}
-                      className="mt-4 w-full py-3 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-500 text-white font-medium flex items-center justify-center gap-2 hover:shadow-lg transition-all"
-                    >
-                      <Volume2 className="w-4 h-4" />
-                      转为文字
-                    </button>
-                  )}
-                  
-                  {isTranscribing && (
-                    <div className="mt-4 w-full py-3 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center gap-2">
-                      <div className="w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
-                      正在识别语音内容...
-                    </div>
-                  )}
-                  
-                  {voiceTranscription && (
-                    <div className="mt-4 p-3 rounded-xl bg-white border border-purple-200">
-                      <p className="text-sm font-medium text-purple-700 mb-1">语音转文字结果:</p>
-                      <p className="text-sm text-neutral-600">{voiceTranscription}</p>
-                      <button
-                        onClick={() => setVoiceTranscription(null)}
-                        className="mt-2 text-xs text-purple-500 hover:text-purple-700"
-                      >
-                        清除转文字结果
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <GlassTextarea
-                label="备注（可选）"
-                placeholder="添加语音记录的补充说明..."
-                value={content}
-                onChange={setContent}
-                rows={2}
-              />
-            </div>
-          )}
-
-          {recordType === 'pdf' && (
-            <div className="space-y-3">
-              <label className="block text-sm font-medium text-neutral-700">PDF文档记录</label>
-              
-              <input
-                ref={pdfInputRef}
-                type="file"
-                accept=".pdf,application/pdf"
-                onChange={handlePdfSelect}
-                className="hidden"
-              />
-
-              {!selectedPdf && (
-                <button
-                  onClick={() => pdfInputRef.current?.click()}
-                  className="w-full py-8 rounded-xl border-2 border-dashed border-orange-300 bg-orange-50 hover:bg-orange-100 hover:border-orange-400 transition-all cursor-pointer"
-                >
-                  <div className="flex flex-col items-center gap-3">
-                    <Upload className="w-10 h-10 text-orange-500" />
-                    <span className="font-medium text-orange-700">点击上传PDF文档</span>
-                    <span className="text-sm text-orange-600">支持 PDF 格式，可在线预览</span>
-                  </div>
-                </button>
-              )}
-
-              {selectedPdf && (
-                <div className="relative rounded-xl overflow-hidden bg-orange-50 border border-orange-200">
-                  <div className="p-4 flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-orange-500 flex items-center justify-center">
-                      <File className="w-6 h-6 text-white" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-orange-700">PDF文档已选择</p>
-                      <p className="text-xs text-orange-600 truncate">{pdfFileName}</p>
-                    </div>
-                    <button
-                      onClick={() => {
-                        setSelectedPdf(null);
-                        setPdfFileName(null);
-                      }}
-                      className="p-2 bg-white rounded-full shadow hover:bg-gray-100 transition-colors"
-                    >
-                      <X className="w-4 h-4 text-gray-600" />
-                    </button>
-                  </div>
-                  
-                  <div className="border-t border-orange-200 p-3 bg-white">
-                    <iframe
-                      src={selectedPdf}
-                      className="w-full h-64 rounded-lg border border-orange-100"
-                      title="PDF预览"
-                    />
-                  </div>
-                </div>
-              )}
-
-              <GlassTextarea
-                label="备注（可选）"
-                placeholder="添加PDF文档的补充说明..."
-                value={content}
-                onChange={setContent}
-                rows={2}
-              />
-            </div>
-          )}
-
-          {recordType === 'photo' && (
-            <div className="space-y-3">
-              <label className="block text-sm font-medium text-neutral-700">图片记录</label>
-              
-              <input
-                ref={photoInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handlePhotoSelect}
-                className="hidden"
-              />
-
-              {!selectedImage && (
-                <button
-                  onClick={() => photoInputRef.current?.click()}
-                  className="w-full py-8 rounded-xl border-2 border-dashed border-green-300 bg-green-50 hover:bg-green-100 hover:border-green-400 transition-all cursor-pointer"
-                >
-                  <div className="flex flex-col items-center gap-3">
-                    <Upload className="w-10 h-10 text-green-500" />
-                    <span className="font-medium text-green-700">点击上传图片</span>
-                    <span className="text-sm text-green-600">支持 JPG、PNG、GIF 格式</span>
-                  </div>
-                </button>
-              )}
-
-              {selectedImage && (
-                <div className="relative rounded-xl overflow-hidden bg-green-50 border border-green-200">
-                  <img
-                    src={selectedImage}
-                    alt="Selected image"
-                    className="w-full h-48 object-cover"
-                  />
-                  <button
-                    onClick={() => setSelectedImage(null)}
-                    className="absolute top-2 right-2 p-2 bg-white rounded-full shadow-lg hover:bg-gray-100 transition-colors"
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>记录类型</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {recordTypes.map((type) => (
+                  <TouchableOpacity
+                    key={type.value}
+                    onPress={() => setRecordType(type.value)}
+                    style={[
+                      styles.typeChip,
+                      recordType === type.value && styles.typeChipSelected,
+                    ]}
                   >
-                    <X className="w-4 h-4 text-gray-600" />
-                  </button>
-                  <div className="absolute bottom-2 left-2 px-3 py-1 bg-green-500 text-white rounded-lg text-sm font-medium">
-                    图片已选择
-                  </div>
-                </div>
-              )}
+                    <Text style={[
+                      styles.typeChipText,
+                      recordType === type.value && styles.typeChipTextSelected,
+                    ]}>
+                      {type.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
 
-              <GlassTextarea
-                label="备注（可选）"
-                placeholder="添加图片记录的补充说明..."
-                value={content}
-                onChange={setContent}
-                rows={2}
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>标题</Text>
+              <TextInput
+                style={styles.input}
+                value={title}
+                onChangeText={setTitle}
+                placeholder="输入记录标题"
+                placeholderTextColor="#999"
               />
-            </div>
-          )}
+            </View>
 
-          {recordType === 'video' && (
-            <div className="space-y-3">
-              <label className="block text-sm font-medium text-neutral-700">视频记录</label>
-              
-              <input
-                ref={videoInputRef}
-                type="file"
-                accept="video/*"
-                onChange={handleVideoSelect}
-                className="hidden"
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>描述</Text>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                value={description}
+                onChangeText={setDescription}
+                placeholder="输入详细描述"
+                placeholderTextColor="#999"
+                multiline
+                numberOfLines={4}
               />
+            </View>
 
-              {!selectedVideo && !isVideoRecording && (
-                <div className="space-y-3">
-                  <button
-                    onClick={startVideoRecording}
-                    className="w-full py-4 rounded-xl flex flex-col items-center justify-center gap-2 bg-red-100 text-red-700 hover:bg-red-200 transition-all"
-                  >
-                    <Camera className="w-8 h-8" />
-                    <span className="font-medium">点击开始录像</span>
-                  </button>
-                  
-                  <button
-                    onClick={() => videoInputRef.current?.click()}
-                    className="w-full py-3 rounded-xl border-2 border-dashed border-red-300 bg-red-50 hover:bg-red-100 hover:border-red-400 transition-all cursor-pointer"
-                  >
-                    <div className="flex items-center justify-center gap-2">
-                      <Upload className="w-5 h-5 text-red-500" />
-                      <span className="font-medium text-red-700">或上传现有视频</span>
-                    </div>
-                  </button>
-                </div>
-              )}
-
-              {isVideoRecording && (
-                <div className="relative rounded-xl overflow-hidden bg-black">
-                  <video
-                    ref={videoRef}
-                    className="w-full h-48 object-cover"
-                    autoPlay
-                    muted
-                    playsInline
-                  />
-                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/30">
-                    <div className="flex items-center gap-2 text-white">
-                      <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
-                      <span className="text-2xl font-bold">{formatTime(videoRecordingTime)}</span>
-                    </div>
-                    <button
-                      onClick={stopVideoRecording}
-                      className="mt-4 px-6 py-2 bg-white text-red-500 rounded-lg font-medium hover:bg-gray-100 transition-colors"
-                    >
-                      <Square className="w-4 h-4 inline mr-2" />
-                      停止录像
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {selectedVideo && !isVideoRecording && (
-                <div className="relative rounded-xl overflow-hidden bg-red-50 border border-red-200">
-                  <video
-                    src={selectedVideo}
-                    className="w-full h-48 object-cover"
-                    controls
-                  />
-                  <button
-                    onClick={() => setSelectedVideo(null)}
-                    className="absolute top-2 right-2 p-2 bg-white rounded-full shadow-lg hover:bg-gray-100 transition-colors"
-                  >
-                    <X className="w-4 h-4 text-gray-600" />
-                  </button>
-                  <div className="absolute bottom-2 left-2 px-3 py-1 bg-red-500 text-white rounded-lg text-sm font-medium">
-                    视频已选择 ({videoRecordingTime > 0 ? formatTime(videoRecordingTime) : '已上传'})
-                  </div>
-                </div>
-              )}
-
-              <GlassTextarea
-                label="备注（可选）"
-                placeholder="添加视频记录的补充说明..."
-                value={content}
-                onChange={setContent}
-                rows={2}
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>备注</Text>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                value={notes}
+                onChangeText={setNotes}
+                placeholder="输入额外备注"
+                placeholderTextColor="#999"
+                multiline
+                numberOfLines={3}
               />
-            </div>
-          )}
-        </div>
+            </View>
 
-        <div>
-          <label className="block text-sm font-medium text-neutral-700 mb-2">
-            标签
-          </label>
-          <div className="flex flex-wrap gap-2">
-            {availableTags.map((tag) => {
-              const isSelected = selectedTags.includes(tag.id);
-              return (
-                <button
-                  key={tag.id}
-                  onClick={() => toggleTag(tag.id)}
-                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
-                    isSelected
-                      ? 'ring-2 ring-offset-1 shadow-sm'
-                      : 'opacity-70 hover:opacity-100'
-                  }`}
-                  style={{
-                    backgroundColor: `${tag.color}20`,
-                    color: tag.color,
-                    ...(isSelected && { ringColor: tag.color, boxShadow: `0 0 0 2px ${tag.color}` }),
-                  }}
-                >
-                  {isSelected && (
-                    <Check className="w-3 h-3 inline mr-1" />
-                  )}
-                  {tag.name}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+            {recordType === 'pdf' && (
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>上传PDF文档</Text>
+                <PDFUpload onUpload={(url) => setPdfUrl(url)} />
+                {pdfUrl && <Text style={styles.uploadedText}>已上传: {pdfUrl}</Text>}
+              </View>
+            )}
 
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setIsImportant(!isImportant)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all ${
-              isImportant
-                ? 'bg-amber-100 text-amber-700'
-                : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
-            }`}
-          >
-            <Star
-              className={`w-4 h-4 ${isImportant ? 'fill-amber-500 text-amber-500' : ''}`}
-            />
-            <span className="text-sm font-medium">标记为重要</span>
-          </button>
-        </div>
+            {showVoiceTranscription && (
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>语音转文字</Text>
+                <VoiceTranscription
+                  onTranscription={(text) => setVoiceText(text)}
+                  initialText={voiceText}
+                />
+              </View>
+            )}
 
-        <div className="flex gap-3 pt-2">
-          <button
-            onClick={handleClose}
-            className="flex-1 py-3 rounded-xl bg-neutral-100 text-neutral-700 font-medium hover:bg-neutral-200 transition-colors"
-          >
-            取消
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={isSubmitDisabled()}
-            className="flex-1 py-3 rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 text-white font-medium hover:shadow-lg hover:shadow-primary-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            保存记录
-          </button>
-        </div>
-      </div>
-    </GlassModal>
+            <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
+              <Text style={styles.submitButtonText}>保存记录</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
   );
 };
+
+const styles = StyleSheet.create({
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '90%',
+    maxHeight: '90%',
+    backgroundColor: 'white',
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  closeButton: {
+    padding: 8,
+  },
+  closeButtonText: {
+    fontSize: 20,
+    color: '#999',
+  },
+  form: {
+    padding: 16,
+  },
+  formGroup: {
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    color: '#333',
+    backgroundColor: '#f9f9f9',
+  },
+  textArea: {
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  petChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#f0f0f0',
+    marginRight: 8,
+  },
+  petChipSelected: {
+    backgroundColor: '#F97316',
+  },
+  petChipText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  petChipTextSelected: {
+    color: 'white',
+    fontWeight: '600',
+  },
+  typeChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#f0f0f0',
+    marginRight: 8,
+  },
+  typeChipSelected: {
+    backgroundColor: '#10B981',
+  },
+  typeChipText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  typeChipTextSelected: {
+    color: 'white',
+    fontWeight: '600',
+  },
+  submitButton: {
+    backgroundColor: '#F97316',
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 8,
+    marginBottom: 24,
+  },
+  submitButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  uploadedText: {
+    marginTop: 8,
+    color: '#10B981',
+    fontSize: 14,
+  },
+});

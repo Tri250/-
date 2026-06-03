@@ -1,110 +1,265 @@
-import { Camera, Wifi, WifiOff, Clock, MapPin } from 'lucide-react';
-import type { CameraDevice } from '../../types/camera';
+import React from 'react';
+import { View, Text, StyleSheet, Image, TouchableOpacity, Dimensions } from 'react-native';
+import { Device } from '../../types/device';
 
 interface CameraCardProps {
-  device: CameraDevice;
-  onClick?: () => void;
-  onStreamClick?: () => void;
-  onDelete?: () => void;
+  device: Device;
+  onClick?: (device: Device) => void;
+  style?: any;
+  className?: string;
+  theme?: 'light' | 'dark';
 }
 
-const brandLabels: Record<string, string> = {
-  xiaomi: '小米',
-  huawei: '华为',
-  honor: '荣耀',
-};
+export const CameraCard: React.FC<CameraCardProps> = ({
+  device,
+  onClick,
+  style,
+  className,
+  theme = 'light',
+}) => {
+  const screenWidth = Dimensions.get('window').width;
+  const cardWidth = (screenWidth - 48) / 2;
 
-const statusConfig = {
-  online: { color: 'bg-green-500', label: '在线' },
-  offline: { color: 'bg-gray-400', label: '离线' },
-  connecting: { color: 'bg-yellow-500', label: '连接中' },
-  error: { color: 'bg-red-500', label: '错误' },
-};
+  const handlePress = () => {
+    onClick?.(device);
+  };
 
-export function CameraCard({ device, onClick, onStreamClick, onDelete }: CameraCardProps) {
-  const status = statusConfig[device.status];
+  const getStatusColor = () => {
+    switch (device.status) {
+      case 'online':
+        return '#10B981';
+      case 'offline':
+        return '#EF4444';
+      case 'error':
+        return '#F59E0B';
+      default:
+        return '#6B7280';
+    }
+  };
+
+  const renderThumbnail = () => {
+    if (device.snapshotUrl) {
+      return (
+        <Image
+          source={{ uri: device.snapshotUrl }}
+          style={styles.thumbnail}
+          resizeMode="cover"
+        />
+      );
+    }
+    if (device.thumbnailUrl) {
+      return (
+        <Image
+          source={{ uri: device.thumbnailUrl }}
+          style={styles.thumbnail}
+          resizeMode="cover"
+        />
+      );
+    }
+    return (
+      <View style={styles.placeholderThumbnail}>
+        <Text style={styles.placeholderIcon}>📷</Text>
+        <Text style={styles.placeholderText}>暂无预览</Text>
+      </View>
+    );
+  };
 
   return (
-    <div
-      className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-all duration-300 cursor-pointer"
-      onClick={onClick}
+    <TouchableOpacity
+      style={[
+        styles.container,
+        { width: cardWidth },
+        theme === 'dark' && styles.containerDark,
+        className,
+      ]}
+      onPress={handlePress}
+      activeOpacity={0.8}
     >
-      <div className="flex gap-4">
-        <div className="relative w-24 h-24 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
-          {device.thumbnail || device.thumbnailUrl ? (
-            <img
-              src={device.thumbnail || device.thumbnailUrl}
-              alt={device.name}
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-200 to-gray-300">
-              <Camera className="w-10 h-10 text-gray-500" />
-            </div>
+      <View style={styles.thumbnailContainer}>
+        {renderThumbnail()}
+        <View style={[styles.statusIndicator, { backgroundColor: getStatusColor() }]} />
+        {device.isRecording && (
+          <View style={styles.recordingBadge}>
+            <Text style={styles.recordingText}>录制中</Text>
+          </View>
+        )}
+      </View>
+      
+      <View style={styles.infoContainer}>
+        <Text style={styles.deviceName} numberOfLines={1}>
+          {device.name}
+        </Text>
+        
+        <View style={styles.deviceMeta}>
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>{device.type}</Text>
+          </View>
+          
+          {device.settings?.resolution && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{device.settings.resolution}</Text>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.settingsRow}>
+          {device.settings?.nightVision && (
+            <View style={styles.settingBadge}>
+              <Text style={styles.settingIcon}>🌙</Text>
+              <Text style={styles.settingText}>夜视</Text>
+            </View>
           )}
           
-          <div className="absolute top-2 right-2">
-            <div className={`w-3 h-3 rounded-full ${status.color} shadow-sm`} />
-          </div>
-        </div>
+          {device.settings?.motionDetection && (
+            <View style={styles.settingBadge}>
+              <Text style={styles.settingIcon}>📡</Text>
+              <Text style={styles.settingText}>移动侦测</Text>
+            </View>
+          )}
+        </View>
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between mb-2">
-            <div>
-              <h3 className="font-semibold text-gray-800 truncate">{device.name}</h3>
-              <p className="text-xs text-gray-500">{brandLabels[device.brand]} · {device.model}</p>
-            </div>
-            {device.status === 'online' ? (
-              <Wifi className="w-4 h-4 text-green-500 flex-shrink-0" />
-            ) : (
-              <WifiOff className="w-4 h-4 text-gray-400 flex-shrink-0" />
-            )}
-          </div>
+        {device.settings?.batteryLevel !== undefined && (
+          <View style={styles.batteryContainer}>
+            <Text style={[
+              styles.batteryText,
+              device.settings.batteryLevel < 20 && styles.batteryLow,
+            ]}>
+              🔋 {device.settings.batteryLevel}%
+            </Text>
+          </View>
+        )}
 
-          <div className="space-y-1 text-xs text-gray-500">
-            {device.location && (
-              <div className="flex items-center gap-1">
-                <MapPin className="w-3 h-3" />
-                <span>{device.location}</span>
-              </div>
-            )}
-            {device.lastOnline && (
-              <div className="flex items-center gap-1">
-                <Clock className="w-3 h-3" />
-                <span>最后在线: {new Date(device.lastOnline).toLocaleString('zh-CN')}</span>
-              </div>
-            )}
-          </div>
-
-          <div className="flex gap-2 mt-3">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onStreamClick?.();
-              }}
-              disabled={device.status !== 'online'}
-              className={`flex-1 py-2 px-3 rounded-lg text-xs font-medium transition-colors ${
-                device.status === 'online'
-                  ? 'bg-orange-500 text-white hover:bg-orange-600'
-                  : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-              }`}
-            >
-              {device.status === 'online' ? '查看直播' : '离线'}
-            </button>
-            {onDelete && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete();
-                }}
-                className="py-2 px-3 rounded-lg text-xs font-medium text-red-500 hover:bg-red-50 transition-colors"
-              >
-                删除
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
+        {device.status === 'offline' && device.lastSeen && (
+          <Text style={styles.lastSeenText}>
+            最后在线: {new Date(device.lastSeen).toLocaleString()}
+          </Text>
+        )}
+      </View>
+    </TouchableOpacity>
   );
-}
+};
+
+const styles = StyleSheet.create({
+  container: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    marginBottom: 16,
+    overflow: 'hidden',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  containerDark: {
+    backgroundColor: '#1F2937',
+  },
+  thumbnailContainer: {
+    position: 'relative',
+    height: 120,
+  },
+  thumbnail: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#f0f0f0',
+  },
+  placeholderThumbnail: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  placeholderIcon: {
+    fontSize: 32,
+    marginBottom: 4,
+  },
+  placeholderText: {
+    fontSize: 12,
+    color: '#999',
+  },
+  statusIndicator: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  recordingBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  recordingText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  infoContainer: {
+    padding: 12,
+  },
+  deviceName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 6,
+  },
+  deviceMeta: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 6,
+  },
+  badge: {
+    backgroundColor: '#f0f0f0',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginRight: 4,
+    marginBottom: 4,
+  },
+  badgeText: {
+    fontSize: 10,
+    color: '#666',
+  },
+  settingsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 4,
+  },
+  settingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 8,
+    marginBottom: 2,
+  },
+  settingIcon: {
+    fontSize: 10,
+    marginRight: 2,
+  },
+  settingText: {
+    fontSize: 10,
+    color: '#666',
+  },
+  batteryContainer: {
+    marginTop: 4,
+  },
+  batteryText: {
+    fontSize: 12,
+    color: '#666',
+  },
+  batteryLow: {
+    color: '#EF4444',
+  },
+  lastSeenText: {
+    fontSize: 10,
+    color: '#999',
+    marginTop: 4,
+  },
+});

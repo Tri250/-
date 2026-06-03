@@ -1,200 +1,73 @@
-import React, { memo, useRef, useCallback, useEffect } from 'react';
-import { cn } from '../../lib/utils';
+import React from 'react';
+import { View, StyleSheet, ViewStyle } from 'react-native';
 
 interface GlassCardProps {
   children: React.ReactNode;
-  className?: string;
-  variant?: 'default' | 'elevated' | 'subtle';
-  padding?: 'none' | 'sm' | 'md' | 'lg';
-  onClick?: () => void;
-  asChild?: boolean;
-  enable3D?: boolean;
+  style?: ViewStyle;
+  intensity?: 'low' | 'medium' | 'high';
+  borderRadius?: number;
 }
 
-const tiltCache = new Map<string, { x: number; y: number }>();
-
-export const GlassCard = memo(({ 
-  children, 
-  className, 
-  variant = 'default', 
-  padding = 'md', 
-  onClick, 
-  enable3D = false 
-}: GlassCardProps) => {
-  const cardRef = useRef<HTMLDivElement>(null);
-  const rafRef = useRef<number>(0);
-  const isHoveringRef = useRef(false);
-
-  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (!enable3D || !cardRef.current) return;
-
-    if (rafRef.current) {
-      cancelAnimationFrame(rafRef.current);
-    }
-
-    rafRef.current = requestAnimationFrame(() => {
-      const card = cardRef.current;
-      if (!card) return;
-      
-      const rect = card.getBoundingClientRect();
-      const cacheKey = `${rect.width}-${rect.height}`;
-      const cached = tiltCache.get(cacheKey);
-      
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      const centerX = cached?.x ?? rect.width / 2;
-      const centerY = cached?.y ?? rect.height / 2;
-      
-      if (!cached) {
-        tiltCache.set(cacheKey, { x: centerX, y: centerY });
-      }
-      
-      const rotateX = (y - centerY) / 12;
-      const rotateY = (centerX - x) / 12;
-      
-      card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.01, 1.01, 1.01)`;
-      card.style.willChange = 'transform';
-    });
-  }, [enable3D]);
-
-  const handleMouseEnter = useCallback(() => {
-    if (enable3D) {
-      isHoveringRef.current = true;
-      if (cardRef.current) {
-        cardRef.current.style.transition = 'transform 0.1s ease-out';
-      }
-    }
-  }, [enable3D]);
-
-  const handleMouseLeave = useCallback(() => {
-    if (enable3D && cardRef.current) {
-      isHoveringRef.current = false;
-      cardRef.current.style.transition = 'transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
-      cardRef.current.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)';
-      cardRef.current.style.willChange = 'auto';
-    }
-  }, [enable3D]);
-
-  useEffect(() => {
-    return () => {
-      if (rafRef.current) {
-        cancelAnimationFrame(rafRef.current);
-      }
-    };
-  }, []);
-
-  const paddingClasses = {
-    none: '',
-    sm: 'p-3',
-    md: 'p-4',
-    lg: 'p-6'
-  };
-  const variantClasses = {
-    default: 'shadow-card',
-    elevated: 'shadow-elevated',
-    subtle: 'shadow-soft'
-  };
-
+export const GlassCard: React.FC<GlassCardProps> = ({
+  children,
+  style,
+  intensity = 'medium',
+  borderRadius = 16,
+}) => {
   return (
-    <div 
-      ref={cardRef}
-      className={cn(
-        'glass-card dark:glass-card-dark rounded-xl transition-all duration-300',
-        'hover-lift active-scale ripple-effect',
-        paddingClasses[padding],
-        variantClasses[variant],
-        onClick && 'cursor-pointer',
-        className
-      )} 
-      onClick={onClick}
-      onMouseMove={handleMouseMove}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-    >
-      {children}
-    </div>
+    <View style={[styles.container, { borderRadius }, style]}>
+      <View style={[
+        styles.glass,
+        styles[intensity],
+        { borderRadius },
+      ]}>
+        <View style={[styles.content, { borderRadius }]}>
+          {children}
+        </View>
+      </View>
+    </View>
   );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    overflow: 'hidden',
+  },
+  glass: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  low: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  medium: {
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  high: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  content: {
+    flex: 1,
+    padding: 16,
+  },
 });
 
-GlassCard.displayName = 'GlassCard';
+// Loading spinner component
+export const GlassSpinner: React.FC<{ size?: number }> = ({ size = 24 }) => (
+  <View style={[styles.spinnerContainer, { width: size, height: size }]}>
+    <View style={[styles.spinner, { width: size, height: size }]} />
+  </View>
+);
 
-interface GlassSurfaceProps {
-  children: React.ReactNode;
-  className?: string;
-}
-
-export const GlassSurface = memo(({ children, className }: GlassSurfaceProps) => {
-  return (
-    <div className={cn('glass-surface dark:glass-surface-dark rounded-lg', className)}>
-      {children}
-    </div>
-  );
+const styles = StyleSheet.create({
+  spinnerContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  spinner: {
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderTopColor: '#fff',
+    borderRadius: 100,
+  },
 });
-
-GlassSurface.displayName = 'GlassSurface';
-
-interface GlassButtonProps {
-  children: React.ReactNode;
-  className?: string;
-  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
-  size?: 'sm' | 'md' | 'lg';
-  onClick?: () => void;
-  disabled?: boolean;
-  loading?: boolean;
-}
-
-export const GlassButton = memo(({ 
-  children, 
-  className, 
-  variant = 'primary', 
-  size = 'md', 
-  onClick, 
-  disabled = false, 
-  loading = false 
-}: GlassButtonProps) => {
-  const handleClick = useCallback(() => {
-    if (!disabled && !loading && onClick) {
-      onClick();
-    }
-  }, [disabled, loading, onClick]);
-
-  const variantClasses = {
-    primary: 'bg-gradient-primary text-white hover:opacity-90',
-    secondary: 'bg-secondary-500 text-white hover:bg-secondary-600',
-    ghost: 'bg-white/60 text-neutral-700 dark:text-neutral-200 dark:bg-neutral-800/60 hover:bg-white/80 dark:hover:bg-neutral-700/60',
-    danger: 'bg-danger-500 text-white hover:bg-danger-600'
-  };
-  const sizeClasses = {
-    sm: 'px-3 py-1.5 text-sm',
-    md: 'px-4 py-2 text-sm',
-    lg: 'px-6 py-3 text-base'
-  };
-  
-  return (
-    <button 
-      className={cn(
-        'glass-button rounded-lg font-medium transition-all duration-200',
-        'active-scale ripple-effect disabled:opacity-50 disabled:cursor-not-allowed',
-        variantClasses[variant],
-        sizeClasses[size],
-        className
-      )} 
-      onClick={handleClick} 
-      disabled={disabled || loading}
-    >
-      {loading ? (
-        <span className="flex items-center gap-2">
-          <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-          </svg>
-          加载中
-        </span>
-      ) : (
-        children
-      )}
-    </button>
-  );
-});
-
-GlassButton.displayName = 'GlassButton';

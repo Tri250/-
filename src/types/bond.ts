@@ -1,263 +1,68 @@
-// ============================================
-// PawSync Pro 3.0 - Bond & Emotion Types
-//
-// 作者: 带娃的小陈工
-// 日期: 2026-05-26
-// 描述: 人宠情感连接系统完整类型定义
-// ============================================
-
-// 时光档案类型
-export interface MemoryItem {
+export interface DailyActivity {
   id: string;
   petId: string;
-  type: 'photo' | 'video' | 'voice' | 'milestone';
-  title?: string;
-  description?: string;
-  url: string;
-  thumbnail?: string;
-  timestamp: string;
-  location?: string;
-  tags: string[];
-  isFavorite: boolean;
-  isHighlight: boolean;
-  sharedTo?: string[];
-  createdAt: string;
-  updatedAt: string;
+  name: string;
+  duration: number;
+  notes?: string;
+  date: string;
+  timestamp?: number;
 }
 
 export interface Milestone {
   id: string;
   petId: string;
-  type: 'birthday' | 'adoption' | 'vaccination' | 'training' | 'first_time' | 'achievement' | 'custom';
   title: string;
-  description?: string;
+  description: string;
+  emoji?: string;
   date: string;
-  photos?: string[];
-  celebrationCount: number;
-  reminder?: {
-    enabled: boolean;
-    daysBefore: number;
-  };
-}
-
-export interface MemoryAlbum {
-  id: string;
-  petId: string;
-  name: string;
-  description?: string;
-  coverImage?: string;
-  itemCount: number;
   createdAt: string;
-  updatedAt: string;
 }
 
-// 声音记忆类型
-export interface VoiceMemory {
-  id: string;
-  petId: string;
-  type: 'meow' | 'bark' | 'purr' | 'chirp' | 'growl' | 'whine' | 'other';
-  label?: string;
-  url: string;
-  duration: number;
-  waveformData: number[];
-  transcription?: string;
-  translation?: string;
-  emotion?: 'happy' | 'angry' | 'anxious' | 'hungry' | 'affectionate' | 'curious';
-  timestamp: string;
-  isUsedAsNotification: boolean;
-}
-
-// 远程互动类型
-export interface SmartDevice {
-  id: string;
-  petId: string;
-  type: 'laser' | 'feeder' | 'waterer' | 'camera' | 'toy';
-  brand: 'xiaopet' | 'huoman' | 'eufy' | 'other';
-  name: string;
-  status: 'online' | 'offline' | 'busy';
-  lastActive: string;
-  capabilities: string[];
-  settings: Record<string, any>;
-}
-
-export interface InteractionLog {
-  id: string;
-  petId: string;
-  deviceId: string;
-  type: 'play' | 'feed' | 'treat' | 'call';
-  action: string;
-  duration?: number;
-  timestamp: string;
-  autoLogged: boolean;
-}
-
-// AI内容生成类型
-export interface HighlightClip {
+export interface Memory {
   id: string;
   petId: string;
   title: string;
   description?: string;
-  videoUrl: string;
-  thumbnailUrl: string;
-  duration: number;
-  tags: string[];
-  emotions: string[];
-  scenes: string[];
-  timestamp: string;
-  viewCount: number;
-  likeCount: number;
-  shareCount: number;
-  status: 'generating' | 'ready' | 'shared' | 'deleted';
-}
-
-export interface SharePost {
-  id: string;
-  petId: string;
-  platform: 'xiaohongshu' | 'douyin' | 'weibo' | 'instagram' | 'twitter';
-  content: {
-    text: string;
-    hashtags: string[];
-    mentions?: string[];
-    mentionsEnabled: boolean;
-  };
-  mediaUrls: string[];
-  generatedCaption?: string;
-  scheduledAt?: string;
-  publishedAt?: string;
-  status: 'draft' | 'scheduled' | 'published' | 'failed';
-  metrics?: {
-    likes: number;
-    comments: number;
-    shares: number;
-    views: number;
-  };
-}
-
-export interface AIPostTemplate {
-  id: string;
-  category: string;
-  title: string;
-  content: string;
-  hashtags: string[];
-  tone: 'playful' | 'heartwarming' | 'educational' | 'funny';
-}
-
-// 博主工具包类型
-export interface ExportSettings {
-  resolution: '1080p' | '1440p' | '4k';
-  format: 'mp4' | 'mov' | 'avi';
-  watermark: {
-    enabled: boolean;
-    position: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'center';
-    opacity: number;
-    customText?: string;
-    imageUrl?: string;
-  };
-  trim: {
-    startTime: number;
-    endTime: number;
-  };
-  effects: {
-    filter?: string;
-    speed?: number;
-    transitions?: string;
-  };
-}
-
-export interface ContentLibrary {
-  id: string;
-  petId: string;
-  name: string;
-  type: 'videos' | 'photos' | 'highlights';
-  items: MemoryItem[];
-  totalSize: number;
-  lastUpdated: string;
-}
-
-// 互动提醒类型
-export interface ComingHomeReminder {
-  id: string;
-  petId: string;
-  enabled: boolean;
-  message: string;
-  audioUrl?: string;
-  playDuration: number;
-  leadTime: number;
-  deviceIds: string[];
-}
-
-// 情感分析类型
-export interface EmotionSnapshot {
-  id: string;
-  petId: string;
-  timestamp: string;
-  dominantEmotion: 'happy' | 'sad' | 'anxious' | 'excited' | 'calm' | 'playful';
-  confidence: number;
-  secondaryEmotions: Array<{
-    emotion: string;
-    intensity: number;
-  }>;
-  triggers?: string[];
-  recommendations?: string[];
-}
-
-export interface EmotionTrend {
+  mediaUrl?: string;
+  mediaType?: 'photo' | 'video';
   date: string;
-  emotions: Record<string, number>;
-  highlights: string[];
+  tags?: string[];
+  createdAt: string;
 }
 
-export interface BondMetrics {
-  understanding: number;
-  companionship: number;
-  care: number;
-  growth: number;
-  overall: number;
-}
-
-export interface DailyActivity {
+export interface TrainingSession {
   id: string;
-  type: 'translation' | 'training' | 'health_check' | 'play' | 'feed' | 'photo' | 'video';
-  description: string;
-  points: number;
-  timestamp: string;
-  date?: string;
+  petId: string;
+  activity: string;
+  duration: number;
+  success: number;
+  notes?: string;
+  date: string;
+  createdAt: string;
 }
 
-export interface Badge {
-  id: string;
-  name: string;
-  description: string;
+export interface BondLevel {
+  level: number;
+  experience: number;
+  title: string;
   icon: string;
-  category: string;
-  isUnlocked: boolean;
-  unlockedAt?: Date;
-  requirement: string;
 }
 
-export interface Achievement {
-  id: string;
-  name: string;
-  description: string;
-  type: 'milestone' | 'streak' | 'collection';
-  progress: number;
-  target: number;
-  isCompleted: boolean;
-  completedAt?: Date;
-  rewardPoints: number;
-}
+export const BOND_LEVELS: BondLevel[] = [
+  { level: 1, experience: 0, title: '初次见面', icon: '👋' },
+  { level: 2, experience: 100, title: '逐渐熟悉', icon: '🤝' },
+  { level: 3, experience: 300, title: '信任建立', icon: '💚' },
+  { level: 4, experience: 600, title: '亲密伙伴', icon: '💛' },
+  { level: 5, experience: 1000, title: '形影不离', icon: '💜' },
+  { level: 6, experience: 1500, title: '灵魂伴侣', icon: '🧡' },
+  { level: 7, experience: 2100, title: '一生陪伴', icon: '❤️' },
+];
 
-export interface BondStore {
-  metrics: BondMetrics;
-  dailyActivities: DailyActivity[];
-  badges: Badge[];
-  achievements: Achievement[];
-  totalPoints: number;
-  streakDays: number;
-  lastActiveDate: Date;
-  updateMetrics: (metrics: Partial<BondMetrics>) => void;
-  addDailyActivity: (activity: Omit<DailyActivity, 'id' | 'timestamp'>) => void;
-  unlockBadge: (badgeId: string) => void;
-  updateAchievement: (achievementId: string, progress: number) => void;
-  checkStreak: () => void;
+export function calculateBondLevel(experience: number): BondLevel {
+  for (let i = BOND_LEVELS.length - 1; i >= 0; i--) {
+    if (experience >= BOND_LEVELS[i].experience) {
+      return BOND_LEVELS[i];
+    }
+  }
+  return BOND_LEVELS[0];
 }

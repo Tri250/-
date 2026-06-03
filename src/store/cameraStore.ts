@@ -1,97 +1,76 @@
 import { create } from 'zustand';
-import type { CameraDevice, CameraBrand, PairingProgress, StreamQuality } from '../types/camera';
-import { cameraManager } from '../services/cameraService';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Device } from '../types/device';
+import { StreamQuality } from '../types/camera';
 
 interface CameraState {
-  devices: CameraDevice[];
-  selectedDevice: CameraDevice | null;
-  isLoading: boolean;
-  error: string | null;
+  devices: Device[];
+  selectedDeviceId: string | null;
   streamQuality: StreamQuality;
-  isPairing: boolean;
-  pairingProgress: PairingProgress | null;
-
-  loadDevices: () => Promise<void>;
-  selectDevice: (device: CameraDevice) => void;
-  addDevice: (device: CameraDevice) => void;
-  removeDevice: (deviceId: string) => Promise<void>;
-  pairDevice: (brand: CameraBrand, deviceCode: string, deviceName?: string) => Promise<CameraDevice>;
+  isStreaming: boolean;
+  error: string | null;
+  
+  addDevice: (device: Device) => void;
+  removeDevice: (deviceId: string) => void;
+  updateDevice: (deviceId: string, updates: Partial<Device>) => void;
+  selectDevice: (deviceId: string | null) => void;
   setStreamQuality: (quality: StreamQuality) => void;
-  updateDeviceStatus: (deviceId: string, status: CameraDevice['status']) => void;
+  setStreaming: (isStreaming: boolean) => void;
+  setError: (error: string | null) => void;
+  getDeviceById: (deviceId: string) => Device | undefined;
+  getDevicesByPet: (petId: string) => Device[];
 }
 
-export const useCameraStore = create<CameraState>((set, get) => ({
-  devices: [],
-  selectedDevice: null,
-  isLoading: false,
-  error: null,
-  streamQuality: 'auto',
-  isPairing: false,
-  pairingProgress: null,
+export const useCameraStore = create<CameraState>()(
+  persist(
+    (set, get) => ({
+      devices: [],
+      selectedDeviceId: null,
+      streamQuality: 'high',
+      isStreaming: false,
+      error: null,
 
-  loadDevices: async () => {
-    set({ isLoading: true, error: null });
-    try {
-      const devices = await cameraManager.getAllDevices();
-      set({ devices, isLoading: false });
-    } catch (error) {
-      set({ error: 'Failed to load devices', isLoading: false });
+      addDevice: (device) =>
+        set((state) => ({
+          devices: [...state.devices, device],
+        })),
+
+      removeDevice: (deviceId) =>
+        set((state) => ({
+          devices: state.devices.filter((d) => d.id !== deviceId),
+          selectedDeviceId:
+            state.selectedDeviceId === deviceId ? null : state.selectedDeviceId,
+        })),
+
+      updateDevice: (deviceId, updates) =>
+        set((state) => ({
+          devices: state.devices.map((d) =>
+            d.id === deviceId ? { ...d, ...updates } : d
+          ),
+        })),
+
+      selectDevice: (deviceId) =>
+        set({ selectedDeviceId: deviceId }),
+
+      setStreamQuality: (quality) =>
+        set({ streamQuality: quality }),
+
+      setStreaming: (isStreaming) =>
+        set({ isStreaming }),
+
+      setError: (error) =>
+        set({ error }),
+
+      getDeviceById: (deviceId) =>
+        get().devices.find((d) => d.id === deviceId),
+
+      getDevicesByPet: (petId) =>
+        get().devices.filter((d) => d.petId === petId),
+    }),
+    {
+      name: 'camera-storage',
+      storage: createJSONStorage(() => AsyncStorage),
     }
-  },
-
-  selectDevice: (device) => {
-    set({ selectedDevice: device });
-  },
-
-  addDevice: (device) => {
-    set((state) => ({
-      devices: [...state.devices, device],
-    }));
-  },
-
-  removeDevice: async (deviceId) => {
-    try {
-      await cameraManager.removeDevice(deviceId);
-      set((state) => ({
-        devices: state.devices.filter(d => d.id !== deviceId),
-        selectedDevice: state.selectedDevice?.id === deviceId ? null : state.selectedDevice,
-      }));
-    } catch (error) {
-      set({ error: 'Failed to remove device' });
-    }
-  },
-
-  pairDevice: async (brand, deviceCode, deviceName) => {
-    set({ isPairing: true, error: null, pairingProgress: null });
-    
-    try {
-      const device = await cameraManager.pairDevice(
-        { brand, deviceCode, name: deviceName },
-        (progress) => set({ pairingProgress: progress })
-      );
-      
-      set((state) => ({
-        devices: [...state.devices, device],
-        isPairing: false,
-        pairingProgress: null,
-      }));
-      
-      return device;
-    } catch (error) {
-      set({ error: 'Failed to pair device', isPairing: false, pairingProgress: null });
-      throw error;
-    }
-  },
-
-  setStreamQuality: (quality) => {
-    set({ streamQuality: quality });
-  },
-
-  updateDeviceStatus: (deviceId, status) => {
-    set((state) => ({
-      devices: state.devices.map(d =>
-        d.id === deviceId ? { ...d, status } : d
-      ),
-    }));
-  },
-}));
+  )
+);

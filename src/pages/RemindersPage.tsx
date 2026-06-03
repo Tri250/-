@@ -1,282 +1,406 @@
-import React, { useState } from 'react';
-import { 
-  ChevronLeft, 
-  Calendar, 
-  Plus, 
-  Clock,
-  Check,
-  Syringe,
-  Scissors,
-  Droplets,
-  Pill,
-  Activity,
-  Star,
-  Sparkles
-} from 'lucide-react';
-import { Card, EmptyState } from '../components/DesignSystem';
-import { useReminderStore } from '../store/reminderStore';
-import { usePetStore } from '../store/petStore';
-import { REMINDER_TYPES, type ReminderType } from '../types/reminder';
-import { AddReminderModal } from '../components/AddReminderModal';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Modal, Alert } from 'react-native';
+import { useReminderStore } from '../../store/reminderStore';
+import { ReminderType } from '../../types/health-record';
 
 interface RemindersPageProps {
-  onNavigate: (page: string) => void;
+  onReminderPress?: (reminder: any) => void;
 }
 
-export const RemindersPage: React.FC<RemindersPageProps> = ({ onNavigate }) => {
-  const { selectedType, viewMode, getFilteredReminders, getUpcomingReminders, setSelectedType, setViewMode, toggleComplete, addReminder } = useReminderStore();
-  const { currentPetId } = usePetStore();
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+export const RemindersPage: React.FC<RemindersPageProps> = ({
+  onReminderPress,
+}) => {
+  const { reminders, loading, fetchReminders, addReminder, updateReminder, deleteReminder } = useReminderStore();
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [selectedPetId, setSelectedPetId] = useState<string | null>(null);
+  const [newReminder, setNewReminder] = useState({
+    title: '',
+    description: '',
+    type: 'checkup' as ReminderType,
+    date: new Date(),
+  });
 
-  const filteredReminders = currentPetId ? getFilteredReminders(currentPetId) : [];
-  const upcomingReminders = currentPetId ? getUpcomingReminders(currentPetId, 5) : [];
+  useEffect(() => {
+    fetchReminders();
+  }, []);
 
-  const handleAddReminder = (reminderData: Parameters<typeof addReminder>[0]) => {
-    addReminder(reminderData);
+  const handleAddReminder = async () => {
+    if (!newReminder.title.trim()) {
+      Alert.alert('错误', '请输入提醒标题');
+      return;
+    }
+
+    await addReminder({
+      ...newReminder,
+      petId: selectedPetId || undefined,
+      completed: false,
+      createdAt: new Date().toISOString(),
+    });
+
+    setShowAddModal(false);
+    setNewReminder({
+      title: '',
+      description: '',
+      type: 'checkup',
+      date: new Date(),
+    });
   };
 
-  const getIconForType = (type: string) => {
+  const handleToggleComplete = async (reminderId: string, currentStatus: boolean) => {
+    await updateReminder(reminderId, { completed: !currentStatus });
+  };
+
+  const handleDeleteReminder = async (reminderId: string) => {
+    Alert.alert(
+      '确认删除',
+      '确定要删除这条提醒吗？',
+      [
+        { text: '取消', style: 'cancel' },
+        { text: '删除', style: 'destructive', onPress: () => deleteReminder(reminderId) },
+      ]
+    );
+  };
+
+  const getReminderIcon = (type: ReminderType) => {
     switch (type) {
-      case 'vaccine': return Syringe;
-      case 'deworming': return Droplets;
-      case 'checkup': return Activity;
-      case 'bath': return Droplets;
-      case 'brush_teeth': return Sparkles;
-      case 'medicine': return Pill;
-      case 'grooming': return Scissors;
-      case 'birthday': return Star;
-      default: return Calendar;
+      case 'vaccination':
+        return '💉';
+      case 'medication':
+        return '💊';
+      case 'checkup':
+        return '🩺';
+      case 'grooming':
+        return '✂️';
+      case 'feeding':
+        return '🍽️';
+      default:
+        return '📌';
     }
   };
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+  const renderReminderItem = ({ item }: { item: any }) => {
+    const isPast = new Date(item.date) < new Date();
+    const isToday = new Date(item.date).toDateString() === new Date().toDateString();
 
-    if (date.toDateString() === today.toDateString()) return '今天';
-    if (date.toDateString() === tomorrow.toDateString()) return '明天';
+    return (
+      <TouchableOpacity
+        style={[
+          styles.reminderCard,
+          item.completed && styles.reminderCardCompleted,
+        ]}
+        onPress={() => onReminderPress?.(item)}
+      >
+        <TouchableOpacity
+          style={styles.checkbox}
+          onPress={() => handleToggleComplete(item.id, item.completed)}
+        >
+          {item.completed && <Text style={styles.checkmark}>✓</Text>}
+        </TouchableOpacity>
 
-    return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
-  };
+        <View style={styles.reminderContent}>
+          <View style={styles.reminderHeader}>
+            <Text style={styles.reminderIcon}>{getReminderIcon(item.type)}</Text>
+            <Text style={[
+              styles.reminderTitle,
+              item.completed && styles.completedText,
+            ]}>
+              {item.title}
+            </Text>
+          </View>
 
-  return (
-    <div className="min-h-screen bg-neutral-50 pb-24">
-      {/* Header */}
-      <header className="bg-gradient-to-br from-purple-500 to-purple-600 text-white px-4 py-6">
-        <div className="max-w-md mx-auto">
-          <div className="flex items-center gap-4 mb-6">
-            <button 
-              onClick={() => onNavigate('home')}
-              className="p-2 -ml-2 rounded-full bg-white/20 backdrop-blur hover:bg-white/30 transition-all"
-            >
-              <ChevronLeft className="w-6 h-6" />
-            </button>
-            <div className="flex-1">
-              <h1 className="text-xl font-bold">智能提醒</h1>
-              <p className="text-sm text-white/80">不错过任何重要时间</p>
-            </div>
-            <button 
-              onClick={() => setIsAddModalOpen(true)}
-              className="p-2 rounded-full bg-white/20 backdrop-blur hover:bg-white/30 transition-all"
-            >
-              <Plus className="w-6 h-6" />
-            </button>
-          </div>
-
-          {/* View Mode Toggle */}
-          <div className="flex gap-2 bg-white/20 backdrop-blur p-1 rounded-xl">
-            <button
-              onClick={() => setViewMode('today')}
-              className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                viewMode === 'today' ? 'bg-white text-purple-600' : 'text-white/80 hover:text-white'
-              }`}
-            >
-              今天
-            </button>
-            <button
-              onClick={() => setViewMode('week')}
-              className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                viewMode === 'week' ? 'bg-white text-purple-600' : 'text-white/80 hover:text-white'
-              }`}
-            >
-              本周
-            </button>
-            <button
-              onClick={() => setViewMode('all')}
-              className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                viewMode === 'all' ? 'bg-white text-purple-600' : 'text-white/80 hover:text-white'
-              }`}
-            >
-              全部
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Type Filter */}
-      <div className="bg-white border-b border-neutral-100 px-4 py-3">
-        <div className="max-w-md mx-auto">
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            <button
-              onClick={() => setSelectedType(null)}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
-                selectedType === null
-                  ? 'bg-purple-500 text-white'
-                  : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
-              }`}
-            >
-              全部
-            </button>
-            {REMINDER_TYPES.map((type) => (
-              <button
-                key={type.id}
-                onClick={() => setSelectedType(type.id as ReminderType)}
-                className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
-                  selectedType === type.id
-                    ? 'bg-purple-500 text-white'
-                    : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
-                }`}
-                style={selectedType !== type.id ? { backgroundColor: type.color + '20', color: type.color } : {}}
-              >
-                {type.name}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="px-4 py-4 space-y-6">
-        <div className="max-w-md mx-auto">
-          {/* Upcoming */}
-          {upcomingReminders.length > 0 && viewMode === 'all' && (
-            <div className="space-y-3">
-              <h2 className="text-sm font-semibold text-neutral-500 uppercase tracking-wide flex items-center gap-2">
-                <Star className="w-4 h-4 text-warning-500" />
-                即将到来
-              </h2>
-              <div className="space-y-3">
-                {upcomingReminders.map((reminder) => {
-                  const Icon = getIconForType(reminder.type);
-                  const typeConfig = REMINDER_TYPES.find(t => t.id === reminder.type);
-                  return (
-                    <Card key={reminder.id} hover className="border-l-4" style={{ borderLeftColor: typeConfig?.color }}>
-                      <div className="flex items-start gap-3">
-                        <div 
-                          className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                          style={{ backgroundColor: typeConfig?.color + '20' }}
-                        >
-                          <Icon className="w-5 h-5" style={{ color: typeConfig?.color }} />
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-neutral-800">{reminder.title}</h3>
-                          <div className="flex items-center gap-2 mt-1">
-                            <Clock className="w-3.5 h-3.5 text-neutral-400" />
-                            <span className="text-sm text-neutral-500">{formatDate(reminder.date)} {reminder.time}</span>
-                            {reminder.repeat !== 'once' && (
-                              <span className="text-xs text-neutral-400 bg-neutral-100 px-1.5 py-0.5 rounded-full">
-                                {reminder.repeat === 'daily' ? '每天' : reminder.repeat === 'weekly' ? '每周' : reminder.repeat === 'monthly' ? '每月' : '每年'}
-                              </span>
-                            )}
-                          </div>
-                          {reminder.notes && (
-                            <p className="text-sm text-neutral-500 mt-2">{reminder.notes}</p>
-                          )}
-                        </div>
-                        <button
-                          onClick={() => toggleComplete(reminder.id)}
-                          className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
-                            reminder.isCompleted
-                              ? 'bg-success-500 border-success-500'
-                              : 'border-neutral-300 hover:border-purple-500'
-                          }`}
-                        >
-                          {reminder.isCompleted && <Check className="w-4 h-4 text-white" />}
-                        </button>
-                      </div>
-                    </Card>
-                  );
-                })}
-              </div>
-            </div>
+          {item.description && (
+            <Text style={styles.reminderDescription} numberOfLines={2}>
+              {item.description}
+            </Text>
           )}
 
-          {/* All Reminders */}
-          <div className="space-y-3">
-            <h2 className="text-sm font-semibold text-neutral-500 uppercase tracking-wide">
-              {viewMode === 'today' ? '今天' : viewMode === 'week' ? '本周' : '所有'}
-            </h2>
-            {filteredReminders.length === 0 ? (
-              <EmptyState
-                type="reminders"
-                title="还没有提醒"
-                description="创建您的第一个提醒吧"
-                action={
-                  <button 
-                    onClick={() => setIsAddModalOpen(true)}
-                    className="px-6 py-2.5 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-xl font-medium hover:shadow-lg hover:shadow-purple-500/30 transition-all"
-                  >
-                    添加提醒
-                  </button>
-                }
-              />
-            ) : (
-              <div className="space-y-3">
-                {filteredReminders.map((reminder) => {
-                  const Icon = getIconForType(reminder.type);
-                  const typeConfig = REMINDER_TYPES.find(t => t.id === reminder.type);
-                  return (
-                    <Card key={reminder.id} hover className={`border-l-4 ${reminder.isCompleted ? 'opacity-60' : ''}`} style={{ borderLeftColor: typeConfig?.color }}>
-                      <div className="flex items-start gap-3">
-                        <div 
-                          className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                          style={{ backgroundColor: typeConfig?.color + '20' }}
-                        >
-                          <Icon className="w-5 h-5" style={{ color: typeConfig?.color }} />
-                        </div>
-                        <div className="flex-1">
-                          <h3 className={`font-semibold text-neutral-800 ${reminder.isCompleted ? 'line-through' : ''}`}>{reminder.title}</h3>
-                          <div className="flex items-center gap-2 mt-1">
-                            <Clock className="w-3.5 h-3.5 text-neutral-400" />
-                            <span className="text-sm text-neutral-500">{formatDate(reminder.date)} {reminder.time}</span>
-                            {reminder.repeat !== 'once' && (
-                              <span className="text-xs text-neutral-400 bg-neutral-100 px-1.5 py-0.5 rounded-full">
-                                {reminder.repeat === 'daily' ? '每天' : reminder.repeat === 'weekly' ? '每周' : reminder.repeat === 'monthly' ? '每月' : '每年'}
-                              </span>
-                            )}
-                          </div>
-                          {reminder.notes && (
-                            <p className="text-sm text-neutral-500 mt-2">{reminder.notes}</p>
-                          )}
-                        </div>
-                        <button
-                          onClick={() => toggleComplete(reminder.id)}
-                          className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
-                            reminder.isCompleted
-                              ? 'bg-success-500 border-success-500'
-                              : 'border-neutral-300 hover:border-purple-500'
-                          }`}
-                        >
-                          {reminder.isCompleted && <Check className="w-4 h-4 text-white" />}
-                        </button>
-                      </div>
-                    </Card>
-                  );
-                })}
-              </div>
+          <View style={styles.reminderMeta}>
+            <Text style={[
+              styles.reminderDate,
+              isPast && !item.completed && styles.pastDate,
+              isToday && styles.todayDate,
+            ]}>
+              {isToday ? '今天' : new Date(item.date).toLocaleDateString()}
+            </Text>
+            {item.petId && (
+              <Text style={styles.petBadge}>关联宠物</Text>
             )}
-          </div>
-        </div>
-      </div>
+          </View>
+        </View>
 
-      <AddReminderModal
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        onSubmit={handleAddReminder}
-        currentPetId={currentPetId}
+        <TouchableOpacity
+          style={styles.deleteButton}
+          onPress={() => handleDeleteReminder(item.id)}
+        >
+          <Text style={styles.deleteIcon}>🗑️</Text>
+        </TouchableOpacity>
+      </TouchableOpacity>
+    );
+  };
+
+  const renderEmptyList = () => (
+    <View style={styles.emptyContainer}>
+      <Text style={styles.emptyIcon}>🔔</Text>
+      <Text style={styles.emptyTitle}>暂无提醒</Text>
+      <Text style={styles.emptySubtitle}>点击下方按钮添加新提醒</Text>
+    </View>
+  );
+
+  return (
+    <View style={styles.container}>
+      <FlatList
+        data={reminders}
+        keyExtractor={(item) => item.id}
+        renderItem={renderReminderItem}
+        contentContainerStyle={styles.listContainer}
+        ListEmptyComponent={renderEmptyList}
+        showsVerticalScrollIndicator={false}
       />
-    </div>
+
+      <TouchableOpacity
+        style={styles.addButton}
+        onPress={() => setShowAddModal(true)}
+      >
+        <Text style={styles.addButtonText}>+ 添加提醒</Text>
+      </TouchableOpacity>
+
+      <Modal
+        visible={showAddModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowAddModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>添加提醒</Text>
+              <TouchableOpacity onPress={() => setShowAddModal(false)}>
+                <Text style={styles.closeButton}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>标题</Text>
+              <TextInput
+                style={styles.input}
+                value={newReminder.title}
+                onChangeText={(text) => setNewReminder({ ...newReminder, title: text })}
+                placeholder="输入提醒标题"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>描述</Text>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                value={newReminder.description}
+                onChangeText={(text) => setNewReminder({ ...newReminder, description: text })}
+                placeholder="输入描述"
+                multiline
+              />
+            </View>
+
+            <TouchableOpacity
+              style={styles.submitButton}
+              onPress={handleAddReminder}
+            >
+              <Text style={styles.submitButtonText}>保存</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    </View>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+  },
+  listContainer: {
+    padding: 16,
+    flexGrow: 1,
+  },
+  reminderCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  reminderCardCompleted: {
+    backgroundColor: '#f9f9f9',
+    opacity: 0.7,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#F97316',
+    marginRight: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkmark: {
+    color: '#F97316',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  reminderContent: {
+    flex: 1,
+  },
+  reminderHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  reminderIcon: {
+    fontSize: 16,
+    marginRight: 8,
+  },
+  reminderTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  completedText: {
+    textDecorationLine: 'line-through',
+    color: '#999',
+  },
+  reminderDescription: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 4,
+    marginLeft: 24,
+  },
+  reminderMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 24,
+  },
+  reminderDate: {
+    fontSize: 12,
+    color: '#999',
+  },
+  pastDate: {
+    color: '#EF4444',
+  },
+  todayDate: {
+    color: '#F97316',
+    fontWeight: '600',
+  },
+  petBadge: {
+    fontSize: 10,
+    color: '#10B981',
+    backgroundColor: '#D1FAE5',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginLeft: 8,
+  },
+  deleteButton: {
+    padding: 8,
+  },
+  deleteIcon: {
+    fontSize: 18,
+  },
+  addButton: {
+    backgroundColor: '#F97316',
+    margin: 16,
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  addButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  emptyIcon: {
+    fontSize: 48,
+    marginBottom: 16,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: '#666',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '90%',
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  closeButton: {
+    fontSize: 24,
+    color: '#999',
+  },
+  formGroup: {
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    color: '#333',
+  },
+  textArea: {
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  submitButton: {
+    backgroundColor: '#F97316',
+    padding: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  submitButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+});

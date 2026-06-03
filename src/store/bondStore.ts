@@ -1,168 +1,140 @@
 import { create } from 'zustand';
-import { BondMetrics, DailyActivity, Badge, Achievement, BondStore } from '../types/bond';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const mockBadges: Badge[] = [
-  {
-    id: '1',
-    name: '初次翻译',
-    description: '完成第一次宠物情绪翻译',
-    icon: '🎤',
-    category: 'translation',
-    isUnlocked: true,
-    unlockedAt: new Date(Date.now() - 86400000 * 5),
-    requirement: '完成1次翻译'
-  },
-  {
-    id: '2',
-    name: '翻译达人',
-    description: '完成30次情绪翻译',
-    icon: '🌟',
-    category: 'translation',
-    isUnlocked: false,
-    requirement: '完成30次翻译'
-  },
-  {
-    id: '3',
-    name: '训练新手',
-    description: '开始第一个训练课程',
-    icon: '🏆',
-    category: 'training',
-    isUnlocked: true,
-    unlockedAt: new Date(Date.now() - 86400000 * 3),
-    requirement: '开始1门课程'
-  },
-  {
-    id: '4',
-    name: '健康守护者',
-    description: '连续7天进行健康检查',
-    icon: '❤️',
-    category: 'health',
-    isUnlocked: false,
-    requirement: '连续7天健康打卡'
-  },
-  {
-    id: '5',
-    name: '七天连续',
-    description: '连续使用应用7天',
-    icon: '🔥',
-    category: 'social',
-    isUnlocked: true,
-    unlockedAt: new Date(Date.now() - 86400000 * 2),
-    requirement: '连续使用7天'
-  }
-];
+export interface DailyActivity {
+  id: string;
+  petId: string;
+  name: string;
+  duration: number;
+  notes?: string;
+  date: string;
+  timestamp?: number;
+}
 
-const mockAchievements: Achievement[] = [
-  {
-    id: '1',
-    name: '翻译百次',
-    description: '累计完成100次情绪翻译',
-    type: 'milestone',
-    progress: 45,
-    target: 100,
-    isCompleted: false,
-    rewardPoints: 500
-  },
-  {
-    id: '2',
-    name: '训练达人',
-    description: '累计训练时长达到10小时',
-    type: 'milestone',
-    progress: 2,
-    target: 10,
-    isCompleted: false,
-    rewardPoints: 300
-  },
-  {
-    id: '3',
-    name: '三十天连续',
-    description: '连续使用应用30天',
-    type: 'streak',
-    progress: 5,
-    target: 30,
-    isCompleted: false,
-    rewardPoints: 1000
-  }
-];
+export interface Milestone {
+  id: string;
+  petId: string;
+  title: string;
+  description: string;
+  emoji?: string;
+  date: string;
+  createdAt: string;
+}
 
-const initialMetrics: BondMetrics = {
-  understanding: 72,
-  companionship: 68,
-  care: 85,
-  growth: 55,
-  overall: 70
-};
+export interface Memory {
+  id: string;
+  petId: string;
+  title: string;
+  description?: string;
+  mediaUrl?: string;
+  mediaType?: 'photo' | 'video';
+  date: string;
+  tags?: string[];
+  createdAt: string;
+}
 
-export const useBondStore = create<BondStore>((set, get) => ({
-  metrics: initialMetrics,
-  dailyActivities: [],
-  badges: mockBadges,
-  achievements: mockAchievements,
-  totalPoints: 850,
-  streakDays: 5,
-  lastActiveDate: new Date(),
+interface BondState {
+  memories: Memory[];
+  milestones: Milestone[];
+  dailyActivities: DailyActivity[];
+  trainingRecords: any[];
+  
+  addMemory: (memory: Omit<Memory, 'id' | 'createdAt'>) => void;
+  updateMemory: (id: string, updates: Partial<Memory>) => void;
+  deleteMemory: (id: string) => void;
+  
+  addMilestone: (milestone: Omit<Milestone, 'id' | 'createdAt'>) => void;
+  updateMilestone: (id: string, updates: Partial<Milestone>) => void;
+  deleteMilestone: (id: string) => void;
+  
+  addDailyActivity: (activity: Omit<DailyActivity, 'id' | 'timestamp'>) => void;
+  getActivitiesByPet: (petId: string) => DailyActivity[];
+  
+  getMemoriesByPet: (petId: string) => Memory[];
+  getMilestonesByPet: (petId: string) => Milestone[];
+}
 
-  updateMetrics: (metrics) => set((state) => {
-    const newMetrics = { ...state.metrics, ...metrics };
-    newMetrics.overall = Math.round(
-      (newMetrics.understanding + newMetrics.companionship + newMetrics.care + newMetrics.growth) / 4
-    );
-    return { metrics: newMetrics };
-  }),
+export const useBondStore = create<BondState>()(
+  persist(
+    (set, get) => ({
+      memories: [],
+      milestones: [],
+      dailyActivities: [],
+      trainingRecords: [],
 
-  addDailyActivity: (activity) => set((state) => ({
-    dailyActivities: [{ ...activity, id: Date.now().toString(), timestamp: new Date().toISOString() }, ...state.dailyActivities],
-    totalPoints: state.totalPoints + activity.points
-  })),
+      addMemory: (memory) =>
+        set((state) => ({
+          memories: [
+            {
+              ...memory,
+              id: `memory-${Date.now()}`,
+              createdAt: new Date().toISOString(),
+            },
+            ...state.memories,
+          ],
+        })),
 
-  unlockBadge: (badgeId) => set((state) => ({
-    badges: state.badges.map(badge => 
-      badge.id === badgeId && !badge.isUnlocked
-        ? { ...badge, isUnlocked: true, unlockedAt: new Date() }
-        : badge
-    )
-  })),
+      updateMemory: (id, updates) =>
+        set((state) => ({
+          memories: state.memories.map((m) =>
+            m.id === id ? { ...m, ...updates } : m
+          ),
+        })),
 
-  updateAchievement: (achievementId, progress) => set((state) => {
-    const achievement = state.achievements.find(a => a.id === achievementId);
-    if (!achievement) return state;
+      deleteMemory: (id) =>
+        set((state) => ({
+          memories: state.memories.filter((m) => m.id !== id),
+        })),
 
-    const newProgress = Math.min(progress, achievement.target);
-    const isCompleted = newProgress >= achievement.target;
+      addMilestone: (milestone) =>
+        set((state) => ({
+          milestones: [
+            {
+              ...milestone,
+              id: `milestone-${Date.now()}`,
+              createdAt: new Date().toISOString(),
+            },
+            ...state.milestones,
+          ],
+        })),
 
-    return {
-      achievements: state.achievements.map(a =>
-        a.id === achievementId
-          ? { 
-              ...a, 
-              progress: newProgress, 
-              isCompleted,
-              completedAt: isCompleted && !a.isCompleted ? new Date() : a.completedAt
-            }
-          : a
-      ),
-      totalPoints: isCompleted && !achievement.isCompleted 
-        ? state.totalPoints + achievement.rewardPoints 
-        : state.totalPoints
-    };
-  }),
+      updateMilestone: (id, updates) =>
+        set((state) => ({
+          milestones: state.milestones.map((m) =>
+            m.id === id ? { ...m, ...updates } : m
+          ),
+        })),
 
-  checkStreak: () => {
-    const { streakDays, lastActiveDate } = get();
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
+      deleteMilestone: (id) =>
+        set((state) => ({
+          milestones: state.milestones.filter((m) => m.id !== id),
+        })),
 
-    const lastActive = new Date(lastActiveDate);
-    const isYesterday = lastActive.toDateString() === yesterday.toDateString();
-    const isToday = lastActive.toDateString() === today.toDateString();
+      addDailyActivity: (activity) =>
+        set((state) => ({
+          dailyActivities: [
+            {
+              ...activity,
+              id: `activity-${Date.now()}`,
+              timestamp: Date.now(),
+            },
+            ...state.dailyActivities,
+          ],
+        })),
 
-    if (isToday) return;
+      getActivitiesByPet: (petId) =>
+        get().dailyActivities.filter((a) => a.petId === petId),
 
-    if (isYesterday) {
-      set({ streakDays: streakDays + 1, lastActiveDate: today });
-    } else {
-      set({ streakDays: 1, lastActiveDate: today });
+      getMemoriesByPet: (petId) =>
+        get().memories.filter((m) => m.petId === petId),
+
+      getMilestonesByPet: (petId) =>
+        get().milestones.filter((m) => m.petId === petId),
+    }),
+    {
+      name: 'bond-storage',
+      storage: createJSONStorage(() => AsyncStorage),
     }
-  }
-}));
+  )
+);
