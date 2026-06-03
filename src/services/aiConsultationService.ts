@@ -1,4 +1,4 @@
-import type { AIMessage, ConversationContext, ImageAnalysisResult, VoiceRecognitionResult, InputValidationResult } from '../types/ai-consultation';
+import type { AIMessage, ConversationContext, ImageAnalysisResult, VoiceRecognitionResult, InputValidationResult, PetInfo } from '../types/ai-consultation';
 import { SYMPTOM_KEYWORDS, INTENT_KEYWORDS, AMBIGUOUS_KEYWORDS, MULTI_INTENT_INDICATORS, INTERNET_SLANG, DIALECT_EXPRESSIONS, INPUT_VALIDATION_CONFIG, PROHIBITED_CONTENT_PATTERNS, MULTILINGUAL_CONFIG } from '../types/ai-consultation';
 
 interface AIResponse {
@@ -625,6 +625,9 @@ export class AIConsultationService {
         errors.push('输入内容不能为空');
         return {
           isValid: false,
+          sanitizedInput: '',
+          detectedIssues: errors,
+          severity: 'high',
           errors,
           warnings,
           hasProhibitedContent: false,
@@ -700,9 +703,15 @@ export class AIConsultationService {
     
     const isValid = errors.length === 0;
     const hasProhibitedContent = prohibitedCategories.length > 0;
+    const severity: InputValidationResult['severity'] = errors.length > 0
+      ? (errors.some(e => e.includes('禁止') || e.includes('敏感')) ? 'high' : 'medium')
+      : (warnings.length > 0 ? 'low' : 'none');
     
     return {
       isValid,
+      sanitizedInput: sanitizedContent,
+      detectedIssues: [...errors, ...warnings],
+      severity,
       errors,
       warnings,
       sanitizedContent: isValid ? sanitizedContent : undefined,
@@ -770,11 +779,11 @@ export class AIConsultationService {
   handleInvalidInput(validationResult: InputValidationResult): AIResponse {
     let content = '⚠️ 您的输入存在问题，请检查后重新提交：\n\n';
     
-    for (const error of validationResult.errors) {
+    for (const error of validationResult.errors ?? []) {
       content += `❌ ${error}\n`;
     }
     
-    for (const warning of validationResult.warnings) {
+    for (const warning of validationResult.warnings ?? []) {
       content += `⚠️ ${warning}\n`;
     }
     
@@ -1154,8 +1163,8 @@ export class AIConsultationService {
     return foundSymptoms;
   }
 
-  private extractPetInfo(message: string): Partial<ConversationContext['petInfo']> {
-    const info: Partial<ConversationContext['petInfo']> = {};
+  private extractPetInfo(message: string): Partial<PetInfo> {
+    const info: Partial<PetInfo> = {};
     
     if (message.includes('猫') || message.includes('猫咪')) {
       info.type = 'cat';
@@ -1192,13 +1201,13 @@ export class AIConsultationService {
     
     const symptoms = this.extractSymptoms(message);
     if (symptoms.length > 0) {
-      update.mentionedSymptoms = Array.from(new Set([...currentContext.mentionedSymptoms, ...symptoms]));
+      update.mentionedSymptoms = Array.from(new Set([...(currentContext.mentionedSymptoms ?? []), ...symptoms]));
     }
     
     const intent = this.detectIntent(message);
     if (intent) {
       update.lastIntent = intent;
-      update.discussedTopics = Array.from(new Set([...currentContext.discussedTopics, intent]));
+      update.discussedTopics = Array.from(new Set([...(currentContext.discussedTopics ?? []), intent]));
     }
     
     return update;
@@ -1235,11 +1244,11 @@ export class AIConsultationService {
       return this.handleInvalidInput(validation);
     }
     
-    if (validation.contentLength === 0) {
+    if ((validation.contentLength ?? 0) === 0) {
       return this.handleEmptyInput();
     }
     
-    if (validation.contentLength > INPUT_VALIDATION_CONFIG.maxLength * 0.8) {
+    if ((validation.contentLength ?? 0) > INPUT_VALIDATION_CONFIG.maxLength * 0.8) {
       return this.handleLongInput(question);
     }
     
@@ -1481,6 +1490,7 @@ export class AIConsultationService {
       role: 'assistant',
       content: analysis.content,
       messageType: 'text',
+      timestamp: new Date().toISOString(),
       createdAt: new Date().toISOString(),
     };
   }
@@ -1498,6 +1508,7 @@ export class AIConsultationService {
       role: 'user',
       content,
       messageType: 'text',
+      timestamp: new Date().toISOString(),
       createdAt: new Date().toISOString(),
     };
 
@@ -1525,6 +1536,7 @@ export class AIConsultationService {
       role: 'assistant',
       content: responseContent,
       messageType: 'text',
+      timestamp: new Date().toISOString(),
       createdAt: new Date().toISOString(),
     };
   }
@@ -1537,6 +1549,7 @@ export class AIConsultationService {
       role: 'user',
       content,
       messageType: 'text',
+      timestamp: new Date().toISOString(),
       createdAt: new Date().toISOString(),
     };
 
@@ -1726,25 +1739,26 @@ export class AIConsultationService {
   }
 
   generateImageAnalysisResponse(analysis: ImageAnalysisResult): string {
-    const severityEmoji = {
+    const severityEmoji: Record<string, string> = {
       low: 'ℹ️',
       medium: '⚠️',
       high: '🚨',
       urgent: '🔴',
     };
     
-    let response = `${severityEmoji[analysis.severityLevel]} **图片分析结果**\n\n`;
-    response += `**分析类型**: ${analysis.analysisType}\n`;
+    const severityLevel = analysis.severityLevel ?? 'low';
+    let response = `${severityEmoji[severityLevel] ?? 'ℹ️'} **图片分析结果**\n\n`;
+    response += `**分析类型**: ${analysis.analysisType ?? 'general'}\n`;
     response += `**置信度**: ${Math.round(analysis.confidence * 100)}%\n`;
-    response += `**严重程度**: ${analysis.severityLevel}\n\n`;
+    response += `**严重程度**: ${severityLevel}\n\n`;
     
     response += `**检测到的问题**:\n`;
-    for (const issue of analysis.detectedIssues) {
+    for (const issue of analysis.detectedIssues ?? []) {
       response += `• ${issue}\n`;
     }
     
     response += `\n**建议措施**:\n`;
-    for (const rec of analysis.recommendations) {
+    for (const rec of analysis.recommendations ?? []) {
       response += `• ${rec}\n`;
     }
     
@@ -1766,12 +1780,12 @@ export class AIConsultationService {
     let response = `🎤 **语音输入已识别**\n\n`;
     response += `**识别内容**: "${voiceResult.transcript}"\n`;
     response += `**置信度**: ${Math.round(voiceResult.confidence * 100)}%\n`;
-    response += `**语言**: ${voiceResult.language}\n`;
-    response += `**时长**: ${Math.round(voiceResult.duration)}秒\n\n`;
+    response += `**语言**: ${voiceResult.language ?? 'unknown'}\n`;
+    response += `**时长**: ${Math.round(voiceResult.duration ?? 0)}秒\n\n`;
     
-    if (voiceResult.detectedKeywords.length > 0) {
+    if ((voiceResult.detectedKeywords ?? []).length > 0) {
       response += `**检测到的关键词**:\n`;
-      for (const keyword of voiceResult.detectedKeywords) {
+      for (const keyword of voiceResult.detectedKeywords ?? []) {
         response += `• ${keyword}\n`;
       }
       response += '\n';
@@ -1814,6 +1828,7 @@ export class AIConsultationService {
       role: 'assistant',
       content: fullResponse,
       messageType: 'image',
+      timestamp: new Date().toISOString(),
       createdAt: new Date().toISOString(),
     };
   }
@@ -1834,6 +1849,7 @@ export class AIConsultationService {
       role: 'assistant',
       content: voiceResponse,
       messageType: 'voice',
+      timestamp: new Date().toISOString(),
       createdAt: new Date().toISOString(),
     };
   }

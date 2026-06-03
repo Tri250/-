@@ -1,5 +1,15 @@
 export * from './pet';
-export * from './health-record';
+export {
+  type RecordType,
+  type ReminderType,
+  type HealthRecord,
+  type Reminder,
+  type HealthArticle,
+  RECORD_TYPE_LABELS,
+  REMINDER_TYPE_LABELS,
+  type HealthTag,
+  DEFAULT_TAGS,
+} from './health-record';
 export * from './ai-consultation';
 export * from './health-manual';
 export * from './reminder';

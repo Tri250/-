@@ -1,166 +1,265 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
-import { CameraCard } from '@/components/camera/CameraCard';
-import type { CameraDevice } from '@/types/camera';
+import React from 'react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { CameraCard } from '../../../components/camera/CameraCard';
+import { Device } from '../../../types/device';
 
-const createMockDevice = (overrides = {}): CameraDevice => ({
-  id: 'device-1',
-  brand: 'xiaomi',
-  model: 'MJSXJ02CM',
-  name: '客厅摄像头',
+const mockDevice: Device = {
+  id: 'camera-001',
+  name: '测试摄像头',
+  type: 'camera',
   status: 'online',
-  streamUrl: 'rtsp://example.com/stream',
-  thumbnailUrl: undefined,
-  lastOnline: new Date().toISOString(),
-  location: '客厅',
-  ...overrides,
-});
+  thumbnailUrl: 'https://example.com/thumb.jpg',
+  settings: {
+    resolution: '1080p',
+    nightVision: true,
+    motionDetection: true,
+    batteryLevel: 85,
+  },
+};
 
-describe('CameraCard', () => {
-  it('应该正确显示设备名称', () => {
-    const device = createMockDevice({ name: '客厅摄像头' });
-    render(<CameraCard device={device} onClick={vi.fn()} />);
-    expect(screen.getByText('客厅摄像头')).toBeInTheDocument();
+const mockOnClick = jest.fn();
+
+describe('CameraCard Component', () => {
+  beforeEach(() => {
+    mockOnClick.mockClear();
   });
 
-  it('应该显示设备品牌和型号', () => {
-    const device = createMockDevice({ brand: 'xiaomi', model: 'MJSXJ02CM' });
-    render(<CameraCard device={device} />);
-    expect(screen.getByText(/小米 · MJSXJ02CM/)).toBeInTheDocument();
+  it('renders device name correctly', () => {
+    render(
+      <CameraCard
+        device={mockDevice}
+        onClick={mockOnClick}
+      />
+    );
+    expect(screen.getByText('测试摄像头')).toBeInTheDocument();
   });
 
-  it('在线状态应该显示绿色指示器', () => {
-    const onlineDevice = createMockDevice({ status: 'online' });
-    const { container } = render(<CameraCard device={onlineDevice} />);
-    const indicator = container.querySelector('.bg-green-500');
-    expect(indicator).toBeTruthy();
+  it('renders online status indicator', () => {
+    const { container } = render(
+      <CameraCard
+        device={mockDevice}
+        onClick={mockOnClick}
+      />
+    );
+    const statusIndicator = container.querySelector('.status-indicator');
+    expect(statusIndicator).toBeInTheDocument();
   });
 
-  it('离线状态应该显示灰色指示器', () => {
-    const offlineDevice = createMockDevice({ status: 'offline' });
-    const { container } = render(<CameraCard device={offlineDevice} />);
-    const indicator = container.querySelector('.bg-gray-400');
-    expect(indicator).toBeTruthy();
+  it('renders device thumbnail', () => {
+    const { container } = render(
+      <CameraCard
+        device={mockDevice}
+        onClick={mockOnClick}
+      />
+    );
+    const thumbnail = container.querySelector('img');
+    expect(thumbnail).toBeInTheDocument();
+    expect(thumbnail?.src).toContain('thumb.jpg');
   });
 
-  it('在线状态应该显示WiFi图标', () => {
-    const onlineDevice = createMockDevice({ status: 'online' });
-    render(<CameraCard device={onlineDevice} />);
-    expect(screen.getByText(/在线/)).toBeInTheDocument();
+  it('renders settings badge when settings exist', () => {
+    const { getByText } = render(
+      <CameraCard
+        device={mockDevice}
+        onClick={mockOnClick}
+      />
+    );
+    expect(getByText(/1080p/i)).toBeInTheDocument();
   });
 
-  it('离线状态应该显示WiFi关闭图标', () => {
-    const offlineDevice = createMockDevice({ status: 'offline' });
-    render(<CameraCard device={offlineDevice} />);
-    expect(screen.getByText(/离线/)).toBeInTheDocument();
+  it('renders night vision indicator when enabled', () => {
+    const { getByText } = render(
+      <CameraCard
+        device={mockDevice}
+        onClick={mockOnClick}
+      />
+    );
+    expect(getByText(/夜视/i)).toBeInTheDocument();
   });
 
-  it('应该正确调用点击回调', () => {
-    const onClick = vi.fn();
-    const device = createMockDevice();
-    render(<CameraCard device={device} onClick={onClick} />);
-    const card = screen.getByText('客厅摄像头').closest('div');
-    if (card) {
-      fireEvent.click(card);
-      expect(onClick).toHaveBeenCalledTimes(1);
-    }
+  it('renders motion detection indicator when enabled', () => {
+    const { getByText } = render(
+      <CameraCard
+        device={mockDevice}
+        onClick={mockOnClick}
+      />
+    );
+    expect(getByText(/移动侦测/i)).toBeInTheDocument();
   });
 
-  it('应该显示位置信息', () => {
-    const device = createMockDevice({ location: '客厅' });
-    render(<CameraCard device={device} />);
-    expect(screen.getByText('客厅')).toBeInTheDocument();
+  it('renders battery level indicator', () => {
+    const { getByText } = render(
+      <CameraCard
+        device={mockDevice}
+        onClick={mockOnClick}
+      />
+    );
+    expect(getByText(/85%/)).toBeInTheDocument();
   });
 
-  it('应该显示最后在线时间', () => {
-    const lastOnline = '2026-01-15T10:30:00.000Z';
-    const device = createMockDevice({ lastOnline });
-    render(<CameraCard device={device} />);
-    expect(screen.getByText(/最后在线:/)).toBeInTheDocument();
+  it('calls onClick when card is clicked', () => {
+    render(
+      <CameraCard
+        device={mockDevice}
+        onClick={mockOnClick}
+      />
+    );
+    fireEvent.click(screen.getByRole('button'));
+    expect(mockOnClick).toHaveBeenCalledTimes(1);
   });
 
-  it('在线状态应该启用直播按钮', () => {
-    const onlineDevice = createMockDevice({ status: 'online' });
-    render(<CameraCard device={onlineDevice} onStreamClick={vi.fn()} />);
-    const streamButton = screen.getByRole('button', { name: /查看直播/i });
-    expect(streamButton).toBeEnabled();
-    expect(streamButton).toHaveClass('bg-orange-500', 'text-white');
+  it('renders offline state correctly', () => {
+    const offlineDevice: Device = {
+      ...mockDevice,
+      status: 'offline',
+    };
+    const { container } = render(
+      <CameraCard
+        device={offlineDevice}
+        onClick={mockOnClick}
+      />
+    );
+    const statusIndicator = container.querySelector('.status-indicator');
+    expect(statusIndicator).toHaveClass('offline');
   });
 
-  it('离线状态应该禁用直播按钮', () => {
-    const offlineDevice = createMockDevice({ status: 'offline' });
-    render(<CameraCard device={offlineDevice} onStreamClick={vi.fn()} />);
-    const streamButton = screen.getByRole('button', { name: /离线/i });
-    expect(streamButton).toBeDisabled();
-    expect(streamButton).toHaveClass('bg-gray-100', 'text-gray-400');
+  it('renders low battery warning for devices below 20%', () => {
+    const lowBatteryDevice: Device = {
+      ...mockDevice,
+      settings: {
+        ...mockDevice.settings,
+        batteryLevel: 15,
+      },
+    };
+    const { getByText } = render(
+      <CameraCard
+        device={lowBatteryDevice}
+        onClick={mockOnClick}
+      />
+    );
+    expect(getByText(/15%/)).toBeInTheDocument();
   });
 
-  it('应该正确调用直播点击回调', () => {
-    const onStreamClick = vi.fn();
-    const onlineDevice = createMockDevice({ status: 'online' });
-    render(<CameraCard device={onlineDevice} onStreamClick={onStreamClick} />);
-    fireEvent.click(screen.getByRole('button', { name: /查看直播/i }));
-    expect(onStreamClick).toHaveBeenCalledTimes(1);
+  it('renders placeholder when no thumbnail is available', () => {
+    const deviceWithoutThumbnail: Device = {
+      ...mockDevice,
+      thumbnailUrl: undefined,
+    };
+    const { container } = render(
+      <CameraCard
+        device={deviceWithoutThumbnail}
+        onClick={mockOnClick}
+      />
+    );
+    const placeholder = container.querySelector('.placeholder-thumbnail');
+    expect(placeholder).toBeInTheDocument();
   });
 
-  it('应该显示删除按钮当提供onDelete回调时', () => {
-    const device = createMockDevice();
-    render(<CameraCard device={device} onDelete={vi.fn()} />);
-    expect(screen.getByRole('button', { name: /删除/i })).toBeInTheDocument();
+  it('renders device snapshot when available', () => {
+    const deviceWithSnapshot: Device = {
+      ...mockDevice,
+      snapshotUrl: 'https://example.com/snapshot.jpg',
+    };
+    const { container } = render(
+      <CameraCard
+        device={deviceWithSnapshot}
+        onClick={mockOnClick}
+      />
+    );
+    const images = container.querySelectorAll('img');
+    expect(images.length).toBeGreaterThanOrEqual(1);
   });
 
-  it('不应该显示删除按钮当没有onDelete回调时', () => {
-    const device = createMockDevice();
-    render(<CameraCard device={device} />);
-    expect(screen.queryByRole('button', { name: /删除/i })).not.toBeInTheDocument();
+  it('renders recording indicator when device is recording', () => {
+    const recordingDevice: Device = {
+      ...mockDevice,
+      isRecording: true,
+    };
+    const { getByText } = render(
+      <CameraCard
+        device={recordingDevice}
+        onClick={mockOnClick}
+      />
+    );
+    expect(getByText(/录制中/i)).toBeInTheDocument();
   });
 
-  it('应该正确调用删除回调', () => {
-    const onDelete = vi.fn();
-    const device = createMockDevice();
-    render(<CameraCard device={device} onDelete={onDelete} />);
-    fireEvent.click(screen.getByRole('button', { name: /删除/i }));
-    expect(onDelete).toHaveBeenCalledTimes(1);
+  it('handles click event correctly', async () => {
+    render(
+      <CameraCard
+        device={mockDevice}
+        onClick={mockOnClick}
+      />
+    );
+    
+    const card = screen.getByRole('button');
+    fireEvent.click(card);
+    
+    await waitFor(() => {
+      expect(mockOnClick).toHaveBeenCalledWith(mockDevice);
+    });
   });
 
-  it('当有缩略图时应该显示图片', () => {
-    const device = createMockDevice({ thumbnailUrl: 'https://example.com/thumb.jpg' });
-    render(<CameraCard device={device} />);
-    const img = screen.getByAltText('客厅摄像头') as HTMLImageElement;
-    expect(img).toBeInTheDocument();
-    expect(img.src).toBe('https://example.com/thumb.jpg');
+  it('applies custom className when provided', () => {
+    const { container } = render(
+      <CameraCard
+        device={mockDevice}
+        onClick={mockOnClick}
+        className="custom-class"
+      />
+    );
+    expect(container.firstChild).toHaveClass('custom-class');
   });
 
-  it('当没有缩略图时应该显示相机图标', () => {
-    const device = createMockDevice({ thumbnailUrl: undefined });
-    const { container } = render(<CameraCard device={device} />);
-    const cameraIcon = container.querySelector('svg');
-    expect(cameraIcon).toBeTruthy();
+  it('renders device type badge', () => {
+    const { getByText } = render(
+      <CameraCard
+        device={mockDevice}
+        onClick={mockOnClick}
+      />
+    );
+    expect(getByText(/摄像头/i)).toBeInTheDocument();
   });
 
-  it('华为品牌应该显示华为标签', () => {
-    const huaweiDevice = createMockDevice({ brand: 'huawei', model: 'HW-123' });
-    render(<CameraCard device={huaweiDevice} />);
-    expect(screen.getByText(/华为 · HW-123/)).toBeInTheDocument();
+  it('renders last seen time for offline devices', () => {
+    const offlineDevice: Device = {
+      ...mockDevice,
+      status: 'offline',
+      lastSeen: new Date('2024-01-15T10:30:00Z'),
+    };
+    const { getByText } = render(
+      <CameraCard
+        device={offlineDevice}
+        onClick={mockOnClick}
+      />
+    );
+    expect(getByText(/最后在线/i)).toBeInTheDocument();
   });
 
-  it('荣耀品牌应该显示荣耀标签', () => {
-    const honorDevice = createMockDevice({ brand: 'honor', model: 'HR-456' });
-    render(<CameraCard device={honorDevice} />);
-    expect(screen.getByText(/荣耀 · HR-456/)).toBeInTheDocument();
+  it('handles device with minimal settings', () => {
+    const minimalDevice: Device = {
+      id: 'camera-minimal',
+      name: '最小设备',
+      type: 'camera',
+      status: 'online',
+    };
+    const { getByText } = render(
+      <CameraCard
+        device={minimalDevice}
+        onClick={mockOnClick}
+      />
+    );
+    expect(getByText('最小设备')).toBeInTheDocument();
   });
 
-  it('连接中状态应该显示黄色指示器', () => {
-    const connectingDevice = createMockDevice({ status: 'connecting' });
-    const { container } = render(<CameraCard device={connectingDevice} />);
-    const indicator = container.querySelector('.bg-yellow-500');
-    expect(indicator).toBeTruthy();
-  });
-
-  it('错误状态应该显示红色指示器', () => {
-    const errorDevice = createMockDevice({ status: 'error' });
-    const { container } = render(<CameraCard device={errorDevice} />);
-    const indicator = container.querySelector('.bg-red-500');
-    expect(indicator).toBeTruthy();
+  it('applies theme classes correctly', () => {
+    const { container } = render(
+      <CameraCard
+        device={mockDevice}
+        onClick={mockOnClick}
+        theme="dark"
+      />
+    );
+    expect(container.firstChild).toHaveClass('theme-dark');
   });
 });

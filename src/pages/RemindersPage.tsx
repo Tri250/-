@@ -1,282 +1,227 @@
 import React, { useState } from 'react';
-import { 
-  ChevronLeft, 
-  Calendar, 
-  Plus, 
-  Clock,
-  Check,
-  Syringe,
-  Scissors,
-  Droplets,
-  Pill,
-  Activity,
-  Star,
-  Sparkles
-} from 'lucide-react';
-import { Card, EmptyState } from '../components/DesignSystem';
-import { useReminderStore } from '../store/reminderStore';
-import { usePetStore } from '../store/petStore';
-import { REMINDER_TYPES } from '../types/reminder';
-import { AddReminderModal } from '../components/AddReminderModal';
+import { Plus, Bell, ChevronRight, Check, Trash2 } from 'lucide-react';
+import { Card } from '../components/DesignSystem/Card';
+import { Button } from '../components/DesignSystem/Button';
 
-interface RemindersPageProps {
-  onNavigate: (page: string) => void;
+interface Reminder {
+  id: string;
+  petId: string;
+  petName: string;
+  title: string;
+  description?: string;
+  type: 'vaccination' | 'medication' | 'checkup' | 'grooming' | 'feeding' | 'other';
+  date: string;
+  completed: boolean;
 }
 
+interface RemindersPageProps {
+  onNavigate?: (page: string) => void;
+}
+
+const MOCK_REMINDERS: Reminder[] = [
+  {
+    id: 'rem-1',
+    petId: 'pet-1',
+    petName: '小橘',
+    title: '狂犬疫苗加强针',
+    description: '距离上次接种已满 11 个月，需要进行加强免疫',
+    type: 'vaccination',
+    date: '2026-06-15',
+    completed: false,
+  },
+  {
+    id: 'rem-2',
+    petId: 'pet-1',
+    petName: '小橘',
+    title: '体内驱虫',
+    description: '每3个月一次的常规驱虫',
+    type: 'medication',
+    date: '2026-06-20',
+    completed: false,
+  },
+  {
+    id: 'rem-3',
+    petId: 'pet-1',
+    petName: '小橘',
+    title: '年度体检',
+    description: '建议进行全面的健康检查',
+    type: 'checkup',
+    date: '2026-07-01',
+    completed: true,
+  },
+  {
+    id: 'rem-4',
+    petId: 'pet-1',
+    petName: '小橘',
+    title: '洗澡美容',
+    description: '常规洗澡和毛发护理',
+    type: 'grooming',
+    date: '2026-06-10',
+    completed: false,
+  },
+];
+
+const TYPE_LABELS: Record<Reminder['type'], string> = {
+  vaccination: '疫苗',
+  medication: '用药',
+  checkup: '体检',
+  grooming: '美容',
+  feeding: '喂食',
+  other: '其他',
+};
+
+const TYPE_ICONS: Record<Reminder['type'], string> = {
+  vaccination: '💉',
+  medication: '💊',
+  checkup: '🩺',
+  grooming: '✂️',
+  feeding: '🍽️',
+  other: '📌',
+};
+
+const TYPE_COLORS: Record<Reminder['type'], string> = {
+  vaccination: 'from-blue-400 to-blue-500',
+  medication: 'from-green-400 to-green-500',
+  checkup: 'from-purple-400 to-purple-500',
+  grooming: 'from-pink-400 to-pink-500',
+  feeding: 'from-yellow-400 to-yellow-500',
+  other: 'from-gray-400 to-gray-500',
+};
+
 export const RemindersPage: React.FC<RemindersPageProps> = ({ onNavigate }) => {
-  const { selectedType, viewMode, getFilteredReminders, getUpcomingReminders, setSelectedType, setViewMode, toggleComplete, addReminder } = useReminderStore();
-  const { currentPetId } = usePetStore();
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [reminders, setReminders] = useState<Reminder[]>(MOCK_REMINDERS);
+  const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
 
-  const filteredReminders = currentPetId ? getFilteredReminders(currentPetId) : [];
-  const upcomingReminders = currentPetId ? getUpcomingReminders(currentPetId, 5) : [];
-
-  const handleAddReminder = (reminderData: Parameters<typeof addReminder>[0]) => {
-    addReminder(reminderData);
+  const toggleComplete = (id: string) => {
+    setReminders((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, completed: !r.completed } : r))
+    );
   };
 
-  const getIconForType = (type: string) => {
-    switch (type) {
-      case 'vaccine': return Syringe;
-      case 'deworming': return Droplets;
-      case 'checkup': return Activity;
-      case 'bath': return Droplets;
-      case 'brush_teeth': return Sparkles;
-      case 'medicine': return Pill;
-      case 'grooming': return Scissors;
-      case 'birthday': return Star;
-      default: return Calendar;
-    }
+  const deleteReminder = (id: string) => {
+    setReminders((prev) => prev.filter((r) => r.id !== id));
   };
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+  const filteredReminders = reminders.filter((r) => {
+    if (filter === 'pending') return !r.completed;
+    if (filter === 'completed') return r.completed;
+    return true;
+  });
 
-    if (date.toDateString() === today.toDateString()) return '今天';
-    if (date.toDateString() === tomorrow.toDateString()) return '明天';
-
-    return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
-  };
+  const pendingCount = reminders.filter((r) => !r.completed).length;
+  const completedCount = reminders.filter((r) => r.completed).length;
 
   return (
-    <div className="min-h-screen bg-neutral-50 pb-24">
-      {/* Header */}
-      <header className="bg-gradient-to-br from-purple-500 to-purple-600 text-white px-4 py-6">
-        <div className="max-w-md mx-auto">
-          <div className="flex items-center gap-4 mb-6">
-            <button 
-              onClick={() => onNavigate('home')}
-              className="p-2 -ml-2 rounded-full bg-white/20 backdrop-blur hover:bg-white/30 transition-all"
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-peach-50 p-4 pb-20">
+      <div className="max-w-4xl mx-auto">
+        <div className="flex items-center justify-between mb-6 pt-4">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => onNavigate?.('home')}
+              className="p-2 hover:bg-white rounded-full transition-colors"
             >
-              <ChevronLeft className="w-6 h-6" />
+              <ChevronRight className="w-6 h-6 text-gray-600 rotate-180" />
             </button>
-            <div className="flex-1">
-              <h1 className="text-xl font-bold">智能提醒</h1>
-              <p className="text-sm text-white/80">不错过任何重要时间</p>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-800">提醒事项</h1>
+              <p className="text-sm text-gray-500">
+                {pendingCount} 项待办 · {completedCount} 项已完成
+              </p>
             </div>
-            <button 
-              onClick={() => setIsAddModalOpen(true)}
-              className="p-2 rounded-full bg-white/20 backdrop-blur hover:bg-white/30 transition-all"
-            >
-              <Plus className="w-6 h-6" />
-            </button>
           </div>
-
-          {/* View Mode Toggle */}
-          <div className="flex gap-2 bg-white/20 backdrop-blur p-1 rounded-xl">
-            <button
-              onClick={() => setViewMode('today')}
-              className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                viewMode === 'today' ? 'bg-white text-purple-600' : 'text-white/80 hover:text-white'
-              }`}
-            >
-              今天
-            </button>
-            <button
-              onClick={() => setViewMode('week')}
-              className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                viewMode === 'week' ? 'bg-white text-purple-600' : 'text-white/80 hover:text-white'
-              }`}
-            >
-              本周
-            </button>
-            <button
-              onClick={() => setViewMode('all')}
-              className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                viewMode === 'all' ? 'bg-white text-purple-600' : 'text-white/80 hover:text-white'
-              }`}
-            >
-              全部
-            </button>
-          </div>
+          <Button className="!p-2 !rounded-full">
+            <Plus className="w-5 h-5" />
+          </Button>
         </div>
-      </header>
 
-      {/* Type Filter */}
-      <div className="bg-white border-b border-neutral-100 px-4 py-3">
-        <div className="max-w-md mx-auto">
-          <div className="flex gap-2 overflow-x-auto pb-1">
+        <div className="flex gap-2 mb-6">
+          {[
+            { value: 'all' as const, label: '全部', count: reminders.length },
+            { value: 'pending' as const, label: '待办', count: pendingCount },
+            { value: 'completed' as const, label: '已完成', count: completedCount },
+          ].map((f) => (
             <button
-              onClick={() => setSelectedType(null)}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
-                selectedType === null
-                  ? 'bg-purple-500 text-white'
-                  : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+              key={f.value}
+              onClick={() => setFilter(f.value)}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                filter === f.value
+                  ? 'bg-orange-500 text-white'
+                  : 'bg-white text-gray-600 border border-gray-200'
               }`}
             >
-              全部
+              {f.label} ({f.count})
             </button>
-            {REMINDER_TYPES.map((type) => (
-              <button
-                key={type.id}
-                onClick={() => setSelectedType(type.id as ReminderType)}
-                className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
-                  selectedType === type.id
-                    ? 'bg-purple-500 text-white'
-                    : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
-                }`}
-                style={selectedType !== type.id ? { backgroundColor: type.color + '20', color: type.color } : {}}
+          ))}
+        </div>
+
+        <div className="space-y-3">
+          {filteredReminders.length === 0 ? (
+            <Card className="p-8 text-center">
+              <Bell className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500 mb-4">暂无提醒事项</p>
+              <Button>添加第一个提醒</Button>
+            </Card>
+          ) : (
+            filteredReminders.map((reminder) => (
+              <Card
+                key={reminder.id}
+                className={`p-4 ${reminder.completed ? 'opacity-60' : ''}`}
               >
-                {type.name}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="px-4 py-4 space-y-6">
-        <div className="max-w-md mx-auto">
-          {/* Upcoming */}
-          {upcomingReminders.length > 0 && viewMode === 'all' && (
-            <div className="space-y-3">
-              <h2 className="text-sm font-semibold text-neutral-500 uppercase tracking-wide flex items-center gap-2">
-                <Star className="w-4 h-4 text-warning-500" />
-                即将到来
-              </h2>
-              <div className="space-y-3">
-                {upcomingReminders.map((reminder) => {
-                  const Icon = getIconForType(reminder.type);
-                  const typeConfig = REMINDER_TYPES.find(t => t.id === reminder.type);
-                  return (
-                    <Card key={reminder.id} hover className="border-l-4" style={{ borderLeftColor: typeConfig?.color }}>
-                      <div className="flex items-start gap-3">
-                        <div 
-                          className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                          style={{ backgroundColor: typeConfig?.color + '20' }}
-                        >
-                          <Icon className="w-5 h-5" style={{ color: typeConfig?.color }} />
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-neutral-800">{reminder.title}</h3>
-                          <div className="flex items-center gap-2 mt-1">
-                            <Clock className="w-3.5 h-3.5 text-neutral-400" />
-                            <span className="text-sm text-neutral-500">{formatDate(reminder.date)} {reminder.time}</span>
-                            {reminder.repeat !== 'once' && (
-                              <span className="text-xs text-neutral-400 bg-neutral-100 px-1.5 py-0.5 rounded-full">
-                                {reminder.repeat === 'daily' ? '每天' : reminder.repeat === 'weekly' ? '每周' : reminder.repeat === 'monthly' ? '每月' : '每年'}
-                              </span>
-                            )}
-                          </div>
-                          {reminder.notes && (
-                            <p className="text-sm text-neutral-500 mt-2">{reminder.notes}</p>
-                          )}
-                        </div>
-                        <button
-                          onClick={() => toggleComplete(reminder.id)}
-                          className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
-                            reminder.isCompleted
-                              ? 'bg-success-500 border-success-500'
-                              : 'border-neutral-300 hover:border-purple-500'
-                          }`}
-                        >
-                          {reminder.isCompleted && <Check className="w-4 h-4 text-white" />}
-                        </button>
-                      </div>
-                    </Card>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* All Reminders */}
-          <div className="space-y-3">
-            <h2 className="text-sm font-semibold text-neutral-500 uppercase tracking-wide">
-              {viewMode === 'today' ? '今天' : viewMode === 'week' ? '本周' : '所有'}
-            </h2>
-            {filteredReminders.length === 0 ? (
-              <EmptyState
-                type="reminders"
-                title="还没有提醒"
-                description="创建您的第一个提醒吧"
-                action={
-                  <button 
-                    onClick={() => setIsAddModalOpen(true)}
-                    className="px-6 py-2.5 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-xl font-medium hover:shadow-lg hover:shadow-purple-500/30 transition-all"
+                <div className="flex items-start gap-3">
+                  <div
+                    className={`w-12 h-12 bg-gradient-to-br ${TYPE_COLORS[reminder.type]} rounded-xl flex items-center justify-center text-xl flex-shrink-0`}
                   >
-                    添加提醒
-                  </button>
-                }
-              />
-            ) : (
-              <div className="space-y-3">
-                {filteredReminders.map((reminder) => {
-                  const Icon = getIconForType(reminder.type);
-                  const typeConfig = REMINDER_TYPES.find(t => t.id === reminder.type);
-                  return (
-                    <Card key={reminder.id} hover className={`border-l-4 ${reminder.isCompleted ? 'opacity-60' : ''}`} style={{ borderLeftColor: typeConfig?.color }}>
-                      <div className="flex items-start gap-3">
-                        <div 
-                          className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                          style={{ backgroundColor: typeConfig?.color + '20' }}
-                        >
-                          <Icon className="w-5 h-5" style={{ color: typeConfig?.color }} />
+                    {TYPE_ICONS[reminder.type]}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs px-2 py-0.5 bg-gray-100 rounded-full text-gray-600">
+                            {TYPE_LABELS[reminder.type]}
+                          </span>
+                          <span className="text-xs text-gray-400">· {reminder.petName}</span>
                         </div>
-                        <div className="flex-1">
-                          <h3 className={`font-semibold text-neutral-800 ${reminder.isCompleted ? 'line-through' : ''}`}>{reminder.title}</h3>
-                          <div className="flex items-center gap-2 mt-1">
-                            <Clock className="w-3.5 h-3.5 text-neutral-400" />
-                            <span className="text-sm text-neutral-500">{formatDate(reminder.date)} {reminder.time}</span>
-                            {reminder.repeat !== 'once' && (
-                              <span className="text-xs text-neutral-400 bg-neutral-100 px-1.5 py-0.5 rounded-full">
-                                {reminder.repeat === 'daily' ? '每天' : reminder.repeat === 'weekly' ? '每周' : reminder.repeat === 'monthly' ? '每月' : '每年'}
-                              </span>
-                            )}
-                          </div>
-                          {reminder.notes && (
-                            <p className="text-sm text-neutral-500 mt-2">{reminder.notes}</p>
-                          )}
-                        </div>
-                        <button
-                          onClick={() => toggleComplete(reminder.id)}
-                          className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
-                            reminder.isCompleted
-                              ? 'bg-success-500 border-success-500'
-                              : 'border-neutral-300 hover:border-purple-500'
+                        <h3
+                          className={`font-semibold text-gray-800 ${
+                            reminder.completed ? 'line-through' : ''
                           }`}
                         >
-                          {reminder.isCompleted && <Check className="w-4 h-4 text-white" />}
+                          {reminder.title}
+                        </h3>
+                        {reminder.description && (
+                          <p className="text-sm text-gray-500 mt-1">{reminder.description}</p>
+                        )}
+                        <p className="text-xs text-gray-400 mt-2">
+                          📅 {new Date(reminder.date).toLocaleDateString('zh-CN')}
+                        </p>
+                      </div>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => toggleComplete(reminder.id)}
+                          className={`p-2 rounded-lg transition-colors ${
+                            reminder.completed
+                              ? 'bg-green-100 text-green-600'
+                              : 'hover:bg-gray-100 text-gray-400'
+                          }`}
+                        >
+                          <Check className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => deleteReminder(reminder.id)}
+                          className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
-                    </Card>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            ))
+          )}
         </div>
       </div>
-
-      <AddReminderModal
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        onSubmit={handleAddReminder}
-        currentPetId={currentPetId}
-      />
     </div>
   );
 };

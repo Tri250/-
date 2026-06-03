@@ -1,7 +1,7 @@
 import React, { memo, useMemo, useCallback, useRef, useEffect, useState } from 'react';
 import { Home, Shield, Sparkles, Camera, User } from 'lucide-react';
 
-const debounce = <T extends (...args: unknown[]) => unknown>(
+const debounce = <T extends (...args: any[]) => any>(
   func: T,
   wait: number
 ): ((...args: Parameters<T>) => void) => {

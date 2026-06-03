@@ -26,7 +26,7 @@ export const FavoritesPage: React.FC<FavoritesPageProps> = ({ onNavigate }) => {
     { id: 'photos', label: '照片', icon: Image },
   ];
 
-  const emotionEmoji = {
+  const emotionEmoji: Record<string, string> = {
     happy: '😸',
     anxious: '😰',
     angry: '😾',

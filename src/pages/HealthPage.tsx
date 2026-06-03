@@ -12,17 +12,18 @@ import { useAppStore } from '../store/appStore';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 
-const alertTypeConfig = {
+const alertTypeConfig: Record<string, { icon: any; label: string; color: string; bgColor: string }> = {
   cough: { icon: Activity, label: '咳嗽', color: 'text-yellow-500', bgColor: 'bg-yellow-50' },
   vomit: { icon: AlertTriangle, label: '呕吐', color: 'text-red-500', bgColor: 'bg-red-50' },
   pain: { icon: Heart, label: '疼痛', color: 'text-purple-500', bgColor: 'bg-purple-50' },
   abnormal: { icon: Bell, label: '异常', color: 'text-orange-500', bgColor: 'bg-orange-50' },
 };
 
-const severityConfig = {
+const severityConfig: Record<string, { label: string; color: string; bgColor: string }> = {
   low: { label: '轻微', color: 'text-green-500', bgColor: 'bg-green-100' },
   medium: { label: '中等', color: 'text-yellow-500', bgColor: 'bg-yellow-100' },
   high: { label: '严重', color: 'text-red-500', bgColor: 'bg-red-100' },
+  critical: { label: '危急', color: 'text-red-700', bgColor: 'bg-red-200' },
 };
 
 const careCategoryConfig = {

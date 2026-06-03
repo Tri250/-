@@ -52,7 +52,7 @@ export function BondEmotionPage() {
   const renderContent = () => {
     switch (activeTab) {
       case 'memories':
-        return <MemoryTimelineComponent />;
+        return <MemoryTimelineComponent petId={currentPet?.id || ''} />;
       case 'voices':
         return <VoiceMemoryWallComponent />;
       case 'remote':
@@ -105,8 +105,7 @@ export function BondEmotionPage() {
           >
             {activeTab === 'memories' ? (
               <MemoryTimelineComponent 
-                externalShowUploadModal={showUploadModal}
-                onExternalShowUploadModalChange={setShowUploadModal}
+                petId={currentPet?.id || ''}
               />
             ) : renderContent()}
           </motion.div>
