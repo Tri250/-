@@ -34,6 +34,59 @@ export const GlassCard: React.FC<GlassCardProps> = ({
   );
 };
 
+// GlassSurface - A simpler glass effect container
+interface GlassSurfaceProps {
+  children: React.ReactNode;
+  className?: string;
+}
+
+export const GlassSurface: React.FC<GlassSurfaceProps> = ({
+  children,
+  className,
+}) => {
+  return (
+    <div
+      className={cn(
+        'backdrop-blur-md bg-white/10 rounded-xl border border-white/20',
+        className
+      )}
+    >
+      {children}
+    </div>
+  );
+};
+
+// GlassButton - A button with glass effect
+interface GlassButtonProps {
+  children: React.ReactNode;
+  onClick?: () => void;
+  className?: string;
+  disabled?: boolean;
+}
+
+export const GlassButton: React.FC<GlassButtonProps> = ({
+  children,
+  onClick,
+  className,
+  disabled = false,
+}) => {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        'px-4 py-2 rounded-lg backdrop-blur-sm bg-white/20 border border-white/30',
+        'text-white font-medium transition-all',
+        'hover:bg-white/30 active:scale-95',
+        'disabled:opacity-50 disabled:cursor-not-allowed',
+        className
+      )}
+    >
+      {children}
+    </button>
+  );
+};
+
 // Loading spinner component
 export const GlassSpinner: React.FC<{ size?: number }> = ({ size = 24 }) => (
   <div

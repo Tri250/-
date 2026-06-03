@@ -1,17 +1,21 @@
 import React from 'react';
 import { Video, VideoOff, Wifi, WifiOff } from 'lucide-react';
 import { Card } from '../DesignSystem/Card';
-import { Device } from '../../types/device';
+import { CameraDevice } from '../../types/camera';
 
 interface CameraCardProps {
-  device: Device;
-  onClick?: (device: Device) => void;
+  device: CameraDevice;
+  onClick?: () => void;
+  onStreamClick?: () => void;
+  onDelete?: () => void;
   className?: string;
 }
 
 export const CameraCard: React.FC<CameraCardProps> = ({
   device,
   onClick,
+  onStreamClick,
+  onDelete,
   className,
 }) => {
   const getStatusColor = () => {
@@ -37,7 +41,7 @@ export const CameraCard: React.FC<CameraCardProps> = ({
   return (
     <Card
       className={`overflow-hidden cursor-pointer hover:shadow-lg transition-shadow ${className}`}
-      onClick={() => onClick?.(device)}
+      onClick={onClick}
     >
       <div className="relative aspect-video bg-gray-100">
         {device.thumbnailUrl || device.snapshotUrl ? (

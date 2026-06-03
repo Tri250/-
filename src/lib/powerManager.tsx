@@ -76,9 +76,11 @@ class PowerManager {
 
   private handleForeground(): void {
     this.isBackgrounded = false;
-    const backgroundDuration = Date.now() - this.backgroundStartTime;
+    const backgroundDuration = this.backgroundStartTime 
+      ? Date.now() - this.backgroundStartTime 
+      : 0;
     
-    if (backgroundDuration > this.config.maxBackgroundTime) {
+    if (backgroundDuration > (this.config.maxBackgroundTime || 0)) {
       this.performDeepCleanup();
     }
   }
@@ -108,6 +110,7 @@ class PowerManager {
     console.log('Enabling power saving mode due to low battery');
     this.config.throttleInterval = 200;
     this.config.backgroundDelay = 10000;
+    this.config.maxBackgroundTime = this.config.maxBackgroundTime || 12 * 60 * 60 * 1000;
   }
 
   registerBackgroundCleanup(key: string, callback: () => void): void {
@@ -118,7 +121,7 @@ class PowerManager {
     this.backgroundCleanupCallbacks.delete(key);
   }
 
-  throttle<T extends (...args: unknown[]) => unknown>(
+  throttle<T extends (...args: any[]) => any>(
     key: string,
     callback: T,
     interval: number = this.config.throttleInterval
@@ -139,7 +142,7 @@ class PowerManager {
       const now = Date.now();
       if (now - entry.lastRun >= interval) {
         entry.lastRun = now;
-        (callback as (...args: unknown[]) => void)(...args);
+        (callback as (...args: any[]) => void)(...args);
       }
     };
   }
@@ -173,7 +176,7 @@ export const usePowerManagement = (
 ): { 
   isBackgrounded: boolean; 
   backgroundDuration: number;
-  throttle: <T extends (...args: unknown[]) => unknown>(key: string, callback: T) => (...args: Parameters<T>) => void;
+  throttle: <T extends (...args: any[]) => any>(key: string, callback: T) => (...args: Parameters<T>) => void;
 } => {
   const { onBackground, onForeground, backgroundCleanup } = options;
   const [isBackgrounded, setIsBackgrounded] = React.useState(powerManager.isBackground());
@@ -210,7 +213,7 @@ export const usePowerManagement = (
     };
   }, [onBackground, onForeground]);
 
-  const throttle = useCallback(<T extends (...args: unknown[]) => unknown>(
+  const throttle = useCallback(<T extends (...args: any[]) => any>(
     key: string,
     callback: T
   ): (...args: Parameters<T>) => void => {

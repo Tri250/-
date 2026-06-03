@@ -1,12 +1,12 @@
 import React from 'react';
 import { RefreshCw, Video } from 'lucide-react';
 import { Card } from '../DesignSystem/Card';
-import { Device } from '../../types/device';
+import { CameraDevice } from '../../types/camera';
 import { CameraCard } from '../camera/CameraCard';
 
 interface CameraListComponentProps {
-  devices: Device[];
-  onDevicePress?: (device: Device) => void;
+  devices: CameraDevice[];
+  onDevicePress?: (device: CameraDevice) => void;
   selectedDeviceId?: string;
   refreshing?: boolean;
   onRefresh?: () => void;
