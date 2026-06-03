@@ -1,7 +1,5 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getSecureStorage } from '../utils/secureStorage';
 
 interface AIMessage {
   id: string;
@@ -24,7 +22,7 @@ interface AIConsultationState {
   currentConsultation: Consultation | null;
   isLoading: boolean;
   error: string | null;
-  
+
   createConsultation: (petId: string, petName: string) => void;
   setCurrentConsultation: (consultation: Consultation | null) => void;
   addMessage: (consultationId: string, message: Omit<AIMessage, 'id' | 'timestamp'>) => void;
@@ -32,6 +30,30 @@ interface AIConsultationState {
   deleteConsultation: (consultationId: string) => void;
   getConsultationsByPet: (petId: string) => Consultation[];
 }
+
+const storage = {
+  getItem: (name: string): string | null => {
+    try {
+      return localStorage.getItem(name);
+    } catch {
+      return null;
+    }
+  },
+  setItem: (name: string, value: string): void => {
+    try {
+      localStorage.setItem(name, value);
+    } catch {
+      // ignore
+    }
+  },
+  removeItem: (name: string): void => {
+    try {
+      localStorage.removeItem(name);
+    } catch {
+      // ignore
+    }
+  },
+};
 
 export const useAIConsultationStore = create<AIConsultationState>()(
   persist(
@@ -148,7 +170,7 @@ export const useAIConsultationStore = create<AIConsultationState>()(
     }),
     {
       name: 'ai-consultation-storage',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => storage),
     }
   )
 );

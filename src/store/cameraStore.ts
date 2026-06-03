@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Device } from '../types/device';
 import { StreamQuality } from '../types/camera';
 
@@ -10,7 +9,7 @@ interface CameraState {
   streamQuality: StreamQuality;
   isStreaming: boolean;
   error: string | null;
-  
+
   addDevice: (device: Device) => void;
   removeDevice: (deviceId: string) => void;
   updateDevice: (deviceId: string, updates: Partial<Device>) => void;
@@ -21,6 +20,30 @@ interface CameraState {
   getDeviceById: (deviceId: string) => Device | undefined;
   getDevicesByPet: (petId: string) => Device[];
 }
+
+const storage = {
+  getItem: (name: string): string | null => {
+    try {
+      return localStorage.getItem(name);
+    } catch {
+      return null;
+    }
+  },
+  setItem: (name: string, value: string): void => {
+    try {
+      localStorage.setItem(name, value);
+    } catch {
+      // ignore
+    }
+  },
+  removeItem: (name: string): void => {
+    try {
+      localStorage.removeItem(name);
+    } catch {
+      // ignore
+    }
+  },
+};
 
 export const useCameraStore = create<CameraState>()(
   persist(
@@ -70,7 +93,7 @@ export const useCameraStore = create<CameraState>()(
     }),
     {
       name: 'camera-storage',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => storage),
     }
   )
 );

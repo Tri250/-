@@ -1,38 +1,83 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Alert } from 'react-native';
-import { useTranslatorStore } from '../../store/translatorStore';
-import { usePetStore } from '../../store/petStore';
-import { VoiceRecorder } from '../../components/common/VoiceRecorder';
-import { TranslationResult } from '../../components/common/TranslationResult';
+import React, { useState, useRef, useEffect } from 'react';
+import { Mic, MicOff, Volume2, Languages, ChevronRight, Sparkles } from 'lucide-react';
+import { Card } from '../components/DesignSystem/Card';
+import { Button } from '../components/DesignSystem/Button';
 
-interface TranslatorPageProps {
-  petId?: string;
+interface Translation {
+  id: string;
+  originalText: string;
+  translatedText: string;
+  confidence: number;
+  timestamp: number;
+  emotion: 'happy' | 'sad' | 'hungry' | 'playful' | 'anxious' | 'excited';
 }
 
-export const TranslatorPage: React.FC<TranslatorPageProps> = ({ petId }) => {
-  const { translations, addTranslation } = useTranslatorStore();
-  const { pets, getPetById } = usePetStore();
-  const [selectedPet, setSelectedPet] = useState(petId || pets[0]?.id || '');
+const TRANSLATIONS_MAP: Record<string, { text: string; emotion: Translation['emotion'] }> = {
+  '喵~': { text: '主人，我好想你呀！今天过得怎么样？', emotion: 'happy' },
+  '汪汪！': { text: '太好啦！见到你真开心！快带我出去玩吧！', emotion: 'excited' },
+  '咕噜咕噜': { text: '好舒服呀~继续摸摸我吧~', emotion: 'happy' },
+  '呜...': { text: '我有点难过，能陪陪我吗？', emotion: 'sad' },
+  '汪！汪！': { text: '有陌生人来了！要提高警惕！', emotion: 'anxious' },
+  '喵喵喵': { text: '我饿了！快给我准备晚餐吧！', emotion: 'hungry' },
+  '嘿嘿嘿': { text: '来和我玩呀！我精力充沛！', emotion: 'playful' },
+};
+
+const EMOTION_COLORS: Record<Translation['emotion'], string> = {
+  happy: 'from-yellow-400 to-orange-500',
+  sad: 'from-blue-400 to-blue-500',
+  hungry: 'from-red-400 to-red-500',
+  playful: 'from-green-400 to-green-500',
+  anxious: 'from-purple-400 to-purple-500',
+  excited: 'from-pink-400 to-pink-500',
+};
+
+const EMOTION_LABELS: Record<Translation['emotion'], string> = {
+  happy: '开心',
+  sad: '难过',
+  hungry: '饥饿',
+  playful: '想玩',
+  anxious: '警惕',
+  excited: '兴奋',
+};
+
+const MOCK_HISTORY: Translation[] = [
+  {
+    id: 'trans-1',
+    originalText: '喵~',
+    translatedText: '主人，我好想你呀！今天过得怎么样？',
+    confidence: 92,
+    timestamp: Date.now() - 3600000,
+    emotion: 'happy',
+  },
+  {
+    id: 'trans-2',
+    originalText: '汪汪！',
+    translatedText: '太好啦！见到你真开心！快带我出去玩吧！',
+    confidence: 88,
+    timestamp: Date.now() - 7200000,
+    emotion: 'excited',
+  },
+  {
+    id: 'trans-3',
+    originalText: '咕噜咕噜',
+    translatedText: '好舒服呀~继续摸摸我吧~',
+    confidence: 95,
+    timestamp: Date.now() - 86400000,
+    emotion: 'happy',
+  },
+];
+
+export const TranslatorPage: React.FC = () => {
   const [isRecording, setIsRecording] = useState(false);
-  const [recordedText, setRecordedText] = useState('');
-  const [translatedText, setTranslatedText] = useState('');
-  const [timer, setTimer] = useState(0);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-
-  const currentPet = getPetById(selectedPet);
-
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-    };
-  }, []);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [currentTranslation, setCurrentTranslation] = useState<Translation | null>(null);
+  const [history] = useState<Translation[]>(MOCK_HISTORY);
+  const timerRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (isRecording) {
-      timerRef.current = setInterval(() => {
-        setTimer((prev) => prev + 1);
+      timerRef.current = window.setInterval(() => {
+        setRecordingTime((prev) => prev + 1);
       }, 1000);
     } else {
       if (timerRef.current) {
@@ -41,9 +86,7 @@ export const TranslatorPage: React.FC<TranslatorPageProps> = ({ petId }) => {
       }
     }
     return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
+      if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [isRecording]);
 
@@ -53,416 +96,133 @@ export const TranslatorPage: React.FC<TranslatorPageProps> = ({ petId }) => {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleStartRecording = () => {
+  const startRecording = () => {
     setIsRecording(true);
-    setTimer(0);
-    setRecordedText('');
-    setTranslatedText('');
+    setRecordingTime(0);
+    setCurrentTranslation(null);
   };
 
-  const handleStopRecording = async () => {
+  const stopRecording = () => {
     setIsRecording(false);
-    
-    // Simulate voice-to-text conversion
-    const mockRecordedText = generateMockRecording();
-    setRecordedText(mockRecordedText);
-    
     // Simulate translation
-    const mockTranslation = generateMockTranslation(mockRecordedText);
-    setTranslatedText(mockTranslation);
-    
-    // Save to store
-    if (mockRecordedText && mockTranslation) {
-      await addTranslation({
-        petId: selectedPet,
-        originalText: mockRecordedText,
-        translatedText: mockTranslation,
-        timestamp: new Date().toISOString(),
-      });
-    }
-  };
-
-  const generateMockRecording = () => {
-    const phrases = [
-      '汪汪汪！',
-      '呜呜...',
-      '旺！',
-      '嗷呜~',
-      '嘿嘿！',
-    ];
-    const randomPhrases = [];
-    const count = Math.floor(Math.random() * 3) + 1;
-    for (let i = 0; i < count; i++) {
-      randomPhrases.push(phrases[Math.floor(Math.random() * phrases.length)]);
-    }
-    return randomPhrases.join(' ');
-  };
-
-  const generateMockTranslation = (text: string) => {
-    const translations: Record<string, string> = {
-      '汪汪汪！': '主人！你终于回来了！我好开心！',
-      '呜呜...': '我有点难过，可能需要你的陪伴',
-      '旺！': '有陌生人来了！要提高警惕！',
-      '嗷呜~': '我有点无聊，想出去玩',
-      '嘿嘿！': '看到美味的食物啦！好期待！',
-    };
-    
-    let result = text;
-    Object.keys(translations).forEach((key) => {
-      result = result.replace(new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), translations[key]);
+    const samples = Object.keys(TRANSLATIONS_MAP);
+    const randomSample = samples[Math.floor(Math.random() * samples.length)];
+    const result = TRANSLATIONS_MAP[randomSample];
+    setCurrentTranslation({
+      id: `trans-${Date.now()}`,
+      originalText: randomSample,
+      translatedText: result.text,
+      confidence: Math.floor(Math.random() * 10) + 85,
+      timestamp: Date.now(),
+      emotion: result.emotion,
     });
-    
-    if (result === text) {
-      const mockTranslations = [
-        '我觉得今天心情很好！',
-        '我想要出去散步',
-        '我有点饿了',
-        '我想和你玩',
-      ];
-      return mockTranslations[Math.floor(Math.random() * mockTranslations.length)];
-    }
-    
-    return result;
   };
-
-  const handlePlayTranslation = () => {
-    if (translatedText) {
-      Alert.alert('播放翻译', `正在播放: ${translatedText}`);
-    }
-  };
-
-  const handleClear = () => {
-    setRecordedText('');
-    setTranslatedText('');
-    setTimer(0);
-  };
-
-  const petTranslations = translations.filter((t) => t.petId === selectedPet);
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <View style={styles.header}>
-        <Text style={styles.title}>宠物翻译器</Text>
-        <Text style={styles.subtitle}>
-          尝试理解{currentPet?.name || '宠物'}的心声
-        </Text>
-      </View>
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-peach-50 p-4 pb-20">
+      <div className="max-w-4xl mx-auto">
+        <div className="mb-6 pt-4 text-center">
+          <h1 className="text-2xl font-bold text-gray-800">宠物翻译器</h1>
+          <p className="text-sm text-gray-500">聆听小橘的心声</p>
+        </div>
 
-      <View style={styles.petSelector}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {pets.map((pet) => (
-            <TouchableOpacity
-              key={pet.id}
-              style={[
-                styles.petChip,
-                selectedPet === pet.id && styles.petChipSelected,
-              ]}
-              onPress={() => setSelectedPet(pet.id)}
-            >
-              <Text style={styles.petChipEmoji}>{pet.avatar || '🐾'}</Text>
-              <Text style={[
-                styles.petChipName,
-                selectedPet === pet.id && styles.petChipNameSelected,
-              ]}>
-                {pet.name}
-              </Text>
-            </TouchableOpacity>
+        <Card className="p-8 mb-6 text-center">
+          <div className="mb-6">
+            <div className="text-5xl font-bold text-gray-800 font-mono">
+              {formatTime(recordingTime)}
+            </div>
+            <p className="text-sm text-gray-500 mt-2">
+              {isRecording ? '正在聆听...' : '点击按钮开始录音'}
+            </p>
+          </div>
+
+          <button
+            onClick={isRecording ? stopRecording : startRecording}
+            className={`w-24 h-24 rounded-full mx-auto flex items-center justify-center transition-all transform ${
+              isRecording
+                ? 'bg-red-500 hover:bg-red-600 scale-110 shadow-lg shadow-red-200'
+                : 'bg-gradient-to-br from-orange-400 to-peach-500 hover:scale-105 shadow-lg shadow-orange-200'
+            }`}
+          >
+            {isRecording ? (
+              <MicOff className="w-10 h-10 text-white" />
+            ) : (
+              <Mic className="w-10 h-10 text-white" />
+            )}
+          </button>
+
+          <p className="text-xs text-gray-400 mt-4">
+            {isRecording ? '再次点击停止录音' : '最长录音 30 秒'}
+          </p>
+        </Card>
+
+        {currentTranslation && (
+          <Card className="p-6 mb-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Sparkles className="w-5 h-5 text-orange-500" />
+              <h2 className="font-semibold text-gray-800">翻译结果</h2>
+            </div>
+            <div className="space-y-4">
+              <div className="p-4 bg-gradient-to-br from-orange-50 to-peach-50 rounded-2xl">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs text-gray-500">小橘说</span>
+                  <span className={`text-xs px-2 py-0.5 rounded-full text-white bg-gradient-to-r ${EMOTION_COLORS[currentTranslation.emotion]}`}>
+                    {EMOTION_LABELS[currentTranslation.emotion]}
+                  </span>
+                </div>
+                <p className="text-2xl font-bold text-gray-800 mb-2">
+                  {currentTranslation.originalText}
+                </p>
+                <div className="flex items-center gap-1 text-xs text-gray-500">
+                  <Volume2 className="w-3 h-3" />
+                  <span>置信度 {currentTranslation.confidence}%</span>
+                </div>
+              </div>
+              <div className="flex justify-center">
+                <ChevronRight className="w-5 h-5 text-gray-400 rotate-90" />
+              </div>
+              <div className="p-4 bg-white border-2 border-orange-200 rounded-2xl">
+                <div className="flex items-center gap-2 mb-2">
+                  <Languages className="w-4 h-4 text-orange-500" />
+                  <span className="text-xs text-gray-500">翻译</span>
+                </div>
+                <p className="text-base text-gray-800">
+                  {currentTranslation.translatedText}
+                </p>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        <div className="mb-4">
+          <h2 className="text-lg font-semibold text-gray-800">翻译历史</h2>
+        </div>
+        <div className="space-y-3">
+          {history.map((item) => (
+            <Card key={item.id} className="p-4">
+              <div className="flex items-start gap-3">
+                <div
+                  className={`w-10 h-10 bg-gradient-to-br ${EMOTION_COLORS[item.emotion]} rounded-xl flex items-center justify-center text-lg flex-shrink-0`}
+                >
+                  {item.emotion === 'happy' ? '😊' : item.emotion === 'sad' ? '😢' : item.emotion === 'hungry' ? '🍽️' : item.emotion === 'playful' ? '🎾' : item.emotion === 'anxious' ? '😰' : '🎉'}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="font-semibold text-gray-800">{item.originalText}</span>
+                    <span className="text-xs px-2 py-0.5 bg-gray-100 rounded-full text-gray-600">
+                      {EMOTION_LABELS[item.emotion]}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-500 line-clamp-2">{item.translatedText}</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {new Date(item.timestamp).toLocaleString('zh-CN')}
+                  </p>
+                </div>
+              </div>
+            </Card>
           ))}
-        </ScrollView>
-      </View>
-
-      <View style={styles.recordingSection}>
-        <View style={styles.timerContainer}>
-          <Text style={styles.timer}>{formatTime(timer)}</Text>
-        </View>
-
-        <TouchableOpacity
-          style={[
-            styles.recordButton,
-            isRecording && styles.recordButtonActive,
-          ]}
-          onPress={isRecording ? handleStopRecording : handleStartRecording}
-        >
-          <Text style={styles.recordButtonIcon}>
-            {isRecording ? '⏹️' : '🎤'}
-          </Text>
-          <Text style={styles.recordButtonText}>
-            {isRecording ? '停止录音' : '开始录音'}
-          </Text>
-        </TouchableOpacity>
-
-        {currentPet && (
-          <Text style={styles.hint}>
-            正在聆听 {currentPet.name} 的声音...
-          </Text>
-        )}
-      </View>
-
-      {(recordedText || translatedText) && (
-        <View style={styles.resultSection}>
-          <View style={styles.resultCard}>
-            <Text style={styles.resultLabel}>原始声音</Text>
-            <Text style={styles.resultText}>{recordedText}</Text>
-          </View>
-
-          <View style={styles.arrowContainer}>
-            <Text style={styles.arrow}>↓</Text>
-          </View>
-
-          <View style={[styles.resultCard, styles.translatedCard]}>
-            <Text style={styles.resultLabel}>翻译结果</Text>
-            <Text style={[styles.resultText, styles.translatedText]}>
-              {translatedText}
-            </Text>
-          </View>
-
-          <View style={styles.actionButtons}>
-            <TouchableOpacity style={styles.actionButton} onPress={handlePlayTranslation}>
-              <Text style={styles.actionButtonIcon}>🔊</Text>
-              <Text style={styles.actionButtonText}>播放</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionButton} onPress={handleClear}>
-              <Text style={styles.actionButtonIcon}>🗑️</Text>
-              <Text style={styles.actionButtonText}>清除</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
-
-      <View style={styles.historySection}>
-        <Text style={styles.sectionTitle}>翻译历史</Text>
-        {petTranslations.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyIcon}>💬</Text>
-            <Text style={styles.emptyTitle}>暂无翻译记录</Text>
-            <Text style={styles.emptySubtitle}>开始录音来翻译宠物的声音</Text>
-          </View>
-        ) : (
-          petTranslations.slice(0, 10).map((translation, index) => (
-            <View key={translation.id || index} style={styles.historyCard}>
-              <Text style={styles.historyOriginal}>{translation.originalText}</Text>
-              <Text style={styles.historyArrow}>→</Text>
-              <Text style={styles.historyTranslated}>{translation.translatedText}</Text>
-              <Text style={styles.historyDate}>
-                {new Date(translation.timestamp).toLocaleString()}
-              </Text>
-            </View>
-          ))
-        )}
-      </View>
-    </ScrollView>
+        </div>
+      </div>
+    </div>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  header: {
-    backgroundColor: '#F97316',
-    padding: 20,
-    paddingTop: 40,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.8)',
-  },
-  petSelector: {
-    backgroundColor: '#fff',
-    padding: 16,
-    marginBottom: 16,
-  },
-  petChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f0f0f0',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    marginRight: 12,
-  },
-  petChipSelected: {
-    backgroundColor: '#FFF3E0',
-    borderWidth: 2,
-    borderColor: '#F97316',
-  },
-  petChipEmoji: {
-    fontSize: 20,
-    marginRight: 6,
-  },
-  petChipName: {
-    fontSize: 14,
-    color: '#666',
-    fontWeight: '500',
-  },
-  petChipNameSelected: {
-    color: '#F97316',
-    fontWeight: '600',
-  },
-  recordingSection: {
-    backgroundColor: '#fff',
-    padding: 24,
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  timerContainer: {
-    marginBottom: 20,
-  },
-  timer: {
-    fontSize: 48,
-    fontWeight: '200',
-    color: '#333',
-    fontVariant: ['tabular-nums'],
-  },
-  recordButton: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#F97316',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-    elevation: 4,
-    shadowColor: '#F97316',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
-  recordButtonActive: {
-    backgroundColor: '#EF4444',
-  },
-  recordButtonIcon: {
-    fontSize: 36,
-    marginBottom: 4,
-  },
-  recordButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  hint: {
-    fontSize: 14,
-    color: '#666',
-    fontStyle: 'italic',
-  },
-  resultSection: {
-    backgroundColor: '#fff',
-    padding: 16,
-    marginBottom: 16,
-  },
-  resultCard: {
-    backgroundColor: '#f9f9f9',
-    borderRadius: 12,
-    padding: 16,
-  },
-  translatedCard: {
-    backgroundColor: '#FFF3E0',
-  },
-  resultLabel: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 8,
-  },
-  resultText: {
-    fontSize: 16,
-    color: '#333',
-    lineHeight: 24,
-  },
-  translatedText: {
-    color: '#F97316',
-    fontWeight: '500',
-  },
-  arrowContainer: {
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  arrow: {
-    fontSize: 24,
-    color: '#F97316',
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 16,
-    gap: 16,
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f0f0f0',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
-  },
-  actionButtonIcon: {
-    fontSize: 16,
-    marginRight: 6,
-  },
-  actionButtonText: {
-    fontSize: 14,
-    color: '#333',
-    fontWeight: '500',
-  },
-  historySection: {
-    backgroundColor: '#fff',
-    padding: 16,
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 12,
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 40,
-  },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: 16,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    color: '#666',
-  },
-  historyCard: {
-    backgroundColor: '#f9f9f9',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 8,
-  },
-  historyOriginal: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 4,
-  },
-  historyArrow: {
-    fontSize: 12,
-    color: '#F97316',
-    marginBottom: 4,
-  },
-  historyTranslated: {
-    fontSize: 14,
-    color: '#333',
-    fontWeight: '500',
-    marginBottom: 4,
-  },
-  historyDate: {
-    fontSize: 10,
-    color: '#999',
-  },
-});

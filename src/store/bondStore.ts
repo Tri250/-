@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface DailyActivity {
   id: string;
@@ -39,21 +38,45 @@ interface BondState {
   milestones: Milestone[];
   dailyActivities: DailyActivity[];
   trainingRecords: any[];
-  
+
   addMemory: (memory: Omit<Memory, 'id' | 'createdAt'>) => void;
   updateMemory: (id: string, updates: Partial<Memory>) => void;
   deleteMemory: (id: string) => void;
-  
+
   addMilestone: (milestone: Omit<Milestone, 'id' | 'createdAt'>) => void;
   updateMilestone: (id: string, updates: Partial<Milestone>) => void;
   deleteMilestone: (id: string) => void;
-  
+
   addDailyActivity: (activity: Omit<DailyActivity, 'id' | 'timestamp'>) => void;
   getActivitiesByPet: (petId: string) => DailyActivity[];
-  
+
   getMemoriesByPet: (petId: string) => Memory[];
   getMilestonesByPet: (petId: string) => Milestone[];
 }
+
+const storage = {
+  getItem: (name: string): string | null => {
+    try {
+      return localStorage.getItem(name);
+    } catch {
+      return null;
+    }
+  },
+  setItem: (name: string, value: string): void => {
+    try {
+      localStorage.setItem(name, value);
+    } catch {
+      // ignore
+    }
+  },
+  removeItem: (name: string): void => {
+    try {
+      localStorage.removeItem(name);
+    } catch {
+      // ignore
+    }
+  },
+};
 
 export const useBondStore = create<BondState>()(
   persist(
@@ -134,7 +157,7 @@ export const useBondStore = create<BondState>()(
     }),
     {
       name: 'bond-storage',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => storage),
     }
   )
 );

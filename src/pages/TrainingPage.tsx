@@ -1,313 +1,154 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
-import { useTrainingStore } from '../../store/trainingStore';
-import { usePetStore } from '../../store/petStore';
+import React, { useState } from 'react';
+import { Plus, Award, Clock, ChevronRight, Target } from 'lucide-react';
+import { Card } from '../components/DesignSystem/Card';
+import { Button } from '../components/DesignSystem/Button';
 
-interface TrainingPageProps {
-  petId?: string;
+interface TrainingActivity {
+  id: string;
+  petId: string;
+  petName: string;
+  name: string;
+  duration: number;
+  notes?: string;
+  date: string;
+  category: 'basic' | 'advanced' | 'trick' | 'social';
 }
 
-export const TrainingPage: React.FC<TrainingPageProps> = ({ petId }) => {
-  const { trainingActivities, addDailyActivity } = useTrainingStore();
-  const { pets, getPetById } = usePetStore();
-  const [selectedPet, setSelectedPet] = useState(petId || pets[0]?.id || '');
-  const [activityName, setActivityName] = useState('');
-  const [duration, setDuration] = useState('');
-  const [notes, setNotes] = useState('');
-
-  const currentPet = getPetById(selectedPet);
-
-  useEffect(() => {
-    if (petId) {
-      setSelectedPet(petId);
-    }
-  }, [petId]);
-
-  const handleAddActivity = async () => {
-    if (!selectedPet) {
-      Alert.alert('错误', '请选择宠物');
-      return;
-    }
-    if (!activityName.trim()) {
-      Alert.alert('错误', '请输入活动名称');
-      return;
-    }
-
-    const activity = {
-      petId: selectedPet,
-      name: activityName.trim(),
-      duration: parseInt(duration) || 0,
-      notes: notes.trim(),
-      date: new Date().toISOString(),
-    };
-
-    await addDailyActivity(activity);
-    setActivityName('');
-    setDuration('');
-    setNotes('');
-    Alert.alert('成功', '训练活动已添加');
-  };
-
-  const petActivities = trainingActivities.filter(
-    (a) => a.petId === selectedPet
-  );
-
-  return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <View style={styles.header}>
-        <Text style={styles.title}>训练课程</Text>
-        <Text style={styles.subtitle}>
-          {currentPet ? `${currentPet.name}的训练记录` : '选择宠物查看训练记录'}
-        </Text>
-      </View>
-
-      <View style={styles.petSelector}>
-        <Text style={styles.sectionTitle}>选择宠物</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {pets.map((pet) => (
-            <TouchableOpacity
-              key={pet.id}
-              style={[
-                styles.petChip,
-                selectedPet === pet.id && styles.petChipSelected,
-              ]}
-              onPress={() => setSelectedPet(pet.id)}
-            >
-              <Text style={styles.petChipEmoji}>{pet.avatar || '🐾'}</Text>
-              <Text style={[
-                styles.petChipName,
-                selectedPet === pet.id && styles.petChipNameSelected,
-              ]}>
-                {pet.name}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
-
-      <View style={styles.addActivitySection}>
-        <Text style={styles.sectionTitle}>添加训练活动</Text>
-        
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>活动名称</Text>
-          <TextInput
-            style={styles.input}
-            value={activityName}
-            onChangeText={setActivityName}
-            placeholder="如：坐下、握手、召回"
-            placeholderTextColor="#999"
-          />
-        </View>
-
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>训练时长（分钟）</Text>
-          <TextInput
-            style={styles.input}
-            value={duration}
-            onChangeText={setDuration}
-            placeholder="输入训练时长"
-            placeholderTextColor="#999"
-            keyboardType="numeric"
-          />
-        </View>
-
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>备注</Text>
-          <TextInput
-            style={[styles.input, styles.textArea]}
-            value={notes}
-            onChangeText={setNotes}
-            placeholder="训练表现、遇到的问题等"
-            placeholderTextColor="#999"
-            multiline
-            numberOfLines={3}
-          />
-        </View>
-
-        <TouchableOpacity style={styles.submitButton} onPress={handleAddActivity}>
-          <Text style={styles.submitButtonText}>添加训练</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.historySection}>
-        <Text style={styles.sectionTitle}>训练历史</Text>
-        {petActivities.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyIcon}>🎾</Text>
-            <Text style={styles.emptyTitle}>暂无训练记录</Text>
-            <Text style={styles.emptySubtitle}>开始记录你的训练课程吧</Text>
-          </View>
-        ) : (
-          petActivities.map((activity, index) => (
-            <View key={activity.id || index} style={styles.activityCard}>
-              <View style={styles.activityHeader}>
-                <Text style={styles.activityName}>{activity.name}</Text>
-                {activity.duration > 0 && (
-                  <Text style={styles.activityDuration}>{activity.duration}分钟</Text>
-                )}
-              </View>
-              {activity.notes && (
-                <Text style={styles.activityNotes}>{activity.notes}</Text>
-              )}
-              <Text style={styles.activityDate}>
-                {new Date(activity.date).toLocaleDateString()}
-              </Text>
-            </View>
-          ))
-        )}
-      </View>
-    </ScrollView>
-  );
+const CATEGORY_LABELS = {
+  basic: '基础',
+  advanced: '进阶',
+  trick: '技巧',
+  social: '社交',
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
+const CATEGORY_COLORS = {
+  basic: 'from-blue-400 to-blue-500',
+  advanced: 'from-purple-400 to-purple-500',
+  trick: 'from-pink-400 to-pink-500',
+  social: 'from-green-400 to-green-500',
+};
+
+const MOCK_ACTIVITIES: TrainingActivity[] = [
+  {
+    id: 'train-1',
+    petId: 'pet-1',
+    petName: '小橘',
+    name: '坐下',
+    duration: 15,
+    notes: '表现良好，5分钟内学会',
+    date: '2026-06-02',
+    category: 'basic',
   },
-  header: {
-    backgroundColor: '#F97316',
-    padding: 20,
-    paddingTop: 40,
+  {
+    id: 'train-2',
+    petId: 'pet-1',
+    petName: '小橘',
+    name: '握手',
+    duration: 20,
+    notes: '需要更多练习',
+    date: '2026-06-01',
+    category: 'basic',
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 4,
+  {
+    id: 'train-3',
+    petId: 'pet-1',
+    petName: '小橘',
+    name: '翻滚',
+    duration: 30,
+    date: '2026-05-30',
+    category: 'trick',
   },
-  subtitle: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.8)',
-  },
-  petSelector: {
-    backgroundColor: '#fff',
-    padding: 16,
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 12,
-  },
-  petChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f0f0f0',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    marginRight: 12,
-  },
-  petChipSelected: {
-    backgroundColor: '#FFF3E0',
-    borderWidth: 2,
-    borderColor: '#F97316',
-  },
-  petChipEmoji: {
-    fontSize: 20,
-    marginRight: 6,
-  },
-  petChipName: {
-    fontSize: 14,
-    color: '#666',
-    fontWeight: '500',
-  },
-  petChipNameSelected: {
-    color: '#F97316',
-    fontWeight: '600',
-  },
-  addActivitySection: {
-    backgroundColor: '#fff',
-    padding: 16,
-    marginBottom: 16,
-  },
-  formGroup: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    color: '#333',
-    backgroundColor: '#f9f9f9',
-  },
-  textArea: {
-    minHeight: 80,
-    textAlignVertical: 'top',
-  },
-  submitButton: {
-    backgroundColor: '#F97316',
-    padding: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  submitButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  historySection: {
-    backgroundColor: '#fff',
-    padding: 16,
-    marginBottom: 16,
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 40,
-  },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: 16,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    color: '#666',
-  },
-  activityCard: {
-    backgroundColor: '#f9f9f9',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-  },
-  activityHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  activityName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-  },
-  activityDuration: {
-    fontSize: 14,
-    color: '#F97316',
-    fontWeight: '500',
-  },
-  activityNotes: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 8,
-  },
-  activityDate: {
-    fontSize: 12,
-    color: '#999',
-  },
-});
+];
+
+export const TrainingPage: React.FC = () => {
+  const [activities] = useState<TrainingActivity[]>(MOCK_ACTIVITIES);
+
+  const totalDuration = activities.reduce((sum, a) => sum + a.duration, 0);
+  const totalSessions = activities.length;
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-peach-50 p-4 pb-20">
+      <div className="max-w-4xl mx-auto">
+        <div className="mb-6 pt-4">
+          <h1 className="text-2xl font-bold text-gray-800">训练课程</h1>
+          <p className="text-sm text-gray-500">记录小橘的成长足迹</p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          <Card className="p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <Target className="w-4 h-4 text-orange-500" />
+              <span className="text-xs text-gray-500">总训练次数</span>
+            </div>
+            <p className="text-2xl font-bold text-gray-800">{totalSessions}</p>
+            <p className="text-xs text-gray-400">次</p>
+          </Card>
+          <Card className="p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <Clock className="w-4 h-4 text-orange-500" />
+              <span className="text-xs text-gray-500">总训练时长</span>
+            </div>
+            <p className="text-2xl font-bold text-gray-800">{totalDuration}</p>
+            <p className="text-xs text-gray-400">分钟</p>
+          </Card>
+        </div>
+
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-800">训练记录</h2>
+          <Button className="!py-2 !px-4 !text-sm">
+            <Plus className="w-4 h-4 mr-1" />
+            添加训练
+          </Button>
+        </div>
+
+        <div className="space-y-3">
+          {activities.length === 0 ? (
+            <Card className="p-8 text-center">
+              <Award className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500">还没有训练记录</p>
+              <p className="text-xs text-gray-400 mt-1">开始第一次训练吧！</p>
+            </Card>
+          ) : (
+            activities.map((activity) => (
+              <Card key={activity.id} className="p-4">
+                <div className="flex items-start gap-3">
+                  <div
+                    className={`w-12 h-12 bg-gradient-to-br ${CATEGORY_COLORS[activity.category]} rounded-xl flex items-center justify-center flex-shrink-0`}
+                  >
+                    <Award className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs px-2 py-0.5 bg-gray-100 rounded-full text-gray-600">
+                            {CATEGORY_LABELS[activity.category]}
+                          </span>
+                          <span className="text-xs text-gray-400">· {activity.petName}</span>
+                        </div>
+                        <h3 className="font-semibold text-gray-800">{activity.name}</h3>
+                        <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {activity.duration} 分钟
+                          </span>
+                          <span>📅 {new Date(activity.date).toLocaleDateString('zh-CN')}</span>
+                        </div>
+                        {activity.notes && (
+                          <p className="text-sm text-gray-500 mt-2 p-2 bg-gray-50 rounded-lg">
+                            {activity.notes}
+                          </p>
+                        )}
+                      </div>
+                      <ChevronRight className="w-5 h-5 text-gray-300 flex-shrink-0" />
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};

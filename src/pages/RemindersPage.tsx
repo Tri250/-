@@ -1,406 +1,227 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Modal, Alert } from 'react-native';
-import { useReminderStore } from '../../store/reminderStore';
-import { ReminderType } from '../../types/health-record';
+import React, { useState } from 'react';
+import { Plus, Bell, ChevronRight, Check, Trash2 } from 'lucide-react';
+import { Card } from '../components/DesignSystem/Card';
+import { Button } from '../components/DesignSystem/Button';
 
-interface RemindersPageProps {
-  onReminderPress?: (reminder: any) => void;
+interface Reminder {
+  id: string;
+  petId: string;
+  petName: string;
+  title: string;
+  description?: string;
+  type: 'vaccination' | 'medication' | 'checkup' | 'grooming' | 'feeding' | 'other';
+  date: string;
+  completed: boolean;
 }
 
-export const RemindersPage: React.FC<RemindersPageProps> = ({
-  onReminderPress,
-}) => {
-  const { reminders, loading, fetchReminders, addReminder, updateReminder, deleteReminder } = useReminderStore();
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [selectedPetId, setSelectedPetId] = useState<string | null>(null);
-  const [newReminder, setNewReminder] = useState({
-    title: '',
-    description: '',
-    type: 'checkup' as ReminderType,
-    date: new Date(),
-  });
+interface RemindersPageProps {
+  onNavigate?: (page: string) => void;
+}
 
-  useEffect(() => {
-    fetchReminders();
-  }, []);
+const MOCK_REMINDERS: Reminder[] = [
+  {
+    id: 'rem-1',
+    petId: 'pet-1',
+    petName: '小橘',
+    title: '狂犬疫苗加强针',
+    description: '距离上次接种已满 11 个月，需要进行加强免疫',
+    type: 'vaccination',
+    date: '2026-06-15',
+    completed: false,
+  },
+  {
+    id: 'rem-2',
+    petId: 'pet-1',
+    petName: '小橘',
+    title: '体内驱虫',
+    description: '每3个月一次的常规驱虫',
+    type: 'medication',
+    date: '2026-06-20',
+    completed: false,
+  },
+  {
+    id: 'rem-3',
+    petId: 'pet-1',
+    petName: '小橘',
+    title: '年度体检',
+    description: '建议进行全面的健康检查',
+    type: 'checkup',
+    date: '2026-07-01',
+    completed: true,
+  },
+  {
+    id: 'rem-4',
+    petId: 'pet-1',
+    petName: '小橘',
+    title: '洗澡美容',
+    description: '常规洗澡和毛发护理',
+    type: 'grooming',
+    date: '2026-06-10',
+    completed: false,
+  },
+];
 
-  const handleAddReminder = async () => {
-    if (!newReminder.title.trim()) {
-      Alert.alert('错误', '请输入提醒标题');
-      return;
-    }
-
-    await addReminder({
-      ...newReminder,
-      petId: selectedPetId || undefined,
-      completed: false,
-      createdAt: new Date().toISOString(),
-    });
-
-    setShowAddModal(false);
-    setNewReminder({
-      title: '',
-      description: '',
-      type: 'checkup',
-      date: new Date(),
-    });
-  };
-
-  const handleToggleComplete = async (reminderId: string, currentStatus: boolean) => {
-    await updateReminder(reminderId, { completed: !currentStatus });
-  };
-
-  const handleDeleteReminder = async (reminderId: string) => {
-    Alert.alert(
-      '确认删除',
-      '确定要删除这条提醒吗？',
-      [
-        { text: '取消', style: 'cancel' },
-        { text: '删除', style: 'destructive', onPress: () => deleteReminder(reminderId) },
-      ]
-    );
-  };
-
-  const getReminderIcon = (type: ReminderType) => {
-    switch (type) {
-      case 'vaccination':
-        return '💉';
-      case 'medication':
-        return '💊';
-      case 'checkup':
-        return '🩺';
-      case 'grooming':
-        return '✂️';
-      case 'feeding':
-        return '🍽️';
-      default:
-        return '📌';
-    }
-  };
-
-  const renderReminderItem = ({ item }: { item: any }) => {
-    const isPast = new Date(item.date) < new Date();
-    const isToday = new Date(item.date).toDateString() === new Date().toDateString();
-
-    return (
-      <TouchableOpacity
-        style={[
-          styles.reminderCard,
-          item.completed && styles.reminderCardCompleted,
-        ]}
-        onPress={() => onReminderPress?.(item)}
-      >
-        <TouchableOpacity
-          style={styles.checkbox}
-          onPress={() => handleToggleComplete(item.id, item.completed)}
-        >
-          {item.completed && <Text style={styles.checkmark}>✓</Text>}
-        </TouchableOpacity>
-
-        <View style={styles.reminderContent}>
-          <View style={styles.reminderHeader}>
-            <Text style={styles.reminderIcon}>{getReminderIcon(item.type)}</Text>
-            <Text style={[
-              styles.reminderTitle,
-              item.completed && styles.completedText,
-            ]}>
-              {item.title}
-            </Text>
-          </View>
-
-          {item.description && (
-            <Text style={styles.reminderDescription} numberOfLines={2}>
-              {item.description}
-            </Text>
-          )}
-
-          <View style={styles.reminderMeta}>
-            <Text style={[
-              styles.reminderDate,
-              isPast && !item.completed && styles.pastDate,
-              isToday && styles.todayDate,
-            ]}>
-              {isToday ? '今天' : new Date(item.date).toLocaleDateString()}
-            </Text>
-            {item.petId && (
-              <Text style={styles.petBadge}>关联宠物</Text>
-            )}
-          </View>
-        </View>
-
-        <TouchableOpacity
-          style={styles.deleteButton}
-          onPress={() => handleDeleteReminder(item.id)}
-        >
-          <Text style={styles.deleteIcon}>🗑️</Text>
-        </TouchableOpacity>
-      </TouchableOpacity>
-    );
-  };
-
-  const renderEmptyList = () => (
-    <View style={styles.emptyContainer}>
-      <Text style={styles.emptyIcon}>🔔</Text>
-      <Text style={styles.emptyTitle}>暂无提醒</Text>
-      <Text style={styles.emptySubtitle}>点击下方按钮添加新提醒</Text>
-    </View>
-  );
-
-  return (
-    <View style={styles.container}>
-      <FlatList
-        data={reminders}
-        keyExtractor={(item) => item.id}
-        renderItem={renderReminderItem}
-        contentContainerStyle={styles.listContainer}
-        ListEmptyComponent={renderEmptyList}
-        showsVerticalScrollIndicator={false}
-      />
-
-      <TouchableOpacity
-        style={styles.addButton}
-        onPress={() => setShowAddModal(true)}
-      >
-        <Text style={styles.addButtonText}>+ 添加提醒</Text>
-      </TouchableOpacity>
-
-      <Modal
-        visible={showAddModal}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setShowAddModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>添加提醒</Text>
-              <TouchableOpacity onPress={() => setShowAddModal(false)}>
-                <Text style={styles.closeButton}>✕</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>标题</Text>
-              <TextInput
-                style={styles.input}
-                value={newReminder.title}
-                onChangeText={(text) => setNewReminder({ ...newReminder, title: text })}
-                placeholder="输入提醒标题"
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>描述</Text>
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                value={newReminder.description}
-                onChangeText={(text) => setNewReminder({ ...newReminder, description: text })}
-                placeholder="输入描述"
-                multiline
-              />
-            </View>
-
-            <TouchableOpacity
-              style={styles.submitButton}
-              onPress={handleAddReminder}
-            >
-              <Text style={styles.submitButtonText}>保存</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-    </View>
-  );
+const TYPE_LABELS: Record<Reminder['type'], string> = {
+  vaccination: '疫苗',
+  medication: '用药',
+  checkup: '体检',
+  grooming: '美容',
+  feeding: '喂食',
+  other: '其他',
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  listContainer: {
-    padding: 16,
-    flexGrow: 1,
-  },
-  reminderCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  reminderCardCompleted: {
-    backgroundColor: '#f9f9f9',
-    opacity: 0.7,
-  },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#F97316',
-    marginRight: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  checkmark: {
-    color: '#F97316',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  reminderContent: {
-    flex: 1,
-  },
-  reminderHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  reminderIcon: {
-    fontSize: 16,
-    marginRight: 8,
-  },
-  reminderTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-  },
-  completedText: {
-    textDecorationLine: 'line-through',
-    color: '#999',
-  },
-  reminderDescription: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 4,
-    marginLeft: 24,
-  },
-  reminderMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: 24,
-  },
-  reminderDate: {
-    fontSize: 12,
-    color: '#999',
-  },
-  pastDate: {
-    color: '#EF4444',
-  },
-  todayDate: {
-    color: '#F97316',
-    fontWeight: '600',
-  },
-  petBadge: {
-    fontSize: 10,
-    color: '#10B981',
-    backgroundColor: '#D1FAE5',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    marginLeft: 8,
-  },
-  deleteButton: {
-    padding: 8,
-  },
-  deleteIcon: {
-    fontSize: 18,
-  },
-  addButton: {
-    backgroundColor: '#F97316',
-    margin: 16,
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  addButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 60,
-  },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: 16,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    color: '#666',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    width: '90%',
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  closeButton: {
-    fontSize: 24,
-    color: '#999',
-  },
-  formGroup: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    color: '#333',
-  },
-  textArea: {
-    minHeight: 80,
-    textAlignVertical: 'top',
-  },
-  submitButton: {
-    backgroundColor: '#F97316',
-    padding: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  submitButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-});
+const TYPE_ICONS: Record<Reminder['type'], string> = {
+  vaccination: '💉',
+  medication: '💊',
+  checkup: '🩺',
+  grooming: '✂️',
+  feeding: '🍽️',
+  other: '📌',
+};
+
+const TYPE_COLORS: Record<Reminder['type'], string> = {
+  vaccination: 'from-blue-400 to-blue-500',
+  medication: 'from-green-400 to-green-500',
+  checkup: 'from-purple-400 to-purple-500',
+  grooming: 'from-pink-400 to-pink-500',
+  feeding: 'from-yellow-400 to-yellow-500',
+  other: 'from-gray-400 to-gray-500',
+};
+
+export const RemindersPage: React.FC<RemindersPageProps> = ({ onNavigate }) => {
+  const [reminders, setReminders] = useState<Reminder[]>(MOCK_REMINDERS);
+  const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
+
+  const toggleComplete = (id: string) => {
+    setReminders((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, completed: !r.completed } : r))
+    );
+  };
+
+  const deleteReminder = (id: string) => {
+    setReminders((prev) => prev.filter((r) => r.id !== id));
+  };
+
+  const filteredReminders = reminders.filter((r) => {
+    if (filter === 'pending') return !r.completed;
+    if (filter === 'completed') return r.completed;
+    return true;
+  });
+
+  const pendingCount = reminders.filter((r) => !r.completed).length;
+  const completedCount = reminders.filter((r) => r.completed).length;
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-peach-50 p-4 pb-20">
+      <div className="max-w-4xl mx-auto">
+        <div className="flex items-center justify-between mb-6 pt-4">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => onNavigate?.('home')}
+              className="p-2 hover:bg-white rounded-full transition-colors"
+            >
+              <ChevronRight className="w-6 h-6 text-gray-600 rotate-180" />
+            </button>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-800">提醒事项</h1>
+              <p className="text-sm text-gray-500">
+                {pendingCount} 项待办 · {completedCount} 项已完成
+              </p>
+            </div>
+          </div>
+          <Button className="!p-2 !rounded-full">
+            <Plus className="w-5 h-5" />
+          </Button>
+        </div>
+
+        <div className="flex gap-2 mb-6">
+          {[
+            { value: 'all' as const, label: '全部', count: reminders.length },
+            { value: 'pending' as const, label: '待办', count: pendingCount },
+            { value: 'completed' as const, label: '已完成', count: completedCount },
+          ].map((f) => (
+            <button
+              key={f.value}
+              onClick={() => setFilter(f.value)}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                filter === f.value
+                  ? 'bg-orange-500 text-white'
+                  : 'bg-white text-gray-600 border border-gray-200'
+              }`}
+            >
+              {f.label} ({f.count})
+            </button>
+          ))}
+        </div>
+
+        <div className="space-y-3">
+          {filteredReminders.length === 0 ? (
+            <Card className="p-8 text-center">
+              <Bell className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500 mb-4">暂无提醒事项</p>
+              <Button>添加第一个提醒</Button>
+            </Card>
+          ) : (
+            filteredReminders.map((reminder) => (
+              <Card
+                key={reminder.id}
+                className={`p-4 ${reminder.completed ? 'opacity-60' : ''}`}
+              >
+                <div className="flex items-start gap-3">
+                  <div
+                    className={`w-12 h-12 bg-gradient-to-br ${TYPE_COLORS[reminder.type]} rounded-xl flex items-center justify-center text-xl flex-shrink-0`}
+                  >
+                    {TYPE_ICONS[reminder.type]}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs px-2 py-0.5 bg-gray-100 rounded-full text-gray-600">
+                            {TYPE_LABELS[reminder.type]}
+                          </span>
+                          <span className="text-xs text-gray-400">· {reminder.petName}</span>
+                        </div>
+                        <h3
+                          className={`font-semibold text-gray-800 ${
+                            reminder.completed ? 'line-through' : ''
+                          }`}
+                        >
+                          {reminder.title}
+                        </h3>
+                        {reminder.description && (
+                          <p className="text-sm text-gray-500 mt-1">{reminder.description}</p>
+                        )}
+                        <p className="text-xs text-gray-400 mt-2">
+                          📅 {new Date(reminder.date).toLocaleDateString('zh-CN')}
+                        </p>
+                      </div>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => toggleComplete(reminder.id)}
+                          className={`p-2 rounded-lg transition-colors ${
+                            reminder.completed
+                              ? 'bg-green-100 text-green-600'
+                              : 'hover:bg-gray-100 text-gray-400'
+                          }`}
+                        >
+                          <Check className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => deleteReminder(reminder.id)}
+                          className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
