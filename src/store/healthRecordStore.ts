@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { HealthRecord, HealthTag, DEFAULT_TAGS } from '../types/health-record';
+import { HealthRecord, HealthTag } from '../types/health-record';
 
 interface HealthRecordStore {
   records: HealthRecord[];

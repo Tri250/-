@@ -1,333 +1,154 @@
 import React, { useState } from 'react';
-import { Modal, View, Text, TouchableOpacity, TextInput, StyleSheet, ScrollView } from 'react-native';
-import { useAuthStore } from '../../store/authStore';
-import { usePetStore } from '../../store/petStore';
-import { useRecordStore } from '../../store/recordStore';
-import { RecordType } from '../../types/health-record';
-import { VoiceTranscription } from '../common/VoiceTranscription';
-import { PDFUpload } from '../common/PDFUpload';
+import { X, Save, Mic, FileText } from 'lucide-react';
+import { Card } from './DesignSystem/Card';
+import { Button } from './DesignSystem/Button';
+import { RecordType, RECORD_TYPE_LABELS } from '../types/health-record';
 
 interface AddRecordModalProps {
   visible: boolean;
   onClose: () => void;
   petId?: string;
   initialType?: RecordType;
-  voiceTranscription?: boolean;
-  pdfFileName?: string;
+  onSubmit?: (record: {
+    type: RecordType;
+    title: string;
+    description: string;
+    date: string;
+    notes: string;
+  }) => void;
 }
+
+const RECORD_TYPES: RecordType[] = [
+  'checkup',
+  'vaccination',
+  'medication',
+  'surgery',
+  'lab',
+  'weight',
+  'dental',
+  'grooming',
+  'emergency',
+  'pdf',
+];
 
 export const AddRecordModal: React.FC<AddRecordModalProps> = ({
   visible,
   onClose,
-  petId,
   initialType = 'checkup',
-  voiceTranscription = false,
-  pdfFileName,
+  onSubmit,
 }) => {
   const [recordType, setRecordType] = useState<RecordType>(initialType);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [date, setDate] = useState(new Date());
-  const [selectedPetId, setSelectedPetId] = useState(petId || '');
   const [notes, setNotes] = useState('');
-  const [attachedFile, setAttachedFile] = useState<string | null>(null);
-  const [showVoiceTranscription, setShowVoiceTranscription] = useState(voiceTranscription);
-  const [voiceText, setVoiceText] = useState('');
-  const [pdfUrl, setPdfUrl] = useState<string | null>(pdfFileName || null);
 
-  const { user } = useAuthStore();
-  const { pets } = usePetStore();
-  const { addRecord } = useRecordStore();
+  if (!visible) return null;
 
-  const recordTypes: { value: RecordType; label: string }[] = [
-    { value: 'checkup', label: '体检' },
-    { value: 'vaccination', label: '疫苗接种' },
-    { value: 'medication', label: '用药' },
-    { value: 'surgery', label: '手术' },
-    { value: 'lab', label: '化验检查' },
-    { value: 'weight', label: '体重记录' },
-    { value: 'dental', label: '牙齿护理' },
-    { value: 'grooming', label: '美容' },
-    { value: 'emergency', label: '紧急情况' },
-    { value: 'pdf', label: 'PDF文档' },
-  ];
-
-  const handleSubmit = async () => {
-    if (!selectedPetId) {
-      alert('请选择宠物');
-      return;
-    }
+  const handleSubmit = () => {
     if (!title.trim()) {
       alert('请输入记录标题');
       return;
     }
-
-    const record = {
-      id: `record-${Date.now()}`,
-      petId: selectedPetId,
+    onSubmit?.({
       type: recordType,
       title: title.trim(),
       description: description.trim(),
-      date: date.toISOString(),
+      date: new Date().toISOString(),
       notes: notes.trim(),
-      attachedFile,
-      voiceTranscription: showVoiceTranscription ? voiceText : undefined,
-      pdfUrl: pdfUrl || undefined,
-      createdBy: user?.id || 'anonymous',
-      createdAt: new Date().toISOString(),
-    };
-
-    await addRecord(record);
+    });
     onClose();
-    resetForm();
-  };
-
-  const resetForm = () => {
-    setRecordType('checkup');
+    // Reset form
     setTitle('');
     setDescription('');
-    setDate(new Date());
     setNotes('');
-    setAttachedFile(null);
-    setVoiceText('');
-    setPdfUrl(null);
-    setShowVoiceTranscription(false);
+    setRecordType('checkup');
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={styles.modalContainer}>
-        <View style={styles.modalContent}>
-          <View style={styles.header}>
-            <Text style={styles.headerTitle}>添加健康记录</Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Text style={styles.closeButtonText}>✕</Text>
-            </TouchableOpacity>
-          </View>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+      <Card className="w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-4 border-b border-gray-100">
+          <h2 className="text-lg font-semibold text-gray-800">添加健康记录</h2>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+          >
+            <X className="w-5 h-5 text-gray-500" />
+          </button>
+        </div>
 
-          <ScrollView style={styles.form}>
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>宠物</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                {pets.map((pet) => (
-                  <TouchableOpacity
-                    key={pet.id}
-                    onPress={() => setSelectedPetId(pet.id)}
-                    style={[
-                      styles.petChip,
-                      selectedPetId === pet.id && styles.petChipSelected,
-                    ]}
-                  >
-                    <Text style={[
-                      styles.petChipText,
-                      selectedPetId === pet.id && styles.petChipTextSelected,
-                    ]}>
-                      {pet.name}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
+        <div className="p-4 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              记录类型
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {RECORD_TYPES.map((type) => (
+                <button
+                  key={type}
+                  onClick={() => setRecordType(type)}
+                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                    recordType === type
+                      ? 'bg-orange-500 text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {RECORD_TYPE_LABELS[type]}
+                </button>
+              ))}
+            </div>
+          </div>
 
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>记录类型</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                {recordTypes.map((type) => (
-                  <TouchableOpacity
-                    key={type.value}
-                    onPress={() => setRecordType(type.value)}
-                    style={[
-                      styles.typeChip,
-                      recordType === type.value && styles.typeChipSelected,
-                    ]}
-                  >
-                    <Text style={[
-                      styles.typeChipText,
-                      recordType === type.value && styles.typeChipTextSelected,
-                    ]}>
-                      {type.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              标题
+            </label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="输入记录标题"
+              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-400"
+            />
+          </div>
 
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>标题</Text>
-              <TextInput
-                style={styles.input}
-                value={title}
-                onChangeText={setTitle}
-                placeholder="输入记录标题"
-                placeholderTextColor="#999"
-              />
-            </View>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              描述
+            </label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="输入详细描述"
+              rows={3}
+              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-400 resize-none"
+            />
+          </div>
 
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>描述</Text>
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                value={description}
-                onChangeText={setDescription}
-                placeholder="输入详细描述"
-                placeholderTextColor="#999"
-                multiline
-                numberOfLines={4}
-              />
-            </View>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              备注
+            </label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="输入额外备注"
+              rows={2}
+              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-orange-400 resize-none"
+            />
+          </div>
 
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>备注</Text>
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                value={notes}
-                onChangeText={setNotes}
-                placeholder="输入额外备注"
-                placeholderTextColor="#999"
-                multiline
-                numberOfLines={3}
-              />
-            </View>
-
-            {recordType === 'pdf' && (
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>上传PDF文档</Text>
-                <PDFUpload onUpload={(url) => setPdfUrl(url)} />
-                {pdfUrl && <Text style={styles.uploadedText}>已上传: {pdfUrl}</Text>}
-              </View>
-            )}
-
-            {showVoiceTranscription && (
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>语音转文字</Text>
-                <VoiceTranscription
-                  onTranscription={(text) => setVoiceText(text)}
-                  initialText={voiceText}
-                />
-              </View>
-            )}
-
-            <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-              <Text style={styles.submitButtonText}>保存记录</Text>
-            </TouchableOpacity>
-          </ScrollView>
-        </View>
-      </View>
-    </Modal>
+          <div className="flex gap-2 pt-4">
+            <Button variant="secondary" onClick={onClose} className="flex-1">
+              取消
+            </Button>
+            <Button onClick={handleSubmit} className="flex-1">
+              <Save className="w-4 h-4 mr-1" />
+              保存
+            </Button>
+          </div>
+        </div>
+      </Card>
+    </div>
   );
 };
-
-const styles = StyleSheet.create({
-  modalContainer: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    width: '90%',
-    maxHeight: '90%',
-    backgroundColor: 'white',
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  closeButton: {
-    padding: 8,
-  },
-  closeButtonText: {
-    fontSize: 20,
-    color: '#999',
-  },
-  form: {
-    padding: 16,
-  },
-  formGroup: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    color: '#333',
-    backgroundColor: '#f9f9f9',
-  },
-  textArea: {
-    minHeight: 80,
-    textAlignVertical: 'top',
-  },
-  petChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#f0f0f0',
-    marginRight: 8,
-  },
-  petChipSelected: {
-    backgroundColor: '#F97316',
-  },
-  petChipText: {
-    fontSize: 14,
-    color: '#666',
-  },
-  petChipTextSelected: {
-    color: 'white',
-    fontWeight: '600',
-  },
-  typeChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#f0f0f0',
-    marginRight: 8,
-  },
-  typeChipSelected: {
-    backgroundColor: '#10B981',
-  },
-  typeChipText: {
-    fontSize: 14,
-    color: '#666',
-  },
-  typeChipTextSelected: {
-    color: 'white',
-    fontWeight: '600',
-  },
-  submitButton: {
-    backgroundColor: '#F97316',
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 8,
-    marginBottom: 24,
-  },
-  submitButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  uploadedText: {
-    marginTop: 8,
-    color: '#10B981',
-    fontSize: 14,
-  },
-});
