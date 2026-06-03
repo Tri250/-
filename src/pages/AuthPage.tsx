@@ -60,7 +60,7 @@ export function AuthPage({ onSuccess }: AuthPageProps) {
           <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-orange-400 to-peach-500 rounded-full mb-4 shadow-lg">
             <PawPrint className="w-10 h-10 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">PawSync Pro</h1>
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">爪爪连心❤️</h1>
           <p className="text-gray-500">用心聆听，与毛孩子心意相通</p>
         </div>
 

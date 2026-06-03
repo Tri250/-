@@ -397,7 +397,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
         </div>
 
         <div className={`text-center text-xs py-4 ${settings.darkMode ? 'text-gray-500' : 'text-neutral-400'}`}>
-          PawSync Pro v1.0.0
+          爪爪连心❤️ v1.0.0
         </div>
       </main>
 
@@ -621,7 +621,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
             <span className="text-3xl">🐾</span>
           </div>
           <div>
-            <h3 className="text-xl font-bold">PawSync Pro</h3>
+            <h3 className="text-xl font-bold">爪爪连心❤️</h3>
             <p className="text-gray-500">爪印同频 · 守护版</p>
           </div>
           <div className="py-3 border-t border-b border-gray-100">
@@ -640,7 +640,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
 
       <Modal show={showUserAgreementModal} onClose={() => setShowUserAgreementModal(false)} title="用户协议">
         <div className="space-y-4 text-sm text-gray-600 leading-relaxed">
-          <p><strong>欢迎使用 PawSync Pro</strong></p>
+          <p><strong>欢迎使用 爪爪连心❤️</strong></p>
           <p>感谢您选择使用我们的宠物翻译与健康管理应用。在使用本应用前，请仔细阅读以下协议条款。</p>
           <p><strong>一、服务内容</strong></p>
           <p>本应用提供宠物声音翻译、行为分析、健康监测等服务。我们致力于帮助宠物主人更好地理解和照顾自己的宠物。</p>
@@ -660,7 +660,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
 
       <Modal show={showPrivacyPolicyModal} onClose={() => setShowPrivacyPolicyModal(false)} title="隐私政策">
         <div className="space-y-4 text-sm text-gray-600 leading-relaxed">
-          <p><strong>PawSync Pro 隐私政策</strong></p>
+          <p><strong>爪爪连心❤️ 隐私政策</strong></p>
           <p>我们非常重视您的隐私保护。本政策说明我们如何收集、使用和保护您的个人信息。</p>
           <p><strong>一、信息收集</strong></p>
           <p>我们可能收集以下信息：</p>

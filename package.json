@@ -1,9 +1,9 @@
 {
-  "name": "PawSync Pro",
+  "name": "爪爪连心❤️",
   "version": "1.0.0",
   "private": true,
   "author": "带娃的小陈工",
-  "description": "PawSync Pro - AI驱动的宠物情感翻译与健康监测应用",
+  "description": "爪爪连心❤️ - AI驱动的宠物情感翻译与健康监测应用",
   "type": "module",
   "scripts": {
     "dev": "vite",

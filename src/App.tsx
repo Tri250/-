@@ -40,7 +40,7 @@ function LoadingScreen({ progress, message }: { progress: number; message: strin
       <div className="w-24 h-24 bg-gradient-to-br from-orange-400 to-peach-500 rounded-full flex items-center justify-center mb-6 shadow-lg animate-pulse">
         <PawPrint className="w-12 h-12 text-white" />
       </div>
-      <h1 className="text-2xl font-bold text-gray-800 mb-2">PawSync Pro</h1>
+      <h1 className="text-2xl font-bold text-gray-800 mb-2">爪爪连心❤️</h1>
       <p className="text-gray-500 mb-8">爪印同频 · 守护版</p>
       
       <div className="w-64 bg-gray-100 rounded-full h-2 mb-4 overflow-hidden">

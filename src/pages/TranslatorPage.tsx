@@ -1040,12 +1040,12 @@ export function TranslatorPage({ onNavigate }: { onNavigate?: (page: string) => 
   };
 
   const handleShare = async () => {
-    const shareText = `${currentPet?.name}的心情\n\n${translation}\n\n——来自 PawSync Pro`;
-    
+    const shareText = `${currentPet?.name}的心情\n\n${translation}\n\n——来自 爪爪连心❤️`;
+
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'PawSync Pro - 宠物心声',
+          title: '爪爪连心❤️ - 宠物心声',
           text: shareText,
         });
       } catch {

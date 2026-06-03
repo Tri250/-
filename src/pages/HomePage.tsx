@@ -266,7 +266,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
                   <div className="w-8 h-8 rounded-xl bg-white/25 backdrop-blur-md flex items-center justify-center shadow-lg border border-white/20">
                     <Heart className="w-[18px] h-[18px] text-white fill-current" />
                   </div>
-                  PawSync Pro
+                  爪爪连心❤️
                 </h1>
                 <p className="text-xs text-white/80 mt-1.5 ml-[42px] font-medium">温暖守护 · 陪伴成长</p>
               </div>

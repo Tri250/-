@@ -212,7 +212,7 @@ export function HealthReportPage({ onNavigate }: HealthReportPageProps) {
   </div>
 
   <div class="footer">
-    <p>PawSync Pro - 智能宠物健康管理平台</p>
+    <p>爪爪连心❤️ - 智能宠物健康管理平台</p>
     <p>报告生成时间: ${exportTime}</p>
   </div>
 </body>

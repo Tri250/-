@@ -218,7 +218,7 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({ onNavigate }) 
         </Card>
 
         <div className="text-center text-xs text-neutral-400 py-4">
-          PawSync Pro v1.0.0
+          爪爪连心❤️ v1.0.0
         </div>
       </main>
     </div>

@@ -157,7 +157,7 @@ export function AdvancedHealthPage({ onNavigate }: AdvancedHealthPageProps) {
                 <Shield className="w-6 h-6 text-green-600" />
               </motion.button>
               <div>
-                <h1 className="text-lg font-bold text-gray-800">PawSync Pro</h1>
+                <h1 className="text-lg font-bold text-gray-800">爪爪连心❤️</h1>
                 <p className="text-xs text-gray-500">AI健康预警系统</p>
               </div>
             </div>
