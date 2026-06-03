@@ -45,6 +45,8 @@ interface CareTip {
   category: 'feeding' | 'exercise' | 'grooming' | 'health' | 'behavior';
   title: string;
   description: string;
+  content?: string;
+  petType?: 'cat' | 'dog' | 'other';
   priority: 'high' | 'medium' | 'low';
 }
 
@@ -99,6 +101,7 @@ interface AppState {
 
   // Actions - 宠物
   setCurrentPet: (pet: Pet) => void;
+  updateCurrentPet: (updates: Partial<Pet>) => void;
   addPet: (pet: Omit<Pet, 'id'>) => void;
   removePet: (petId: string) => void;
 
@@ -261,6 +264,11 @@ export const useAppStore = create<AppState>()(
       completeOnboarding: () => set({ isOnboardingComplete: true }),
 
       setCurrentPet: (pet) => set({ currentPet: pet }),
+
+      updateCurrentPet: (updates) =>
+        set((state) => ({
+          currentPet: state.currentPet ? { ...state.currentPet, ...updates } : null,
+        })),
 
       addPet: (pet) =>
         set((state) => {

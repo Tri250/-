@@ -26,6 +26,16 @@ export interface ConsultationContext {
   petAge?: number;
   recentSymptoms?: string[];
   medicalHistory?: string[];
+  petInfo?: PetInfo;
+  mentionedSymptoms: string[];
+  lastIntent?: string;
+  discussedTopics: string[];
+}
+
+export interface PetInfo {
+  type?: string;
+  age?: number;
+  weight?: number;
 }
 
 export interface HealthAdvice {
@@ -95,6 +105,8 @@ export interface AIMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: string;
+  messageType?: 'text' | 'image' | 'voice';
+  createdAt?: string;
   imageAnalysis?: ImageAnalysisResult;
   voiceResult?: VoiceRecognitionResult;
 }
@@ -102,17 +114,29 @@ export interface AIMessage {
 export type ConversationContext = ConsultationContext;
 
 export interface ImageAnalysisResult {
+  id?: string;
+  imageUrl?: string;
   description: string;
   confidence: number;
   detectedObjects?: string[];
   healthIndicators?: Record<string, any>;
+  analysisType?: 'general' | 'symptom' | 'food' | 'environment' | 'behavior';
+  severityLevel?: 'low' | 'medium' | 'high' | 'urgent';
+  detectedIssues?: string[];
+  recommendations?: string[];
+  petType?: string;
+  analyzedAt?: string;
 }
 
 export interface VoiceRecognitionResult {
+  id?: string;
+  audioUrl?: string;
   transcript: string;
   confidence: number;
   language?: string;
   duration?: number;
+  detectedKeywords?: string[];
+  processedAt?: string;
 }
 
 export interface InputValidationResult {
@@ -121,6 +145,12 @@ export interface InputValidationResult {
   detectedIssues: string[];
   severity: 'none' | 'low' | 'medium' | 'high';
   errors?: string[];
+  warnings?: string[];
+  contentLength?: number;
+  sanitizedContent?: string;
+  detectedLanguage?: string;
+  hasProhibitedContent?: boolean;
+  prohibitedCategories?: string[];
 }
 
 // Keyword constants for NLP processing
@@ -178,15 +208,32 @@ export const INPUT_VALIDATION_CONFIG = {
   maxAttachmentSize: 10 * 1024 * 1024, // 10MB
 };
 
-export const PROHIBITED_CONTENT_PATTERNS = [
-  /暴力/i,
-  /虐待/i,
-  /自残/i,
-  /自杀/i,
+export interface ProhibitedContentPattern {
+  pattern: RegExp;
+  category: string;
+  severity: 'low' | 'medium' | 'high';
+}
+
+export const PROHIBITED_CONTENT_PATTERNS: ProhibitedContentPattern[] = [
+  { pattern: /暴力/i, category: '暴力', severity: 'high' },
+  { pattern: /虐待/i, category: '虐待', severity: 'high' },
+  { pattern: /自残/i, category: '自残', severity: 'high' },
+  { pattern: /自杀/i, category: '自杀', severity: 'high' },
 ];
 
-export const MULTILINGUAL_CONFIG = {
+export const MULTILINGUAL_CONFIG: {
+  supportedLanguages: string[];
+  defaultLanguage: string;
+  detectionEnabled: boolean;
+  languageDetectionPatterns: Record<string, [RegExp, RegExp]>;
+} = {
   supportedLanguages: ['zh-CN', 'en-US'],
   defaultLanguage: 'zh-CN',
   detectionEnabled: true,
+  languageDetectionPatterns: {
+    'zh-CN': [/[\u4e00-\u9fa5]/, /的|了|是|在|有/],
+    'en-US': [/^[a-zA-Z\s,.!?'"()-]+$/, /the|is|are|was|were|have|has/],
+    'ja': [/[\u3040-\u309f\u30a0-\u30ff]/, /の|です|は|が/],
+    'ko': [/[\uac00-\ud7af]/, /은|는|이|가/],
+  } as Record<string, [RegExp, RegExp]>,
 };

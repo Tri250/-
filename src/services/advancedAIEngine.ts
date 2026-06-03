@@ -143,4 +143,4 @@ export function analyzeEmotionTrend(history: EmotionResult[]): EmotionTrend {
 }
 
 // Re-export from aiEngine.ts for compatibility
-export { AdvancedAIEngine, SymptomAnalysis } from './aiEngine';
+export type { AdvancedAIEngine, SymptomAnalysis } from './aiEngine';

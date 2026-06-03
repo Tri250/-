@@ -41,7 +41,7 @@ export const CameraListComponent: React.FC<CameraListComponentProps> = ({
           <CameraCard
             key={device.id}
             device={device}
-            onClick={onDevicePress}
+            onClick={onDevicePress ? () => onDevicePress(device) : undefined}
           />
         ))}
       </div>

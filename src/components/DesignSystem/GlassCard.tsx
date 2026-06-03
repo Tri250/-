@@ -6,6 +6,8 @@ interface GlassCardProps {
   className?: string;
   intensity?: 'low' | 'medium' | 'high';
   borderRadius?: number;
+  variant?: string;
+  enable3D?: boolean;
 }
 
 const intensityClasses = {

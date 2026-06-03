@@ -44,6 +44,7 @@ export interface CameraDevice {
   lastOnline?: string;
   thumbnail?: string;
   thumbnailUrl?: string;
+  snapshotUrl?: string;
   streamUrl?: string;
   webrtcUrl?: string;
   capabilities: CameraCapability[];
@@ -56,6 +57,9 @@ export interface CameraDevice {
   password?: string;
   accessToken?: string;
   go2rtcId?: string;
+  isRecording?: boolean;
+  type?: string;
+  petId?: string;
 }
 
 export interface CameraCapability {
@@ -88,6 +92,7 @@ export interface CameraSettings {
     targetType: 'pet' | 'person' | 'all';
     smoothTracking: boolean;
   };
+  batteryLevel?: number;
 }
 
 export interface LiveStream {

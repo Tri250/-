@@ -51,6 +51,7 @@ export interface HealthRecord {
   pdfFileName?: string;
   isImportant?: boolean;
   attachments?: string[];
+  voiceDuration?: number;
 }
 
 export interface HealthTag {

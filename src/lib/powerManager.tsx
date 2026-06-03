@@ -8,9 +8,9 @@ interface BatteryInfo {
 }
 
 interface PowerManagerConfig {
-  backgroundDelay?: number;
-  throttleInterval?: number;
-  maxBackgroundTime?: number;
+  backgroundDelay: number;
+  throttleInterval: number;
+  maxBackgroundTime: number;
 }
 
 class PowerManager {

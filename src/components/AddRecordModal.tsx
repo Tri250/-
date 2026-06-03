@@ -5,16 +5,25 @@ import { Button } from './DesignSystem/Button';
 import { RecordType, RECORD_TYPE_LABELS } from '../types/health-record';
 
 interface AddRecordModalProps {
-  visible: boolean;
+  visible?: boolean;
+  isOpen?: boolean;
   onClose: () => void;
   petId?: string;
   initialType?: RecordType;
+  availableTags?: any[];
   onSubmit?: (record: {
     type: RecordType;
     title: string;
     description: string;
     date: string;
     notes: string;
+    content?: string;
+    tags?: string[];
+    isImportant?: boolean;
+    attachments?: string[];
+    voiceDuration?: number;
+    voiceTranscription?: string;
+    pdfFileName?: string;
   }) => void;
 }
 
@@ -33,6 +42,7 @@ const RECORD_TYPES: RecordType[] = [
 
 export const AddRecordModal: React.FC<AddRecordModalProps> = ({
   visible,
+  isOpen,
   onClose,
   initialType = 'checkup',
   onSubmit,
@@ -42,7 +52,7 @@ export const AddRecordModal: React.FC<AddRecordModalProps> = ({
   const [description, setDescription] = useState('');
   const [notes, setNotes] = useState('');
 
-  if (!visible) return null;
+  if (!visible && !isOpen) return null;
 
   const handleSubmit = () => {
     if (!title.trim()) {

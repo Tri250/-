@@ -34,7 +34,7 @@ export function ProfilePage({ onNavigate }: ProfilePageProps) {
 
   const recentAnalyses = analyses.slice(-3).reverse();
 
-  const emotionEmoji = {
+  const emotionEmoji: Record<string, string> = {
     happy: '😸',
     anxious: '😰',
     angry: '😾',

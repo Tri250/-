@@ -48,7 +48,7 @@ export const HealthRecordsPage: React.FC<HealthRecordsPageProps> = ({ onNavigate
   
   const tagColors = useMemo(() => {
     return tags.reduce((acc, tag) => {
-      acc[tag.id] = tag.color;
+      acc[tag.id] = tag.color || '#6B7280';
       return acc;
     }, {} as Record<string, string>);
   }, [tags]);
@@ -67,9 +67,12 @@ export const HealthRecordsPage: React.FC<HealthRecordsPageProps> = ({ onNavigate
   const handleModalSubmit = (recordData: {
     type: RecordType;
     title: string;
-    content: string;
-    tags: string[];
-    isImportant: boolean;
+    description: string;
+    date: string;
+    notes: string;
+    content?: string;
+    tags?: string[];
+    isImportant?: boolean;
     attachments?: string[];
     voiceDuration?: number;
     voiceTranscription?: string;
@@ -81,9 +84,12 @@ export const HealthRecordsPage: React.FC<HealthRecordsPageProps> = ({ onNavigate
       petId: currentPetId,
       type: recordData.type,
       title: recordData.title,
-      content: recordData.content,
-      tags: recordData.tags,
-      isImportant: recordData.isImportant,
+      description: recordData.description,
+      date: recordData.date,
+      notes: recordData.notes,
+      content: recordData.content || recordData.description,
+      tags: recordData.tags || [],
+      isImportant: recordData.isImportant || false,
       attachments: recordData.attachments,
       voiceDuration: recordData.voiceDuration,
       voiceTranscription: recordData.voiceTranscription,
@@ -343,8 +349,8 @@ export const HealthRecordsPage: React.FC<HealthRecordsPageProps> = ({ onNavigate
                   key={record.id}
                   date={record.createdAt}
                   title={record.title}
-                  content={record.content}
-                  type={record.type}
+                  content={record.content || record.description || ''}
+                  type={record.type as 'text' | 'voice' | 'photo' | 'video' | 'file' | 'pdf'}
                   isImportant={record.isImportant}
                   tags={record.tags}
                   tagColors={tagColors}

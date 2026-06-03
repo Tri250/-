@@ -33,14 +33,30 @@ export interface Memory {
   createdAt: string;
 }
 
+interface BondMetrics {
+  overall: number;
+  interaction: number;
+  trust: number;
+  playfulness: number;
+}
+
+interface Badge {
+  id: string;
+  name: string;
+  icon: string;
+  isUnlocked: boolean;
+  unlockedAt?: string;
+}
+
 interface BondState {
   memories: Memory[];
   milestones: Milestone[];
   dailyActivities: DailyActivity[];
   trainingRecords: any[];
   totalPoints: number;
-  badges: string[];
+  badges: Badge[];
   streakDays: number;
+  metrics: BondMetrics;
 
   addMemory: (memory: Omit<Memory, 'id' | 'createdAt'>) => void;
   updateMemory: (id: string, updates: Partial<Memory>) => void;
@@ -91,6 +107,7 @@ export const useBondStore = create<BondState>()(
       totalPoints: 0,
       badges: [],
       streakDays: 0,
+      metrics: { overall: 85, interaction: 80, trust: 90, playfulness: 75 },
 
       addMemory: (memory) =>
         set((state) => ({

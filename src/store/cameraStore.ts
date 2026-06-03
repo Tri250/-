@@ -6,17 +6,20 @@ import { StreamQuality } from '../types/camera';
 interface CameraState {
   devices: Device[];
   selectedDeviceId: string | null;
+  selectedDevice: Device | null;
   streamQuality: StreamQuality;
   isStreaming: boolean;
+  isLoading: boolean;
   error: string | null;
 
   addDevice: (device: Device) => void;
   removeDevice: (deviceId: string) => void;
   updateDevice: (deviceId: string, updates: Partial<Device>) => void;
-  selectDevice: (deviceId: string | null) => void;
+  selectDevice: (deviceId: string | Device | null) => void;
   setStreamQuality: (quality: StreamQuality) => void;
   setStreaming: (isStreaming: boolean) => void;
   setError: (error: string | null) => void;
+  loadDevices: () => Promise<void>;
   getDeviceById: (deviceId: string) => Device | undefined;
   getDevicesByPet: (petId: string) => Device[];
 }
@@ -50,8 +53,10 @@ export const useCameraStore = create<CameraState>()(
     (set, get) => ({
       devices: [],
       selectedDeviceId: null,
+      selectedDevice: null,
       streamQuality: 'high',
       isStreaming: false,
+      isLoading: false,
       error: null,
 
       addDevice: (device) =>
@@ -74,7 +79,13 @@ export const useCameraStore = create<CameraState>()(
         })),
 
       selectDevice: (deviceId) =>
-        set({ selectedDeviceId: deviceId }),
+        set((state) => {
+          if (typeof deviceId === 'string' || deviceId === null) {
+            const device = deviceId ? state.devices.find((d) => d.id === deviceId) || null : null;
+            return { selectedDeviceId: deviceId, selectedDevice: device };
+          }
+          return { selectedDeviceId: deviceId.id, selectedDevice: deviceId };
+        }),
 
       setStreamQuality: (quality) =>
         set({ streamQuality: quality }),
@@ -84,6 +95,16 @@ export const useCameraStore = create<CameraState>()(
 
       setError: (error) =>
         set({ error }),
+
+      loadDevices: async () => {
+        set({ isLoading: true });
+        try {
+          // Devices are already loaded from persisted storage
+          set({ isLoading: false });
+        } catch {
+          set({ isLoading: false, error: 'Failed to load devices' });
+        }
+      },
 
       getDeviceById: (deviceId) =>
         get().devices.find((d) => d.id === deviceId),

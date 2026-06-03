@@ -3,9 +3,11 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 
 interface AIMessage {
   id: string;
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: number;
+  createdAt?: string;
+  attachments?: Array<{ id: string; type: string; url: string; name: string }>;
 }
 
 interface Consultation {
@@ -25,6 +27,7 @@ interface ConversationHistory {
   title: string;
   lastMessage: string;
   timestamp: number;
+  updatedAt?: string;
   messageCount: number;
 }
 
@@ -38,9 +41,9 @@ interface AIConsultationState {
   conversationHistories: ConversationHistory[];
 
   createConsultation: (petId: string, type: string, title: string) => string | null;
-  setCurrentConsultation: (consultation: Consultation | null) => void;
+  setCurrentConsultation: (consultation: Consultation | string | null) => void;
   addMessage: (consultationId: string, message: Omit<AIMessage, 'id' | 'timestamp'>) => void;
-  sendAIMessage: (consultationId: string, content: string) => void;
+  sendAIMessage: (consultationId: string, content: string, attachments?: any) => void;
   getCurrentMessages: () => AIMessage[];
   loadConversationHistory: (petId: string) => void;
   deleteConversation: (consultationId: string) => void;
@@ -113,17 +116,27 @@ export const useAIConsultationStore = create<AIConsultationState>()(
       },
 
       setCurrentConsultation: (consultation) => {
-        set({ 
-          currentConsultation: consultation,
-          currentConsultationId: consultation?.id || null 
-        });
+        if (typeof consultation === 'string') {
+          const found = get().consultations.find(c => c.id === consultation);
+          set({ 
+            currentConsultation: found || null,
+            currentConsultationId: consultation
+          });
+        } else {
+          set({ 
+            currentConsultation: consultation,
+            currentConsultationId: consultation?.id || null 
+          });
+        }
       },
 
       addMessage: (consultationId, message) => {
+        const now = Date.now();
         const newMessage: AIMessage = {
-          id: `msg-${Date.now()}`,
+          id: `msg-${now}`,
           ...message,
-          timestamp: Date.now(),
+          timestamp: now,
+          createdAt: new Date(now).toISOString(),
         };
 
         set((state) => ({
@@ -147,7 +160,7 @@ export const useAIConsultationStore = create<AIConsultationState>()(
         }));
       },
 
-      sendAIMessage: (consultationId, content) => {
+      sendAIMessage: (consultationId, content, _attachments?) => {
         // Add user message
         get().addMessage(consultationId, { role: 'user', content });
         
@@ -183,6 +196,7 @@ export const useAIConsultationStore = create<AIConsultationState>()(
           title: c.title,
           lastMessage: c.messages[c.messages.length - 1]?.content || '',
           timestamp: c.updatedAt,
+          updatedAt: new Date(c.updatedAt).toISOString(),
           messageCount: c.messages.length,
         }));
         
