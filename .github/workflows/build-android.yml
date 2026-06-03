@@ -44,9 +44,7 @@ jobs:
 
       - name: Set local.properties for Android SDK
         run: |
-          echo "sdk.dir=$ANDROID_HOME" > android/local.properties
-        env:
-          ANDROID_HOME: ${{ env.ANDROID_HOME }}
+          echo "sdk.dir=${ANDROID_SDK_ROOT}" > android/local.properties
 
       - name: Build Debug APK
         working-directory: android
