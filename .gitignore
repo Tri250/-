@@ -65,3 +65,6 @@ output/
 
 # Releases
 releases/
+
+# Local Maven Repository (large binary files for offline builds)
+local-maven-repo/
