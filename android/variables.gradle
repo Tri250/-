@@ -5,6 +5,8 @@ ext {
     // 使用本地仓库中存在的版本
     androidxActivityVersion = '1.8.0'
     androidxAppCompatVersion = '1.6.1'
+    androidxAnnotationVersion = '1.7.0'
+    androidxAnnotationExperimentalVersion = '1.4.0'
     androidxCoordinatorLayoutVersion = '1.2.0'
     androidxCoreVersion = '1.12.0'
     androidxFragmentVersion = '1.8.0'
