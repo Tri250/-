@@ -25,7 +25,7 @@ export function ShareModal({ title, content, petName, isOpen, onClose }: ShareMo
           title: 'PawSync Pro - 宠物心声',
           text: shareText,
         });
-      } catch (error) {
+      } catch {
         console.log('分享取消或失败');
       }
     } else {

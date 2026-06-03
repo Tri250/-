@@ -14,10 +14,11 @@ const brandLabels: Record<string, string> = {
   honor: '荣耀',
 };
 
-const statusConfig = {
+const statusConfig: Record<string, { color: string; label: string }> = {
   online: { color: 'bg-green-500', label: '在线' },
   offline: { color: 'bg-gray-400', label: '离线' },
   connecting: { color: 'bg-yellow-500', label: '连接中' },
+  updating: { color: 'bg-yellow-500', label: '更新中' },
   error: { color: 'bg-red-500', label: '错误' },
 };
 

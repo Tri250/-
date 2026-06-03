@@ -128,7 +128,7 @@ export function EmotionDashboard({ dashboard, onDimensionClick }: EmotionDashboa
           <h3 className="text-lg font-semibold text-gray-800 mb-4">最近记录</h3>
           
           <div className="space-y-3">
-            {dashboard.recentHistory.slice(0, 5).map((analysis, index) => {
+            {dashboard.recentHistory.slice(0, 5).map((analysis) => {
               const ac = emotionConfig[analysis.primaryEmotion];
               return (
                 <div key={analysis.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">

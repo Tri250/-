@@ -11,30 +11,18 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Maximize2, 
   Minimize2,
-  Volume2, 
-  VolumeX,
   Mic,
   MicOff,
   Camera,
   Play,
-  Pause,
-  RotateCcw,
-  ZoomIn,
-  ZoomOut,
   ChevronLeft,
   ChevronRight,
-  Settings,
   Grid3X3,
   Moon,
   Sun,
   Eye,
-  EyeOff,
-  X,
-  AlertTriangle,
   Circle,
-  Download,
-  Share2,
-  Filter
+  ZoomIn
 } from 'lucide-react';
 import { useAppStore } from '../../store/appStore';
 
@@ -54,7 +42,7 @@ interface CameraMonitorComponentProps {
   autoConnect?: boolean;
 }
 
-export function CameraMonitorComponent({ cameras, autoConnect = true }: CameraMonitorComponentProps) {
+export function CameraMonitorComponent({ cameras, autoConnect: _autoConnect = true }: CameraMonitorComponentProps) {
   const { currentPet } = useAppStore();
   const [selectedCamera, setSelectedCamera] = useState<CameraDevice | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -65,13 +53,12 @@ export function CameraMonitorComponent({ cameras, autoConnect = true }: CameraMo
   const [isRecording, setIsRecording] = useState(false);
   const [currentCameraIndex, setCurrentCameraIndex] = useState(0);
   const [zoom, setZoom] = useState(1);
-  const [showAlerts, setShowAlerts] = useState(false);
-  const [isAIEnabled, setIsAIEnabled] = useState(true);
+  const _isAIEnabled = true;
   const [showPIP, setShowPIP] = useState(false);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const petName = currentPet?.name || '毛孩子';
+  const _petName = currentPet?.name || '毛孩子';
 
   const mockCameras: CameraDevice[] = cameras || [
     {
@@ -151,10 +138,6 @@ export function CameraMonitorComponent({ cameras, autoConnect = true }: CameraMo
     setIsStreaming(true);
   };
 
-  const handleStopStream = () => {
-    setIsStreaming(false);
-  };
-
   const handleStartRecording = () => {
     setIsRecording(true);
     // 模拟开始录制
@@ -189,7 +172,7 @@ export function CameraMonitorComponent({ cameras, autoConnect = true }: CameraMo
     });
   };
 
-  const mockAlerts = [
+  const _mockAlerts = [
     {
       id: 'alert-1',
       type: 'pet_detected',
@@ -229,7 +212,7 @@ export function CameraMonitorComponent({ cameras, autoConnect = true }: CameraMo
             />
 
             {/* AI追踪框 */}
-            {isStreaming && isAIEnabled && (
+            {isStreaming && _isAIEnabled && (
               <motion.div
                 animate={{
                   x: [0, 20, -10, 0],
@@ -306,7 +289,7 @@ export function CameraMonitorComponent({ cameras, autoConnect = true }: CameraMo
                     </span>
                   )}
 
-                  {isAIEnabled && (
+                  {_isAIEnabled && (
                     <span className="px-3 py-1.5 bg-blue-500/80 text-white rounded-full text-xs flex items-center gap-1">
                       <Eye className="w-3 h-3" />
                       AI追踪
@@ -362,7 +345,7 @@ export function CameraMonitorComponent({ cameras, autoConnect = true }: CameraMo
                       whileTap={{ scale: 0.9 }}
                       onClick={(e) => {
                         e.stopPropagation();
-                        isRecording ? setIsRecording(false) : handleStartRecording();
+                        if (isRecording) { setIsRecording(false); } else { handleStartRecording(); }
                       }}
                       className={`p-4 backdrop-blur-sm rounded-full transition-colors ${
                         isRecording 

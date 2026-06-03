@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Reminder, ReminderType, REMINDER_TYPES, NotificationChannel } from '../types/reminder';
+import { Reminder, ReminderType, REMINDER_TYPES as _REMINDER_TYPES, NotificationChannel } from '../types/reminder';
 
 interface ReminderStore {
   reminders: Reminder[];

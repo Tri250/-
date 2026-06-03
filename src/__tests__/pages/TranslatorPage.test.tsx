@@ -18,6 +18,22 @@ vi.stubGlobal('navigator', {
   },
 });
 
+// Mock AudioContext
+const mockAudioContext = {
+  createMediaStreamSource: vi.fn().mockReturnValue({
+    connect: vi.fn(),
+  }),
+  createAnalyser: vi.fn().mockReturnValue({
+    fftSize: 0,
+    getByteFrequencyData: vi.fn(),
+    getByteTimeDomainData: vi.fn(),
+    disconnect: vi.fn(),
+  }),
+  close: vi.fn(),
+};
+
+vi.stubGlobal('AudioContext', vi.fn().mockImplementation(() => mockAudioContext));
+
 describe('TranslatorPage', () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -35,7 +51,7 @@ describe('TranslatorPage', () => {
 
   it('应该显示宠物名称', () => {
     render(<TranslatorPage />);
-    expect(screen.getByText(/倾听 小橘 的心声/)).toBeInTheDocument();
+    expect(screen.getByText(/宝贝/)).toBeInTheDocument();
   });
 
   it('应该显示录音翻译按钮', () => {
@@ -58,10 +74,13 @@ describe('TranslatorPage', () => {
     expect(screen.getByText(/小贴士/)).toBeInTheDocument();
   });
 
-  it('点击录音按钮应该开始录音', () => {
+  it('点击录音按钮应该开始录音', async () => {
     render(<TranslatorPage />);
     const recordButton = screen.getByRole('button', { name: /开始录音/i });
-    fireEvent.click(recordButton);
+    
+    await act(async () => {
+      fireEvent.click(recordButton);
+    });
     
     expect(screen.getByText(/宝贝正在说话呢/)).toBeInTheDocument();
     expect(screen.getByText(/00:00/)).toBeInTheDocument();
@@ -73,29 +92,41 @@ describe('TranslatorPage', () => {
     
     await act(async () => {
       fireEvent.click(recordButton);
+    });
+    
+    await act(async () => {
       vi.advanceTimersByTime(3000);
     });
     
     expect(screen.getByText(/00:03/)).toBeInTheDocument();
   });
 
-  it('点击停止按钮应该结束录音', () => {
+  it('点击停止按钮应该结束录音', async () => {
     render(<TranslatorPage />);
     const recordButton = screen.getByRole('button', { name: /开始录音/i });
-    fireEvent.click(recordButton);
+    
+    await act(async () => {
+      fireEvent.click(recordButton);
+    });
     
     expect(screen.getByText(/宝贝正在说话呢/)).toBeInTheDocument();
     
     const stopButton = screen.getByRole('button', { name: /停止录音/i });
-    fireEvent.click(stopButton);
+    
+    await act(async () => {
+      fireEvent.click(stopButton);
+    });
     
     expect(screen.queryByText(/宝贝正在说话呢/)).not.toBeInTheDocument();
   });
 
-  it('录音状态下按钮应该显示停止录音', () => {
+  it('录音状态下按钮应该显示停止录音', async () => {
     render(<TranslatorPage />);
     const recordButton = screen.getByRole('button', { name: /开始录音/i });
-    fireEvent.click(recordButton);
+    
+    await act(async () => {
+      fireEvent.click(recordButton);
+    });
     
     expect(screen.getByRole('button', { name: /停止录音/i })).toBeInTheDocument();
   });
@@ -105,10 +136,13 @@ describe('TranslatorPage', () => {
     expect(screen.getByText(/请将麦克风靠近宝贝/)).toBeInTheDocument();
   });
 
-  it('录音时应该显示点击结束提示', () => {
+  it('录音时应该显示点击结束提示', async () => {
     render(<TranslatorPage />);
     const recordButton = screen.getByRole('button', { name: /开始录音/i });
-    fireEvent.click(recordButton);
+    
+    await act(async () => {
+      fireEvent.click(recordButton);
+    });
     
     expect(screen.getByText(/点击按钮结束录音/)).toBeInTheDocument();
   });

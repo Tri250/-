@@ -16,19 +16,15 @@ import {
   Home,
   Clock,
   Play,
-  Pause,
   Settings,
   Power,
   RefreshCw,
   CheckCircle2,
-  AlertCircle,
   Wifi,
   WifiOff,
   ChevronRight,
   Volume2,
   Bell,
-  MapPin,
-  Phone,
   Calendar
 } from 'lucide-react';
 import { useAppStore } from '../../store/appStore';
@@ -42,7 +38,7 @@ interface SmartDevice {
   lastActive: string;
   capabilities: string[];
   icon: string;
-  settings: Record<string, any>;
+  settings: Record<string, unknown>;
 }
 
 interface InteractionLog {
@@ -68,8 +64,8 @@ export function RemoteInteractionCenterComponent() {
   const [loading, setLoading] = useState(true);
   const [activeDevice, setActiveDevice] = useState<string | null>(null);
   const [showLaserControl, setShowLaserControl] = useState(false);
-  const [laserPattern, setLaserPattern] = useState<'auto' | 'manual'>('auto');
-  const [showReminderSettings, setShowReminderSettings] = useState(false);
+  const [_laserPattern, setLaserPattern] = useState<'auto' | 'manual'>('auto');
+  const [_showReminderSettings, setShowReminderSettings] = useState(false);
   const [comingHomeReminder, setComingHomeReminder] = useState<ComingHomeReminder>({
     enabled: true,
     message: '主人回来了！',
@@ -172,7 +168,7 @@ export function RemoteInteractionCenterComponent() {
   };
 
   const getTypeConfig = (type: string) => {
-    const configs: Record<string, { icon: any; label: string; color: string }> = {
+    const configs: Record<string, { icon: React.ElementType; label: string; color: string }> = {
       laser: { icon: Zap, label: '激光逗宠', color: 'text-red-500' },
       feeder: { icon: Cookie, label: '智能喂食', color: 'text-orange-500' },
       waterer: { icon: Droplet, label: '饮水机', color: 'text-blue-500' },
@@ -409,7 +405,7 @@ export function RemoteInteractionCenterComponent() {
 
         <div className="space-y-3">
           {devices.map((device, index) => {
-            const config = getTypeConfig(device.type);
+            const _config = getTypeConfig(device.type);
             const statusConfig = getStatusConfig(device.status);
             const StatusIcon = statusConfig.icon;
             const isActive = activeDevice === device.id;

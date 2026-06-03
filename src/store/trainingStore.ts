@@ -75,7 +75,7 @@ export const useTrainingStore = create<TrainingStore>((set, get) => ({
     set({ currentSession: session });
   },
 
-  completeStep: (stepId) => {
+  completeStep: (_stepId) => {
     // 简单实现，实际项目中会更新 step 状态
   },
 

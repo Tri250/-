@@ -51,14 +51,14 @@ class ApiClient {
     return this.request<T>(endpoint, { method: 'GET' });
   }
 
-  post<T>(endpoint: string, data?: any) {
+  post<T>(endpoint: string, data?: Record<string, unknown>) {
     return this.request<T>(endpoint, {
       method: 'POST',
       body: data ? JSON.stringify(data) : undefined,
     });
   }
 
-  put<T>(endpoint: string, data?: any) {
+  put<T>(endpoint: string, data?: Record<string, unknown>) {
     return this.request<T>(endpoint, {
       method: 'PUT',
       body: data ? JSON.stringify(data) : undefined,
@@ -144,15 +144,15 @@ export const petsApi = {
   update: (id: string, data: Partial<Pet>) =>
     api.put<{ pet: Pet }>(`/pets/${id}`, data),
   delete: (id: string) => api.delete(`/pets/${id}`),
-  getVaccines: (id: string) => api.get<{ vaccines: any[] }>(`/pets/${id}/vaccines`),
-  addVaccine: (id: string, data: any) =>
-    api.post<{ vaccine: any }>(`/pets/${id}/vaccines`, data),
-  getCheckups: (id: string) => api.get<{ checkups: any[] }>(`/pets/${id}/checkups`),
-  addCheckup: (id: string, data: any) =>
-    api.post<{ checkup: any }>(`/pets/${id}/checkups`, data),
-  getGrowth: (id: string) => api.get<{ growthRecords: any[] }>(`/pets/${id}/growth`),
-  addGrowth: (id: string, data: any) =>
-    api.post<{ growthRecord: any }>(`/pets/${id}/growth`, data),
+  getVaccines: (id: string) => api.get<{ vaccines: Record<string, unknown>[] }>(`/pets/${id}/vaccines`),
+  addVaccine: (id: string, data: Record<string, unknown>) =>
+    api.post<{ vaccine: Record<string, unknown> }>(`/pets/${id}/vaccines`, data),
+  getCheckups: (id: string) => api.get<{ checkups: Record<string, unknown>[] }>(`/pets/${id}/checkups`),
+  addCheckup: (id: string, data: Record<string, unknown>) =>
+    api.post<{ checkup: Record<string, unknown> }>(`/pets/${id}/checkups`, data),
+  getGrowth: (id: string) => api.get<{ growthRecords: Record<string, unknown>[] }>(`/pets/${id}/growth`),
+  addGrowth: (id: string, data: Record<string, unknown>) =>
+    api.post<{ growthRecord: Record<string, unknown> }>(`/pets/${id}/growth`, data),
 };
 
 export interface HealthRecord {
@@ -251,9 +251,9 @@ export const manualsApi = {
   search: (q: string) =>
     api.get<{ manuals: HealthManual[] }>(`/manuals/search?q=${encodeURIComponent(q)}`),
   getById: (id: string) => api.get<{ manual: HealthManual }>(`/manuals/${id}`),
-  getBookmarks: () => api.get<{ bookmarks: any[] }>('/manuals/bookmarks'),
+  getBookmarks: () => api.get<{ bookmarks: Record<string, unknown>[] }>('/manuals/bookmarks'),
   addBookmark: (id: string) =>
-    api.post<{ bookmark: any }>(`/manuals/${id}/bookmark`),
+    api.post<{ bookmark: Record<string, unknown> }>(`/manuals/${id}/bookmark`),
   removeBookmark: (id: string) =>
     api.delete(`/manuals/${id}/bookmark`),
 };
@@ -279,5 +279,5 @@ export const aiApi = {
   getConversation: (petId: string) =>
     api.get<{ conversation: AIConversation }>(`/ai/conversations/${petId}`),
   generateReport: (data: { petId: string }) =>
-    api.post<{ report: any }>('/ai/generate-report', data),
+    api.post<{ report: Record<string, unknown> }>('/ai/generate-report', data),
 };

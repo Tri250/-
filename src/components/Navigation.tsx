@@ -83,13 +83,11 @@ interface NavigationProps {
 }
 
 const NavItem = memo(({ 
-  id, 
   label, 
   icon: Icon, 
   isActive, 
   onClick 
 }: { 
-  id: string; 
   label: string; 
   icon: React.ElementType; 
   isActive: boolean; 
@@ -189,7 +187,6 @@ export const Navigation: React.FC<NavigationProps> = memo(({ currentPage, onNavi
         {navItems.map((item) => (
           <NavItem
             key={item.id}
-            id={item.id}
             label={item.label}
             icon={item.icon}
             isActive={currentPage === item.id}

@@ -56,11 +56,12 @@ describe('utils', () => {
     });
 
     it('应该处理混合类型输入', () => {
+      const falsyCondition = false;
       const result = cn(
         'base',
         { 'conditional': true },
         ['array1', { 'arrayConditional': true }],
-        false && 'falsy'
+        falsyCondition && 'falsy'
       );
       expect(result).toContain('base');
       expect(result).toContain('conditional');

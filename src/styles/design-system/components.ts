@@ -9,9 +9,12 @@
  * 版本：3.0.0
  */
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { motion } from 'framer-motion';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { springAnimation, duration, easing } from './motion';
 import { shadows, borderRadius } from './motion';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { semanticColors } from './colors';
 
 // ============================================================================
@@ -322,7 +325,7 @@ export const modalTokens = {
       background: 'rgba(255, 255, 255, 0.95)',
       backdropFilter: 'blur(24px)',
       border: '1px solid rgba(255, 255, 255, 0.3)',
-      shadow: shadows.glass.heavy,
+      shadow: shadows.glass.md,
     },
   },
 };

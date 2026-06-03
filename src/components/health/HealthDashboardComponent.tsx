@@ -6,7 +6,7 @@
 // 描述: 沉浸式健康仪表盘 - 0-100分整体健康评分+四维度环形图
 // ============================================
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Shield, 
@@ -23,8 +23,7 @@ import {
   Target,
   Syringe,
   Stethoscope,
-  BarChart3,
-  Filter
+  BarChart3
 } from 'lucide-react';
 import { aiHealthAlertService } from '../../services/aiHealthAlertService';
 import { medicalRecordOCRService } from '../../services/medicalRecordOCRService';
@@ -105,7 +104,7 @@ export function HealthDashboardComponent({ petId, onNavigateToDetails }: HealthD
     }
   };
 
-  const getDimensionIcon = (icon: string) => {
+  const _getDimensionIcon = (icon: string) => {
     switch (icon) {
       case 'activity': return <Activity className="w-5 h-5" />;
       case 'nutrition': return <Utensils className="w-5 h-5" />;

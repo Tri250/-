@@ -1,5 +1,5 @@
 import React, { memo, useMemo } from 'react';
-import { FileText, Mic, Image, Video, File, Star, Play, Pause } from 'lucide-react';
+import { FileText, Mic, Image, Video, File, Star } from 'lucide-react';
 
 interface TimelineItemProps {
   date: string;

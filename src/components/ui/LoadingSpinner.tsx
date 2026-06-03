@@ -16,12 +16,12 @@ const sizeClasses = {
 export function LoadingSpinner({
   size = 'medium',
   color = 'text-orange-500',
-  className = '',
+  className: _className = '',
   text,
 }: LoadingSpinnerProps) {
   return (
     <div className="flex flex-col items-center justify-center gap-3">
-      <div className={`${sizeClasses[size]} ${color} animate-spin`}>
+      <div className={`${sizeClasses[size]} ${color} animate-spin ${_className}`}>
         <svg viewBox="0 0 24 24" fill="none" className="w-full h-full">
           <circle
             cx="12"

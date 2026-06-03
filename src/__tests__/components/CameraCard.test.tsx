@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { CameraCard } from '@/components/camera/CameraCard';
 import type { CameraDevice } from '@/types/camera';
 
-const createMockDevice = (overrides = {}): CameraDevice => ({
+const createMockDevice = (overrides: Partial<CameraDevice> = {}): CameraDevice => ({
   id: 'device-1',
   brand: 'xiaomi',
   model: 'MJSXJ02CM',
@@ -11,8 +11,19 @@ const createMockDevice = (overrides = {}): CameraDevice => ({
   status: 'online',
   streamUrl: 'rtsp://example.com/stream',
   thumbnailUrl: undefined,
+  lastActive: new Date().toISOString(),
   lastOnline: new Date().toISOString(),
   location: '客厅',
+  capabilities: [],
+  settings: {
+    resolution: '1080p',
+    nightVisionMode: 'auto',
+    motionDetection: { enabled: false, sensitivity: 50, notificationEnabled: false },
+    recording: { mode: 'off', quality: 'high', storage: 'sd' },
+    audio: { enabled: false, volume: 50, noiseReduction: false },
+    aiTracking: { enabled: false, targetType: 'pet', smoothTracking: false },
+  },
+  protocol: 'rtsp',
   ...overrides,
 });
 
@@ -124,7 +135,7 @@ describe('CameraCard', () => {
   });
 
   it('当有缩略图时应该显示图片', () => {
-    const device = createMockDevice({ thumbnailUrl: 'https://example.com/thumb.jpg' });
+    const device = createMockDevice({ thumbnail: 'https://example.com/thumb.jpg' });
     render(<CameraCard device={device} />);
     const img = screen.getByAltText('客厅摄像头') as HTMLImageElement;
     expect(img).toBeInTheDocument();
@@ -150,9 +161,9 @@ describe('CameraCard', () => {
     expect(screen.getByText(/荣耀 · HR-456/)).toBeInTheDocument();
   });
 
-  it('连接中状态应该显示黄色指示器', () => {
-    const connectingDevice = createMockDevice({ status: 'connecting' });
-    const { container } = render(<CameraCard device={connectingDevice} />);
+  it('更新中状态应该显示黄色指示器', () => {
+    const updatingDevice = createMockDevice({ status: 'updating' });
+    const { container } = render(<CameraCard device={updatingDevice} />);
     const indicator = container.querySelector('.bg-yellow-500');
     expect(indicator).toBeTruthy();
   });

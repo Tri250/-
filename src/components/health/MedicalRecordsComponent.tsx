@@ -17,8 +17,6 @@ import {
   Loader2,
   Download,
   Trash2,
-  Eye,
-  Filter,
   Calendar,
   Stethoscope,
   Pill,
@@ -33,13 +31,14 @@ import {
   Info
 } from 'lucide-react';
 import { medicalRecordOCRService } from '../../services/medicalRecordOCRService';
-import type { MedicalRecord, LabResult } from '../../types/advanced-health';
+import type { MedicalRecord, LabResult, MedicationInfo } from '../../types/advanced-health';
 
 interface MedicalRecordsComponentProps {
   petId: string;
   petName: string;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function MedicalRecordsComponent({ petId, petName }: MedicalRecordsComponentProps) {
   const [records, setRecords] = useState<MedicalRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,7 +47,19 @@ export function MedicalRecordsComponent({ petId, petName }: MedicalRecordsCompon
   const [selectedRecord, setSelectedRecord] = useState<MedicalRecord | null>(null);
   const [filterType, setFilterType] = useState<MedicalRecord['type'] | 'all'>('all');
   const [uploading, setUploading] = useState(false);
-  const [ocrResult, setOcrResult] = useState<any>(null);
+  const [ocrResult, setOcrResult] = useState<{
+    confidence: number;
+    extractedData: {
+      date?: string;
+      hospital?: string;
+      veterinarian?: string;
+      diagnosis?: string;
+      treatment?: string;
+      medications?: unknown[];
+      labResults?: unknown[];
+    };
+    suggestions?: string[];
+  } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [showAbnormalAlert, setShowAbnormalAlert] = useState(false);
@@ -107,8 +118,8 @@ export function MedicalRecordsComponent({ petId, petName }: MedicalRecordsCompon
         veterinarian: ocrResult.extractedData.veterinarian || '',
         diagnosis: ocrResult.extractedData.diagnosis,
         treatment: ocrResult.extractedData.treatment,
-        medications: ocrResult.extractedData.medications,
-        labResults: ocrResult.extractedData.labResults,
+        medications: ocrResult.extractedData.medications as MedicationInfo[] | undefined,
+        labResults: ocrResult.extractedData.labResults as LabResult[] | undefined,
         ocrConfidence: ocrResult.confidence
       });
 

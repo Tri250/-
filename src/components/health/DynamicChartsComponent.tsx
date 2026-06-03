@@ -6,7 +6,7 @@
 // 描述: 动态数据可视化图表 - 弹性动画活动量曲线、睡眠报告、成长曲线
 // ============================================
 
-import { useState, useEffect, useMemo, useCallback, memo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Activity, 
@@ -16,11 +16,9 @@ import {
   Target,
   Star,
   ChevronDown,
-  ChevronUp,
   PawPrint,
   Calendar,
   FileText,
-  AlertTriangle,
   Download,
   Users
 } from 'lucide-react';

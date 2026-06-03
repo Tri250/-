@@ -15,18 +15,16 @@ import {
   Mic, 
   Star,
   Plus,
-  ChevronRight,
   Calendar,
   MapPin,
-  MoreVertical,
   Trash2,
   Share2,
-  Download,
   Image,
   X,
   Sparkles
 } from 'lucide-react';
 import { useAppStore } from '../../store/appStore';
+import type { Milestone } from '../../types/bond';
 
 interface MemoryItem {
   id: string;
@@ -39,15 +37,6 @@ interface MemoryItem {
   tags: string[];
   isFavorite: boolean;
   isHighlight: boolean;
-}
-
-interface Milestone {
-  id: string;
-  type: 'birthday' | 'adoption' | 'vaccination' | 'training' | 'first_time' | 'achievement';
-  title: string;
-  description: string;
-  date: string;
-  photos: string[];
 }
 
 interface MemoryTimelineComponentProps {
@@ -64,12 +53,12 @@ export function MemoryTimelineComponent({
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedItem, setSelectedItem] = useState<MemoryItem | null>(null);
-  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [_selectedYear, _setSelectedYear] = useState<number>(new Date().getFullYear());
   const [internalShowUploadModal, setInternalShowUploadModal] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   
-  const showUploadModal = externalShowUploadModal ?? internalShowUploadModal;
-  const setShowUploadModal = onExternalShowUploadModalChange ?? setInternalShowUploadModal;
+  const _showUploadModal = externalShowUploadModal ?? internalShowUploadModal;
+  const _setShowUploadModal = onExternalShowUploadModalChange ?? setInternalShowUploadModal;
   const { scrollYProgress } = useScroll();
   
   const y = useTransform(scrollYProgress, [0, 1], [0, -50]);
@@ -149,6 +138,7 @@ export function MemoryTimelineComponent({
       const mockMilestones: Milestone[] = [
         {
           id: 'ms-1',
+          petId,
           type: 'birthday',
           title: '🎂 2岁生日',
           description: `${petName}的2岁生日派对`,
@@ -161,6 +151,7 @@ export function MemoryTimelineComponent({
         },
         {
           id: 'ms-2',
+          petId,
           type: 'adoption',
           title: '🏠 领养纪念日',
           description: `${petName}成为我们家庭成员的日子`,
@@ -172,6 +163,7 @@ export function MemoryTimelineComponent({
         },
         {
           id: 'ms-3',
+          petId,
           type: 'first_time',
           title: '✨ 第一次外出',
           description: `${petName}第一次去公园`,
@@ -532,7 +524,7 @@ export function MemoryTimelineComponent({
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          onClick={() => setShowUploadModal(true)}
+          onClick={() => _setShowUploadModal(true)}
           className="absolute right-0 top-0 px-4 py-2 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-xl flex items-center gap-2 shadow-lg"
         >
           <Plus className="w-4 h-4" />
@@ -548,7 +540,7 @@ export function MemoryTimelineComponent({
             重要里程碑
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {milestones.map((milestone, index) => renderMilestoneCard(milestone))}
+            {milestones.map((milestone) => renderMilestoneCard(milestone))}
           </div>
         </div>
       )}
@@ -595,7 +587,7 @@ export function MemoryTimelineComponent({
           <Camera className="w-16 h-16 text-gray-300 mx-auto mb-4" />
           <p className="text-gray-500 mb-4">还没有任何回忆</p>
           <button
-            onClick={() => setShowUploadModal(true)}
+            onClick={() => _setShowUploadModal(true)}
             className="px-6 py-3 bg-pink-500 text-white rounded-xl hover:shadow-lg transition-all"
           >
             添加第一个回忆

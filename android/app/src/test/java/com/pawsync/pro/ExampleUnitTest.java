@@ -1,4 +1,4 @@
-package com.getcapacitor.myapp;
+package com.pawsync.pro;
 
 import static org.junit.Assert.*;
 

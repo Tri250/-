@@ -245,13 +245,13 @@ export const secureStorage = {
   PREFIX: 'PS_',
   SENSITIVE_PREFIX: 'PSS_',
   encryptionCache: new Map<string, string>(),
-  _self: null as any,
+  _self: null as Record<string, unknown> | null,
 
   init: function() {
     this._self = this;
   },
 
-  set: async function(key: string, value: any, encrypt: boolean = true, sensitive: boolean = false): Promise<void> {
+  set: async function(key: string, value: unknown, encrypt: boolean = true, sensitive: boolean = false): Promise<void> {
     const self = this._self || this;
     try {
       const serialized = JSON.stringify(value);
@@ -274,7 +274,7 @@ export const secureStorage = {
     }
   },
 
-  setSync: function(key: string, value: any, encrypt: boolean = true): void {
+  setSync: function(key: string, value: unknown, encrypt: boolean = true): void {
     const self = this._self || this;
     try {
       const serialized = JSON.stringify(value);
@@ -290,7 +290,7 @@ export const secureStorage = {
     }
   },
 
-  get: async function<T = any>(key: string, decrypt: boolean = true, sensitive: boolean = false): Promise<T | null> {
+  get: async function<T = unknown>(key: string, decrypt: boolean = true, sensitive: boolean = false): Promise<T | null> {
     const self = this._self || this;
     try {
       const prefix = sensitive ? self.SENSITIVE_PREFIX : self.PREFIX;
@@ -314,7 +314,7 @@ export const secureStorage = {
     }
   },
 
-  getSync: function<T = any>(key: string, decrypt: boolean = true): T | null {
+  getSync: function<T = unknown>(key: string, decrypt: boolean = true): T | null {
     const self = this._self || this;
     try {
       const value = localStorage.getItem(self.PREFIX + key);
@@ -405,7 +405,7 @@ const getEncryptionKeySync = (): string => {
   return cachedKey;
 };
 
-const getEncryptionKey = async (): Promise<string> => {
+const _getEncryptionKey = async (): Promise<string> => {
   return getEncryptionKeySync();
 };
 
@@ -544,7 +544,7 @@ export const sessionManager = {
     }, true);
   },
 
-  getSession: function(): any | null {
+  getSession: function(): Record<string, unknown> | null {
     return secureStorage.getSync('session', true);
   },
 };
@@ -575,7 +575,7 @@ export const sensitiveDataHandler = {
   },
 
   // 安全日志（不记录敏感信息）
-  safeLog: (action: string, data: any): void => {
+  safeLog: (action: string, data: Record<string, unknown>): void => {
     const safeData = { ...data };
     const sensitiveKeys = ['password', 'token', 'secret', 'key', 'credential'];
     
@@ -592,9 +592,9 @@ export const sensitiveDataHandler = {
 // 错误处理
 export const errorHandler = {
   // 安全错误处理
-  handleError: (error: any, context: string): void => {
+  handleError: (error: unknown, context: string): void => {
     const safeError = {
-      message: error.message,
+      message: error instanceof Error ? error.message : String(error),
       context,
       timestamp: new Date().toISOString(),
       userAgent: navigator.userAgent.substring(0, 50),

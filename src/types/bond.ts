@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // ============================================
 // PawSync Pro 3.0 - Bond & Emotion Types
 //

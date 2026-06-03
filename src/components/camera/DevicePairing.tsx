@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Camera, Smartphone, CheckCircle, AlertCircle, Loader, Wifi, User, Link } from 'lucide-react';
 import { BRAND_INFO } from '../../services/cameraService';
-import type { CameraBrand, BrandInfo, PairingProgress, CameraDevice } from '../../types/camera';
+import type { BrandInfo, PairingProgress, CameraDevice } from '../../types/camera';
 
 interface DevicePairingProps {
   onPaired: (device: CameraDevice) => void;

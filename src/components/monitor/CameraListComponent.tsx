@@ -20,9 +20,7 @@ import {
   Volume2,
   Zap,
   Moon,
-  MoreVertical,
   ChevronRight,
-  Check,
   X,
   Battery,
   Clock,
@@ -53,7 +51,7 @@ export function CameraListComponent() {
   const [loading, setLoading] = useState(true);
   const [selectedCamera, setSelectedCamera] = useState<CameraDevice | null>(null);
   const [showMonitor, setShowMonitor] = useState(false);
-  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [_showAddDialog, setShowAddDialog] = useState(false);
 
   const petName = currentPet?.name || '毛孩子';
 
@@ -233,7 +231,7 @@ export function CameraListComponent() {
                       return (
                         <>
                           <div className={`w-3 h-3 ${config.color} rounded-full`} />
-                          <Icon className={`w-4 h-4 ${config.textColor}`} />
+                          <Icon className={`w-4 h-4 ${config.text}`} />
                           <span className="text-sm font-medium">{config.label}</span>
                         </>
                       );

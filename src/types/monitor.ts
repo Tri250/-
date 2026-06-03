@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { StreamQuality as CameraStreamQuality } from './camera';
 
 export type StreamQuality = CameraStreamQuality;

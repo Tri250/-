@@ -13,17 +13,13 @@ import {
   Play, 
   Pause, 
   Square, 
-  Heart, 
   Download,
   Trash2,
   Volume2,
-  VolumeX,
   Settings,
-  ChevronRight,
   MoreVertical,
   Check,
   X,
-  Sparkles,
   Waves
 } from 'lucide-react';
 import { useAppStore } from '../../store/appStore';
@@ -53,7 +49,7 @@ export function VoiceMemoryWallComponent() {
   const [showSettings, setShowSettings] = useState(false);
   const [notificationSound, setNotificationSound] = useState<string | null>(null);
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const _canvasRef = useRef<HTMLCanvasElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
 
@@ -187,7 +183,7 @@ export function VoiceMemoryWallComponent() {
     
     // 模拟音频分析器
     try {
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      audioContextRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
       analyserRef.current = audioContextRef.current.createAnalyser();
       analyserRef.current.fftSize = 256;
     } catch (error) {

@@ -103,8 +103,6 @@ export const AddRecordModal: React.FC<AddRecordModalProps> = ({
       isImportant,
       attachments,
       voiceDuration: recordType === 'voice' ? recordingTime : undefined,
-      voiceTranscription: voiceTranscription,
-      pdfFileName: pdfFileName,
     });
 
     handleClose();
