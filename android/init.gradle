@@ -4,16 +4,37 @@ gradle.settingsEvaluated { settings ->
         repositories {
             // 本地仓库 - 最高优先级
             maven { url '/workspace/local-maven-repo' }
-            // 阿里云镜像
-            maven { url 'https://maven.aliyun.com/repository/public' }
-            maven { url 'https://maven.aliyun.com/repository/google' }
-            maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
+            // 阿里云镜像 - 强制使用
+            maven { 
+                url 'https://maven.aliyun.com/repository/google'
+                content { 
+                    includeGroupByRegex "androidx.*"
+                    includeGroupByRegex "com.android.*"
+                    includeGroupByRegex "com.google.*"
+                    includeGroup "org.jetbrains.kotlin"
+                    includeGroup "org.jetbrains.kotlinx"
+                }
+            }
+            maven { 
+                url 'https://maven.aliyun.com/repository/public'
+                content { 
+                    includeGroupByRegex ".*"
+                }
+            }
+            maven { 
+                url 'https://maven.aliyun.com/repository/gradle-plugin'
+                content { 
+                    includeGroupByRegex "com.android.*"
+                    includeGroupByRegex "org.gradle.*"
+                }
+            }
             // 华为云镜像
-            maven { url 'https://repo.huaweicloud.com/repository/maven/' }
-            // 官方仓库 - 最后尝试
-            google()
-            mavenCentral()
-            gradlePluginPortal()
+            maven { 
+                url 'https://repo.huaweicloud.com/repository/maven/'
+                content { 
+                    includeGroupByRegex ".*"
+                }
+            }
         }
     }
     settings.dependencyResolutionManagement {
@@ -21,15 +42,36 @@ gradle.settingsEvaluated { settings ->
         repositories {
             // 本地仓库 - 最高优先级
             maven { url '/workspace/local-maven-repo' }
-            // 阿里云镜像
-            maven { url 'https://maven.aliyun.com/repository/public' }
-            maven { url 'https://maven.aliyun.com/repository/google' }
-            maven { url 'https://maven.aliyun.com/repository/central' }
+            // 阿里云镜像 - 强制使用
+            maven { 
+                url 'https://maven.aliyun.com/repository/google'
+                content { 
+                    includeGroupByRegex "androidx.*"
+                    includeGroupByRegex "com.android.*"
+                    includeGroupByRegex "com.google.*"
+                    includeGroup "org.jetbrains.kotlin"
+                    includeGroup "org.jetbrains.kotlinx"
+                }
+            }
+            maven { 
+                url 'https://maven.aliyun.com/repository/public'
+                content { 
+                    includeGroupByRegex ".*"
+                }
+            }
+            maven { 
+                url 'https://maven.aliyun.com/repository/central'
+                content { 
+                    includeGroupByRegex ".*"
+                }
+            }
             // 华为云镜像
-            maven { url 'https://repo.huaweicloud.com/repository/maven/' }
-            // 官方仓库 - 最后尝试
-            google()
-            mavenCentral()
+            maven { 
+                url 'https://repo.huaweicloud.com/repository/maven/'
+                content { 
+                    includeGroupByRegex ".*"
+                }
+            }
         }
     }
 }
@@ -39,28 +81,71 @@ allprojects {
         repositories {
             // 本地仓库 - 最高优先级
             maven { url '/workspace/local-maven-repo' }
-            // 阿里云镜像
-            maven { url 'https://maven.aliyun.com/repository/public' }
-            maven { url 'https://maven.aliyun.com/repository/google' }
-            maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
+            // 阿里云镜像 - 强制使用
+            maven { 
+                url 'https://maven.aliyun.com/repository/google'
+                content { 
+                    includeGroupByRegex "androidx.*"
+                    includeGroupByRegex "com.android.*"
+                    includeGroupByRegex "com.google.*"
+                    includeGroup "org.jetbrains.kotlin"
+                    includeGroup "org.jetbrains.kotlinx"
+                }
+            }
+            maven { 
+                url 'https://maven.aliyun.com/repository/public'
+                content { 
+                    includeGroupByRegex ".*"
+                }
+            }
+            maven { 
+                url 'https://maven.aliyun.com/repository/gradle-plugin'
+                content { 
+                    includeGroupByRegex "com.android.*"
+                    includeGroupByRegex "org.gradle.*"
+                }
+            }
             // 华为云镜像
-            maven { url 'https://repo.huaweicloud.com/repository/maven/' }
-            // 官方仓库 - 最后尝试
-            google()
-            mavenCentral()
+            maven { 
+                url 'https://repo.huaweicloud.com/repository/maven/'
+                content { 
+                    includeGroupByRegex ".*"
+                }
+            }
         }
     }
     repositories {
         // 本地仓库 - 最高优先级
         maven { url '/workspace/local-maven-repo' }
-        // 阿里云镜像
-        maven { url 'https://maven.aliyun.com/repository/public' }
-        maven { url 'https://maven.aliyun.com/repository/google' }
-        maven { url 'https://maven.aliyun.com/repository/central' }
+        // 阿里云镜像 - 强制使用
+        maven { 
+            url 'https://maven.aliyun.com/repository/google'
+            content { 
+                includeGroupByRegex "androidx.*"
+                includeGroupByRegex "com.android.*"
+                includeGroupByRegex "com.google.*"
+                includeGroup "org.jetbrains.kotlin"
+                includeGroup "org.jetbrains.kotlinx"
+            }
+        }
+        maven { 
+            url 'https://maven.aliyun.com/repository/public'
+            content { 
+                includeGroupByRegex ".*"
+            }
+        }
+        maven { 
+            url 'https://maven.aliyun.com/repository/central'
+            content { 
+                includeGroupByRegex ".*"
+            }
+        }
         // 华为云镜像
-        maven { url 'https://repo.huaweicloud.com/repository/maven/' }
-        // 官方仓库 - 最后尝试
-        google()
-        mavenCentral()
+        maven { 
+            url 'https://repo.huaweicloud.com/repository/maven/'
+            content { 
+                includeGroupByRegex ".*"
+            }
+        }
     }
 }

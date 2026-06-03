@@ -58,6 +58,158 @@ export CAPACITOR_ANDROID_STUDIO_PATH=
 npx cap sync android 2>&1 | tail -20
 log_success "Capacitor 同步完成"
 
+# 步骤 3.5: 修复 Capacitor 生成的 build.gradle 文件
+log_info "=== 步骤 3.5: 修复 Gradle 配置 ==="
+
+# 修复 capacitor-android 模块
+log_info "修复 capacitor-android build.gradle..."
+cat > /workspace/node_modules/@capacitor/android/capacitor/build.gradle << 'CAPACITOR_BUILD_GRADLE'
+ext {
+    androidxActivityVersion = project.hasProperty('androidxActivityVersion') ? rootProject.ext.androidxActivityVersion : '1.8.0'
+    androidxAppCompatVersion = project.hasProperty('androidxAppCompatVersion') ? rootProject.ext.androidxAppCompatVersion : '1.6.1'
+    androidxAnnotationVersion = project.hasProperty('androidxAnnotationVersion') ? rootProject.ext.androidxAnnotationVersion : '1.7.0'
+    androidxAnnotationExperimentalVersion = project.hasProperty('androidxAnnotationExperimentalVersion') ? rootProject.ext.androidxAnnotationExperimentalVersion : '1.4.0'
+    androidxCoordinatorLayoutVersion = project.hasProperty('androidxCoordinatorLayoutVersion') ? rootProject.ext.androidxCoordinatorLayoutVersion : '1.2.0'
+    androidxCoreVersion = project.hasProperty('androidxCoreVersion') ? rootProject.ext.androidxCoreVersion : '1.12.0'
+    androidxFragmentVersion = project.hasProperty('androidxFragmentVersion') ? rootProject.ext.androidxFragmentVersion : '1.8.0'
+    androidxWebkitVersion = project.hasProperty('androidxWebkitVersion') ? rootProject.ext.androidxWebkitVersion : '1.12.0'
+    junitVersion = project.hasProperty('junitVersion') ? rootProject.ext.junitVersion : '4.13.2'
+    androidxJunitVersion = project.hasProperty('androidxJunitVersion') ? rootProject.ext.androidxJunitVersion : '1.1.5'
+    androidxEspressoCoreVersion = project.hasProperty('androidxEspressoCoreVersion') ? rootProject.ext.androidxEspressoCoreVersion : '3.5.1'
+    cordovaAndroidVersion = project.hasProperty('cordovaAndroidVersion') ? rootProject.ext.cordovaAndroidVersion : '14.0.1'
+}
+
+buildscript {
+    repositories {
+        maven { url '/workspace/local-maven-repo' }
+        maven { url 'https://maven.aliyun.com/repository/google' }
+        maven { url 'https://maven.aliyun.com/repository/public' }
+        maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
+        maven { url 'https://repo.huaweicloud.com/repository/maven/' }
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.2.2'
+    }
+}
+
+apply plugin: 'com.android.library'
+
+android {
+    namespace = "com.getcapacitor.android"
+    compileSdk = project.hasProperty('compileSdkVersion') ? rootProject.ext.compileSdkVersion : 34
+    defaultConfig {
+        minSdkVersion project.hasProperty('minSdkVersion') ? rootProject.ext.minSdkVersion : 22
+        targetSdkVersion project.hasProperty('targetSdkVersion') ? rootProject.ext.targetSdkVersion : 34
+        versionCode 1
+        versionName "1.0"
+        consumerProguardFiles 'proguard-rules.pro'
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+    lintOptions {
+        abortOnError = false
+        warningsAsErrors = false
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+repositories {
+    maven { url '/workspace/local-maven-repo' }
+    maven { url 'https://maven.aliyun.com/repository/google' }
+    maven { url 'https://maven.aliyun.com/repository/public' }
+    maven { url 'https://repo.huaweicloud.com/repository/maven/' }
+}
+
+dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+    implementation "androidx.annotation:annotation:$androidxAnnotationVersion"
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.core:core:$androidxCoreVersion"
+    implementation "androidx.activity:activity:$androidxActivityVersion"
+    implementation "androidx.fragment:fragment:$androidxFragmentVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.webkit:webkit:$androidxWebkitVersion"
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation "org.apache.cordova:framework:$cordovaAndroidVersion"
+}
+CAPACITOR_BUILD_GRADLE
+log_success "capacitor-android build.gradle 已修复"
+
+# 修复 capacitor-cordova-android-plugins 模块
+log_info "修复 capacitor-cordova-android-plugins build.gradle..."
+cat > /workspace/android/capacitor-cordova-android-plugins/build.gradle << 'CORDOVA_BUILD_GRADLE'
+ext {
+    androidxAppCompatVersion = project.hasProperty('androidxAppCompatVersion') ? rootProject.ext.androidxAppCompatVersion : '1.6.1'
+    cordovaAndroidVersion = project.hasProperty('cordovaAndroidVersion') ? rootProject.ext.cordovaAndroidVersion : '14.0.1'
+}
+
+buildscript {
+    repositories {
+        maven { url '/workspace/local-maven-repo' }
+        maven { url 'https://maven.aliyun.com/repository/google' }
+        maven { url 'https://maven.aliyun.com/repository/public' }
+        maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
+        maven { url 'https://repo.huaweicloud.com/repository/maven/' }
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.2.2'
+    }
+}
+
+apply plugin: 'com.android.library'
+
+android {
+    namespace = "capacitor.cordova.android.plugins"
+    compileSdk = project.hasProperty('compileSdkVersion') ? rootProject.ext.compileSdkVersion : 34
+    defaultConfig {
+        minSdkVersion project.hasProperty('minSdkVersion') ? rootProject.ext.minSdkVersion : 22
+        targetSdkVersion project.hasProperty('targetSdkVersion') ? rootProject.ext.targetSdkVersion : 34
+        versionCode 1
+        versionName "1.0"
+    }
+    lintOptions {
+        abortOnError = false
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+repositories {
+    maven { url '/workspace/local-maven-repo' }
+    maven { url 'https://maven.aliyun.com/repository/google' }
+    maven { url 'https://maven.aliyun.com/repository/public' }
+    maven { url 'https://repo.huaweicloud.com/repository/maven/' }
+    flatDir{
+        dirs 'src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(dir: 'src/main/libs', include: ['*.jar'])
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "org.apache.cordova:framework:$cordovaAndroidVersion"
+}
+
+apply from: "cordova.variables.gradle"
+
+for (def func : cdvPluginPostBuildExtras) {
+    func()
+}
+CORDOVA_BUILD_GRADLE
+log_success "capacitor-cordova-android-plugins build.gradle 已修复"
+
 # 步骤 4: 构建 Android APK
 log_info "=== 步骤 4: 构建 Android APK ==="
 cd /workspace/android
@@ -66,7 +218,7 @@ cd /workspace/android
 export GRADLE_USER_HOME=/root/.gradle
 
 log_info "执行 Gradle assembleRelease..."
-gradle assembleRelease --no-daemon --init-script init.gradle 2>&1 | tail -30
+gradle assembleRelease --no-daemon --init-script init.gradle 2>&1 | tail -50
 
 # 步骤 5: 验证产物
 log_info "=== 步骤 5: 验证 APK 产物 ==="

@@ -1,22 +1,27 @@
 pluginManagement {
     repositories {
-        // 本地仓库 - 最高优先级（使用绝对路径）
+        // 本地仓库 - 最高优先级
         maven { url '/workspace/local-maven-repo' }
-        // 官方仓库 - 备用
-        google()
-        mavenCentral()
-        gradlePluginPortal()
+        // 阿里云镜像 - 强制使用
+        maven { url 'https://maven.aliyun.com/repository/google' }
+        maven { url 'https://maven.aliyun.com/repository/public' }
+        maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
+        // 华为云镜像
+        maven { url 'https://repo.huaweicloud.com/repository/maven/' }
     }
 }
 
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
     repositories {
-        // 本地仓库 - 最高优先级（使用绝对路径）
+        // 本地仓库 - 最高优先级
         maven { url '/workspace/local-maven-repo' }
-        // 官方仓库 - 备用
-        google()
-        mavenCentral()
+        // 阿里云镜像 - 强制使用
+        maven { url 'https://maven.aliyun.com/repository/google' }
+        maven { url 'https://maven.aliyun.com/repository/public' }
+        maven { url 'https://maven.aliyun.com/repository/central' }
+        // 华为云镜像
+        maven { url 'https://repo.huaweicloud.com/repository/maven/' }
     }
 }
 
