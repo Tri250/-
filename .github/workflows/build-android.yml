@@ -1,4 +1,4 @@
-name: Build Android APK (Android 16 Compatible)
+name: Build Android APK
 
 on:
   push:
@@ -6,12 +6,6 @@ on:
   pull_request:
     branches: [ main ]
   workflow_dispatch:
-
-permissions:
-  contents: read
-  actions: read
-  pages: write
-  id-token: write
 
 jobs:
   build:
@@ -32,7 +26,6 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-          cache: 'gradle'
 
       - name: Install npm dependencies
         run: npm ci
