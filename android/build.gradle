@@ -3,10 +3,6 @@
 buildscript {
     
     repositories {
-        maven { url 'https://maven.aliyun.com/repository/google' }
-        maven { url 'https://maven.aliyun.com/repository/central' }
-        maven { url 'https://maven.aliyun.com/repository/public' }
-        maven { url 'https://maven.tencent.com/nexus/repository/google' }
         google()
         mavenCentral()
     }
@@ -21,12 +17,8 @@ buildscript {
 
 apply from: "variables.gradle"
 
-allproject {
+allprojects {
     repositories {
-        maven { url 'https://maven.aliyun.com/repository/google' }
-        maven { url 'https://maven.aliyun.com/repository/central' }
-        maven { url 'https://maven.aliyun.com/repository/public' }
-        maven { url 'https://maven.tencent.com/nexus/repository/google' }
         google()
         mavenCentral()
     }
