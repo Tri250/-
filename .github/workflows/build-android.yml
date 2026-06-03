@@ -2,9 +2,8 @@ name: Build Android APK (Android 7.0+)
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, develop, trae/solo-agent-DFainO ]
     paths-ignore:
-      - '**.md'
       - 'docs/**'
   pull_request:
     branches: [ main ]
