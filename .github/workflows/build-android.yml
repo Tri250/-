@@ -26,56 +26,28 @@ jobs:
           cache: 'npm'
 
       - name: Setup Java JDK
-        uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-
-      - name: Setup Android SDK
-        run: |
-          mkdir -p $HOME/android-sdk/cmdline-tools
-          cd $HOME/android-sdk/cmdline-tools
-          curl -o commandlinetools.zip -L https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
-          unzip -q commandlinetools.zip
-          mv cmdline-tools latest
-          echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
-          echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
-          echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
-          echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
-
-      - name: Install Android SDK packages
-        run: |
-          yes | sdkmanager --licenses > /dev/null || true
-          sdkmanager "platform-tools" "platforms;android-36" "platforms;android-24" "build-tools;36.0.0" "extras;android;m2repository" "extras;google;m2repository"
-
-      - name: Cache npm dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.npm
-            node_modules
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
-
-      - name: Cache Gradle packages
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
-
-      - name: Install npm dependencies
+        uses: actions/setup-java@v4 npm dependencies
         run: npm ci
 
       - name: Build web application
         run: npm run build
 
+      - name: Re-initialize Android platform (Capacitor 8
+        run: |
+          rm -rf android
+          npx cap add android
+
+      - name: Sync Capacitor
+        run: npx cap sync android8)
+        run: |
+          rm -rf android
+          npx cap add android
+
       - name: Sync Capacitor
         run: npx cap sync android
+       env:
+          ANDROID_HOME: $HOME/android-sdk
+          ANDROID_SDK_ROOT: $HOME/android-sdk
 
       - name: Make Gradle executable
         run: chmod +x android/gradlew
@@ -85,35 +57,15 @@ jobs:
           cd android
           ./gradlew assembleDebug --stacktrace
         env:
-          ANDROID_HOME: ${{ env.ANDROID_HOME }}
-          ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
-
-      - name: Build Release APK
-        run: |
-          cd android
-          ./gradlew assembleRelease --stacktrace
-        env:
-          ANDROID_HOME: ${{ env.ANDROID_HOME }}
-          ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
+          ANDROID_HOME: $HOME/android-sdk
+          ANDROID_SDK_ROOT: $HOME/android-sdk
 
       - name: List APK artifacts
-        run: |
-          echo "Listing APK files..."
-          ls -la android/app/build/outputs/apk/debug/ || true
-          ls -la android/app/build/outputs/apk/release/ || true
+        run: ls -la android/app/build/outputs/apk/debug/ || echo "APK not found"
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
           name: pawsync-pro-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: android/app/build/outputs/apk/debug/*.apk
           retention-days: 30
-          compression-level: 0
-
-      - name: Upload Release APK (unsigned)
-        uses: actions/upload-artifact@v4
-        with:
-          name: pawsync-pro-release-unsigned-apk
-          path: android/app/build/outputs/apk/release/app-release-unsigned.apk
-          retention-days: 30
-          compression-level: 0
