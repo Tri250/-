@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { query } from 'express-validator';
 import prisma from '../lib/prisma';
 import { authenticateToken } from '../middleware';
-import { ManualCategory, PetType } from '@prisma/client';
+import { _ManualCategory, _PetType } from '@prisma/client';
 
 const router = Router();
 
@@ -16,7 +16,7 @@ router.get(
     try {
       const { category, petType } = req.query;
 
-      const where: any = {};
+      const where: { category?: string; OR?: { petType: string | null }[] } = {};
       if (category) where.category = category;
       if (petType) {
         where.OR = [{ petType: petType }, { petType: null }];

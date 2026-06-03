@@ -35,7 +35,8 @@ export const useMonitorStore = create<MonitorState>((set, get) => ({
     try {
       const monitoring = await monitorService.startMonitoring(cameraId, config);
       set({ monitoring, isMonitoring: true, isLoading: false });
-    } catch (error) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (_error) {
       set({ error: 'Failed to start monitoring', isLoading: false });
     }
   },
@@ -44,7 +45,8 @@ export const useMonitorStore = create<MonitorState>((set, get) => ({
     try {
       await monitorService.stopMonitoring(cameraId);
       set({ isMonitoring: false, monitoring: null });
-    } catch (error) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (_error) {
       set({ error: 'Failed to stop monitoring' });
     }
   },
@@ -53,7 +55,8 @@ export const useMonitorStore = create<MonitorState>((set, get) => ({
     try {
       const events = await monitorService.getAllEvents(limit);
       set({ events });
-    } catch (error) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (_error) {
       set({ error: 'Failed to load events' });
     }
   },
@@ -66,7 +69,8 @@ export const useMonitorStore = create<MonitorState>((set, get) => ({
           e.id === eventId ? { ...e, acknowledged: true } : e
         ),
       }));
-    } catch (error) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (_error) {
       set({ error: 'Failed to acknowledge event' });
     }
   },
@@ -75,7 +79,8 @@ export const useMonitorStore = create<MonitorState>((set, get) => ({
     try {
       const session = await monitorService.startRecording(cameraId);
       set({ recordingSession: session, recordingDuration: 0 });
-    } catch (error) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (_error) {
       set({ error: 'Failed to start recording' });
     }
   },
@@ -87,7 +92,8 @@ export const useMonitorStore = create<MonitorState>((set, get) => ({
     try {
       const session = await monitorService.stopRecording(recordingSession.id);
       set({ recordingSession: session });
-    } catch (error) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (_error) {
       set({ error: 'Failed to stop recording' });
     }
   },
@@ -95,7 +101,8 @@ export const useMonitorStore = create<MonitorState>((set, get) => ({
   updateStreamConfig: async (cameraId, config) => {
     try {
       await monitorService.updateStreamConfig(cameraId, config);
-    } catch (error) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (_error) {
       set({ error: 'Failed to update stream config' });
     }
   },

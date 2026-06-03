@@ -39,7 +39,7 @@ const mockSymptoms: Symptom[] = [
   }
 ];
 
-export const useMedicalStore = create<MedicalStore>((set, get) => ({
+export const useMedicalStore = create<MedicalStore>((set, _get) => ({
   symptoms: mockSymptoms,
   consultations: [],
   appointments: [],

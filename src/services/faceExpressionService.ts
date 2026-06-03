@@ -57,7 +57,7 @@ const expressionConfig: Record<FaceExpression, ExpressionConfig> = {
 };
 
 // 动物面部关键点索引映射（简化版，针对猫狗面部特征）
-const PET_FACE_LANDMARKS = {
+const _PET_FACE_LANDMARKS = {
   cat: {
     leftEye: [33, 133],
     rightEye: [362, 263],
@@ -228,7 +228,7 @@ class FaceExpressionService {
   }
 
   // 检测耳朵状态
-  private detectEarState(landmarks: FacialLandmark[], petType: 'cat' | 'dog'): { 
+  private detectEarState(landmarks: FacialLandmark[], _petType: 'cat' | 'dog'): { 
     leftEarPosition: 'forward' | 'neutral' | 'backward';
     rightEarPosition: 'forward' | 'neutral' | 'backward';
   } {

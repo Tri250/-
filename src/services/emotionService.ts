@@ -655,8 +655,8 @@ class EmotionService {
   private calculateSyncopation(energies: number[], peaks: number[]): number {
     if (peaks.length < 3) return 0;
 
-    const avgEnergy = energies.reduce((a, b) => a + b, 0) / energies.length;
-    const peakEnergies = peaks.map(p => energies[p] || 0);
+    const _avgEnergy = energies.reduce((a, b) => a + b, 0) / energies.length;
+    const _peakEnergies = peaks.map(p => energies[p] || 0);
     
     const expectedPeaks: number[] = [];
     const avgInterval = peaks.length > 1 
@@ -895,7 +895,7 @@ class EmotionService {
     const range = max - min;
     const value = intensity.mean * 100;
     
-    let distance = Math.abs(value - center);
+    const distance = Math.abs(value - center);
     let baseScore = Math.max(0, 1 - (distance / (range * 0.6)));
 
     if (intensity.dynamicRange !== undefined) {
@@ -1208,7 +1208,7 @@ class EmotionService {
     emotion: PrimaryEmotion
   ): number {
     const gap = primaryScore - secondaryScore;
-    const gapRatio = gap / primaryScore;
+    const _gapRatio = gap / primaryScore;
     
     let baseConfidence = 95;
 
@@ -1400,7 +1400,7 @@ class EmotionService {
     return behaviors;
   }
 
-  async analyzeEmotion(imageData: ImageData): Promise<EmotionAnalysis> {
+  async analyzeEmotion(_imageData: ImageData): Promise<EmotionAnalysis> {
     await this.simulateDelay(1200);
 
     const audioFeatures = this.generateSimulatedAudioFeatures();

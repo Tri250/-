@@ -27,7 +27,6 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 import { dataExportManager } from '../services/dataExportService';
-import { contentSecurityManager } from '../services/contentSecurityService';
 import { permissionManager, PermissionType } from '../services/permissionService';
 
 interface SettingsPageProps {
@@ -63,7 +62,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
   const [toastMessage, setToastMessage] = useState('');
   const [isExporting, setIsExporting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [permissionStatuses, setPermissionStatuses] = useState<Map<PermissionType, any>>(new Map());
+  const [_permissionStatuses, setPermissionStatuses] = useState<Map<PermissionType, boolean>>(new Map());
   const [privacySettings, setPrivacySettings] = useState({
     dataAnalysis: true,
     personalizedRecommendations: true,
@@ -93,7 +92,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
       await dataExportManager.downloadExportFile('json');
       showToast('数据导出成功');
       setShowExportModal(false);
-    } catch (error) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (_error) {
       showToast('数据导出失败，请重试');
     } finally {
       setIsExporting(false);
@@ -117,7 +117,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
       } else {
         showToast('账号注销失败，请联系客服');
       }
-    } catch (error) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (_error) {
       showToast('账号注销失败，请重试');
     } finally {
       setIsDeleting(false);
@@ -125,7 +126,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
     }
   };
 
-  const handleRequestPermission = async (type: PermissionType) => {
+  const _handleRequestPermission = async (type: PermissionType) => {
     const granted = await permissionManager.requestPermission(type);
     if (granted) {
       showToast(`${permissionManager.getConfig(type).description} 权限已开启`);

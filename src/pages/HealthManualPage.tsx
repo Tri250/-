@@ -14,7 +14,7 @@ import {
   Pill,
   Brain
 } from 'lucide-react';
-import { GlassCard, SkeletonCard } from '../components/DesignSystem';
+import { GlassCard } from '../components/DesignSystem';
 import { useHealthManualStore } from '../store/healthManualStore';
 import { MANUAL_CATEGORIES, ManualCategory } from '../types/health-manual';
 import '../styles/animations.css';
@@ -61,7 +61,6 @@ const CategorySkeleton: React.FC = () => (
 
 export const HealthManualPage: React.FC<HealthManualPageProps> = ({ onNavigate }) => {
   const { 
-    manuals, 
     selectedCategory, 
     searchQuery, 
     petTypeFilter, 
@@ -75,7 +74,6 @@ export const HealthManualPage: React.FC<HealthManualPageProps> = ({ onNavigate }
     searchResults,
     isSearching,
     lastSearchTime,
-    highlightText,
     getCategoryArticleCount
   } = useHealthManualStore();
 

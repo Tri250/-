@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Edit, History, Settings, Crown, Star, Heart, ChevronRight, Camera, X, Code, Check } from 'lucide-react';
+import { Edit, History, Settings, Crown, Star, Heart, ChevronRight, Camera, Code, Check } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 
 interface ProfilePageProps {

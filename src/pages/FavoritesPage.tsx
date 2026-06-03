@@ -3,11 +3,7 @@ import {
   ChevronLeft, 
   Heart, 
   MessageSquare, 
-  Image, 
-  Video, 
-  FileText,
-  Clock,
-  Trash2
+  Image
 } from 'lucide-react';
 import { Card } from '../components/DesignSystem';
 import { useAppStore } from '../store/appStore';
@@ -66,7 +62,7 @@ export const FavoritesPage: React.FC<FavoritesPageProps> = ({ onNavigate }) => {
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
+                onClick={() => setActiveTab(tab.id as 'all' | 'translations' | 'photos')}
                 className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-medium transition-all ${
                   activeTab === tab.id
                     ? 'bg-pink-500 text-white shadow-lg'

@@ -95,7 +95,7 @@ class CloudStorageService {
       petId?: string;
       cameraId?: string;
       tags?: string[];
-      metadata?: Record<string, any>;
+      metadata?: Record<string, unknown>;
       onProgress?: (progress: UploadProgress) => void;
     } = {}
   ): Promise<UploadResult> {

@@ -6,7 +6,7 @@
 // 描述: 电子病历OCR识别和管理服务
 // ============================================
 
-import type { MedicalRecord, MedicationInfo, LabResult, VetHospital } from '../types/advanced-health';
+import type { MedicalRecord, MedicationInfo, LabResult, _VetHospital } from '../types/advanced-health';
 
 const MOCK_DELAY = 1000;
 
@@ -318,7 +318,7 @@ class MedicalRecordOCRService {
   // 导出PDF
   async exportToPDF(
     recordIds: string[],
-    options?: {
+    _options?: {
       includeImages?: boolean;
       language?: 'zh' | 'en';
     }

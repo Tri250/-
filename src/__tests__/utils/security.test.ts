@@ -1,9 +1,9 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import {
   cryptoUtils,
   bruteForceProtection,
-  csrfProtection,
-  sessionManager,
+  _csrfProtection,
+  _sessionManager,
   xssProtection,
 } from '../../../src/utils/security';
 

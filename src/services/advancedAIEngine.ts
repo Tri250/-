@@ -86,7 +86,7 @@ abstract class AIModel {
     this.version = version;
   }
 
-  protected abstract analyze(data: any): Promise<EmotionResult>;
+  protected abstract analyze(data: unknown): Promise<EmotionResult>;
 
   protected createResult(
     primaryEmotion: EmotionType,
@@ -118,7 +118,7 @@ abstract class AIModel {
     return 'very_high';
   }
 
-  protected generateRecommendation(emotion: EmotionType, intensity: EmotionIntensity, confidence: number): string {
+  protected generateRecommendation(emotion: EmotionType, intensity: EmotionIntensity, _confidence: number): string {
     const recommendations: Record<EmotionType, string> = {
       happy: '🐱 您的宠物看起来很开心！继续保持当前的饲养方式和陪伴时间。',
       sad: '💧 您的宠物可能感到难过。增加互动时间，提供更多玩具和安抚。',
@@ -170,12 +170,10 @@ class ImageEmotionModel extends AIModel {
   }
 
   private extractImageFeatures(imageData: ImageData): ImageFeatures {
-    const { data, width, height } = imageData;
+    const { data } = imageData;
     
     // 简化的特征提取（实际应用中会使用深度学习模型）
     let totalBrightness = 0;
-    let edgeCount = 0;
-    let skinToneCount = 0;
     
     for (let i = 0; i < data.length; i += 4) {
       const r = data[i];
@@ -184,12 +182,6 @@ class ImageEmotionModel extends AIModel {
       
       // 计算亮度
       totalBrightness += (r + g + b) / 3;
-      
-      // 简化的边缘检测
-      if (i > 0 && i < data.length - 4) {
-        const diff = Math.abs(data[i] - data[i - 4]);
-        if (diff > 30) edgeCount++;
-      }
     }
     
     const avgBrightness = totalBrightness / (data.length / 4);
@@ -843,7 +835,7 @@ export const analyzeEmotionTrend = (
   const stability = 1 - (transitions / Math.max(1, history.length - 1));
 
   // 增强版趋势计算 - 使用滑动窗口
-  const windowSize = Math.min(3, Math.floor(history.length / 3));
+  const _windowSize = Math.min(3, Math.floor(history.length / 3));
   const positiveEmotions = ['happy', 'excited', 'calm', 'affectionate', 'curious'];
   const negativeEmotions = ['sad', 'angry', 'fearful', 'anxious', 'bored'];
   

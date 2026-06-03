@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { verifyToken } from '../lib/auth';
 
+/* eslint-disable @typescript-eslint/no-namespace */
 declare global {
   namespace Express {
     interface Request {
@@ -8,6 +9,7 @@ declare global {
     }
   }
 }
+/* eslint-enable @typescript-eslint/no-namespace */
 
 export function authenticateToken(
   req: Request,
@@ -25,7 +27,8 @@ export function authenticateToken(
     const payload = verifyToken(token);
     req.userId = payload.userId;
     next();
-  } catch (error) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  } catch (_error) {
     return res.status(403).json({ error: 'Token无效' });
   }
 }
@@ -34,7 +37,7 @@ export function errorHandler(
   err: Error,
   req: Request,
   res: Response,
-  next: NextFunction
+  _next: NextFunction
 ) {
   console.error(err.stack);
   res.status(500).json({

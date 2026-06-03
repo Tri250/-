@@ -1,8 +1,7 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Bot, 
   Send, 
-  Paperclip, 
   ChevronLeft, 
   BarChart3,
   Zap,
@@ -15,10 +14,9 @@ import {
   History,
   Trash2,
   Clock,
-  Check,
   AlertCircle
 } from 'lucide-react';
-import { Card, Button, Badge } from '../components/DesignSystem';
+import { Badge } from '../components/DesignSystem';
 import { useAIConsultationStore } from '../store/aiConsultationStore';
 import { usePetStore } from '../store/petStore';
 
@@ -37,7 +35,6 @@ const QUICK_QUESTIONS = [
 
 export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }) => {
   const { 
-    consultations, 
     currentConsultationId, 
     isTyping, 
     sendAIMessage, 
@@ -63,7 +60,7 @@ export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  const currentPet = getCurrentPet();
+  const _currentPet = getCurrentPet();
   const messages = getCurrentMessages();
 
   useEffect(() => {
@@ -127,7 +124,7 @@ export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }
         textareaRef.current.style.height = '44px';
       }
       
-      await sendAIMessage(consultationId, text, attachments as any);
+      await sendAIMessage(consultationId, text, attachments as { id: string; type: string; url: string; name: string }[]);
       setError(null);
     } catch (err) {
       console.error('发送消息失败:', err);
@@ -195,25 +192,25 @@ export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }
     setAttachments(prev => prev.filter(a => a.id !== id));
   };
 
-  const [recognitionInstance, setRecognitionInstance] = useState<any>(null);
+  const [recognitionInstance, setRecognitionInstance] = useState<SpeechRecognition | null>(null);
   
   const startVoiceRecording = () => {
     setIsRecording(true);
     
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-      const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+      const SpeechRecognition = (window as Window & { webkitSpeechRecognition?: typeof window.SpeechRecognition; SpeechRecognition?: typeof window.SpeechRecognition }).webkitSpeechRecognition || (window as Window & { SpeechRecognition?: typeof window.SpeechRecognition }).SpeechRecognition;
       const recognition = new SpeechRecognition();
       
       recognition.continuous = false;
       recognition.interimResults = true;
       recognition.lang = 'zh-CN';
       
-      recognition.onresult = (event: any) => {
+      recognition.onresult = (event: SpeechRecognitionEvent) => {
         const transcript = event.results[0][0].transcript;
         setInputText(prev => prev + transcript);
       };
       
-      recognition.onerror = (event: any) => {
+      recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
         console.error('语音识别错误:', event.error);
         setIsRecording(false);
         if (event.error === 'not-allowed') {

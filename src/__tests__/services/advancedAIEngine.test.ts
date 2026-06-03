@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { analyzeEmotionTrend, EmotionResult, EmotionType } from '../../../src/services/advancedAIEngine';
 
 describe('AI Engine - Emotion Trend Tests', () => {

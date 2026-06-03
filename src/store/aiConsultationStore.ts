@@ -6,7 +6,7 @@ import { secureStorage } from '../utils/security';
 const STORAGE_KEY_PREFIX = 'ai_memory_';
 const SHORT_TERM_ROUNDS = 5;
 const LONG_TERM_EXPIRY_DAYS = 30;
-const MEMORY_CLEANUP_INTERVAL = 24 * 60 * 60 * 1000;
+const _MEMORY_CLEANUP_INTERVAL = 24 * 60 * 60 * 1000;
 
 interface ShortTermContext {
   roundNumber: number;
@@ -253,7 +253,7 @@ export const useAIConsultationStore = create<AIConsultationStore>((set, get) => 
       
       let enhancedContext = { ...consultation.context };
       if (relevantMemories.length > 0) {
-        const memoryContext = relevantMemories.map(m => m.content).join('\n');
+        const _memoryContext = relevantMemories.map(m => m.content).join('\n');
         enhancedContext = {
           ...enhancedContext,
           discussedTopics: [...enhancedContext.discussedTopics, ...relevantMemories.map(m => m.topic)],
@@ -305,7 +305,8 @@ export const useAIConsultationStore = create<AIConsultationStore>((set, get) => 
         messageType: 'text',
         status: 'sent',
       });
-    } catch (error) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (_error) {
       get().addMessage(consultationId, {
         role: 'system',
         content: '抱歉，消息发送失败，请稍后重试。',

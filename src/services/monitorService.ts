@@ -23,7 +23,7 @@ class MonitorService {
     };
   }
 
-  async stopMonitoring(cameraId: string): Promise<boolean> {
+  async stopMonitoring(_cameraId: string): Promise<boolean> {
     await this.simulateDelay(MOCK_DELAY);
     this.isMonitoring = false;
     return true;
@@ -105,7 +105,7 @@ class MonitorService {
     return mockEvents;
   }
 
-  async acknowledgeEvent(eventId: string): Promise<boolean> {
+  async acknowledgeEvent(_eventId: string): Promise<boolean> {
     await this.simulateDelay(200);
     return true;
   }

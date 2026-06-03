@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { aiConsultationService, AIConsultationService } from '../../services/aiConsultationService';
+import { AIConsultationService } from '../../services/aiConsultationService';
 
 describe('AI健康顾问服务 - 准确性测试', () => {
   const aiService = new AIConsultationService();

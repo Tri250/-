@@ -7,11 +7,11 @@ import {
   Filter,
   Check
 } from 'lucide-react';
-import { FAB, Timeline, TimelineItem, EmptyState, VirtualTimeline } from '../components/DesignSystem';
+import { FAB, Timeline, TimelineItem, EmptyState } from '../components/DesignSystem';
 import { AddRecordModal } from '../components/AddRecordModal';
 import { useHealthRecordStore } from '../store/healthRecordStore';
 import { usePetStore } from '../store/petStore';
-import { DEFAULT_TAGS, RecordType, HealthTag } from '../types/health-record';
+import { RecordType } from '../types/health-record';
 
 interface HealthRecordsPageProps {
   onNavigate: (page: string) => void;

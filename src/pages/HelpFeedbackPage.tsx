@@ -93,7 +93,7 @@ export const HelpFeedbackPage: React.FC<HelpFeedbackPageProps> = ({ onNavigate }
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
+                onClick={() => setActiveTab(tab.id as 'help' | 'feedback')}
                 className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-medium transition-all ${
                   activeTab === tab.id
                     ? 'bg-blue-500 text-white shadow-lg'
@@ -190,7 +190,7 @@ export const HelpFeedbackPage: React.FC<HelpFeedbackPageProps> = ({ onNavigate }
                     ].map((type) => (
                       <button
                         key={type.id}
-                        onClick={() => setFeedbackType(type.id as any)}
+                        onClick={() => setFeedbackType(type.id as 'bug' | 'suggestion' | 'other')}
                         className={`flex-1 py-3 rounded-xl text-sm font-medium transition-all ${
                           feedbackType === type.id
                             ? 'bg-blue-500 text-white'

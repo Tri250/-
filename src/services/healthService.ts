@@ -54,7 +54,7 @@ class HealthService {
     ];
   }
 
-  async getHealthScore(petId: string): Promise<HealthScore> {
+  async getHealthScore(_petId: string): Promise<HealthScore> {
     await this.simulateDelay(MOCK_DELAY);
     
     return {
@@ -176,12 +176,12 @@ class HealthService {
     return true;
   }
 
-  async deleteHealthGoal(goalId: string): Promise<boolean> {
+  async deleteHealthGoal(_goalId: string): Promise<boolean> {
     await this.simulateDelay(300);
     return true;
   }
 
-  async checkSymptoms(symptoms: string[]): Promise<any> {
+  async checkSymptoms(symptoms: string[]): Promise<{ symptoms: string[]; possibleConditions: { condition: string; probability: number; severity: string; recommendation: string }[] }> {
     await this.simulateDelay(1000);
     
     return {
@@ -190,13 +190,13 @@ class HealthService {
         {
           condition: '轻微感冒',
           probability: 0.3,
-          severity: 'fair' as any,
+          severity: 'fair',
           recommendation: '保持温暖，多饮水，观察1-2天',
         },
         {
           condition: '过敏反应',
           probability: 0.2,
-          severity: 'fair' as any,
+          severity: 'fair',
           recommendation: '检查环境，避免接触过敏原',
         },
       ],

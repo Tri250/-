@@ -7,7 +7,7 @@
 // ============================================
 
 import { useEffect, useState } from 'react';
-import { Monitor, Camera, AlertTriangle, History, Settings, Maximize2, Minimize2, Mic, MicOff, Volume2, VolumeX, Wifi } from 'lucide-react';
+import { Monitor, Camera, AlertTriangle, History, Settings, Maximize2, Minimize2, Mic, MicOff, Volume2, VolumeX } from 'lucide-react';
 import { LiveStream } from '../components/monitor/LiveStream';
 import { EventAlert } from '../components/monitor/EventAlert';
 import { RecordingControls } from '../components/monitor/RecordingControls';
@@ -79,7 +79,7 @@ function ActionButton({
   onClick,
   disabled = false 
 }: { 
-  icon: any; 
+  icon: React.ElementType; 
   label: string; 
   active?: boolean;
   onClick: () => void;

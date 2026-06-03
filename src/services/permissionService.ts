@@ -157,7 +157,7 @@ class PermissionManager {
     }
   }
 
-  private handleDenial(type: PermissionType, config: PermissionConfig): void {
+  private handleDenial(type: PermissionType, _config: PermissionConfig): void {
     const status = this.permissionStatuses.get(type);
     if (status) {
       status.denied = true;

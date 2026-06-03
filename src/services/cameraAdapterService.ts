@@ -1,6 +1,5 @@
-import type { CameraDevice, EzvizDeviceInfo, EzvizAccessToken, ONVIFDiscoveryResult, Go2rtcStreamConfig, Go2rtcServerInfo, CameraAddRequest, CameraBrand, ConnectionProtocol } from '../types/camera';
+import type { CameraDevice, EzvizDeviceInfo, EzvizAccessToken, ONVIFDiscoveryResult, Go2rtcStreamConfig, Go2rtcServerInfo, CameraAddRequest, CameraBrand } from '../types/camera';
 const MOCK_DELAY = 800;
-const EZVIZ_API_BASE = 'https://open.ys7.com/api/lapp';
 const GO2RTC_BASE = 'http://localhost:1984';
 const mockEzvizDevices: EzvizDeviceInfo[] = [
  {
@@ -174,7 +173,7 @@ class CameraAdapterService {
  }
  ];
  }
- async getEzvizAccessToken(appKey: string, appSecret: string): Promise<EzvizAccessToken> {
+ async getEzvizAccessToken(_appKey: string, _appSecret: string): Promise<EzvizAccessToken> {
  await this.simulateDelay(MOCK_DELAY);
  this.accessToken = `ezviz_token_${Date.now()}`;
  this.tokenExpiresAt = Date.now() + 7200000;
@@ -185,7 +184,7 @@ class CameraAdapterService {
  tokenType: 'Bearer'
  };
  }
- async refreshEzvizToken(refreshToken: string): Promise<EzvizAccessToken> {
+ async refreshEzvizToken(_refreshToken: string): Promise<EzvizAccessToken> {
  await this.simulateDelay(MOCK_DELAY);
  this.accessToken = `ezviz_token_refreshed_${Date.now()}`;
  this.tokenExpiresAt = Date.now() + 7200000;
@@ -196,7 +195,7 @@ class CameraAdapterService {
  tokenType: 'Bearer'
  };
  }
- async getEzvizDeviceList(accessToken: string): Promise<EzvizDeviceInfo[]> {
+ async getEzvizDeviceList(_accessToken: string): Promise<EzvizDeviceInfo[]> {
  await this.simulateDelay(MOCK_DELAY);
  return [...mockEzvizDevices];
  }
@@ -214,7 +213,7 @@ class CameraAdapterService {
  }
  return `rtsp://${device.localIp}:554/stream1`;
  }
- async discoverONVIFDevices(timeout: number = 5000): Promise<ONVIFDiscoveryResult[]> {
+ async discoverONVIFDevices(_timeout: number = 5000): Promise<ONVIFDiscoveryResult[]> {
  await this.simulateDelay(MOCK_DELAY);
  return [...mockOnvifDevices];
  }

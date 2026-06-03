@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { EmotionAnalysis, EmotionDashboard, PrimaryEmotion } from '../types/emotion';
+import type { EmotionAnalysis, EmotionDashboard, _PrimaryEmotion } from '../types/emotion';
 import { emotionService } from '../services/emotionService';
 
 interface EmotionState {
@@ -18,7 +18,7 @@ interface EmotionState {
   clearCurrentAnalysis: () => void;
 }
 
-export const useEmotionStore = create<EmotionState>((set, get) => ({
+export const useEmotionStore = create<EmotionState>((set, _get) => ({
   currentAnalysis: null,
   recentAnalyses: [],
   dashboard: null,
@@ -35,7 +35,8 @@ export const useEmotionStore = create<EmotionState>((set, get) => ({
         recentAnalyses: [analysis, ...state.recentAnalyses].slice(0, 20),
         isAnalyzing: false,
       }));
-    } catch (error) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (_error) {
       set({ error: 'Failed to analyze voice', isAnalyzing: false });
     }
   },
@@ -49,7 +50,8 @@ export const useEmotionStore = create<EmotionState>((set, get) => ({
         recentAnalyses: [analysis, ...state.recentAnalyses].slice(0, 20),
         isAnalyzing: false,
       }));
-    } catch (error) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (_error) {
       set({ error: 'Failed to analyze image', isAnalyzing: false });
     }
   },
@@ -58,7 +60,8 @@ export const useEmotionStore = create<EmotionState>((set, get) => ({
     try {
       const analyses = await emotionService.getRecentAnalyses(limit);
       set({ recentAnalyses: analyses });
-    } catch (error) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (_error) {
       set({ error: 'Failed to load recent analyses' });
     }
   },
@@ -67,7 +70,8 @@ export const useEmotionStore = create<EmotionState>((set, get) => ({
     try {
       const dashboard = await emotionService.getDashboard();
       set({ dashboard });
-    } catch (error) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (_error) {
       set({ error: 'Failed to load dashboard' });
     }
   },

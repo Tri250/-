@@ -22,7 +22,7 @@ interface CameraState {
   updateDeviceStatus: (deviceId: string, status: CameraDevice['status']) => void;
 }
 
-export const useCameraStore = create<CameraState>((set, get) => ({
+export const useCameraStore = create<CameraState>((set, _get) => ({
   devices: [],
   selectedDevice: null,
   isLoading: false,
@@ -36,7 +36,8 @@ export const useCameraStore = create<CameraState>((set, get) => ({
     try {
       const devices = await cameraManager.getAllDevices();
       set({ devices, isLoading: false });
-    } catch (error) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (_error) {
       set({ error: 'Failed to load devices', isLoading: false });
     }
   },
@@ -58,7 +59,8 @@ export const useCameraStore = create<CameraState>((set, get) => ({
         devices: state.devices.filter(d => d.id !== deviceId),
         selectedDevice: state.selectedDevice?.id === deviceId ? null : state.selectedDevice,
       }));
-    } catch (error) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (_error) {
       set({ error: 'Failed to remove device' });
     }
   },

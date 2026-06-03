@@ -7,7 +7,7 @@
 // ============================================
 
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   ChevronLeft,
   Shield,
@@ -32,7 +32,7 @@ import {
 } from 'lucide-react';
 import { aiHealthAlertService } from '../services/aiHealthAlertService';
 import { useAppStore } from '../store/appStore';
-import type { ComprehensiveHealthScore, HealthReport, HealthDashboard, AIBehaviorAlert } from '../types/advanced-health';
+import type { ComprehensiveHealthScore, HealthDashboard, AIBehaviorAlert } from '../types/advanced-health';
 
 interface HealthReportPageProps {
   onNavigate: (page: string) => void;
@@ -49,7 +49,7 @@ export function HealthReportPage({ onNavigate }: HealthReportPageProps) {
   const petId = currentPet?.id || '1';
   const petName = currentPet?.name || '毛孩子';
 
-  const [exporting, setExporting] = useState(false);
+  const [_exporting, setExporting] = useState(false);
 
   useEffect(() => {
     loadReportData();

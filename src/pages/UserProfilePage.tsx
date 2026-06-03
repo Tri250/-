@@ -15,7 +15,7 @@ import {
   Palette,
   Globe
 } from 'lucide-react';
-import { Card, Button } from '../components/DesignSystem';
+import { Card } from '../components/DesignSystem';
 import { useAppStore } from '../store/appStore';
 import { usePetStore } from '../store/petStore';
 import { useBondStore } from '../store/bondStore';

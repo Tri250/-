@@ -12,8 +12,8 @@ import { useTrainingStore } from '../store/trainingStore';
 import { useBondStore } from '../store/bondStore';
 
 export function TrainingPage() {
-  const { courses, totalTrainingTime, streakDays, startSession, updateCourseProgress } = useTrainingStore();
-  const { addDailyActivity, unlockBadge, updateAchievement } = useBondStore();
+  const { courses, totalTrainingTime, streakDays, startSession } = useTrainingStore();
+  const { addDailyActivity, unlockBadge } = useBondStore();
   const [activeCategory, setActiveCategory] = useState<'all' | 'basic' | 'behavior' | 'trick' | 'social'>('all');
 
   const filteredCourses = activeCategory === 'all' 

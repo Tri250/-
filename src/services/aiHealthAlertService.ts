@@ -14,8 +14,6 @@ import type {
   ComprehensiveHealthScore,
   HealthDashboard,
   VetHospital,
-  MedicalRecord,
-  ChartDataPoint,
   ActivityChartData,
   SleepChartData,
   GrowthCurveData,
@@ -309,7 +307,7 @@ class AIHealthAlertService {
   }
 
   // 获取综合健康评分
-  async getComprehensiveHealthScore(petId: string): Promise<ComprehensiveHealthScore> {
+  async getComprehensiveHealthScore(_petId: string): Promise<ComprehensiveHealthScore> {
     await this.simulateDelay(MOCK_DELAY);
     
     return {
@@ -507,7 +505,7 @@ class AIHealthAlertService {
   }
 
   // 获取智能喂食器数据
-  async getSmartFeederData(petId: string, days: number = 7): Promise<SmartFeederData[]> {
+  async getSmartFeederData(petId: string, _days: number = 7): Promise<SmartFeederData[]> {
     await this.simulateDelay(MOCK_DELAY);
     return this.smartFeederData.filter(d => d.petId === petId);
   }
@@ -650,7 +648,7 @@ class AIHealthAlertService {
   }
 
   // 获取附近的24小时兽医医院
-  async getNearbyVetHospitals(lat?: number, lng?: number): Promise<VetHospital[]> {
+  async getNearbyVetHospitals(_lat?: number, _lng?: number): Promise<VetHospital[]> {
     await this.simulateDelay(MOCK_DELAY);
     
     return [

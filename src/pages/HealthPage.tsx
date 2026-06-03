@@ -10,7 +10,6 @@ import { useState } from 'react';
 import { Activity, AlertTriangle, Bell, Heart, Moon, Sun, Thermometer, ChevronRight, Shield, Utensils, Scissors, Zap, BookOpen, Star } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 import { Card } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
 
 const alertTypeConfig = {
   cough: { icon: Activity, label: '咳嗽', color: 'text-yellow-500', bgColor: 'bg-yellow-50' },

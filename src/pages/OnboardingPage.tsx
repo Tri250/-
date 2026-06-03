@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { PawPrint, Cat, Dog, Plus, ChevronRight, Check } from 'lucide-react';
+import { PawPrint, Cat, Dog, ChevronRight, Check } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { useAppStore } from '../store/appStore';
@@ -50,7 +50,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
     onComplete();
   };
 
-  const updatePetData = (field: string, value: any) => {
+  const updatePetData = (field: string, value: string | PetType) => {
     setPetData(prev => ({ ...prev, [field]: value }));
   };
 

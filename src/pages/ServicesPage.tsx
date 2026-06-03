@@ -6,7 +6,6 @@
 // 描述: 综合服务页面（保险+医疗）
 // ============================================
 
-import { useState } from 'react';
 import { Shield, Stethoscope, ChevronRight, Sparkles, Activity } from 'lucide-react';
 
 interface ServicesPageProps {

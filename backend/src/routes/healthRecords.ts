@@ -26,7 +26,7 @@ router.get(
       });
       const petIds = userPets.map(p => p.id);
 
-      const where: any = { petId: { in: petIds } };
+      const where: { petId: { in: string[] }; type?: string; tags?: { has: string }; isImportant?: boolean } = { petId: { in: petIds } };
       
       if (petId) where.petId = petId;
       if (type) where.type = type;

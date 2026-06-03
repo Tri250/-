@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 describe('性能基准测试', () => {
   describe('组件渲染性能', () => {
@@ -98,7 +98,7 @@ describe('性能基准测试', () => {
       const array = Array.from({ length: 1000 }, (_, i) => ({ id: i, value: i * 2 }));
       const filtered = array.filter(item => item.value % 2 === 0);
       const mapped = filtered.map(item => ({ ...item, doubled: item.value * 2 }));
-      const reduced = mapped.reduce((sum, item) => sum + item.doubled, 0);
+      const _reduced = mapped.reduce((sum, item) => sum + item.doubled, 0);
 
       const end = performance.now();
       const duration = end - start;
@@ -152,15 +152,15 @@ describe('性能基准测试', () => {
 
   describe('内存使用基准', () => {
     it('创建1000个对象应该在内存在合理范围内', () => {
-      const initialMemory = (performance as any).memory?.usedJSHeapSize || 0;
+      const initialMemory = (performance as { memory?: { usedJSHeapSize?: number } }).memory?.usedJSHeapSize || 0;
 
       const objects = Array.from({ length: 1000 }, (_, i) => ({
         id: i,
         data: new Array(100).fill(i),
       }));
 
-      const finalMemory = (performance as any).memory?.usedJSHeapSize || 0;
-      const memoryIncrease = finalMemory - initialMemory;
+      const finalMemory = (performance as { memory?: { usedJSHeapSize?: number } }).memory?.usedJSHeapSize || 0;
+      const _memoryIncrease = finalMemory - initialMemory;
 
       expect(objects).toHaveLength(1000);
     });

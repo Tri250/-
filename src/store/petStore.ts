@@ -227,7 +227,8 @@ export const usePetStore = create<PetStore>((set, get) => ({
         
         set((state) => ({ pets: [...state.pets, newPet] }));
         result.success++;
-      } catch (error) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      } catch (_error) {
         result.errors.push(`第${i + 1}行：解析错误`);
       }
     }
@@ -275,7 +276,8 @@ export const usePetStore = create<PetStore>((set, get) => ({
         
         set((state) => ({ pets: [...state.pets, newPet] }));
         result.success++;
-      } catch (error) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      } catch (_error) {
         result.errors.push(`第${index + 1}条：解析错误`);
       }
     });

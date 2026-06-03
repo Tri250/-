@@ -103,7 +103,7 @@ router.post('/generate-report', [body('petId').isString()], async (req: Request,
   }
 });
 
-function generateMockAIResponse(pet: any, message: string) {
+function generateMockAIResponse(pet: { name: string }, message: string) {
   const responses = [
     `作为${pet.name}的AI健康顾问，我很高兴为您服务。关于您的问题"${message}"，我建议您...`,
     `感谢您的咨询！针对您提到的问题，我建议您观察${pet.name}的...`,
@@ -113,7 +113,7 @@ function generateMockAIResponse(pet: any, message: string) {
   return responses[Math.floor(Math.random() * responses.length)];
 }
 
-function generateMockHealthReport(pet: any) {
+function generateMockHealthReport(pet: { name: string; healthStatus?: string; weight?: number; checkups: { date?: string }[]; vaccines: { nextDate?: string }[] }) {
   return {
     petName: pet.name,
     generatedAt: new Date().toISOString(),

@@ -1,4 +1,4 @@
-import React, { memo, useRef, useEffect, useCallback, useMemo } from 'react';
+import React, { memo, useRef, useEffect, useCallback } from 'react';
 
 interface BatteryInfo {
   level: number;

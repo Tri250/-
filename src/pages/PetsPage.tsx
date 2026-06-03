@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { ChevronLeft, Plus, Trash2, Dog, Cat, Rabbit, Edit2, Save, Upload, X, AlertTriangle, Check, Copy } from 'lucide-react';
+import { ChevronLeft, Plus, Trash2, Dog, _Cat, Edit2, Save, Upload, X, AlertTriangle, Check, Copy } from 'lucide-react';
 import { usePetStore } from '../store/petStore';
 import { Pet, PetType, PET_TEMPLATES, getPetTemplate } from '../types/pet';
 

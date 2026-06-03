@@ -208,7 +208,7 @@ class SevenLevelAlertService {
   }
 
   // 计算预警等级
-  async calculateAlertLevel(petId: string): Promise<AlertLevel> {
+  async calculateAlertLevel(_petId: string): Promise<AlertLevel> {
     await this.simulateDelay(MOCK_DELAY);
 
     // 模拟基于各种因素计算预警等级
@@ -224,7 +224,7 @@ class SevenLevelAlertService {
   }
 
   // 检测24小时异常频率
-  async detect24HourFrequency(petId: string, behaviorType: string): Promise<{
+  async detect24HourFrequency(_petId: string, _behaviorType: string): Promise<{
     count: number;
     level: AlertLevel;
     exceedsThreshold: boolean;
@@ -242,7 +242,7 @@ class SevenLevelAlertService {
   }
 
   // 检测30天趋势异常
-  async detectTrendAnomaly(petId: string): Promise<{
+  async detectTrendAnomaly(_petId: string): Promise<{
     hasAnomaly: boolean;
     deviation: number;
     level: AlertLevel;

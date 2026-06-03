@@ -7,7 +7,7 @@
 // ============================================
 
 import { useState } from 'react';
-import { Shield, Check, ChevronRight, FileText, DollarSign, Star } from 'lucide-react';
+import { Shield, Check } from 'lucide-react';
 import { useInsuranceStore } from '../store/insuranceStore';
 
 export function InsurancePage() {

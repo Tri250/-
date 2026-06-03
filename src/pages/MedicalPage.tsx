@@ -7,11 +7,11 @@
 // ============================================
 
 import { useState } from 'react';
-import { Stethoscope, MessageSquare, Calendar, ChevronRight, AlertCircle, CheckCircle, Clock } from 'lucide-react';
+import { Stethoscope, MessageSquare, Calendar } from 'lucide-react';
 import { useMedicalStore } from '../store/medicalStore';
 
 export function MedicalPage() {
-  const { symptoms, consultations, appointments, startAIConsultation, currentConsultation } = useMedicalStore();
+  const { symptoms, consultations, startAIConsultation } = useMedicalStore();
   const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 

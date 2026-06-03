@@ -1,5 +1,5 @@
 import type { AIMessage, ConversationContext, ImageAnalysisResult, VoiceRecognitionResult, InputValidationResult } from '../types/ai-consultation';
-import { SYMPTOM_KEYWORDS, INTENT_KEYWORDS, AMBIGUOUS_KEYWORDS, MULTI_INTENT_INDICATORS, INTERNET_SLANG, DIALECT_EXPRESSIONS, INPUT_VALIDATION_CONFIG, PROHIBITED_CONTENT_PATTERNS, MULTILINGUAL_CONFIG } from '../types/ai-consultation';
+import { INTENT_KEYWORDS, AMBIGUOUS_KEYWORDS, MULTI_INTENT_INDICATORS, INTERNET_SLANG, DIALECT_EXPRESSIONS, INPUT_VALIDATION_CONFIG, PROHIBITED_CONTENT_PATTERNS, MULTILINGUAL_CONFIG } from '../types/ai-consultation';
 
 interface AIResponse {
   content: string;
@@ -676,6 +676,7 @@ export class AIConsultationService {
       }
     }
     
+    // eslint-disable-next-line no-control-regex
     const garbagePattern = /^[\s\u0000-\u001F\u007F-\u009F\u2000-\u20FF\uFF00-\uFFEF]*$/;
     if (garbagePattern.test(trimmedContent) && contentLength > 0) {
       errors.push('输入内容包含无效字符或乱码');
@@ -686,12 +687,15 @@ export class AIConsultationService {
       errors.push('输入内容包含大量重复字符，可能是无效输入');
     }
     
+    // eslint-disable-next-line no-control-regex
     const controlChars = trimmedContent.match(/[\u0000-\u001F\u007F-\u009F]/g);
     if (controlChars && controlChars.length > 5) {
       warnings.push('输入内容包含控制字符，已自动清理');
     }
     
-    let sanitizedContent = trimmedContent
+     
+    const sanitizedContent = trimmedContent
+      // eslint-disable-next-line no-control-regex
       .replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
       .replace(/\s+/g, ' ')
       .trim();
@@ -748,6 +752,7 @@ export class AIConsultationService {
 
   sanitizeInput(content: string): string {
     return content
+      // eslint-disable-next-line no-control-regex
       .replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
       .replace(/\u200B/g, '')
       .replace(/\uFEFF/g, '')
@@ -1493,7 +1498,7 @@ export class AIConsultationService {
   ): Promise<AIMessage> {
     await this.simulateDelay(800 + Math.random() * 700);
     
-    const userMessage: AIMessage = {
+    const _userMessage: AIMessage = {
       id: Date.now().toString(),
       role: 'user',
       content,
@@ -1822,7 +1827,7 @@ export class AIConsultationService {
     consultationId: string,
     audioUrl: string,
     transcript?: string,
-    petType?: string
+    _petType?: string
   ): Promise<AIMessage> {
     await this.simulateDelay(1000 + Math.random() * 500);
     

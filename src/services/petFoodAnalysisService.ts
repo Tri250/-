@@ -97,7 +97,7 @@ class PetFoodAnalysisService {
   constructor() {}
 
   // 模拟OCR识别配料表
-  async extractIngredientsFromImage(imageBase64: string): Promise<string> {
+  async extractIngredientsFromImage(_imageBase64: string): Promise<string> {
     await this.simulateDelay(MOCK_DELAY);
 
     const mockIngredients = [

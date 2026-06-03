@@ -10,16 +10,12 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Shield, 
-  Activity, 
   FileText, 
   AlertTriangle,
   Bell,
   Phone,
-  ChevronRight,
-  ChevronLeft,
   Home,
   BarChart3,
-  MessageSquare,
   Stethoscope
 } from 'lucide-react';
 import { HealthDashboardComponent } from '../components/health/HealthDashboardComponent';

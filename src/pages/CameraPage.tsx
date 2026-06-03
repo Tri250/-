@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Camera, Plus, X, Monitor, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Camera, Plus, X, Monitor } from 'lucide-react';
 import { CameraList } from '../components/camera/CameraList';
 import { CameraPlayer } from '../components/camera/CameraPlayer';
 import { DevicePairing } from '../components/camera/DevicePairing';

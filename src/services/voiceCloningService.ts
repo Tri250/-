@@ -179,7 +179,7 @@ class VoiceCloningService {
   }
 
   // 检查录音质量
-  async checkRecordingQuality(audioData: Float32Array, sampleRate: number): Promise<{
+  async checkRecordingQuality(_audioData: Float32Array, _sampleRate: number): Promise<{
     quality: number;
     recommendations: string[];
     isAcceptable: boolean;

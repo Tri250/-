@@ -9,9 +9,9 @@
 import type { 
   FusionEvent, 
   FusionRule, 
-  VisualCondition, 
-  AudioCondition, 
-  FaceCondition, 
+  _VisualCondition, 
+  _AudioCondition, 
+  _FaceCondition, 
   EventType, 
   Severity 
 } from '../types/fusion';
@@ -242,9 +242,9 @@ class FusionEngineService {
   // 评估规则
   private evaluateRule(
     rule: FusionRule,
-    visualData: any,
-    audioData: any,
-    faceData: any
+    visualData: Record<string, unknown>,
+    audioData: Record<string, unknown>,
+    faceData: Record<string, unknown>
   ): { matched: boolean; matchedModalities: number; confidence: number } {
     let matchedModalities = 0;
     let totalConfidence = 0;
@@ -301,9 +301,9 @@ class FusionEngineService {
   // 执行三模融合
   async fuseModalities(
     petId: string,
-    visualData?: any,
-    audioData?: any,
-    faceData?: any
+    visualData?: Record<string, unknown>,
+    audioData?: Record<string, unknown>,
+    faceData?: Record<string, unknown>
   ): Promise<FusionEvent[]> {
     await this.simulateDelay(MOCK_DELAY);
 

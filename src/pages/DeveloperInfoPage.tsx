@@ -2,7 +2,6 @@ import React from 'react';
 import { 
   ChevronLeft, 
   Heart, 
-  Mail,
   Calendar,
   MapPin,
   Music,

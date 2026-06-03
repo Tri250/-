@@ -6,7 +6,6 @@ import {
   FileText, 
   BookOpen, 
   Calendar, 
-  TrendingUp, 
   Activity,
   Star,
   Clock,
@@ -16,18 +15,9 @@ import {
   MessageCircle,
   RefreshCw,
   Sparkles,
-  Zap,
-  Shield,
-  Bell,
-  Stethoscope,
-  PawPrint,
-  Brain,
-  ScanLine,
-  ClipboardList,
-  Lightbulb,
-  ArrowRight
+  Bell
 } from 'lucide-react';
-import { GlassCard, GlassButton, SkeletonCard, SkeletonQuickActions } from '../components/DesignSystem';
+import { GlassCard, SkeletonCard, SkeletonQuickActions } from '../components/DesignSystem';
 import '../styles/animations.css';
 import { useAppStore } from '../store/appStore';
 import { useBondStore } from '../store/bondStore';
@@ -220,7 +210,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
     onNavigate(page);
   }, [onNavigate]);
 
-  const refreshProgress = Math.min(pullDistance / 60, 1);
+  const _refreshProgress = Math.min(pullDistance / 60, 1);
   const refreshRotation = pullDistance * 2;
 
   return (
