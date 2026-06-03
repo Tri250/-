@@ -26,26 +26,25 @@ jobs:
           cache: 'npm'
 
       - name: Setup Java JDK
-        uses: actions/setup-java@v4 npm dependencies
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Install npm dependencies
         run: npm ci
 
       - name: Build web application
         run: npm run build
 
-      - name: Re-initialize Android platform (Capacitor 8
-        run: |
-          rm -rf android
-          npx cap add android
-
-      - name: Sync Capacitor
-        run: npx cap sync android8)
+      - name: Re-initialize Android platform
         run: |
           rm -rf android
           npx cap add android
 
       - name: Sync Capacitor
         run: npx cap sync android
-       env:
+        env:
           ANDROID_HOME: $HOME/android-sdk
           ANDROID_SDK_ROOT: $HOME/android-sdk
 
