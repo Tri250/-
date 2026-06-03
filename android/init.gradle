@@ -1,0 +1,41 @@
+// Gradle 初始化脚本 - 强制使用本地仓库优先
+gradle.settingsEvaluated { settings ->
+    settings.pluginManagement {
+        repositories {
+            // 本地仓库 - 最高优先级
+            maven { url '/workspace/local-maven-repo' }
+            // 官方仓库 - 备用
+            google()
+            mavenCentral()
+            gradlePluginPortal()
+        }
+    }
+    settings.dependencyResolutionManagement {
+        repositories {
+            // 本地仓库 - 最高优先级
+            maven { url '/workspace/local-maven-repo' }
+            // 官方仓库 - 备用
+            google()
+            mavenCentral()
+        }
+    }
+}
+
+allprojects {
+    buildscript {
+        repositories {
+            // 本地仓库 - 最高优先级
+            maven { url '/workspace/local-maven-repo' }
+            // 官方仓库 - 备用
+            google()
+            mavenCentral()
+        }
+    }
+    repositories {
+        // 本地仓库 - 最高优先级
+        maven { url '/workspace/local-maven-repo' }
+        // 官方仓库 - 备用
+        google()
+        mavenCentral()
+    }
+}

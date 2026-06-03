@@ -2,10 +2,9 @@
 
 buildscript {
     repositories {
-        maven { url 'https://maven.aliyun.com/repository/central' }
-        maven { url 'https://maven.aliyun.com/repository/google' }
-        maven { url 'https://maven.aliyun.com/repository/public' }
-        maven { url '../local-maven-repo' }
+        // 本地仓库 - 最高优先级（使用绝对路径）
+        maven { url '/workspace/local-maven-repo' }
+        // 官方仓库 - 备用
         google()
         mavenCentral()
     }
@@ -18,10 +17,9 @@ apply from: "variables.gradle"
 
 allprojects {
     repositories {
-        maven { url 'https://maven.aliyun.com/repository/central' }
-        maven { url 'https://maven.aliyun.com/repository/google' }
-        maven { url 'https://maven.aliyun.com/repository/public' }
-        maven { url '../local-maven-repo' }
+        // 本地仓库 - 最高优先级（使用绝对路径）
+        maven { url '/workspace/local-maven-repo' }
+        // 官方仓库 - 备用
         google()
         mavenCentral()
     }
