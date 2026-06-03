@@ -1,12 +1,14 @@
 ext {
-    minSdkVersion = 22
-    compileSdkVersion = 35
-    targetSdkVersion = 35
+    minSdkVersion = 24
+    compileSdkVersion = 36
+    targetSdkVersion = 36
     androidxAppCompatVersion = '1.7.0'
     androidxCoreVersion = '1.15.0'
+    androidxCoreSplashScreenVersion = '1.0.1'
     androidxMaterialVersion = '1.12.0'
     androidxBrowserVersion = '1.8.0'
     androidxLocalBroadcastManagerVersion = '1.1.0'
+    androidxCoordinatorLayoutVersion = '1.2.0'
     firebaseMessagingVersion = '24.1.0'
     playServicesLocationVersion = '21.3.0'
     junitVersion = '4.13.2'
