@@ -1,5 +1,6 @@
 import React, { memo, useRef, useCallback, useEffect, useState } from 'react';
 import { cn } from '../../lib/utils';
+import { useDeviceCapabilities } from '../../utils/performanceDetection';
 
 interface GlassCardProps {
   children: React.ReactNode;
@@ -12,6 +13,8 @@ interface GlassCardProps {
   enableLiquid?: boolean;
   enableShine?: boolean;
   enableGlow?: boolean;
+  /** 是否强制使用回退样式（用于测试） */
+  forceFallback?: boolean;
 }
 
 const tiltCache = new Map<string, { x: number; y: number }>();
@@ -25,15 +28,26 @@ export const GlassCard = memo(({
   enable3D = false,
   enableLiquid = false,
   enableShine = false,
-  enableGlow = false
+  enableGlow = false,
+  forceFallback = false
 }: GlassCardProps) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number>(0);
   const isHoveringRef = useRef(false);
   const [isHovered, setIsHovered] = useState(false);
+  
+  // 检测设备能力
+  const capabilities = useDeviceCapabilities();
+  
+  // 根据设备能力决定是否启用高级效果
+  const shouldUseFallback = forceFallback || capabilities.isLowPerformance || !capabilities.hasBackdropFilter;
+  const canUse3D = enable3D && !capabilities.isLowPerformance && !capabilities.prefersReducedMotion;
+  const canUseShine = enableShine && !capabilities.isLowPerformance && !capabilities.prefersReducedMotion;
+  const canUseGlow = enableGlow && !capabilities.isLowPerformance && !capabilities.prefersReducedMotion;
+  const canUseLiquid = enableLiquid && !capabilities.isLowPerformance && !capabilities.prefersReducedMotion;
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (!enable3D || !cardRef.current) return;
+    if (!canUse3D || !cardRef.current) return;
 
     if (rafRef.current) {
       cancelAnimationFrame(rafRef.current);
@@ -62,27 +76,27 @@ export const GlassCard = memo(({
       card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.02, 1.02, 1.02)`;
       card.style.willChange = 'transform';
     });
-  }, [enable3D]);
+  }, [canUse3D]);
 
   const handleMouseEnter = useCallback(() => {
     setIsHovered(true);
-    if (enable3D) {
+    if (canUse3D) {
       isHoveringRef.current = true;
       if (cardRef.current) {
         cardRef.current.style.transition = 'transform 0.1s ease-out';
       }
     }
-  }, [enable3D]);
+  }, [canUse3D]);
 
   const handleMouseLeave = useCallback(() => {
     setIsHovered(false);
-    if (enable3D && cardRef.current) {
+    if (canUse3D && cardRef.current) {
       isHoveringRef.current = false;
       cardRef.current.style.transition = 'transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
       cardRef.current.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)';
       cardRef.current.style.willChange = 'auto';
     }
-  }, [enable3D]);
+  }, [canUse3D]);
 
   useEffect(() => {
     return () => {
@@ -111,22 +125,28 @@ export const GlassCard = memo(({
       ref={cardRef}
       className={cn(
         'glass-card dark:glass-card-dark rounded-2xl transition-all duration-300',
-        'hover-lift active-scale',
-        enableLiquid && 'liquid-hover liquid-press',
-        enableShine && 'glass-shine',
-        enableGlow && 'glass-glow',
+        !shouldUseFallback && 'hover-lift active-scale',
+        canUseLiquid && 'liquid-hover liquid-press',
+        canUseShine && 'glass-shine',
+        canUseGlow && 'glass-glow',
         paddingClasses[padding],
         variantClasses[variant],
         onClick && 'cursor-pointer',
         className
-      )} 
+      )}
+      style={shouldUseFallback ? {
+        backdropFilter: 'none',
+        WebkitBackdropFilter: 'none',
+        background: 'rgba(255, 255, 255, 0.95)',
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+      } : undefined}
       onClick={onClick}
       onMouseMove={handleMouseMove}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
       {/* 液态玻璃光泽层 */}
-      {enableShine && isHovered && (
+      {canUseShine && isHovered && (
         <div 
           className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none"
           aria-hidden="true"
@@ -143,7 +163,7 @@ export const GlassCard = memo(({
       </div>
       
       {/* 液态玻璃边框发光层 */}
-      {enableGlow && isHovered && (
+      {canUseGlow && isHovered && (
         <div 
           className="absolute inset-0 rounded-2xl pointer-events-none"
           style={{

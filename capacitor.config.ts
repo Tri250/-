@@ -16,15 +16,29 @@ const config: CapacitorConfig = {
     SplashScreen: {
       launchShowDuration: 2000,
       backgroundColor: '#f8fafc',
-      showSpinner: true,
-      spinnerColor: '#f97316',
-      splashFullScreen: true,
-      splashImmersive: true,
-      autoHide: true
+      androidSplashResourceName: 'splash',
+      androidScaleType: 'CENTER_CROP',
+      showSpinner: false
     },
     StatusBar: {
       style: 'LIGHT',
-      backgroundColor: '#f8fafc'
+      backgroundColor: '#f8fafc',
+      overlaysWebView: false
+    },
+    NavigationBar: {
+      backgroundColor: '#f8fafc',
+      style: 'LIGHT',
+      overlaysWebView: false
+    },
+    Keyboard: {
+      resize: 'body',
+      resizeOnFullScreen: true,
+      style: 'dark',
+      styleOnFullScreen: 'dark'
+    },
+    Haptics: {
+      selectionStartDuration: 10,
+      selectionChangedDuration: 10
     },
     App: {
       launchUrl: '',
@@ -35,11 +49,18 @@ const config: CapacitorConfig = {
     },
     LocalNotifications: {
       smallIcon: 'ic_stat_icon_config_sample',
-      iconColor: '#f97316'
+      iconColor: '#f97316',
+      requestPermissionsOnLaunch: true
     },
     PushNotifications: {
       presentationOptions: ['badge', 'sound', 'alert'],
-      fcm: true
+      fcm: true,
+      android: {
+        senderId: 'YOUR_SENDER_ID'
+      }
+    },
+    Share: {
+      dialogTitle: '分享爪爪连心'
     }
   }
 };

@@ -283,3 +283,190 @@ body {
     -webkit-tap-highlight-color: transparent;
   }
 }
+
+/* ============================================
+   低端设备回退样式
+   ============================================ */
+
+/* Reduced motion 偏好 - 禁用复杂动画和玻璃效果 */
+@media (prefers-reduced-motion: reduce) {
+  .glass-card,
+  .glass-card-dark,
+  .glass-surface,
+  .glass-surface-dark,
+  .glass-button,
+  .glass-navbar,
+  .glass-modal,
+  .glass-hero,
+  .glass-float,
+  .liquid-glass-card {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: rgba(255, 255, 255, 0.95) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+    transition: none !important;
+    animation: none !important;
+  }
+  
+  .dark .glass-card,
+  .dark .glass-card-dark,
+  .dark .glass-surface,
+  .dark .glass-surface-dark,
+  .dark .glass-button,
+  .dark .glass-navbar,
+  .dark .glass-modal,
+  .dark .glass-hero,
+  .dark .glass-float,
+  .dark .liquid-glass-card {
+    background: rgba(30, 30, 35, 0.95) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+  }
+  
+  /* 禁用光泽和发光效果 */
+  .glass-shine::before,
+  .glass-glow::after {
+    display: none !important;
+  }
+  
+  /* 禁用悬停变换 */
+  .glass-card:hover,
+  .glass-button:hover {
+    transform: none !important;
+  }
+}
+
+/* 低性能设备 - 简化玻璃效果 */
+.low-performance .glass-card,
+.low-performance .glass-card-dark,
+.low-performance .glass-surface,
+.low-performance .glass-surface-dark,
+.low-performance .glass-button,
+.low-performance .glass-navbar,
+.low-performance .glass-modal,
+.low-performance .glass-hero,
+.low-performance .glass-float,
+.low-performance .liquid-glass-card {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: rgba(255, 255, 255, 0.98) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+}
+
+.low-performance .dark .glass-card,
+.low-performance .dark .glass-card-dark,
+.low-performance .dark .glass-surface,
+.low-performance .dark .glass-surface-dark,
+.low-performance .dark .glass-button,
+.low-performance .dark .glass-navbar,
+.low-performance .dark .glass-modal,
+.low-performance .dark .glass-hero,
+.low-performance .dark .glass-float,
+.low-performance .dark .liquid-glass-card {
+  background: rgba(30, 30, 35, 0.98) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+}
+
+/* 性能等级 - 低端设备 */
+.performance-low .glass-card,
+.performance-low .glass-card-dark,
+.performance-low .glass-surface,
+.performance-low .glass-surface-dark,
+.performance-low .glass-button,
+.performance-low .glass-navbar,
+.performance-low .glass-modal,
+.performance-low .glass-hero,
+.performance-low .glass-float,
+.performance-low .liquid-glass-card {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: rgba(255, 255, 255, 0.98) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+  transition: background 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+.performance-low .dark .glass-card,
+.performance-low .dark .glass-card-dark,
+.performance-low .dark .glass-surface,
+.performance-low .dark .glass-surface-dark,
+.performance-low .dark .glass-button,
+.performance-low .dark .glass-navbar,
+.performance-low .dark .glass-modal,
+.performance-low .dark .glass-hero,
+.performance-low .dark .glass-float,
+.performance-low .dark .liquid-glass-card {
+  background: rgba(30, 30, 35, 0.98) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+}
+
+/* 性能等级 - 中端设备 (保留简化版玻璃效果) */
+.performance-medium .glass-card,
+.performance-medium .glass-card-dark,
+.performance-medium .glass-surface,
+.performance-medium .glass-surface-dark,
+.performance-medium .glass-button,
+.performance-medium .glass-navbar,
+.performance-medium .glass-modal,
+.performance-medium .glass-hero,
+.performance-medium .glass-float,
+.performance-medium .liquid-glass-card {
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+}
+
+/* 低性能设备禁用 3D 变换 */
+.low-performance .glass-card,
+.performance-low .glass-card {
+  transform: none !important;
+  will-change: auto !important;
+}
+
+/* 低性能设备禁用光泽动画 */
+.low-performance .glass-shine::before,
+.performance-low .glass-shine::before {
+  display: none !important;
+}
+
+/* 低性能设备禁用发光效果 */
+.low-performance .glass-glow::after,
+.performance-low .glass-glow::after {
+  display: none !important;
+}
+
+/* 不支持 backdrop-filter 的浏览器 */
+@supports not (backdrop-filter: blur(1px)) {
+  .glass-card,
+  .glass-card-dark,
+  .glass-surface,
+  .glass-surface-dark,
+  .glass-button,
+  .glass-navbar,
+  .glass-modal,
+  .glass-hero,
+  .glass-float,
+  .liquid-glass-card {
+    background: rgba(255, 255, 255, 0.95) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+  }
+  
+  .dark .glass-card,
+  .dark .glass-card-dark,
+  .dark .glass-surface,
+  .dark .glass-surface-dark,
+  .dark .glass-button,
+  .dark .glass-navbar,
+  .dark .glass-modal,
+  .dark .glass-hero,
+  .dark .glass-float,
+  .dark .liquid-glass-card {
+    background: rgba(30, 30, 35, 0.95) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+  }
+}
+
+/* 移动设备优化 - 减少重绘 */
+.is-mobile .glass-card,
+.is-mobile .glass-card-dark,
+.is-mobile .glass-surface,
+.is-mobile .glass-surface-dark {
+  will-change: auto;
+}

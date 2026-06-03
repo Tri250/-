@@ -33,6 +33,7 @@ import { HelpFeedbackPage } from './pages/HelpFeedbackPage';
 import { DeveloperInfoPage } from './pages/DeveloperInfoPage';
 import { useAppStore } from './store/appStore';
 import { PawPrint } from 'lucide-react';
+import { useDeviceCapabilities, applyPerformanceClass } from './utils/performanceDetection';
 
 function LoadingScreen({ progress, message }: { progress: number; message: string }) {
   return (
@@ -72,6 +73,9 @@ export default function App() {
     initializeApp,
     settings
   } = useAppStore();
+  
+  // 检测设备能力
+  const capabilities = useDeviceCapabilities();
 
   useEffect(() => {
     if (!isInitialized) {
@@ -86,6 +90,11 @@ export default function App() {
       document.documentElement.classList.remove('dark');
     }
   }, [settings.darkMode]);
+  
+  // 应用性能类到根元素
+  useEffect(() => {
+    applyPerformanceClass(capabilities);
+  }, [capabilities]);
 
   if (!isInitialized) {
     return <LoadingScreen progress={initProgress} message={initMessage} />;
