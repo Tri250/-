@@ -23,6 +23,14 @@ interface HealthRecordStore {
   getFilteredRecordsByTags: (petId: string, tagIds: string[]) => HealthRecord[];
 }
 
+const DEFAULT_TAGS: HealthTag[] = [
+  { id: 'abnormal', name: '异常', color: '#ef4444' },
+  { id: 'food', name: '饮食', color: '#f97316' },
+  { id: 'checkup', name: '体检', color: '#22c55e' },
+  { id: 'medicine', name: '用药', color: '#3b82f6' },
+  { id: 'vaccine', name: '疫苗', color: '#8b5cf6' },
+];
+
 const INITIAL_RECORDS: HealthRecord[] = [
   {
     id: '1',
@@ -31,6 +39,8 @@ const INITIAL_RECORDS: HealthRecord[] = [
     title: '毛球食欲不振',
     content: '今天早上发现毛球吃得比平时少，精神状态还好，继续观察。',
     tags: ['abnormal', 'food'],
+    date: new Date(Date.now() - 86400000).toISOString(),
+    createdBy: 'user-1',
     createdAt: new Date(Date.now() - 86400000).toISOString(),
     updatedAt: new Date(Date.now() - 86400000).toISOString(),
     isImportant: true,
@@ -43,6 +53,8 @@ const INITIAL_RECORDS: HealthRecord[] = [
     content: '年度体检完成，各项指标正常。体重5.2kg，保持良好。',
     tags: ['checkup'],
     attachments: ['https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=400'],
+    date: new Date(Date.now() - 604800000).toISOString(),
+    createdBy: 'user-1',
     createdAt: new Date(Date.now() - 604800000).toISOString(),
     updatedAt: new Date(Date.now() - 604800000).toISOString(),
     isImportant: true,
@@ -54,6 +66,8 @@ const INITIAL_RECORDS: HealthRecord[] = [
     title: '第一次驱虫',
     content: '今天带旺财做了第一次体内外驱虫，医生说很健康。',
     tags: ['medicine'],
+    date: new Date(Date.now() - 2592000000).toISOString(),
+    createdBy: 'user-1',
     createdAt: new Date(Date.now() - 2592000000).toISOString(),
     updatedAt: new Date(Date.now() - 2592000000).toISOString(),
     isImportant: false,

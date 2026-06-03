@@ -53,6 +53,9 @@ interface AppSettings {
   notifications: boolean;
   language: string;
   units: 'metric' | 'imperial';
+  soundEnabled: boolean;
+  fontSize: 'small' | 'medium' | 'large';
+  autoPlay: boolean;
 }
 
 interface AppState {
@@ -111,6 +114,7 @@ interface AppState {
 
   // Actions - 设置
   updateSettings: (settings: Partial<AppSettings>) => void;
+  clearAllData: () => void;
 }
 
 const DEFAULT_PET: Pet = {
@@ -185,6 +189,9 @@ const DEFAULT_SETTINGS: AppSettings = {
   notifications: true,
   language: 'zh-CN',
   units: 'metric',
+  soundEnabled: true,
+  fontSize: 'medium',
+  autoPlay: true,
 };
 
 export const useAppStore = create<AppState>()(
@@ -300,6 +307,15 @@ export const useAppStore = create<AppState>()(
 
       updateSettings: (newSettings) =>
         set((state) => ({ settings: { ...state.settings, ...newSettings } })),
+
+      clearAllData: () =>
+        set({
+          pets: [DEFAULT_PET],
+          currentPet: DEFAULT_PET,
+          analyses: [],
+          healthAlerts: DEFAULT_HEALTH_ALERTS,
+          settings: DEFAULT_SETTINGS,
+        }),
     }),
     {
       name: 'app-storage',

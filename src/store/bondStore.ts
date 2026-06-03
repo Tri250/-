@@ -38,6 +38,9 @@ interface BondState {
   milestones: Milestone[];
   dailyActivities: DailyActivity[];
   trainingRecords: any[];
+  totalPoints: number;
+  badges: string[];
+  streakDays: number;
 
   addMemory: (memory: Omit<Memory, 'id' | 'createdAt'>) => void;
   updateMemory: (id: string, updates: Partial<Memory>) => void;
@@ -85,6 +88,9 @@ export const useBondStore = create<BondState>()(
       milestones: [],
       dailyActivities: [],
       trainingRecords: [],
+      totalPoints: 0,
+      badges: [],
+      streakDays: 0,
 
       addMemory: (memory) =>
         set((state) => ({

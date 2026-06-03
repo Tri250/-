@@ -8,7 +8,12 @@ export type RecordType =
   | 'dental'
   | 'grooming'
   | 'emergency'
-  | 'pdf';
+  | 'pdf'
+  | 'text'
+  | 'photo'
+  | 'voice'
+  | 'video'
+  | 'file';
 
 export type ReminderType =
   | 'vaccination'
@@ -40,6 +45,19 @@ export interface HealthRecord {
   createdBy: string;
   createdAt: string;
   updatedAt?: string;
+  // Extended properties for health record store
+  content?: string;
+  tags?: string[];
+  pdfFileName?: string;
+  isImportant?: boolean;
+  attachments?: string[];
+}
+
+export interface HealthTag {
+  id: string;
+  name: string;
+  color?: string;
+  icon?: string;
 }
 
 export interface Reminder {
@@ -75,6 +93,11 @@ export const RECORD_TYPE_LABELS: Record<RecordType, string> = {
   grooming: '美容',
   emergency: '紧急情况',
   pdf: 'PDF文档',
+  text: '文字记录',
+  photo: '照片记录',
+  voice: '语音记录',
+  video: '视频记录',
+  file: '文件记录',
 };
 
 export const REMINDER_TYPE_LABELS: Record<ReminderType, string> = {
@@ -85,3 +108,11 @@ export const REMINDER_TYPE_LABELS: Record<ReminderType, string> = {
   feeding: '喂食',
   other: '其他',
 };
+
+export const DEFAULT_TAGS: HealthTag[] = [
+  { id: 'abnormal', name: '异常', color: '#ef4444' },
+  { id: 'food', name: '饮食', color: '#f97316' },
+  { id: 'checkup', name: '体检', color: '#22c55e' },
+  { id: 'medicine', name: '用药', color: '#3b82f6' },
+  { id: 'vaccine', name: '疫苗', color: '#8b5cf6' },
+];

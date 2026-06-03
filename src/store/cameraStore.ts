@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { Device } from '../types/device';
+import { CameraDevice as Device } from '../types/camera';
 import { StreamQuality } from '../types/camera';
 
 interface CameraState {
