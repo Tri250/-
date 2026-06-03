@@ -2,17 +2,21 @@ ext {
     minSdkVersion = 22
     compileSdkVersion = 34
     targetSdkVersion = 34
+    // 使用本地仓库中存在的版本
+    androidxActivityVersion = '1.8.0'
     androidxAppCompatVersion = '1.6.1'
+    androidxCoordinatorLayoutVersion = '1.2.0'
     androidxCoreVersion = '1.12.0'
+    androidxFragmentVersion = '1.8.0'
+    androidxWebkitVersion = '1.12.0'
     androidxMaterialVersion = '1.11.0'
     androidxBrowserVersion = '1.7.0'
     androidxLocalBroadcastManagerVersion = '1.1.0'
-    androidxCoordinatorLayoutVersion = '1.2.0'
     coreSplashScreenVersion = '1.0.1'
     firebaseMessagingVersion = '23.4.0'
     playServicesLocationVersion = '21.0.1'
     junitVersion = '4.13.2'
     androidxJunitVersion = '1.1.5'
     androidxEspressoCoreVersion = '3.5.1'
-    cordovaAndroidVersion = '10.1.1'
+    cordovaAndroidVersion = '14.0.1'
 }

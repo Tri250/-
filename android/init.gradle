@@ -1,20 +1,33 @@
-// Gradle 初始化脚本 - 强制使用本地仓库优先
+// Gradle 初始化脚本 - 强制使用本地仓库优先 + 国内镜像
 gradle.settingsEvaluated { settings ->
     settings.pluginManagement {
         repositories {
             // 本地仓库 - 最高优先级
             maven { url '/workspace/local-maven-repo' }
-            // 官方仓库 - 备用
+            // 阿里云镜像
+            maven { url 'https://maven.aliyun.com/repository/public' }
+            maven { url 'https://maven.aliyun.com/repository/google' }
+            maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
+            // 华为云镜像
+            maven { url 'https://repo.huaweicloud.com/repository/maven/' }
+            // 官方仓库 - 最后尝试
             google()
             mavenCentral()
             gradlePluginPortal()
         }
     }
     settings.dependencyResolutionManagement {
+        repositoriesMode.set(org.gradle.api.initialization.resolve.RepositoriesMode.PREFER_SETTINGS)
         repositories {
             // 本地仓库 - 最高优先级
             maven { url '/workspace/local-maven-repo' }
-            // 官方仓库 - 备用
+            // 阿里云镜像
+            maven { url 'https://maven.aliyun.com/repository/public' }
+            maven { url 'https://maven.aliyun.com/repository/google' }
+            maven { url 'https://maven.aliyun.com/repository/central' }
+            // 华为云镜像
+            maven { url 'https://repo.huaweicloud.com/repository/maven/' }
+            // 官方仓库 - 最后尝试
             google()
             mavenCentral()
         }
@@ -26,7 +39,13 @@ allprojects {
         repositories {
             // 本地仓库 - 最高优先级
             maven { url '/workspace/local-maven-repo' }
-            // 官方仓库 - 备用
+            // 阿里云镜像
+            maven { url 'https://maven.aliyun.com/repository/public' }
+            maven { url 'https://maven.aliyun.com/repository/google' }
+            maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
+            // 华为云镜像
+            maven { url 'https://repo.huaweicloud.com/repository/maven/' }
+            // 官方仓库 - 最后尝试
             google()
             mavenCentral()
         }
@@ -34,7 +53,13 @@ allprojects {
     repositories {
         // 本地仓库 - 最高优先级
         maven { url '/workspace/local-maven-repo' }
-        // 官方仓库 - 备用
+        // 阿里云镜像
+        maven { url 'https://maven.aliyun.com/repository/public' }
+        maven { url 'https://maven.aliyun.com/repository/google' }
+        maven { url 'https://maven.aliyun.com/repository/central' }
+        // 华为云镜像
+        maven { url 'https://repo.huaweicloud.com/repository/maven/' }
+        // 官方仓库 - 最后尝试
         google()
         mavenCentral()
     }
