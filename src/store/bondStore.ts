@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { BondMetrics, _DailyActivity, Badge, Achievement, BondStore } from '../types/bond';
+import { BondMetrics, DailyActivity as _DailyActivity, Badge, Achievement, BondStore } from '../types/bond';
 
 const mockBadges: Badge[] = [
   {

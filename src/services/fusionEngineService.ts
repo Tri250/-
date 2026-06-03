@@ -9,9 +9,9 @@
 import type { 
   FusionEvent, 
   FusionRule, 
-  _VisualCondition, 
-  _AudioCondition, 
-  _FaceCondition, 
+  VisualCondition as _VisualCondition, 
+  AudioCondition as _AudioCondition, 
+  FaceCondition as _FaceCondition, 
   EventType, 
   Severity 
 } from '../types/fusion';
@@ -255,11 +255,11 @@ class FusionEngineService {
       conditionCount++;
       const visualMatch = rule.visualConditions.every(cond => {
         const value = visualData?.[cond.behavior];
-        return this.evaluateCondition(value, cond.operator, cond.threshold, cond.values);
+        return this.evaluateCondition(value as string | number | undefined, cond.operator, cond.threshold, cond.values);
       });
       if (visualMatch) {
         matchedModalities++;
-        totalConfidence += visualData?.confidence || 0.5;
+        totalConfidence += (visualData?.confidence as number) || 0.5;
       }
     }
 
@@ -268,11 +268,11 @@ class FusionEngineService {
       conditionCount++;
       const audioMatch = rule.audioConditions.every(cond => {
         const value = audioData?.[cond.emotion];
-        return this.evaluateCondition(value, cond.operator, cond.threshold, cond.values);
+        return this.evaluateCondition(value as string | number | undefined, cond.operator, cond.threshold, cond.values);
       });
       if (audioMatch) {
         matchedModalities++;
-        totalConfidence += audioData?.confidence || 0.5;
+        totalConfidence += (audioData?.confidence as number) || 0.5;
       }
     }
 
@@ -281,11 +281,11 @@ class FusionEngineService {
       conditionCount++;
       const faceMatch = rule.faceConditions.every(cond => {
         const value = faceData?.[cond.expression];
-        return this.evaluateCondition(value, cond.operator, cond.threshold, cond.values);
+        return this.evaluateCondition(value as string | number | undefined, cond.operator, cond.threshold, cond.values);
       });
       if (faceMatch) {
         matchedModalities++;
-        totalConfidence += faceData?.confidence || 0.5;
+        totalConfidence += (faceData?.confidence as number) || 0.5;
       }
     }
 
@@ -312,17 +312,17 @@ class FusionEngineService {
     // 如果没有提供数据，从各服务获取最新数据
     if (!visualData) {
       const visualAlerts = await aiHealthAlertService.getAIBehaviorAlerts(petId);
-      visualData = visualAlerts.length > 0 ? visualAlerts[0] : null;
+      visualData = visualAlerts.length > 0 ? (visualAlerts[0] as unknown as Record<string, unknown>) : undefined;
     }
 
     if (!audioData) {
       const audioEvents = await audioRecognitionService.getAudioEvents(petId, 1);
-      audioData = audioEvents.length > 0 ? audioEvents[0] : null;
+      audioData = audioEvents.length > 0 ? (audioEvents[0] as unknown as Record<string, unknown>) : undefined;
     }
 
     if (!faceData) {
       const faceAnalyses = await faceExpressionService.getFaceAnalysisHistory(petId, 1);
-      faceData = faceAnalyses.length > 0 ? faceAnalyses[0] : null;
+      faceData = faceAnalyses.length > 0 ? (faceAnalyses[0] as unknown as Record<string, unknown>) : undefined;
     }
 
     // 按优先级排序规则

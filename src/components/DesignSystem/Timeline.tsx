@@ -96,12 +96,12 @@ export const TimelineItem: React.FC<TimelineItemProps> = ({
 
   return (
     <div 
-      className={`flex gap-4 animate-slide-up ${onClick ? 'cursor-pointer hover:bg-neutral-50 rounded-lg p-1 transition-colors' : ''}`}
+      className={`flex gap-3 sm:gap-4 animate-slide-up ${onClick ? 'cursor-pointer hover:bg-neutral-50 rounded-lg p-1 transition-colors' : ''}`}
       onClick={onClick}
     >
       <div className="flex flex-col items-center">
-        <div className={`w-10 h-10 rounded-full ${iconColor} flex items-center justify-center shadow-md ${isImportant ? 'ring-2 ring-amber-400 ring-offset-2' : ''}`}>
-          <Icon className="w-5 h-5 text-white" />
+        <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full ${iconColor} flex items-center justify-center shadow-md shrink-0 ${isImportant ? 'ring-2 ring-amber-400 ring-offset-2' : ''}`}>
+          <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
           {isImportant && (
             <Star className="absolute w-3 h-3 text-amber-400 fill-amber-400 -top-1 -right-1" />
           )}
@@ -109,11 +109,11 @@ export const TimelineItem: React.FC<TimelineItemProps> = ({
         <div className={`w-0.5 flex-1 ${isImportant ? 'bg-gradient-to-b from-amber-300 to-neutral-200' : 'bg-gradient-to-b from-neutral-200 to-transparent'} mt-2`} />
       </div>
       
-      <div className="flex-1 pb-6">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="text-sm font-medium text-neutral-900">{title}</span>
+      <div className="flex-1 pb-6 min-w-0">
+        <div className="flex items-center gap-2 mb-2 flex-wrap">
+          <span className="text-sm font-medium text-neutral-900 truncate">{title}</span>
           {isImportant && (
-            <span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-xs font-medium flex items-center gap-1">
+            <span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-xs font-medium flex items-center gap-1 shrink-0">
               <Star className="w-3 h-3 fill-amber-500" />
               重要
             </span>
@@ -122,20 +122,20 @@ export const TimelineItem: React.FC<TimelineItemProps> = ({
         
         {type === 'voice' && voiceDuration && (
           <div className="flex items-center gap-2 mb-2 text-sm text-purple-600">
-            <Mic className="w-4 h-4" />
+            <Mic className="w-4 h-4 shrink-0" />
             <span>{formatDuration(voiceDuration)}</span>
           </div>
         )}
         
         {voiceTranscription && (
-          <p className="text-sm text-neutral-600 mb-2 bg-purple-50 p-2 rounded-lg">
+          <p className="text-sm text-neutral-600 mb-2 bg-purple-50 p-2 rounded-lg line-clamp-3">
             {voiceTranscription}
           </p>
         )}
         
         {type === 'pdf' && pdfFileName && (
           <div className="flex items-center gap-2 mb-2 text-sm text-orange-600 bg-orange-50 p-2 rounded-lg">
-            <File className="w-4 h-4" />
+            <File className="w-4 h-4 shrink-0" />
             <span className="truncate">{pdfFileName}</span>
           </div>
         )}
@@ -145,7 +145,7 @@ export const TimelineItem: React.FC<TimelineItemProps> = ({
             <img 
               src={attachments[0]} 
               alt="记录图片" 
-              className="w-full h-32 object-cover"
+              className="w-full h-28 sm:h-32 object-cover"
             />
           </div>
         )}
@@ -154,21 +154,21 @@ export const TimelineItem: React.FC<TimelineItemProps> = ({
           <div className="mb-2 rounded-lg overflow-hidden bg-orange-50 border border-orange-100">
             <iframe
               src={attachments[0]}
-              className="w-full h-32"
+              className="w-full h-28 sm:h-32"
               title="PDF预览"
             />
           </div>
         )}
         
-        <p className="text-sm text-neutral-600 mb-3">{content}</p>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-neutral-400">{formatDate(date)}</span>
+        <p className="text-sm text-neutral-600 mb-3 line-clamp-3">{content}</p>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-neutral-400 shrink-0">{formatDate(date)}</span>
           {tags.length > 0 && (
             <div className="flex flex-wrap gap-1">
               {tags.slice(0, 3).map((tag) => (
                 <span
                   key={tag}
-                  className="px-2 py-0.5 rounded-full text-xs"
+                  className="px-2 py-0.5 rounded-full text-xs truncate max-w-[80px]"
                   style={{ backgroundColor: tagColors[tag] ? `${tagColors[tag]}20` : undefined, color: tagColors[tag] }}
                 >
                   {tag}

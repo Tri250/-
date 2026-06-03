@@ -193,7 +193,7 @@ describe('HealthService', () => {
     });
 
     it('应该支持不同的指标类型', async () => {
-      const types: HealthMetricType[] = ['weight', 'sleep', 'activity', 'food', 'water', 'heart_rate', 'temperature'];
+      const types: HealthMetricType[] = ['weight', 'sleep', 'activity', 'eating', 'drinking'];
       
       for (const type of types) {
         const metric = await healthService.addHealthMetric({

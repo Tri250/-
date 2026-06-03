@@ -65,22 +65,24 @@ export const RemindersPage: React.FC<RemindersPageProps> = ({ onNavigate }) => {
   return (
     <div className="min-h-screen bg-neutral-50 pb-24">
       {/* Header */}
-      <header className="bg-gradient-to-br from-purple-500 to-purple-600 text-white px-4 py-6">
+      <header className="bg-gradient-to-br from-purple-500 to-purple-600 text-white px-4 py-5 md:py-6">
         <div className="max-w-md mx-auto">
-          <div className="flex items-center gap-4 mb-6">
+          <div className="flex items-center gap-3 md:gap-4 mb-5 md:mb-6">
             <button 
               onClick={() => onNavigate('home')}
-              className="p-2 -ml-2 rounded-full bg-white/20 backdrop-blur hover:bg-white/30 transition-all"
+              className="p-2.5 -ml-2 rounded-full bg-white/20 backdrop-blur hover:bg-white/30 active:bg-white/40 transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
+              aria-label="返回"
             >
               <ChevronLeft className="w-6 h-6" />
             </button>
             <div className="flex-1">
-              <h1 className="text-xl font-bold">智能提醒</h1>
-              <p className="text-sm text-white/80">不错过任何重要时间</p>
+              <h1 className="text-lg md:text-xl font-bold">智能提醒</h1>
+              <p className="text-xs md:text-sm text-white/80">不错过任何重要时间</p>
             </div>
             <button 
               onClick={() => setIsAddModalOpen(true)}
-              className="p-2 rounded-full bg-white/20 backdrop-blur hover:bg-white/30 transition-all"
+              className="p-2.5 rounded-full bg-white/20 backdrop-blur hover:bg-white/30 active:bg-white/40 transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
+              aria-label="添加提醒"
             >
               <Plus className="w-6 h-6" />
             </button>
@@ -90,24 +92,24 @@ export const RemindersPage: React.FC<RemindersPageProps> = ({ onNavigate }) => {
           <div className="flex gap-2 bg-white/20 backdrop-blur p-1 rounded-xl">
             <button
               onClick={() => setViewMode('today')}
-              className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                viewMode === 'today' ? 'bg-white text-purple-600' : 'text-white/80 hover:text-white'
+              className={`flex-1 px-4 py-2.5 md:py-2 rounded-lg text-sm font-medium transition-all min-h-[44px] md:min-h-0 ${
+                viewMode === 'today' ? 'bg-white text-purple-600' : 'text-white/80 hover:text-white active:bg-white/10'
               }`}
             >
               今天
             </button>
             <button
               onClick={() => setViewMode('week')}
-              className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                viewMode === 'week' ? 'bg-white text-purple-600' : 'text-white/80 hover:text-white'
+              className={`flex-1 px-4 py-2.5 md:py-2 rounded-lg text-sm font-medium transition-all min-h-[44px] md:min-h-0 ${
+                viewMode === 'week' ? 'bg-white text-purple-600' : 'text-white/80 hover:text-white active:bg-white/10'
               }`}
             >
               本周
             </button>
             <button
               onClick={() => setViewMode('all')}
-              className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                viewMode === 'all' ? 'bg-white text-purple-600' : 'text-white/80 hover:text-white'
+              className={`flex-1 px-4 py-2.5 md:py-2 rounded-lg text-sm font-medium transition-all min-h-[44px] md:min-h-0 ${
+                viewMode === 'all' ? 'bg-white text-purple-600' : 'text-white/80 hover:text-white active:bg-white/10'
               }`}
             >
               全部
@@ -119,13 +121,13 @@ export const RemindersPage: React.FC<RemindersPageProps> = ({ onNavigate }) => {
       {/* Type Filter */}
       <div className="bg-white border-b border-neutral-100 px-4 py-3">
         <div className="max-w-md mx-auto">
-          <div className="flex gap-2 overflow-x-auto pb-1">
+          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
             <button
               onClick={() => setSelectedType(null)}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
+              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all min-h-[40px] ${
                 selectedType === null
                   ? 'bg-purple-500 text-white'
-                  : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                  : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200 active:bg-neutral-300'
               }`}
             >
               全部
@@ -134,10 +136,10 @@ export const RemindersPage: React.FC<RemindersPageProps> = ({ onNavigate }) => {
               <button
                 key={type.id}
                 onClick={() => setSelectedType(type.id as ReminderType)}
-                className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
+                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all min-h-[40px] ${
                   selectedType === type.id
                     ? 'bg-purple-500 text-white'
-                    : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                    : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200 active:bg-neutral-300'
                 }`}
                 style={selectedType !== type.id ? { backgroundColor: type.color + '20', color: type.color } : {}}
               >
@@ -165,15 +167,15 @@ export const RemindersPage: React.FC<RemindersPageProps> = ({ onNavigate }) => {
                     <Card key={reminder.id} hover className="border-l-4" style={{ borderLeftColor: typeConfig?.color }}>
                       <div className="flex items-start gap-3">
                         <div 
-                          className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                          className="w-11 h-11 md:w-10 md:h-10 rounded-xl flex items-center justify-center flex-shrink-0"
                           style={{ backgroundColor: typeConfig?.color + '20' }}
                         >
                           <Icon className="w-5 h-5" style={{ color: typeConfig?.color }} />
                         </div>
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-neutral-800">{reminder.title}</h3>
-                          <div className="flex items-center gap-2 mt-1">
-                            <Clock className="w-3.5 h-3.5 text-neutral-400" />
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-neutral-800 text-base md:text-sm">{reminder.title}</h3>
+                          <div className="flex items-center gap-2 mt-1 flex-wrap">
+                            <Clock className="w-3.5 h-3.5 text-neutral-400 flex-shrink-0" />
                             <span className="text-sm text-neutral-500">{formatDate(reminder.date)} {reminder.time}</span>
                             {reminder.repeat !== 'once' && (
                               <span className="text-xs text-neutral-400 bg-neutral-100 px-1.5 py-0.5 rounded-full">
@@ -182,16 +184,17 @@ export const RemindersPage: React.FC<RemindersPageProps> = ({ onNavigate }) => {
                             )}
                           </div>
                           {reminder.notes && (
-                            <p className="text-sm text-neutral-500 mt-2">{reminder.notes}</p>
+                            <p className="text-sm text-neutral-500 mt-2 line-clamp-2">{reminder.notes}</p>
                           )}
                         </div>
                         <button
                           onClick={() => toggleComplete(reminder.id)}
-                          className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
+                          className={`w-7 h-7 md:w-6 md:h-6 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 ${
                             reminder.isCompleted
                               ? 'bg-success-500 border-success-500'
-                              : 'border-neutral-300 hover:border-purple-500'
+                              : 'border-neutral-300 hover:border-purple-500 active:border-purple-400'
                           }`}
+                          aria-label={reminder.isCompleted ? '标记为未完成' : '标记为完成'}
                         >
                           {reminder.isCompleted && <Check className="w-4 h-4 text-white" />}
                         </button>
@@ -216,7 +219,7 @@ export const RemindersPage: React.FC<RemindersPageProps> = ({ onNavigate }) => {
                 action={
                   <button 
                     onClick={() => setIsAddModalOpen(true)}
-                    className="px-6 py-2.5 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-xl font-medium hover:shadow-lg hover:shadow-purple-500/30 transition-all"
+                    className="px-6 py-3 md:py-2.5 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-xl font-medium hover:shadow-lg hover:shadow-purple-500/30 active:from-purple-600 active:to-purple-700 transition-all min-h-[48px] md:min-h-0"
                   >
                     添加提醒
                   </button>
@@ -231,15 +234,15 @@ export const RemindersPage: React.FC<RemindersPageProps> = ({ onNavigate }) => {
                     <Card key={reminder.id} hover className={`border-l-4 ${reminder.isCompleted ? 'opacity-60' : ''}`} style={{ borderLeftColor: typeConfig?.color }}>
                       <div className="flex items-start gap-3">
                         <div 
-                          className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                          className="w-11 h-11 md:w-10 md:h-10 rounded-xl flex items-center justify-center flex-shrink-0"
                           style={{ backgroundColor: typeConfig?.color + '20' }}
                         >
                           <Icon className="w-5 h-5" style={{ color: typeConfig?.color }} />
                         </div>
-                        <div className="flex-1">
-                          <h3 className={`font-semibold text-neutral-800 ${reminder.isCompleted ? 'line-through' : ''}`}>{reminder.title}</h3>
-                          <div className="flex items-center gap-2 mt-1">
-                            <Clock className="w-3.5 h-3.5 text-neutral-400" />
+                        <div className="flex-1 min-w-0">
+                          <h3 className={`font-semibold text-neutral-800 text-base md:text-sm ${reminder.isCompleted ? 'line-through' : ''}`}>{reminder.title}</h3>
+                          <div className="flex items-center gap-2 mt-1 flex-wrap">
+                            <Clock className="w-3.5 h-3.5 text-neutral-400 flex-shrink-0" />
                             <span className="text-sm text-neutral-500">{formatDate(reminder.date)} {reminder.time}</span>
                             {reminder.repeat !== 'once' && (
                               <span className="text-xs text-neutral-400 bg-neutral-100 px-1.5 py-0.5 rounded-full">
@@ -248,16 +251,17 @@ export const RemindersPage: React.FC<RemindersPageProps> = ({ onNavigate }) => {
                             )}
                           </div>
                           {reminder.notes && (
-                            <p className="text-sm text-neutral-500 mt-2">{reminder.notes}</p>
+                            <p className="text-sm text-neutral-500 mt-2 line-clamp-2">{reminder.notes}</p>
                           )}
                         </div>
                         <button
                           onClick={() => toggleComplete(reminder.id)}
-                          className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
+                          className={`w-7 h-7 md:w-6 md:h-6 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 ${
                             reminder.isCompleted
                               ? 'bg-success-500 border-success-500'
-                              : 'border-neutral-300 hover:border-purple-500'
+                              : 'border-neutral-300 hover:border-purple-500 active:border-purple-400'
                           }`}
+                          aria-label={reminder.isCompleted ? '标记为未完成' : '标记为完成'}
                         >
                           {reminder.isCompleted && <Check className="w-4 h-4 text-white" />}
                         </button>

@@ -268,6 +268,180 @@ export const glassmorphism = {
 };
 
 // ============================================================================
+// ColorOS 16 液态玻璃效果系统
+// ============================================================================
+
+export const liquidGlass = {
+  // 液态玻璃模糊级别
+  blur: {
+    subtle: 'blur(12px) saturate(150%)',
+    medium: 'blur(20px) saturate(180%)',
+    strong: 'blur(30px) saturate(200%)',
+    ultra: 'blur(40px) saturate(220%)',
+  },
+  
+  // 液态玻璃透明度
+  opacity: {
+    subtle: 0.5,
+    medium: 0.7,
+    strong: 0.85,
+    solid: 0.95,
+  },
+  
+  // 液态玻璃边框
+  border: {
+    subtle: '1px solid rgba(255, 255, 255, 0.2)',
+    medium: '1px solid rgba(255, 255, 255, 0.3)',
+    strong: '1px solid rgba(255, 255, 255, 0.4)',
+    glow: '1px solid rgba(255, 255, 255, 0.5)',
+  },
+  
+  // 液态玻璃阴影
+  shadow: {
+    subtle: '0 4px 20px rgba(0, 0, 0, 0.06)',
+    medium: '0 8px 32px rgba(0, 0, 0, 0.1)',
+    strong: '0 16px 48px rgba(0, 0, 0, 0.15)',
+    elevated: '0 20px 60px rgba(0, 0, 0, 0.2)',
+  },
+  
+  // 液态玻璃内阴影（高光效果）
+  innerShadow: {
+    top: 'inset 0 1px 0 rgba(255, 255, 255, 0.5)',
+    bottom: 'inset 0 -1px 0 rgba(0, 0, 0, 0.05)',
+    both: 'inset 0 1px 0 rgba(255, 255, 255, 0.5), inset 0 -1px 0 rgba(0, 0, 0, 0.05)',
+  },
+  
+  // 液态玻璃圆角
+  radius: {
+    small: '16px',
+    medium: '20px',
+    large: '24px',
+    xlarge: '28px',
+    hero: '32px',
+  },
+};
+
+// ============================================================================
+// 液态动画预设
+// ============================================================================
+
+export const liquidAnimations = {
+  // 液态变形动画
+  morph: {
+    duration: 600,
+    easing: 'cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+    scale: { from: 1, to: 1.02 },
+    borderRadius: { from: '24px', to: '28px' },
+  },
+  
+  // 液态波动动画
+  wave: {
+    duration: 2000,
+    easing: 'ease-in-out',
+    keyframes: {
+      '0%, 100%': { transform: 'scale(1) rotate(0deg)' },
+      '25%': { transform: 'scale(1.02) rotate(1deg)' },
+      '50%': { transform: 'scale(0.98) rotate(0deg)' },
+      '75%': { transform: 'scale(1.01) rotate(-1deg)' },
+    },
+  },
+  
+  // 液态悬浮动画
+  float: {
+    duration: 3000,
+    easing: 'ease-in-out',
+    keyframes: {
+      '0%, 100%': { transform: 'translateY(0px)' },
+      '50%': { transform: 'translateY(-10px)' },
+    },
+  },
+  
+  // 液态呼吸动画
+  breathe: {
+    duration: 4000,
+    easing: 'ease-in-out',
+    keyframes: {
+      '0%, 100%': { 
+        transform: 'scale(1)',
+        opacity: 0.8,
+      },
+      '50%': { 
+        transform: 'scale(1.05)',
+        opacity: 1,
+      },
+    },
+  },
+  
+  // 液态涟漪动画
+  ripple: {
+    duration: 800,
+    easing: 'cubic-bezier(0.4, 0, 0.2, 1)',
+    keyframes: {
+      '0%': { 
+        transform: 'scale(0)',
+        opacity: 0.5,
+      },
+      '100%': { 
+        transform: 'scale(4)',
+        opacity: 0,
+      },
+    },
+  },
+  
+  // 液态光泽动画
+  shine: {
+    duration: 600,
+    easing: 'cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+    from: { left: '-100%' },
+    to: { left: '100%' },
+  },
+  
+  // 液态弹跳动画
+  bounce: {
+    duration: 500,
+    easing: 'cubic-bezier(0.68, -0.55, 0.265, 1.55)',
+    keyframes: {
+      '0%': { transform: 'scale(0.3)' },
+      '50%': { transform: 'scale(1.05)' },
+      '70%': { transform: 'scale(0.9)' },
+      '100%': { transform: 'scale(1)' },
+    },
+  },
+  
+  // 液态渐入动画
+  fadeIn: {
+    duration: 400,
+    easing: 'cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+    keyframes: {
+      '0%': { 
+        opacity: 0,
+        transform: 'translateY(20px) scale(0.95)',
+      },
+      '100%': { 
+        opacity: 1,
+        transform: 'translateY(0) scale(1)',
+      },
+    },
+  },
+  
+  // 液态滑入动画
+  slideIn: {
+    duration: 500,
+    easing: 'cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+    keyframes: {
+      '0%': { 
+        opacity: 0,
+        transform: 'translateX(-30px)',
+      },
+      '100%': { 
+        opacity: 1,
+        transform: 'translateX(0)',
+      },
+    },
+  },
+};
+
+// ============================================================================
 // 动效预设组合
 // ============================================================================
 
@@ -348,6 +522,8 @@ export const motionTokens = {
   spacing,
   zIndex,
   glassmorphism,
+  liquidGlass,
+  liquidAnimations,
   presets,
 };
 

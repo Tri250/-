@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { EmotionAnalysis, EmotionDashboard, _PrimaryEmotion } from '../types/emotion';
+import type { EmotionAnalysis, EmotionDashboard, PrimaryEmotion as _PrimaryEmotion } from '../types/emotion';
 import { emotionService } from '../services/emotionService';
 
 interface EmotionState {

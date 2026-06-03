@@ -406,6 +406,70 @@
   transform: scale(0.96);
 }
 
+/* Touch-friendly button states */
+.touch-action-card {
+  transition: transform 0.15s var(--ease-smooth), box-shadow 0.2s var(--ease-smooth);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.touch-action-card:hover {
+  transform: scale(1.02);
+}
+.touch-action-card:active {
+  transform: scale(0.97);
+  transition-duration: 0.1s;
+}
+.touch-action-card:focus-visible {
+  outline: 2px solid rgba(59, 130, 246, 0.5);
+  outline-offset: 2px;
+}
+
+/* Focus ring for accessibility */
+.focus-ring:focus-visible {
+  outline: 2px solid rgba(59, 130, 246, 0.6);
+  outline-offset: 2px;
+  border-radius: inherit;
+}
+
+/* Touch ripple effect */
+.touch-ripple {
+  position: relative;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+.touch-ripple::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(0, 0, 0, 0.08) 0%, transparent 70%);
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+}
+.touch-ripple:active::after {
+  opacity: 1;
+}
+
+/* Card touch feedback */
+.card-touch {
+  transition: transform 0.2s var(--ease-smooth), box-shadow 0.2s var(--ease-smooth), background-color 0.2s;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.card-touch:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px -4px rgba(0, 0, 0, 0.1);
+}
+.card-touch:active {
+  transform: translateY(0) scale(0.98);
+  box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+  transition-duration: 0.1s;
+}
+.card-touch:focus-visible {
+  outline: 2px solid rgba(59, 130, 246, 0.5);
+  outline-offset: 2px;
+}
+
 .active-ripple {
   position: relative;
   overflow: hidden;
@@ -578,4 +642,299 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* ============================================================================
+   ColorOS 16 液态玻璃动画效果
+   ============================================================================ */
+
+/* 液态变形动画 */
+@keyframes liquidMorph {
+  0%, 100% {
+    transform: scale(1) rotate(0deg);
+    border-radius: 24px;
+  }
+  25% {
+    transform: scale(1.02) rotate(0.5deg);
+    border-radius: 26px;
+  }
+  50% {
+    transform: scale(0.98) rotate(0deg);
+    border-radius: 22px;
+  }
+  75% {
+    transform: scale(1.01) rotate(-0.5deg);
+    border-radius: 25px;
+  }
+}
+.animate-liquid-morph {
+  animation: liquidMorph 4s ease-in-out infinite;
+}
+
+/* 液态波动动画 */
+@keyframes liquidWave {
+  0%, 100% {
+    transform: translateX(0) translateY(0);
+  }
+  25% {
+    transform: translateX(2px) translateY(-1px);
+  }
+  50% {
+    transform: translateX(-1px) translateY(2px);
+  }
+  75% {
+    transform: translateX(-2px) translateY(-1px);
+  }
+}
+.animate-liquid-wave {
+  animation: liquidWave 3s ease-in-out infinite;
+}
+
+/* 液态光泽滑过动画 */
+@keyframes liquidShine {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+.animate-liquid-shine {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.4) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: liquidShine 2s ease-in-out infinite;
+}
+
+/* 液态玻璃呼吸动画 */
+@keyframes glassBreathe {
+  0%, 100% {
+    backdrop-filter: blur(20px) saturate(180%);
+    box-shadow: 
+      0 8px 32px rgba(0, 0, 0, 0.1),
+      inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  }
+  50% {
+    backdrop-filter: blur(24px) saturate(200%);
+    box-shadow: 
+      0 12px 40px rgba(0, 0, 0, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  }
+}
+.animate-glass-breathe {
+  animation: glassBreathe 4s ease-in-out infinite;
+}
+
+/* 液态涟漪扩散动画 */
+@keyframes liquidRipple {
+  0% {
+    transform: scale(0);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(3);
+    opacity: 0;
+  }
+}
+.liquid-ripple {
+  position: relative;
+  overflow: hidden;
+}
+.liquid-ripple::after {
+  content: '';
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.4) 0%,
+    rgba(255, 255, 255, 0.2) 50%,
+    transparent 100%
+  );
+  border-radius: inherit;
+  pointer-events: none;
+}
+.liquid-ripple:active::after {
+  animation: liquidRipple 0.6s ease-out;
+}
+
+/* 液态玻璃悬停效果 */
+.liquid-hover {
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.liquid-hover:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 
+    0 16px 48px rgba(0, 0, 0, 0.12),
+    0 0 0 1px rgba(255, 255, 255, 0.4),
+    inset 0 2px 0 rgba(255, 255, 255, 0.6);
+}
+
+/* 液态玻璃点击效果 */
+.liquid-press {
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.liquid-press:active {
+  transform: scale(0.97);
+  box-shadow: 
+    0 4px 16px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+/* 液态玻璃渐入动画 */
+@keyframes liquidFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(30px) scale(0.95);
+    backdrop-filter: blur(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    backdrop-filter: blur(20px);
+  }
+}
+.animate-liquid-fade-in {
+  animation: liquidFadeIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  opacity: 0;
+}
+
+/* 液态玻璃滑入动画 */
+@keyframes liquidSlideIn {
+  0% {
+    opacity: 0;
+    transform: translateX(-40px);
+    backdrop-filter: blur(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+    backdrop-filter: blur(20px);
+  }
+}
+.animate-liquid-slide-in {
+  animation: liquidSlideIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  opacity: 0;
+}
+
+/* 液态玻璃弹跳动画 */
+@keyframes liquidBounce {
+  0% {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  40% {
+    transform: scale(1.08);
+  }
+  60% {
+    transform: scale(0.92);
+  }
+  80% {
+    transform: scale(1.02);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+.animate-liquid-bounce {
+  animation: liquidBounce 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+  opacity: 0;
+}
+
+/* 液态玻璃浮动元素 */
+@keyframes liquidFloat {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  33% {
+    transform: translateY(-8px) rotate(1deg);
+  }
+  66% {
+    transform: translateY(-4px) rotate(-1deg);
+  }
+}
+.animate-liquid-float {
+  animation: liquidFloat 5s ease-in-out infinite;
+}
+
+/* 液态玻璃渐变流动 */
+@keyframes gradientFlow {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+.animate-gradient-flow {
+  background-size: 200% 200%;
+  animation: gradientFlow 3s ease infinite;
+}
+
+/* 液态玻璃边框发光 */
+@keyframes borderGlowPulse {
+  0%, 100% {
+    box-shadow: 
+      0 0 0 0 rgba(249, 115, 22, 0),
+      0 8px 32px rgba(0, 0, 0, 0.1);
+  }
+  50% {
+    box-shadow: 
+      0 0 20px 4px rgba(249, 115, 22, 0.2),
+      0 8px 32px rgba(0, 0, 0, 0.1);
+  }
+}
+.animate-border-glow {
+  animation: borderGlowPulse 3s ease-in-out infinite;
+}
+
+/* 液态玻璃卡片进入动画组 */
+.liquid-card-enter {
+  animation: liquidFadeIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  opacity: 0;
+}
+.liquid-card-enter-1 { animation-delay: 0.05s; }
+.liquid-card-enter-2 { animation-delay: 0.1s; }
+.liquid-card-enter-3 { animation-delay: 0.15s; }
+.liquid-card-enter-4 { animation-delay: 0.2s; }
+.liquid-card-enter-5 { animation-delay: 0.25s; }
+.liquid-card-enter-6 { animation-delay: 0.3s; }
+
+/* 液态玻璃触摸反馈 */
+.liquid-touch {
+  position: relative;
+  overflow: hidden;
+}
+.liquid-touch::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at var(--x, 50%) var(--y, 50%),
+    rgba(255, 255, 255, 0.3) 0%,
+    transparent 50%
+  );
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+.liquid-touch:active::before {
+  opacity: 1;
+}
+
+/* 液态玻璃视差效果 */
+.liquid-parallax {
+  transition: transform 0.1s ease-out;
+  will-change: transform;
 }

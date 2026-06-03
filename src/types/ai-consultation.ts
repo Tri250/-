@@ -1,9 +1,115 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-export type ConsultationType = 'chat' | 'photo_analysis' | 'report' | 'voice_input';
+export type ConsultationType = 'chat' | 'photo_analysis' | 'report' | 'voice_input' | 'symptom_check';
 
 export type MessageType = 'text' | 'image' | 'voice' | 'system' | 'mixed';
 
 export type MessageStatus = 'sending' | 'sent' | 'error' | 'processing';
+
+// 症状自查相关类型
+export interface ConsultationSymptom {
+  id: string;
+  name: string;
+  description?: string;
+  severity: 'low' | 'medium' | 'high';
+  relatedConditions?: string[];
+}
+
+export interface ConsultationSymptomCategory {
+  id: string;
+  name: string;
+  icon: string;
+  symptoms: ConsultationSymptom[];
+}
+
+export type UrgencyLevel = 'observe' | 'consult' | 'emergency';
+
+export interface SymptomAnalysisResult {
+  selectedSymptoms: ConsultationSymptom[];
+  severityScore: number;
+  urgencyLevel: UrgencyLevel;
+  preliminaryDiagnosis: string[];
+  homeCareAdvice: string[];
+  warningSigns: string[];
+  whenToSeeVet: string[];
+  vetVisitPreparation: string[];
+}
+
+export const SYMPTOM_CATEGORIES: ConsultationSymptomCategory[] = [
+  {
+    id: 'digestive',
+    name: '消化系统',
+    icon: '🍽️',
+    symptoms: [
+      { id: 'vomit', name: '呕吐', severity: 'medium', relatedConditions: ['胃炎', '食物中毒', '寄生虫'] },
+      { id: 'diarrhea', name: '腹泻', severity: 'medium', relatedConditions: ['肠炎', '寄生虫', '食物不耐受'] },
+      { id: 'constipation', name: '便秘', severity: 'low', relatedConditions: ['脱水', '肠梗阻'] },
+      { id: 'loss_of_appetite', name: '食欲不振', severity: 'low', relatedConditions: ['消化不良', '发烧', '压力'] },
+    ],
+  },
+  {
+    id: 'respiratory',
+    name: '呼吸系统',
+    icon: '💨',
+    symptoms: [
+      { id: 'cough', name: '咳嗽', severity: 'medium', relatedConditions: ['感冒', '支气管炎', '心脏病'] },
+      { id: 'sneeze', name: '打喷嚏', severity: 'low', relatedConditions: ['过敏', '感冒', '异物'] },
+      { id: 'short_breath', name: '呼吸急促', severity: 'high', relatedConditions: ['心脏病', '肺病', '中暑'] },
+    ],
+  },
+  {
+    id: 'skin',
+    name: '皮肤毛发',
+    icon: '🐾',
+    symptoms: [
+      { id: 'hair_loss', name: '脱毛', severity: 'medium', relatedConditions: ['皮肤病', '寄生虫', '内分泌问题'] },
+      { id: 'itching', name: '瘙痒', severity: 'low', relatedConditions: ['过敏', '寄生虫', '皮肤感染'] },
+      { id: 'dandruff', name: '皮屑', severity: 'low', relatedConditions: ['皮肤干燥', '真菌感染'] },
+      { id: 'rash', name: '红疹', severity: 'medium', relatedConditions: ['过敏', '皮肤感染', '寄生虫'] },
+    ],
+  },
+  {
+    id: 'behavior',
+    name: '行为情绪',
+    icon: '🧠',
+    symptoms: [
+      { id: 'lethargy', name: '嗜睡', severity: 'medium', relatedConditions: ['发烧', '疼痛', '抑郁'] },
+      { id: 'anxiety', name: '焦躁', severity: 'low', relatedConditions: ['压力', '分离焦虑', '疼痛'] },
+      { id: 'aggression', name: '攻击性', severity: 'medium', relatedConditions: ['疼痛', '恐惧', '疾病'] },
+      { id: 'abnormal_vocal', name: '异常叫声', severity: 'medium', relatedConditions: ['疼痛', '压力', '疾病'] },
+    ],
+  },
+  {
+    id: 'eyes_ears_nose',
+    name: '眼耳口鼻',
+    icon: '👁️',
+    symptoms: [
+      { id: 'tearing', name: '流泪', severity: 'low', relatedConditions: ['结膜炎', '过敏', '异物'] },
+      { id: 'ear_odor', name: '耳朵异味', severity: 'medium', relatedConditions: ['耳炎', '耳螨', '感染'] },
+      { id: 'bad_breath', name: '口臭', severity: 'low', relatedConditions: ['牙结石', '牙龈炎', '消化问题'] },
+      { id: 'runny_nose', name: '流鼻涕', severity: 'low', relatedConditions: ['感冒', '过敏', '鼻窦炎'] },
+    ],
+  },
+  {
+    id: 'urinary',
+    name: '泌尿系统',
+    icon: '💧',
+    symptoms: [
+      { id: 'frequent_urination', name: '尿频', severity: 'medium', relatedConditions: ['尿路感染', '糖尿病', '肾病'] },
+      { id: 'blood_in_urine', name: '尿血', severity: 'high', relatedConditions: ['尿路感染', '结石', '肾病'] },
+      { id: 'difficult_urination', name: '排尿困难', severity: 'high', relatedConditions: ['结石', '尿路阻塞', '感染'] },
+    ],
+  },
+  {
+    id: 'musculoskeletal',
+    name: '运动系统',
+    icon: '🏃',
+    symptoms: [
+      { id: 'lameness', name: '跛行', severity: 'medium', relatedConditions: ['关节炎', '外伤', '骨折'] },
+      { id: 'joint_swelling', name: '关节肿胀', severity: 'medium', relatedConditions: ['关节炎', '感染', '外伤'] },
+      { id: 'muscle_tremor', name: '肌肉震颤', severity: 'medium', relatedConditions: ['神经系统问题', '疼痛', '中毒'] },
+    ],
+  },
+];
 
 export interface ImageAnalysisResult {
   id: string;

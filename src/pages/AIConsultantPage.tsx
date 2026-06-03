@@ -19,6 +19,8 @@ import {
 import { Badge } from '../components/DesignSystem';
 import { useAIConsultationStore } from '../store/aiConsultationStore';
 import { usePetStore } from '../store/petStore';
+import { SymptomSelfCheck } from '../components/ai/SymptomSelfCheck';
+import { SymptomAnalysisResult } from '../types/ai-consultation';
 
 interface AIConsultantPageProps {
   onNavigate: (page: string) => void;
@@ -55,6 +57,7 @@ export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }
   const [isInitialized, setIsInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
+  const [showSymptomCheck, setShowSymptomCheck] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -100,6 +103,13 @@ export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping]);
 
+  // 初始化完成后聚焦输入框
+  useEffect(() => {
+    if (isInitialized && !isTyping) {
+      textareaRef.current?.focus();
+    }
+  }, [isInitialized, isTyping]);
+
   const handleSendMessage = async () => {
     try {
       const text = inputText.trim();
@@ -124,8 +134,16 @@ export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }
         textareaRef.current.style.height = '44px';
       }
       
-      await sendAIMessage(consultationId, text, attachments as { id: string; type: string; url: string; name: string }[]);
+      await sendAIMessage(consultationId, text, attachments.map(a => ({
+        ...a,
+        type: a.type as 'image' | 'voice'
+      })));
       setError(null);
+      
+      // 发送消息后重新聚焦输入框，确保连续对话
+      setTimeout(() => {
+        textareaRef.current?.focus();
+      }, 100);
     } catch (err) {
       console.error('发送消息失败:', err);
       setError('消息发送失败，请重试');
@@ -150,6 +168,11 @@ export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }
       setInputText('');
       await sendAIMessage(consultationId, question);
       setError(null);
+      
+      // 发送快速问题后重新聚焦输入框
+      setTimeout(() => {
+        textareaRef.current?.focus();
+      }, 100);
     } catch (err) {
       console.error('发送快速问题失败:', err);
       setError('操作失败，请重试');
@@ -192,25 +215,31 @@ export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }
     setAttachments(prev => prev.filter(a => a.id !== id));
   };
 
-  const [recognitionInstance, setRecognitionInstance] = useState<SpeechRecognition | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [recognitionInstance, setRecognitionInstance] = useState<any>(null);
   
   const startVoiceRecording = () => {
     setIsRecording(true);
     
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-      const SpeechRecognition = (window as Window & { webkitSpeechRecognition?: typeof window.SpeechRecognition; SpeechRecognition?: typeof window.SpeechRecognition }).webkitSpeechRecognition || (window as Window & { SpeechRecognition?: typeof window.SpeechRecognition }).SpeechRecognition;
-      const recognition = new SpeechRecognition();
+    // 使用类型安全的方式访问语音识别API
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const SpeechRecognitionAPI = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+    
+    if (SpeechRecognitionAPI) {
+      const recognition = new SpeechRecognitionAPI();
       
       recognition.continuous = false;
       recognition.interimResults = true;
       recognition.lang = 'zh-CN';
       
-      recognition.onresult = (event: SpeechRecognitionEvent) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      recognition.onresult = (event: any) => {
         const transcript = event.results[0][0].transcript;
         setInputText(prev => prev + transcript);
       };
       
-      recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      recognition.onerror = (event: any) => {
         console.error('语音识别错误:', event.error);
         setIsRecording(false);
         if (event.error === 'not-allowed') {
@@ -261,23 +290,73 @@ export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }
     if (!content) return null;
     
     return content.split('\n').map((line, index) => {
-      if (line.startsWith('⚠️') || line.startsWith('📋') || line.startsWith('❓') || line.startsWith('ℹ️')) {
-        return <p key={index} className="font-medium mb-1">{line}</p>;
+      // 空行处理
+      if (!line.trim()) {
+        return <div key={index} className="h-2" />;
       }
+      
+      // 标题行处理
+      if (line.startsWith('⚠️') || line.startsWith('📋') || line.startsWith('❓') || line.startsWith('ℹ️') || line.startsWith('🚨') || line.startsWith('🔴')) {
+        return <p key={index} className="font-medium mb-1.5">{line}</p>;
+      }
+      
+      // 加粗文本
       if (line.startsWith('**') && line.endsWith('**')) {
         return <p key={index} className="font-semibold mb-1">{line.replace(/\*\*/g, '')}</p>;
       }
+      
+      // 列表项
       if (line.startsWith('• ') || line.startsWith('- ')) {
-        return <p key={index} className="ml-2 mb-0.5 text-sm">{line}</p>;
+        return <p key={index} className="ml-2 mb-1 text-sm leading-relaxed">{line}</p>;
       }
+      
+      // 数字列表
       if (line.match(/^\d+\.\s/)) {
-        return <p key={index} className="ml-2 mb-0.5 text-sm">{line}</p>;
+        return <p key={index} className="ml-2 mb-1 text-sm leading-relaxed">{line}</p>;
       }
-      if (line.startsWith('🐱') || line.startsWith('📝') || line.startsWith('💡')) {
+      
+      // 特殊标记行
+      if (line.startsWith('🐱') || line.startsWith('📝') || line.startsWith('💡') || line.startsWith('🔍') || line.startsWith('🌐') || line.startsWith('💊') || line.startsWith('🏥')) {
         return <p key={index} className="font-medium mt-2 mb-1">{line}</p>;
       }
+      
+      // 普通文本行
       return <p key={index} className="mb-1 text-sm leading-relaxed">{line}</p>;
     });
+  };
+
+  const handleSymptomAnalysisComplete = (result: SymptomAnalysisResult) => {
+    // 结果已在组件内部处理
+    console.log('症状分析完成:', result);
+  };
+
+  const handleSymptomCheckCancel = () => {
+    setShowSymptomCheck(false);
+  };
+
+  const handleSymptomCheckFinish = async (result: SymptomAnalysisResult) => {
+    // 将症状自查结果发送到对话中
+    const symptomNames = result.selectedSymptoms.map(s => s.name).join('、');
+    const urgencyLabels = { observe: '观察', consult: '就医', emergency: '急诊' };
+    
+    const summaryMessage = `症状自查完成：\n` +
+      `- 已选症状：${symptomNames}\n` +
+      `- 严重程度：${result.severityScore.toFixed(1)}/10\n` +
+      `- 建议措施：${urgencyLabels[result.urgencyLevel]}\n` +
+      `- 可能原因：${result.preliminaryDiagnosis.slice(0, 3).join('、') || '待进一步检查'}`;
+
+    let consultationId = currentConsultationId;
+    if (!consultationId) {
+      const petId = currentPetId || 'default-pet';
+      consultationId = createConsultation(petId, 'symptom_check', '症状自查');
+      if (!consultationId) {
+        setError('无法创建会话，请刷新页面');
+        return;
+      }
+    }
+
+    await sendAIMessage(consultationId, summaryMessage);
+    setShowSymptomCheck(false);
   };
 
   if (error && !isInitialized) {
@@ -458,7 +537,7 @@ export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }
               type="button"
               disabled={isTyping}
               className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-green-100 to-green-200 text-green-700 text-sm font-medium whitespace-nowrap hover:from-green-200 hover:to-green-300 active:from-green-300 active:to-green-400 transition-all active:scale-95 focus:outline-none focus:ring-2 focus:ring-green-500/30 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
-              onClick={() => handleQuickQuestion('请帮我进行症状自查，我的宠物最近有什么异常表现？')}
+              onClick={() => setShowSymptomCheck(true)}
               aria-label="开始症状自查"
             >
               <Activity className="w-4 h-4" />
@@ -510,8 +589,8 @@ export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }
                   key={message.id}
                   role="article"
                   aria-label={message.role === 'user' ? '用户消息' : message.role === 'assistant' ? 'AI回复' : '系统消息'}
-                  className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'} ${message.role === 'system' ? 'justify-center' : ''}`}
-                  style={{ animationDelay: `${index * 0.05}s` }}
+                  className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'} ${message.role === 'system' ? 'justify-center' : ''} animate-in fade-in-0 slide-in-from-bottom-4 duration-300`}
+                  style={{ animationDelay: `${Math.min(index * 0.05, 0.3)}s` }}
                 >
                   {message.role === 'assistant' && (
                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center flex-shrink-0 shadow-sm" aria-hidden="true">
@@ -563,17 +642,17 @@ export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }
                 </div>
               ))}
 
-              {/* Typing Indicator */}
+              {/* Typing Indicator - 使用更柔和的动画 */}
               {isTyping && (
-                <div className="flex gap-3" role="status" aria-label="AI正在输入">
+                <div className="flex gap-3 animate-in fade-in-0 slide-in-from-bottom-4 duration-200" role="status" aria-label="AI正在输入">
                   <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center shadow-sm" aria-hidden="true">
                     <Bot className="w-4 h-4 text-white" />
                   </div>
                   <div className="px-4 py-3 bg-white border border-neutral-200 rounded-2xl rounded-tl-md shadow-sm">
                     <div className="flex gap-1.5 items-center">
-                      <div className="w-2 h-2 bg-primary-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                      <div className="w-2 h-2 bg-primary-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                      <div className="w-2 h-2 bg-primary-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                      <div className="w-2 h-2 bg-primary-400 rounded-full animate-pulse" style={{ animationDelay: '0ms' }} />
+                      <div className="w-2 h-2 bg-primary-400 rounded-full animate-pulse" style={{ animationDelay: '200ms' }} />
+                      <div className="w-2 h-2 bg-primary-400 rounded-full animate-pulse" style={{ animationDelay: '400ms' }} />
                     </div>
                   </div>
                 </div>
@@ -672,6 +751,7 @@ export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }
                 className="w-full px-4 py-2.5 bg-neutral-100 rounded-2xl text-sm border-none focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:bg-white focus:shadow-sm transition-all resize-none overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ minHeight: '44px', maxHeight: '120px' }}
                 aria-label="消息输入框"
+                aria-disabled={isRecording}
               />
               
               {isRecording && (
@@ -687,11 +767,12 @@ export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }
             <button
               type="button"
               onClick={handleSendMessage}
-              disabled={!inputText.trim() && attachments.length === 0}
+              disabled={(!inputText.trim() && attachments.length === 0) || isRecording}
               title="发送消息"
               aria-label="发送消息"
+              aria-disabled={(!inputText.trim() && attachments.length === 0) || isRecording}
               className={`p-2.5 rounded-full transition-all focus:outline-none focus:ring-2 ${
-                inputText.trim() || attachments.length > 0
+                (inputText.trim() || attachments.length > 0) && !isRecording
                   ? 'bg-gradient-to-br from-primary-500 to-primary-600 text-white hover:shadow-lg hover:shadow-primary-500/30 active:scale-95 focus:ring-primary-500/30'
                   : 'bg-neutral-100 text-neutral-300 cursor-not-allowed focus:ring-neutral-300/30'
               }`}
@@ -705,6 +786,19 @@ export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }
           </p>
         </div>
       </div>
+
+      {/* Symptom Self-Check Modal */}
+      {showSymptomCheck && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="症状自查">
+          <div className="w-full max-w-md">
+            <SymptomSelfCheck
+              onAnalysisComplete={handleSymptomAnalysisComplete}
+              onCancel={handleSymptomCheckCancel}
+              onConfirmResult={handleSymptomCheckFinish}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

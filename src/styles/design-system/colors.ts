@@ -189,6 +189,52 @@ export const semanticColors = {
 };
 
 // ============================================================================
+// ColorOS 16 液态玻璃渐变色系
+// ============================================================================
+
+export const liquidGlassGradients = {
+  // 液态玻璃主渐变 - 橙色到蜜桃色
+  primary: {
+    light: 'linear-gradient(135deg, #FF8A65 0%, #FFB74D 50%, #FFCC80 100%)',
+    medium: 'linear-gradient(135deg, #FF7043 0%, #FF9800 50%, #FFB74D 100%)',
+    strong: 'linear-gradient(135deg, #F97316 0%, #FB923C 50%, #FDBA74 100%)',
+    subtle: 'linear-gradient(135deg, rgba(255, 138, 101, 0.3) 0%, rgba(255, 183, 77, 0.3) 100%)',
+  },
+  
+  // 液态玻璃紫色渐变
+  purple: {
+    light: 'linear-gradient(135deg, #B39DDB 0%, #CE93D8 50%, #E1BEE7 100%)',
+    medium: 'linear-gradient(135deg, #9575CD 0%, #AB47BC 50%, #BA68C8 100%)',
+    strong: 'linear-gradient(135deg, #8B5CF6 0%, #A78BFA 50%, #C4B5FD 100%)',
+    subtle: 'linear-gradient(135deg, rgba(179, 157, 219, 0.3) 0%, rgba(206, 147, 216, 0.3) 100%)',
+  },
+  
+  // 液态玻璃蓝色渐变
+  blue: {
+    light: 'linear-gradient(135deg, #64B5F6 0%, #81D4FA 50%, #B3E5FC 100%)',
+    medium: 'linear-gradient(135deg, #42A5F5 0%, #29B6F6 50%, #4FC3F7 100%)',
+    strong: 'linear-gradient(135deg, #3B82F6 0%, #60A5FA 50%, #93C5FD 100%)',
+    subtle: 'linear-gradient(135deg, rgba(100, 181, 246, 0.3) 0%, rgba(129, 212, 250, 0.3) 100%)',
+  },
+  
+  // 液态玻璃背景渐变
+  background: {
+    warm: 'linear-gradient(180deg, #FFF7ED 0%, #FFFBF5 50%, #FFFFFF 100%)',
+    cool: 'linear-gradient(180deg, #F0F9FF 0%, #F8FAFC 50%, #FFFFFF 100%)',
+    neutral: 'linear-gradient(180deg, #FAFAFA 0%, #FDFDFD 50%, #FFFFFF 100%)',
+    glass: 'linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.7) 50%, rgba(255, 255, 255, 0.8) 100%)',
+  },
+  
+  // 液态玻璃高光渐变
+  highlight: {
+    top: 'linear-gradient(180deg, rgba(255, 255, 255, 0.8) 0%, transparent 100%)',
+    bottom: 'linear-gradient(0deg, rgba(255, 255, 255, 0.4) 0%, transparent 100%)',
+    edge: 'linear-gradient(135deg, rgba(255, 255, 255, 0.6) 0%, transparent 50%, rgba(255, 255, 255, 0.3) 100%)',
+    shine: 'linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.5) 50%, transparent 100%)',
+  },
+};
+
+// ============================================================================
 // 动态渐变色系
 // ============================================================================
 
@@ -226,6 +272,9 @@ export const gradients = {
     'linear-gradient(135deg, #1C1917 0%, #292524 100%)',
     'linear-gradient(180deg, #292524 0%, #1C1917 100%)',
   ],
+  
+  // ColorOS 16 液态玻璃渐变
+  liquidGlass: liquidGlassGradients,
 };
 
 // ============================================================================

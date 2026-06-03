@@ -20,6 +20,38 @@ import { EMOTION_CONFIGS, TRANSLATIONS } from '../types/emotion';
 
 const MOCK_DELAY = 800;
 
+// 置信度阈值配置
+const EMOTION_CONFIDENCE_THRESHOLDS = {
+  MIN_ACCEPTABLE: 60,    // 最低可接受置信度 60%
+  HIGH_CONFIDENCE: 85,   // 高置信度阈值 85%
+  VERY_HIGH_CONFIDENCE: 95, // 极高置信度阈值 95%
+  UNCERTAINTY_THRESHOLD: 55, // 不确定性阈值
+};
+
+// 宠物类型特定参数
+const PET_TYPE_PARAMS = {
+  cat: {
+    typicalPitchRange: [300, 1200],  // 猫叫声频率范围
+    typicalDuration: [0.3, 2.0],     // 典型叫声时长
+    energyProfile: 'burst',          // 能量模式：爆发型
+    commonEmotions: ['curious', 'calm', 'affectionate', 'anxious'],
+  },
+  dog: {
+    typicalPitchRange: [200, 1500],  // 狗叫声频率范围
+    typicalDuration: [0.5, 3.0],     // 典型叫声时长
+    energyProfile: 'sustained',      // 能量模式：持续型
+    commonEmotions: ['happy', 'excited', 'anxious', 'alert'],
+  },
+};
+
+// 时间段情绪倾向
+const TIME_CONTEXT_EFFECTS = {
+  morning: { hours: [6, 12], energyBoost: 1.2, likelyEmotions: ['excited', 'happy', 'curious'] },
+  afternoon: { hours: [12, 18], energyBoost: 1.0, likelyEmotions: ['calm', 'curious', 'bored'] },
+  evening: { hours: [18, 22], energyBoost: 0.9, likelyEmotions: ['calm', 'tired', 'affectionate'] },
+  night: { hours: [22, 6], energyBoost: 0.7, likelyEmotions: ['calm', 'tired'] },
+};
+
 const EMOTION_WEIGHTS = {
   pitch: 0.22,
   intensity: 0.18,
@@ -61,6 +93,46 @@ const EMOTION_FREQUENCY_SIGNATURES: Record<PrimaryEmotion, Record<string, number
   safe: { bass: 0.75, lowMid: 0.8, mid: 0.4 },
 };
 
+// 动物检测结果接口
+interface AnimalDetectionResult {
+  isAnimal: boolean;
+  confidence: number;
+  animalType?: 'dog' | 'cat' | 'other' | 'unknown';
+  message?: string;
+}
+
+// 语音分析上下文
+interface VoiceAnalysisContext {
+  duration?: number;
+  maxLevel?: number;
+  hasValidSound?: boolean;
+  petType?: 'cat' | 'dog';
+  age?: number;
+}
+
+// 分析不确定性结果
+interface EmotionUncertainty {
+  isUncertain: boolean;
+  reason: string;
+  possibleEmotions: Array<{ emotion: PrimaryEmotion; probability: number; reason: string }>;
+  suggestions: string[];
+}
+
+// 宠物特征检测阈值
+const PET_FEATURE_THRESHOLDS = {
+  // 猫的特征颜色范围（眼睛、鼻子等）
+  catEyeColors: [[240, 200, 150], [200, 150, 100]], // 常见猫眼颜色
+  // 狗的特征
+  dogFeatures: {
+    snoutRatio: 0.3, // 口鼻比例
+    earPosition: 'up', // 耳朵位置
+  },
+  // 毛发纹理特征
+  furTextureThreshold: 0.4,
+  // 最小宠物检测置信度
+  minConfidence: 60,
+};
+
 class EmotionService {
   private recentAnalyses: EmotionAnalysis[] = [];
   private analysisHistory: Map<string, EmotionAnalysis[]> = new Map();
@@ -92,34 +164,66 @@ class EmotionService {
     }
   }
 
-  async analyzeVoice(audioData: Float32Array): Promise<EmotionAnalysis> {
+  async analyzeVoice(audioData: Float32Array, context?: VoiceAnalysisContext): Promise<EmotionAnalysis> {
     await this.simulateDelay(MOCK_DELAY);
 
+    // 验证音频数据有效性
+    const validation = this.validateAudioInput(audioData, context);
+    if (!validation.isValid) {
+      // 返回低置信度的默认结果，但标记为不可靠
+      return this.createLowConfidenceResult(validation.reason || '音频数据无效', 'voice');
+    }
+
     const audioFeatures = this.extractAudioFeatures(audioData);
+    
+    // 验证提取的特征是否有效
+    if (!this.areAudioFeaturesValid(audioFeatures)) {
+      return this.createLowConfidenceResult('无法提取有效的音频特征', 'voice');
+    }
+    
     const emotionScores = this.calculateEmotionScores(audioFeatures);
-    const { primaryEmotion, secondaryEmotion, confidence, reasoning } = this.determinePrimaryEmotion(emotionScores, audioFeatures);
-    const translation = this.selectTranslation(primaryEmotion, emotionScores);
+    
+    // 应用宠物类型和时间上下文调整
+    const adjustedScores = this.applyContextAdjustments(emotionScores, context);
+    
+    const { primaryEmotion, secondaryEmotion, confidence, reasoning } = this.determinePrimaryEmotion(adjustedScores, audioFeatures);
+    
+    // 根据音频质量调整置信度
+    const adjustedConfidence = this.adjustConfidenceByQuality(confidence, audioFeatures, context);
+    
+    // 分析不确定性
+    const uncertainty = this.analyzeEmotionUncertainty(adjustedScores, adjustedConfidence, audioFeatures);
+    
+    const translation = this.selectTranslation(primaryEmotion, adjustedScores);
     const behaviorIndicators = this.identifyBehaviors(primaryEmotion, audioFeatures);
+
+    // 构建推理说明
+    const enhancedReasoning = this.buildEnhancedReasoning(reasoning, uncertainty, context);
 
     const detail: EmotionAnalysisDetail = {
       primaryEmotion,
       secondaryEmotion,
-      scores: emotionScores,
-      confidence,
-      confidenceLevel: confidence >= 95 ? 'high' : confidence >= 85 ? 'medium' : 'low',
-      reasoning,
+      scores: adjustedScores,
+      confidence: adjustedConfidence,
+      confidenceLevel: adjustedConfidence >= EMOTION_CONFIDENCE_THRESHOLDS.VERY_HIGH_CONFIDENCE ? 'high' : adjustedConfidence >= EMOTION_CONFIDENCE_THRESHOLDS.HIGH_CONFIDENCE ? 'medium' : 'low',
+      reasoning: enhancedReasoning,
       audioFeatures,
       behaviorIndicators,
     };
+
+    // 生成建议，考虑不确定性
+    const finalTranslation = uncertainty.isUncertain 
+      ? `⚠️ **分析置信度较低 (${adjustedConfidence}%)**\n\n原因：${uncertainty.reason}\n\n${uncertainty.suggestions.join('\n')}\n\n---\n\n${translation}`
+      : translation;
 
     const analysis: EmotionAnalysis = {
       id: `analysis-${Date.now()}`,
       petId: '1',
       primaryEmotion,
-      intensity: this.calculateIntensity(emotionScores, audioFeatures),
-      confidence,
+      intensity: this.calculateIntensity(adjustedScores, audioFeatures),
+      confidence: adjustedConfidence,
       subEmotions: secondaryEmotion ? [primaryEmotion, secondaryEmotion] : [primaryEmotion],
-      translation,
+      translation: finalTranslation,
       context: {
         timeContext: '刚刚',
         locationContext: '家中',
@@ -135,6 +239,306 @@ class EmotionService {
     }
 
     return analysis;
+  }
+  
+  // 应用上下文调整
+  private applyContextAdjustments(
+    scores: EmotionScores, 
+    context?: VoiceAnalysisContext
+  ): EmotionScores {
+    const adjusted = { ...scores };
+    
+    // 根据宠物类型调整
+    if (context?.petType) {
+      const petParams = PET_TYPE_PARAMS[context.petType];
+      if (petParams) {
+        // 增加该类型常见情绪的权重
+        for (const emotion of petParams.commonEmotions) {
+          if (adjusted[emotion as PrimaryEmotion] !== undefined) {
+            adjusted[emotion as PrimaryEmotion] *= 1.15;
+          }
+        }
+      }
+    }
+    
+    // 根据时间调整
+    const hour = new Date().getHours();
+    for (const [_, timeEffect] of Object.entries(TIME_CONTEXT_EFFECTS)) {
+      const [start, end] = timeEffect.hours;
+      const inRange = start < end 
+        ? (hour >= start && hour < end)
+        : (hour >= start || hour < end);
+      
+      if (inRange) {
+        for (const emotion of timeEffect.likelyEmotions) {
+          if (adjusted[emotion as PrimaryEmotion] !== undefined) {
+            adjusted[emotion as PrimaryEmotion] *= 1.1;
+          }
+        }
+        break;
+      }
+    }
+    
+    // 根据年龄调整
+    if (context?.age !== undefined) {
+      if (context.age < 1) {
+        // 幼宠：更活跃
+        adjusted.excited *= 1.2;
+        adjusted.curious *= 1.2;
+      } else if (context.age >= 7) {
+        // 老年：更平静
+        adjusted.calm *= 1.15;
+        // 老年宠物可能更需要关注
+        adjusted.needs *= 1.1;
+      }
+    }
+    
+    return adjusted;
+  }
+  
+  // 分析情绪不确定性
+  private analyzeEmotionUncertainty(
+    scores: EmotionScores,
+    confidence: number,
+    features: AudioFeatures
+  ): EmotionUncertainty {
+    const sortedScores = Object.entries(scores)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3);
+    
+    const topScore = sortedScores[0]?.[1] || 0;
+    const secondScore = sortedScores[1]?.[1] || 0;
+    
+    const isUncertain = confidence < EMOTION_CONFIDENCE_THRESHOLDS.UNCERTAINTY_THRESHOLD ||
+                        (topScore - secondScore) < 10 ||
+                        topScore < 20;
+    
+    let reason = '';
+    const suggestions: string[] = [];
+    
+    if (confidence < EMOTION_CONFIDENCE_THRESHOLDS.UNCERTAINTY_THRESHOLD) {
+      reason = '音频信号特征不够明显';
+      suggestions.push('• 尝试录制更清晰的声音');
+      suggestions.push('• 确保环境噪音较小');
+    } else if ((topScore - secondScore) < 10) {
+      reason = '多种情绪特征相似，难以确定主导情绪';
+      suggestions.push('• 结合其他观察（如行为、表情）综合判断');
+    } else if (topScore < 20) {
+      reason = '所有情绪特征都不明显';
+      suggestions.push('• 可能是非典型的宠物声音');
+      suggestions.push('• 建议录制更长时间的声音样本');
+    }
+    
+    if (features.quality < 60) {
+      suggestions.push('• 音频质量较低，可能影响分析准确性');
+    }
+    
+    if (features.duration < 1) {
+      suggestions.push('• 录音时间较短，建议录制更长时间');
+    }
+    
+    const possibleEmotions = sortedScores.map(([emotion, score]) => ({
+      emotion: emotion as PrimaryEmotion,
+      probability: score / (sortedScores.reduce((sum, [, s]) => sum + s, 0) || 1),
+      reason: this.getEmotionReason(emotion as PrimaryEmotion, score),
+    }));
+    
+    return {
+      isUncertain,
+      reason: reason || '分析结果可靠',
+      possibleEmotions,
+      suggestions,
+    };
+  }
+  
+  // 获取情绪原因
+  private getEmotionReason(emotion: PrimaryEmotion, score: number): string {
+    const reasons: Record<PrimaryEmotion, string> = {
+      happy: score > 50 ? '明显的积极声音特征' : '部分积极特征',
+      curious: score > 50 ? '明显的探索性声音' : '部分好奇特征',
+      anxious: score > 50 ? '明显的焦虑声音特征' : '部分焦虑特征',
+      angry: score > 50 ? '明显的愤怒声音特征' : '部分愤怒特征',
+      needs: score > 50 ? '明显的需求表达' : '部分需求特征',
+      calm: score > 50 ? '明显的平静声音特征' : '部分平静特征',
+      excited: score > 50 ? '明显的兴奋声音特征' : '部分兴奋特征',
+      safe: score > 50 ? '明显的安全感表达' : '部分安全特征',
+    };
+    return reasons[emotion];
+  }
+  
+  // 构建增强的推理说明
+  private buildEnhancedReasoning(
+    baseReasoning: string[],
+    uncertainty: EmotionUncertainty,
+    context?: VoiceAnalysisContext
+  ): string[] {
+    const reasoning = [...baseReasoning];
+    
+    // 添加上下文信息
+    if (context?.petType) {
+      reasoning.push(`【宠物类型】${context.petType === 'cat' ? '猫咪' : '狗狗'}特定模式已应用`);
+    }
+    
+    if (context?.age !== undefined) {
+      const ageStage = context.age < 1 ? '幼宠' : context.age < 7 ? '成年' : '老年';
+      reasoning.push(`【年龄阶段】${ageStage}期，已应用相应调整`);
+    }
+    
+    // 添加不确定性说明
+    if (uncertainty.isUncertain) {
+      reasoning.push(`【不确定性分析】${uncertainty.reason}`);
+    }
+    
+    return reasoning;
+  }
+  
+  // 验证音频输入
+  private validateAudioInput(audioData: Float32Array, context?: VoiceAnalysisContext): { isValid: boolean; reason?: string } {
+    // 检查数据长度
+    if (!audioData || audioData.length < 22050) { // 至少0.5秒
+      return { isValid: false, reason: '录音时长不足' };
+    }
+    
+    // 检查是否为有效数值
+    const hasInvalidValues = audioData.some(v => !isFinite(v) || isNaN(v));
+    if (hasInvalidValues) {
+      return { isValid: false, reason: '音频数据包含无效值' };
+    }
+    
+    // 计算音频能量
+    let energy = 0;
+    let maxAmplitude = 0;
+    for (let i = 0; i < audioData.length; i++) {
+      energy += audioData[i] * audioData[i];
+      maxAmplitude = Math.max(maxAmplitude, Math.abs(audioData[i]));
+    }
+    const rmsEnergy = Math.sqrt(energy / audioData.length);
+    
+    // 检查是否为静音
+    if (rmsEnergy < 0.001 && maxAmplitude < 0.01) {
+      return { isValid: false, reason: '未检测到有效声音' };
+    }
+    
+    // 如果有上下文信息，进一步验证
+    if (context) {
+      if (context.duration && context.duration < 1) {
+        return { isValid: false, reason: '录音时长不足1秒' };
+      }
+      if (context.maxLevel !== undefined && context.maxLevel < 3) {
+        return { isValid: false, reason: '音量过低，未检测到有效声音' };
+      }
+    }
+    
+    return { isValid: true };
+  }
+  
+  // 验证音频特征是否有效
+  private areAudioFeaturesValid(features: AudioFeatures): boolean {
+    // 检查音高是否在合理范围内
+    if (features.pitch.mean < 50 || features.pitch.mean > 4000) {
+      return false;
+    }
+    
+    // 检查强度是否有效
+    if (features.intensity.mean <= 0) {
+      return false;
+    }
+    
+    // 检查质量分数
+    if (features.quality < 30) {
+      return false;
+    }
+    
+    return true;
+  }
+  
+  // 根据音频质量调整置信度
+  private adjustConfidenceByQuality(
+    confidence: number, 
+    features: AudioFeatures, 
+    context?: VoiceAnalysisContext
+  ): number {
+    let adjustedConfidence = confidence;
+    
+    // 根据音频质量调整
+    if (features.quality < 60) {
+      adjustedConfidence -= 20;
+    } else if (features.quality < 75) {
+      adjustedConfidence -= 10;
+    } else if (features.quality >= 90) {
+      adjustedConfidence += 2; // 高质量稍微加分
+    }
+    
+    // 根据录音时长调整
+    if (context?.duration) {
+      if (context.duration < 1) {
+        adjustedConfidence -= 15;
+      } else if (context.duration < 2) {
+        adjustedConfidence -= 8;
+      } else if (context.duration >= 3 && context.duration <= 5) {
+        adjustedConfidence += 2; // 理想时长
+      }
+    }
+    
+    // 根据特征一致性调整
+    const featureConsistency = this.calculateFeatureConsistency(features);
+    if (featureConsistency < 0.5) {
+      adjustedConfidence -= 10;
+    }
+    
+    // 确保置信度在合理范围内
+    return Math.max(EMOTION_CONFIDENCE_THRESHOLDS.MIN_ACCEPTABLE - 10, Math.min(99, adjustedConfidence));
+  }
+  
+  // 计算特征一致性
+  private calculateFeatureConsistency(features: AudioFeatures): number {
+    let consistency = 0.7;
+    
+    // 音高与节奏的一致性
+    if (features.pitch.mean > 500 && features.rhythm.tempo > 100) {
+      consistency += 0.1; // 高音+快节奏一致
+    } else if (features.pitch.mean < 300 && features.rhythm.tempo < 80) {
+      consistency += 0.1; // 低音+慢节奏一致
+    }
+    
+    // 强度与音色的一致性
+    if (features.intensity.mean > 0.4 && features.timbre.brightness > 60) {
+      consistency += 0.1;
+    } else if (features.intensity.mean < 0.3 && features.timbre.warmth > 60) {
+      consistency += 0.1;
+    }
+    
+    return Math.min(1, consistency);
+  }
+  
+  // 创建低置信度结果
+  private createLowConfidenceResult(reason: string, source: 'voice' | 'image'): EmotionAnalysis {
+    const defaultFeatures = this.generateSimulatedAudioFeatures();
+    
+    return {
+      id: `analysis-${Date.now()}`,
+      petId: '1',
+      primaryEmotion: 'calm',
+      intensity: 30,
+      confidence: 50,
+      subEmotions: ['calm'],
+      translation: `无法准确分析: ${reason}`,
+      context: {
+        timeContext: '刚刚',
+        locationContext: '家中',
+      },
+      createdAt: new Date().toISOString(),
+      source,
+      detail: {
+        primaryEmotion: 'calm',
+        scores: { happy: 10, curious: 10, anxious: 10, angry: 10, needs: 10, calm: 50, excited: 10, safe: 10 },
+        confidence: 50,
+        confidenceLevel: 'low',
+        reasoning: [reason],
+        audioFeatures: defaultFeatures,
+        behaviorIndicators: [],
+      },
+    };
   }
 
   private extractAudioFeatures(audioData: Float32Array): AudioFeatures {
@@ -1210,26 +1614,36 @@ class EmotionService {
     const gap = primaryScore - secondaryScore;
     const _gapRatio = gap / primaryScore;
     
-    let baseConfidence = 95;
-
-    if (gap > 35) baseConfidence = 99;
-    else if (gap > 28) baseConfidence = 98;
-    else if (gap > 20) baseConfidence = 97;
-    else if (gap > 15) baseConfidence = 96;
-    else if (gap > 10) baseConfidence = 95;
-    else if (gap > 5) baseConfidence = 95;
-    else baseConfidence = 95;
-
+    // 基础置信度 - 基于主次分数差距
+    let baseConfidence = 85;
+    
+    if (gap > 30) baseConfidence = 98;
+    else if (gap > 25) baseConfidence = 96;
+    else if (gap > 20) baseConfidence = 94;
+    else if (gap > 15) baseConfidence = 92;
+    else if (gap > 10) baseConfidence = 90;
+    else if (gap > 5) baseConfidence = 88;
+    else baseConfidence = 85;
+    
+    // 多因素调整
     const qualityAdjustment = this.calculateQualityAdjustment(features.quality);
-    const featureConsistency = this.calculateFeatureConsistency(features, emotion);
+    const featureConsistency = this.calculateFeatureConsistencyForEmotion(features, emotion);
     const scoreDistribution = this.calculateScoreDistributionScore(primaryScore, secondaryScore, tertiaryScore);
     
     let confidence = baseConfidence;
     confidence += qualityAdjustment;
     confidence += featureConsistency;
     confidence += scoreDistribution;
-
-    confidence = Math.max(95, Math.min(99, confidence));
+    
+    // 根据主分数绝对值调整
+    if (primaryScore < 30) {
+      confidence -= 5; // 主分数太低
+    } else if (primaryScore > 70) {
+      confidence += 2; // 主分数很高
+    }
+    
+    // 确保在合理范围内
+    confidence = Math.max(EMOTION_CONFIDENCE_THRESHOLDS.MIN_ACCEPTABLE, Math.min(99, confidence));
 
     return Math.round(confidence);
   }
@@ -1242,7 +1656,7 @@ class EmotionService {
     return -1;
   }
 
-  private calculateFeatureConsistency(features: AudioFeatures, emotion: PrimaryEmotion): number {
+  private calculateFeatureConsistencyForEmotion(features: AudioFeatures, emotion: PrimaryEmotion): number {
     let consistency = 0;
     
     const correlations = EMOTION_CORRELATIONS[emotion];
@@ -1445,6 +1859,12 @@ class EmotionService {
     await this.simulateDelay(1500);
     
     const imageFeatures = await this.extractImageFeatures(file);
+    
+    // 验证图片特征
+    if (!imageFeatures.isValid) {
+      return this.createLowConfidenceResult(imageFeatures.invalidReason || '图片无效', 'image');
+    }
+    
     const audioFeatures = this.generateSimulatedAudioFeatures();
     const emotionScores = this.calculateEmotionScores(audioFeatures);
     
@@ -1454,13 +1874,24 @@ class EmotionService {
       .sort((a, b) => b[1] - a[1]);
     
     const primaryEmotion = sortedEmotions[0][0];
-    const confidence = Math.min(99, 95 + Math.floor(Math.random() * 4));
+    
+    // 根据图片质量计算置信度
+    let confidence = 95 + Math.floor(Math.random() * 4);
+    
+    // 如果图片质量较低，降低置信度
+    if (imageFeatures.quality < 60) {
+      confidence = Math.max(60, confidence - 20);
+    } else if (imageFeatures.quality < 80) {
+      confidence = Math.max(75, confidence - 10);
+    }
+    
     const translation = this.selectTranslation(primaryEmotion, adjustedScores);
     
     const reasoning: string[] = [
       '图像分析模式',
       `图片亮度: ${imageFeatures.brightness}`,
       `色调特征: ${imageFeatures.colorTone}`,
+      `图片质量: ${imageFeatures.quality}%`,
       '基于视觉特征分析情感状态',
     ];
     
@@ -1471,7 +1902,7 @@ class EmotionService {
       secondaryEmotion: sortedEmotions[1][0],
       scores: adjustedScores,
       confidence,
-      confidenceLevel: confidence >= 95 ? 'high' : 'medium',
+      confidenceLevel: confidence >= 95 ? 'high' : confidence >= 85 ? 'medium' : 'low',
       reasoning,
       audioFeatures,
       behaviorIndicators,
@@ -1501,17 +1932,413 @@ class EmotionService {
 
     return analysis;
   }
+  
+  // 动物检测方法
+  async detectAnimal(file: File): Promise<AnimalDetectionResult> {
+    await this.simulateDelay(500);
+    
+    return new Promise((resolve) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // 限制处理尺寸以提高性能
+        const maxSize = 512;
+        let width = img.width;
+        let height = img.height;
+        
+        if (width > maxSize || height > maxSize) {
+          if (width > height) {
+            height = Math.floor(height * (maxSize / width));
+            width = maxSize;
+          } else {
+            width = Math.floor(width * (maxSize / height));
+            height = maxSize;
+          }
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const imageData = ctx.getImageData(0, 0, width, height);
+          
+          // 执行动物检测
+          const result = this.performAnimalDetection(imageData, width, height);
+          
+          URL.revokeObjectURL(url);
+          resolve(result);
+        } else {
+          URL.revokeObjectURL(url);
+          resolve({
+            isAnimal: false,
+            confidence: 0,
+            message: '无法处理图片',
+          });
+        }
+      };
+      
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve({
+          isAnimal: false,
+          confidence: 0,
+          message: '图片加载失败',
+        });
+      };
+      
+      img.src = url;
+    });
+  }
+  
+  // 执行动物检测
+  private performAnimalDetection(imageData: ImageData, width: number, height: number): AnimalDetectionResult {
+    const data = imageData.data;
+    
+    // 1. 颜色分布分析
+    const colorAnalysis = this.analyzeColorDistribution(data);
+    
+    // 2. 纹理分析（毛发检测）
+    const textureAnalysis = this.analyzeTexture(data, width, height);
+    
+    // 3. 边缘检测（形状分析）
+    const edgeAnalysis = this.analyzeEdges(data, width, height);
+    
+    // 4. 眼睛检测（动物通常有明显的眼睛特征）
+    const eyeDetection = this.detectEyes(data, width, height);
+    
+    // 5. 计算综合得分
+    let animalScore = 0;
+    let maxScore = 0;
+    
+    // 毛发纹理权重最高
+    maxScore += 30;
+    if (textureAnalysis.hasFurTexture) {
+      animalScore += 30 * textureAnalysis.confidence;
+    }
+    
+    // 眼睛特征
+    maxScore += 25;
+    if (eyeDetection.hasEyes) {
+      animalScore += 25 * eyeDetection.confidence;
+    }
+    
+    // 颜色分布（动物毛色通常有特定分布）
+    maxScore += 20;
+    if (colorAnalysis.isNaturalColors) {
+      animalScore += 20 * colorAnalysis.confidence;
+    }
+    
+    // 边缘特征（动物轮廓）
+    maxScore += 15;
+    if (edgeAnalysis.hasAnimalShape) {
+      animalScore += 15 * edgeAnalysis.confidence;
+    }
+    
+    // 额外特征：检测是否有明显的面部特征
+    maxScore += 10;
+    const faceDetection = this.detectFaceFeatures(data, width, height);
+    if (faceDetection.hasFace) {
+      animalScore += 10 * faceDetection.confidence;
+    }
+    
+    const confidence = Math.round((animalScore / maxScore) * 100);
+    
+    // 判断是否为动物
+    const isAnimal = confidence >= PET_FEATURE_THRESHOLDS.minConfidence;
+    
+    // 确定动物类型
+    let animalType: 'dog' | 'cat' | 'other' | 'unknown' = 'unknown';
+    if (isAnimal) {
+      if (eyeDetection.eyeShape === 'round' && textureAnalysis.furLength === 'short') {
+        animalType = 'cat';
+      } else if (eyeDetection.eyeShape === 'oval' && textureAnalysis.furLength === 'medium') {
+        animalType = 'dog';
+      } else {
+        animalType = 'other';
+      }
+    }
+    
+    let message: string | undefined;
+    if (!isAnimal) {
+      if (confidence < 30) {
+        message = '未检测到宠物特征，请上传宠物照片。';
+      } else if (confidence < 50) {
+        message = '图片可能不包含宠物，或图片质量较低。请上传清晰的宠物正面照片。';
+      } else {
+        message = '宠物特征不明显，请确保图片中宠物的面部清晰可见。';
+      }
+    }
+    
+    return {
+      isAnimal,
+      confidence,
+      animalType,
+      message,
+    };
+  }
+  
+  // 颜色分布分析
+  private analyzeColorDistribution(data: Uint8ClampedArray): { isNaturalColors: boolean; confidence: number } {
+    const colorCounts: Record<string, number> = {};
+    let totalPixels = 0;
+    
+    // 统计颜色分布
+    for (let i = 0; i < data.length; i += 4) {
+      const r = Math.floor(data[i] / 32) * 32;
+      const g = Math.floor(data[i + 1] / 32) * 32;
+      const b = Math.floor(data[i + 2] / 32) * 32;
+      const key = `${r},${g},${b}`;
+      colorCounts[key] = (colorCounts[key] || 0) + 1;
+      totalPixels++;
+    }
+    
+    // 计算颜色多样性
+    const uniqueColors = Object.keys(colorCounts).length;
+    const colorDiversity = uniqueColors / 512; // 归一化
+    
+    // 动物图片通常有中等颜色多样性（毛发颜色）
+    const isNaturalColors = colorDiversity > 0.1 && colorDiversity < 0.8;
+    
+    // 计算置信度
+    let confidence = 0;
+    if (isNaturalColors) {
+      // 检查是否有常见的动物毛色
+      let naturalColorScore = 0;
+      for (const [key, count] of Object.entries(colorCounts)) {
+        const [r, g, b] = key.split(',').map(Number);
+        // 检查是否为棕色、黑色、白色、灰色等常见毛色
+        const isBrown = r > 100 && r < 200 && g > 60 && g < 150 && b > 30 && b < 100;
+        const isBlack = r < 80 && g < 80 && b < 80;
+        const isWhite = r > 200 && g > 200 && b > 200;
+        const isGray = Math.abs(r - g) < 30 && Math.abs(g - b) < 30 && r > 80 && r < 200;
+        const isOrange = r > 180 && g > 100 && g < 180 && b < 100;
+        
+        if (isBrown || isBlack || isWhite || isGray || isOrange) {
+          naturalColorScore += count;
+        }
+      }
+      confidence = naturalColorScore / totalPixels;
+    }
+    
+    return { isNaturalColors, confidence: Math.min(1, confidence * 1.5) };
+  }
+  
+  // 纹理分析
+  private analyzeTexture(data: Uint8ClampedArray, width: number, height: number): { hasFurTexture: boolean; confidence: number; furLength: 'short' | 'medium' | 'long' } {
+    // 计算局部纹理变化
+    let textureVariance = 0;
+    let sampleCount = 0;
+    
+    const step = 4; // 采样步长
+    for (let y = step; y < height - step; y += step) {
+      for (let x = step; x < width - step; x += step) {
+        const idx = (y * width + x) * 4;
+        const center = (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
+        
+        // 计算周围像素的差异
+        let localVariance = 0;
+        for (let dy = -step; dy <= step; dy += step) {
+          for (let dx = -step; dx <= step; dx += step) {
+            if (dx === 0 && dy === 0) continue;
+            const neighborIdx = ((y + dy) * width + (x + dx)) * 4;
+            const neighbor = (data[neighborIdx] + data[neighborIdx + 1] + data[neighborIdx + 2]) / 3;
+            localVariance += Math.abs(center - neighbor);
+          }
+        }
+        textureVariance += localVariance / 8;
+        sampleCount++;
+      }
+    }
+    
+    const avgTextureVariance = textureVariance / sampleCount;
+    
+    // 毛发纹理通常有中等程度的方差
+    const hasFurTexture = avgTextureVariance > 10 && avgTextureVariance < 80;
+    
+    // 估计毛发长度
+    let furLength: 'short' | 'medium' | 'long' = 'medium';
+    if (avgTextureVariance > 50) {
+      furLength = 'long';
+    } else if (avgTextureVariance < 25) {
+      furLength = 'short';
+    }
+    
+    // 计算置信度
+    const confidence = hasFurTexture 
+      ? Math.min(1, (avgTextureVariance / 40) * (1 - Math.abs(avgTextureVariance - 40) / 80))
+      : 0.3;
+    
+    return { hasFurTexture, confidence, furLength };
+  }
+  
+  // 边缘检测
+  private analyzeEdges(data: Uint8ClampedArray, width: number, height: number): { hasAnimalShape: boolean; confidence: number } {
+    // 简化的边缘检测
+    let edgeCount = 0;
+    let totalEdges = 0;
+    
+    const threshold = 30;
+    for (let y = 1; y < height - 1; y++) {
+      for (let x = 1; x < width - 1; x++) {
+        const idx = (y * width + x) * 4;
+        
+        // 水平梯度
+        const left = (data[idx - 4] + data[idx - 3] + data[idx - 2]) / 3;
+        const right = (data[idx + 4] + data[idx + 5] + data[idx + 6]) / 3;
+        const gx = Math.abs(right - left);
+        
+        // 垂直梯度
+        const up = (data[idx - width * 4] + data[idx - width * 4 + 1] + data[idx - width * 4 + 2]) / 3;
+        const down = (data[idx + width * 4] + data[idx + width * 4 + 1] + data[idx + width * 4 + 2]) / 3;
+        const gy = Math.abs(down - up);
+        
+        const gradient = Math.sqrt(gx * gx + gy * gy);
+        totalEdges++;
+        
+        if (gradient > threshold) {
+          edgeCount++;
+        }
+      }
+    }
+    
+    const edgeRatio = edgeCount / totalEdges;
+    
+    // 动物图片通常有适中的边缘密度
+    const hasAnimalShape = edgeRatio > 0.05 && edgeRatio < 0.5;
+    const confidence = hasAnimalShape ? Math.min(1, edgeRatio * 5) : 0.3;
+    
+    return { hasAnimalShape, confidence };
+  }
+  
+  // 眼睛检测
+  private detectEyes(data: Uint8ClampedArray, width: number, height: number): { hasEyes: boolean; confidence: number; eyeShape: 'round' | 'oval' | 'unknown' } {
+    // 寻找高对比度圆形区域（眼睛特征）
+    const eyeRegions: Array<{ x: number; y: number; size: number; contrast: number }> = [];
+    
+    // 简化的眼睛检测：寻找暗色圆形区域
+    for (let y = Math.floor(height * 0.1); y < height * 0.5; y += 5) {
+      for (let x = Math.floor(width * 0.1); x < width * 0.9; x += 5) {
+        const idx = (y * width + x) * 4;
+        const brightness = (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
+        
+        // 眼睛通常是暗色区域
+        if (brightness < 100) {
+          // 检查周围是否较亮（眼白）
+          let surroundingBrightness = 0;
+          let count = 0;
+          for (let dy = -10; dy <= 10; dy += 5) {
+            for (let dx = -10; dx <= 10; dx += 5) {
+              if (dx === 0 && dy === 0) continue;
+              const sIdx = ((y + dy) * width + (x + dx)) * 4;
+              if (sIdx >= 0 && sIdx < data.length) {
+                surroundingBrightness += (data[sIdx] + data[sIdx + 1] + data[sIdx + 2]) / 3;
+                count++;
+              }
+            }
+          }
+          
+          if (count > 0) {
+            surroundingBrightness /= count;
+            const contrast = surroundingBrightness - brightness;
+            
+            if (contrast > 30) {
+              eyeRegions.push({ x, y, size: 10, contrast });
+            }
+          }
+        }
+      }
+    }
+    
+    const hasEyes = eyeRegions.length >= 2; // 通常有两个眼睛
+    
+    // 判断眼睛形状
+    let eyeShape: 'round' | 'oval' | 'unknown' = 'unknown';
+    if (hasEyes) {
+      // 简化判断：猫的眼睛通常更圆
+      const avgContrast = eyeRegions.reduce((sum, r) => sum + r.contrast, 0) / eyeRegions.length;
+      eyeShape = avgContrast > 60 ? 'round' : 'oval';
+    }
+    
+    const confidence = hasEyes ? Math.min(1, eyeRegions.length / 4) : 0.2;
+    
+    return { hasEyes, confidence, eyeShape };
+  }
+  
+  // 面部特征检测
+  private detectFaceFeatures(data: Uint8ClampedArray, width: number, height: number): { hasFace: boolean; confidence: number } {
+    // 检测面部对称性
+    const centerX = Math.floor(width / 2);
+    const topRegion = Math.floor(height * 0.1);
+    const bottomRegion = Math.floor(height * 0.6);
+    
+    let symmetryScore = 0;
+    let totalPoints = 0;
+    
+    for (let y = topRegion; y < bottomRegion; y += 10) {
+      for (let x = 0; x < centerX; x += 10) {
+        const leftIdx = (y * width + x) * 4;
+        const rightIdx = (y * width + (width - 1 - x)) * 4;
+        
+        const leftBrightness = (data[leftIdx] + data[leftIdx + 1] + data[leftIdx + 2]) / 3;
+        const rightBrightness = (data[rightIdx] + data[rightIdx + 1] + data[rightIdx + 2]) / 3;
+        
+        symmetryScore += 1 - Math.abs(leftBrightness - rightBrightness) / 255;
+        totalPoints++;
+      }
+    }
+    
+    const symmetry = symmetryScore / totalPoints;
+    const hasFace = symmetry > 0.7;
+    const confidence = hasFace ? symmetry : 0.3;
+    
+    return { hasFace, confidence };
+  }
 
   private async extractImageFeatures(file: File): Promise<{
     brightness: number;
     contrast: number;
     colorTone: string;
+    quality: number;
+    isValid: boolean;
+    invalidReason?: string;
   }> {
     return new Promise((resolve) => {
       const img = new Image();
       const url = URL.createObjectURL(file);
       
       img.onload = () => {
+        // 验证图片尺寸
+        if (img.width < 50 || img.height < 50) {
+          URL.revokeObjectURL(url);
+          resolve({
+            brightness: 0,
+            contrast: 0,
+            colorTone: 'neutral',
+            quality: 0,
+            isValid: false,
+            invalidReason: '图片尺寸过小，请上传更清晰的图片',
+          });
+          return;
+        }
+        
+        if (img.width > 4096 || img.height > 4096) {
+          URL.revokeObjectURL(url);
+          resolve({
+            brightness: 0,
+            contrast: 0,
+            colorTone: 'neutral',
+            quality: 0,
+            isValid: false,
+            invalidReason: '图片尺寸过大，请压缩后上传',
+          });
+          return;
+        }
+        
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         
@@ -1525,6 +2352,7 @@ class EmotionService {
           
           let totalBrightness = 0;
           let totalR = 0, totalG = 0, totalB = 0;
+          let minBrightness = 255, maxBrightness = 0;
           const pixelCount = data.length / 4;
           
           for (let i = 0; i < data.length; i += 4) {
@@ -1532,7 +2360,10 @@ class EmotionService {
             const g = data[i + 1];
             const b = data[i + 2];
             
-            totalBrightness += (r + g + b) / 3;
+            const brightness = (r + g + b) / 3;
+            totalBrightness += brightness;
+            minBrightness = Math.min(minBrightness, brightness);
+            maxBrightness = Math.max(maxBrightness, brightness);
             totalR += r;
             totalG += g;
             totalB += b;
@@ -1543,6 +2374,37 @@ class EmotionService {
           const avgG = totalG / pixelCount;
           const avgB = totalB / pixelCount;
           
+          // 计算对比度
+          const dynamicRange = maxBrightness - minBrightness;
+          const contrast = Math.round((dynamicRange / 255) * 100);
+          
+          // 计算图片质量分数
+          let quality = 70;
+          
+          // 亮度适中性
+          if (avgBrightness > 50 && avgBrightness < 200) {
+            quality += 10;
+          } else if (avgBrightness < 30 || avgBrightness > 225) {
+            quality -= 15;
+          }
+          
+          // 对比度
+          if (contrast > 30 && contrast < 80) {
+            quality += 10;
+          } else if (contrast < 15) {
+            quality -= 20;
+          }
+          
+          // 颜色丰富度
+          const colorVariance = Math.sqrt(
+            Math.pow(avgR - avgBrightness, 2) +
+            Math.pow(avgG - avgBrightness, 2) +
+            Math.pow(avgB - avgBrightness, 2)
+          );
+          if (colorVariance > 20) {
+            quality += 5;
+          }
+          
           let colorTone = 'neutral';
           if (avgR > avgG && avgR > avgB) colorTone = 'warm';
           else if (avgB > avgR && avgB > avgG) colorTone = 'cool';
@@ -1552,8 +2414,10 @@ class EmotionService {
           
           resolve({
             brightness: avgBrightness,
-            contrast: Math.round(Math.random() * 30 + 50),
+            contrast,
             colorTone,
+            quality: Math.min(100, Math.max(0, quality)),
+            isValid: true,
           });
         } else {
           URL.revokeObjectURL(url);
@@ -1561,6 +2425,9 @@ class EmotionService {
             brightness: 128,
             contrast: 50,
             colorTone: 'neutral',
+            quality: 50,
+            isValid: false,
+            invalidReason: '无法处理图片',
           });
         }
       };
@@ -1571,6 +2438,9 @@ class EmotionService {
           brightness: 128,
           contrast: 50,
           colorTone: 'neutral',
+          quality: 0,
+          isValid: false,
+          invalidReason: '图片加载失败',
         });
       };
       
@@ -1578,8 +2448,15 @@ class EmotionService {
     });
   }
 
-  private adjustScoresForImage(scores: EmotionScores, imageFeatures: { brightness: number; colorTone: string }): EmotionScores {
+  private adjustScoresForImage(scores: EmotionScores, imageFeatures: { brightness: number; colorTone: string; quality: number }): EmotionScores {
     const adjusted = { ...scores };
+    
+    // 根据图片质量调整所有分数的基础置信度
+    const qualityMultiplier = 0.7 + (imageFeatures.quality / 100) * 0.3;
+    
+    for (const emotion of Object.keys(adjusted) as PrimaryEmotion[]) {
+      adjusted[emotion] *= qualityMultiplier;
+    }
     
     if (imageFeatures.brightness > 180 && imageFeatures.colorTone === 'warm') {
       adjusted.happy = Math.min(100, adjusted.happy * 1.3);

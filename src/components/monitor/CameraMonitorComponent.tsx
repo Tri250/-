@@ -211,7 +211,7 @@ export function CameraMonitorComponent({ cameras, autoConnect: _autoConnect = tr
               style={{ transform: `scale(${zoom})` }}
             />
 
-            {/* AI追踪框 */}
+            {/* AI追踪框 - 响应式大小 */}
             {isStreaming && _isAIEnabled && (
               <motion.div
                 animate={{
@@ -219,10 +219,10 @@ export function CameraMonitorComponent({ cameras, autoConnect: _autoConnect = tr
                   y: [0, 10, -5, 0]
                 }}
                 transition={{ duration: 5, repeat: Infinity }}
-                className="absolute top-1/3 left-1/2 transform -translate-x-1/2 -translate-y-1/2 border-2 border-green-500 rounded-lg w-48 h-32 opacity-70"
+                className="absolute top-1/3 left-1/2 transform -translate-x-1/2 -translate-y-1/2 border-2 border-green-500 rounded-lg w-32 sm:w-48 h-20 sm:h-32 opacity-70"
               >
-                <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-green-500 text-white px-2 py-0.5 rounded text-xs flex items-center gap-1">
-                  <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                <div className="absolute -top-5 sm:-top-6 left-1/2 transform -translate-x-1/2 bg-green-500 text-white px-1.5 sm:px-2 py-0.5 rounded text-xs flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-white rounded-full animate-pulse" />
                   AI追踪中
                 </div>
               </motion.div>
@@ -231,10 +231,10 @@ export function CameraMonitorComponent({ cameras, autoConnect: _autoConnect = tr
             {/* 未连接时的占位符 */}
             {!isStreaming && (
               <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900">
-                <div className="text-center">
-                  <Camera className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-                  <p className="text-gray-400 text-lg mb-2">{selectedCamera.name}</p>
-                  <p className="text-gray-500 text-sm">
+                <div className="text-center px-4">
+                  <Camera className="w-12 h-12 sm:w-16 sm:h-16 text-gray-600 mx-auto mb-3 sm:mb-4" />
+                  <p className="text-gray-400 text-base sm:text-lg mb-1.5 sm:mb-2">{selectedCamera.name}</p>
+                  <p className="text-gray-500 text-xs sm:text-sm">
                     {selectedCamera.status === 'offline' ? '摄像头离线' : '点击开始直播'}
                   </p>
                   <motion.button
@@ -244,10 +244,10 @@ export function CameraMonitorComponent({ cameras, autoConnect: _autoConnect = tr
                       e.stopPropagation();
                       handleStartStream();
                     }}
-                    className="mt-6 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl flex items-center gap-2 mx-auto"
+                    className="mt-4 sm:mt-6 px-5 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl flex items-center gap-2 mx-auto min-h-[44px]"
                   >
-                    <Play className="w-5 h-5" />
-                    <span className="font-medium">开始直播</span>
+                    <Play className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <span className="font-medium text-sm sm:text-base">开始直播</span>
                   </motion.button>
                 </div>
               </div>
@@ -260,37 +260,37 @@ export function CameraMonitorComponent({ cameras, autoConnect: _autoConnect = tr
                   initial={{ opacity: 0, y: -20 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -20 }}
-                  className="absolute top-4 left-4 flex items-center gap-2"
+                  className="absolute top-3 left-3 sm:top-4 sm:left-4 flex items-center gap-1.5 sm:gap-2 flex-wrap"
                 >
-                  <span className={`px-3 py-1.5 rounded-full text-xs font-medium ${
+                  <span className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs font-medium ${
                     isStreaming 
                       ? 'bg-green-500/80 text-white' 
                       : 'bg-gray-500/80 text-white'
                   }`}>
                     {isStreaming ? (
                       <span className="flex items-center gap-1">
-                        <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                        <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-white rounded-full animate-pulse" />
                         直播中
                       </span>
                     ) : '未连接'}
                   </span>
                   
                   {isNightVision && (
-                    <span className="px-3 py-1.5 bg-purple-500/80 text-white rounded-full text-xs flex items-center gap-1">
+                    <span className="px-2 sm:px-3 py-1 sm:py-1.5 bg-purple-500/80 text-white rounded-full text-xs flex items-center gap-1">
                       <Moon className="w-3 h-3" />
                       夜视模式
                     </span>
                   )}
 
                   {isRecording && (
-                    <span className="px-3 py-1.5 bg-red-500/80 text-white rounded-full text-xs flex items-center gap-1">
+                    <span className="px-2 sm:px-3 py-1 sm:py-1.5 bg-red-500/80 text-white rounded-full text-xs flex items-center gap-1">
                       <Circle className="w-3 h-3 fill-current" />
                       录制中
                     </span>
                   )}
 
                   {_isAIEnabled && (
-                    <span className="px-3 py-1.5 bg-blue-500/80 text-white rounded-full text-xs flex items-center gap-1">
+                    <span className="px-2 sm:px-3 py-1 sm:py-1.5 bg-blue-500/80 text-white rounded-full text-xs flex items-center gap-1">
                       <Eye className="w-3 h-3" />
                       AI追踪
                     </span>
@@ -306,11 +306,11 @@ export function CameraMonitorComponent({ cameras, autoConnect: _autoConnect = tr
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 20 }}
-                  className="absolute top-4 right-4 text-white/80"
+                  className="absolute top-3 right-3 sm:top-4 sm:right-4 text-white/80 text-right"
                 >
-                  <p className="text-lg font-medium">{selectedCamera.name}</p>
+                  <p className="text-base sm:text-lg font-medium">{selectedCamera.name}</p>
                   {selectedCamera.location && (
-                    <p className="text-sm">{selectedCamera.location}</p>
+                    <p className="text-xs sm:text-sm">{selectedCamera.location}</p>
                   )}
                 </motion.div>
               )}
@@ -323,9 +323,9 @@ export function CameraMonitorComponent({ cameras, autoConnect: _autoConnect = tr
                   initial={{ opacity: 0, y: 50 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 50 }}
-                  className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6 pt-20"
+                  className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3 sm:p-6 pt-12 sm:pt-20"
                 >
-                  <div className="flex items-center justify-center gap-4">
+                  <div className="flex items-center justify-center gap-2 sm:gap-3 md:gap-4 flex-wrap">
                     {/* 切换摄像头 */}
                     <motion.button
                       whileHover={{ scale: 1.1 }}
@@ -334,9 +334,9 @@ export function CameraMonitorComponent({ cameras, autoConnect: _autoConnect = tr
                         e.stopPropagation();
                         handleSwipe('left');
                       }}
-                      className="p-3 bg-white/20 backdrop-blur-sm rounded-full text-white hover:bg-white/30 transition-colors"
+                      className="p-2.5 sm:p-3 bg-white/20 backdrop-blur-sm rounded-full text-white hover:bg-white/30 active:bg-white/40 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
                     >
-                      <ChevronLeft className="w-6 h-6" />
+                      <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
                     </motion.button>
 
                     {/* 录音 */}
@@ -347,13 +347,13 @@ export function CameraMonitorComponent({ cameras, autoConnect: _autoConnect = tr
                         e.stopPropagation();
                         if (isRecording) { setIsRecording(false); } else { handleStartRecording(); }
                       }}
-                      className={`p-4 backdrop-blur-sm rounded-full transition-colors ${
+                      className={`p-3 sm:p-4 backdrop-blur-sm rounded-full transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center ${
                         isRecording 
                           ? 'bg-red-500 text-white' 
-                          : 'bg-white/20 text-white hover:bg-white/30'
+                          : 'bg-white/20 text-white hover:bg-white/30 active:bg-white/40'
                       }`}
                     >
-                      <Circle className={`w-6 h-6 fill-current ${isRecording ? 'animate-pulse' : ''}`} />
+                      <Circle className={`w-5 h-5 sm:w-6 sm:h-6 fill-current ${isRecording ? 'animate-pulse' : ''}`} />
                     </motion.button>
 
                     {/* 双向语音 */}
@@ -364,13 +364,13 @@ export function CameraMonitorComponent({ cameras, autoConnect: _autoConnect = tr
                         e.stopPropagation();
                         setIsMuted(!isMuted);
                       }}
-                      className={`p-4 backdrop-blur-sm rounded-full transition-colors ${
+                      className={`p-3 sm:p-4 backdrop-blur-sm rounded-full transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center ${
                         isMuted 
                           ? 'bg-red-500 text-white' 
-                          : 'bg-white/20 text-white hover:bg-white/30'
+                          : 'bg-white/20 text-white hover:bg-white/30 active:bg-white/40'
                       }`}
                     >
-                      {isMuted ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
+                      {isMuted ? <MicOff className="w-5 h-5 sm:w-6 sm:h-6" /> : <Mic className="w-5 h-5 sm:w-6 sm:h-6" />}
                     </motion.button>
 
                     {/* 夜视 */}
@@ -381,13 +381,13 @@ export function CameraMonitorComponent({ cameras, autoConnect: _autoConnect = tr
                         e.stopPropagation();
                         setIsNightVision(!isNightVision);
                       }}
-                      className={`p-4 backdrop-blur-sm rounded-full transition-colors ${
+                      className={`p-3 sm:p-4 backdrop-blur-sm rounded-full transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center ${
                         isNightVision 
                           ? 'bg-purple-500 text-white' 
-                          : 'bg-white/20 text-white hover:bg-white/30'
+                          : 'bg-white/20 text-white hover:bg-white/30 active:bg-white/40'
                       }`}
                     >
-                      {isNightVision ? <Sun className="w-6 h-6" /> : <Moon className="w-6 h-6" />}
+                      {isNightVision ? <Sun className="w-5 h-5 sm:w-6 sm:h-6" /> : <Moon className="w-5 h-5 sm:w-6 sm:h-6" />}
                     </motion.button>
 
                     {/* 全屏 */}
@@ -398,9 +398,9 @@ export function CameraMonitorComponent({ cameras, autoConnect: _autoConnect = tr
                         e.stopPropagation();
                         handleToggleFullscreen();
                       }}
-                      className="p-4 bg-white/20 backdrop-blur-sm rounded-full text-white hover:bg-white/30 transition-colors"
+                      className="p-3 sm:p-4 bg-white/20 backdrop-blur-sm rounded-full text-white hover:bg-white/30 active:bg-white/40 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
                     >
-                      {isFullscreen ? <Minimize2 className="w-6 h-6" /> : <Maximize2 className="w-6 h-6" />}
+                      {isFullscreen ? <Minimize2 className="w-5 h-5 sm:w-6 sm:h-6" /> : <Maximize2 className="w-5 h-5 sm:w-6 sm:h-6" />}
                     </motion.button>
 
                     {/* 画中画 */}
@@ -411,13 +411,13 @@ export function CameraMonitorComponent({ cameras, autoConnect: _autoConnect = tr
                         e.stopPropagation();
                         setShowPIP(!showPIP);
                       }}
-                      className={`p-4 backdrop-blur-sm rounded-full transition-colors ${
+                      className={`p-3 sm:p-4 backdrop-blur-sm rounded-full transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center ${
                         showPIP 
                           ? 'bg-blue-500 text-white' 
-                          : 'bg-white/20 text-white hover:bg-white/30'
+                          : 'bg-white/20 text-white hover:bg-white/30 active:bg-white/40'
                       }`}
                     >
-                      <Grid3X3 className="w-6 h-6" />
+                      <Grid3X3 className="w-5 h-5 sm:w-6 sm:h-6" />
                     </motion.button>
 
                     {/* 缩放 */}
@@ -428,9 +428,9 @@ export function CameraMonitorComponent({ cameras, autoConnect: _autoConnect = tr
                         e.stopPropagation();
                         handleZoom('in');
                       }}
-                      className="p-4 bg-white/20 backdrop-blur-sm rounded-full text-white hover:bg-white/30 transition-colors"
+                      className="p-3 sm:p-4 bg-white/20 backdrop-blur-sm rounded-full text-white hover:bg-white/30 active:bg-white/40 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
                     >
-                      <ZoomIn className="w-6 h-6" />
+                      <ZoomIn className="w-5 h-5 sm:w-6 sm:h-6" />
                     </motion.button>
 
                     {/* 更多 */}
@@ -441,23 +441,23 @@ export function CameraMonitorComponent({ cameras, autoConnect: _autoConnect = tr
                         e.stopPropagation();
                         handleSwipe('right');
                       }}
-                      className="p-3 bg-white/20 backdrop-blur-sm rounded-full text-white hover:bg-white/30 transition-colors"
+                      className="p-2.5 sm:p-3 bg-white/20 backdrop-blur-sm rounded-full text-white hover:bg-white/30 active:bg-white/40 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
                     >
-                      <ChevronRight className="w-6 h-6" />
+                      <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
                     </motion.button>
                   </div>
                 </motion.div>
               )}
             </AnimatePresence>
 
-            {/* 画中画预览 */}
+            {/* 画中画预览 - 响应式大小 */}
             <AnimatePresence>
               {showPIP && (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.8 }}
-                  className="absolute bottom-24 right-4 w-48 h-36 bg-gray-800 rounded-xl overflow-hidden shadow-2xl border-2 border-white/20"
+                  className="absolute bottom-20 sm:bottom-24 right-3 sm:right-4 w-36 sm:w-48 h-24 sm:h-36 bg-gray-800 rounded-xl overflow-hidden shadow-2xl border-2 border-white/20"
                 >
                   <img
                     src={mockCameras[(currentCameraIndex + 1) % mockCameras.length].thumbnail}
@@ -465,7 +465,7 @@ export function CameraMonitorComponent({ cameras, autoConnect: _autoConnect = tr
                     className="w-full h-full object-cover"
                   />
                   <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-                    <p className="text-white text-xs">
+                    <p className="text-white text-xs sm:text-sm text-center px-2">
                       {mockCameras[(currentCameraIndex + 1) % mockCameras.length].name}
                     </p>
                   </div>
@@ -483,14 +483,14 @@ export function CameraMonitorComponent({ cameras, autoConnect: _autoConnect = tr
         )}
       </div>
 
-      {/* 手势提示 */}
+      {/* 手势提示 - 响应式 */}
       <AnimatePresence>
         {showControls && isStreaming && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-white/50 text-xs pointer-events-none"
+            className="absolute bottom-2 sm:bottom-4 left-1/2 transform -translate-x-1/2 text-white/50 text-xs pointer-events-none text-center px-4"
           >
             左右滑动切换摄像头 · 双击全屏 · 捏合缩放
           </motion.div>

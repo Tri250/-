@@ -234,6 +234,9 @@ export const useAIConsultationStore = create<AIConsultationStore>((set, get) => 
     
     if (!consultation) return;
 
+    // 立即设置typing状态，确保UI显示加载指示器
+    set({ isTyping: true });
+
     const userMessage: Omit<AIMessage, 'id' | 'createdAt'> = {
       role: 'user',
       content,
@@ -243,8 +246,6 @@ export const useAIConsultationStore = create<AIConsultationStore>((set, get) => 
     };
     
     get().addMessage(consultationId, userMessage);
-
-    set({ isTyping: true });
 
     try {
       const petType = consultation.context.petInfo?.type;
@@ -314,6 +315,7 @@ export const useAIConsultationStore = create<AIConsultationStore>((set, get) => 
         status: 'error',
       });
     } finally {
+      // 确保在所有情况下都重置typing状态
       set({ isTyping: false });
     }
   },

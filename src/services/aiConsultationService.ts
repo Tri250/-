@@ -11,7 +11,60 @@ interface AIResponse {
   isMultiIntent?: boolean;
   imageAnalysis?: ImageAnalysisResult;
   voiceResult?: VoiceRecognitionResult;
+  severity?: 'low' | 'medium' | 'high' | 'urgent';
+  reasoning?: string[];
+  alternatives?: string[];
 }
+
+// 严重程度评估配置
+const SEVERITY_ASSESSMENT = {
+  // 紧急情况关键词（需要立即就医）
+  urgent: {
+    keywords: ['抽搐', '痉挛', '癫痫', '昏迷', '昏厥', '意识不清', '呼吸困难', '喘不过气', '张口呼吸', 
+               '大量出血', '血不止', '喷血', '中毒', '误食巧克力', '误食洋葱', '误食葡萄', '吃老鼠药',
+               '尿闭', '无法排尿', '尿不出来', '骨折', '断腿', '瘫痪', '站不起来', '完全不能动',
+               '眼球突出', '眼睛受伤严重', '持续呕吐', '呕吐不止', '吐血', '严重腹泻', '血便', '拉血'],
+    response: '🚨 **紧急情况警告** 🚨\n\n这是**紧急情况**，需要立即就医！\n\n**请立即采取以下措施：**\n1. ⏰ 立即联系最近的24小时宠物医院\n2. 🚗 尽快将宠物送往医院，途中保持安静和温暖\n3. 📝 记录症状发生的时间和表现\n4. ⛔ 不要自行用药或处理，等待专业兽医\n\n**时间非常关键！** 这种情况延误可能导致严重后果。',
+  },
+  // 高严重程度（尽快就医）
+  high: {
+    keywords: ['高烧', '体温超过40', '体温41', '严重', '很严重', '非常严重', '肿块', '包块', '肿瘤',
+               '心脏病', '肾衰竭', '肝衰竭', '糖尿病', '细小', '犬瘟', '猫瘟', '传腹',
+               '持续', '不止', '频繁', '精神萎靡', '不吃不喝', '完全不吃'],
+    response: '⚠️ **紧急提示** ⚠️\n\n这种情况需要**尽快就医**（建议24小时内）。\n\n**建议措施：**\n1. 📞 尽快预约宠物医院\n2. 👀 继续观察症状变化，如有加重立即就医\n3. 📝 记录症状详情供兽医参考\n4. ⛔ 避免自行用药\n\n如果症状加重或出现其他严重表现，请立即就医！',
+  },
+  // 中等严重程度
+  medium: {
+    keywords: ['呕吐', '腹泻', '拉肚子', '食欲不振', '不吃', '没胃口', '咳嗽', '打喷嚏', 
+               '皮肤问题', '红肿', '脱毛', '瘙痒', '抓挠', '耳炎', '眼睛发炎',
+               '跛行', '腿瘸', '关节疼', '口臭', '牙结石'],
+    response: '📋 **建议关注**\n\n这种情况建议观察24-48小时，如症状持续或加重请就医。\n\n**建议措施：**\n1. 👀 密切观察症状变化\n2. 📝 记录症状出现时间和表现\n3. 🏠 保持舒适环境\n4. 💧 确保充足饮水',
+  },
+  // 低严重程度
+  low: {
+    keywords: ['驱虫', '疫苗', '体检', '洗澡', '美容', '训练', '喂养', '饮食', '营养',
+               '绝育', '配种', '怀孕', '换牙', '社会化', '行为问题'],
+    response: 'ℹ️ **一般咨询**\n\n这是日常护理相关问题，以下是一些建议：',
+  },
+};
+
+// 意图优先级
+const INTENT_PRIORITY: Record<string, number> = {
+  emergency: 100,
+  diagnosis: 90,
+  treatment: 80,
+  prevention: 70,
+  nutrition: 60,
+  behavior: 50,
+  consultation: 40,
+  confirmation: 30,
+  comparison: 25,
+  followup: 20,
+  clarification: 15,
+  cost: 10,
+  time: 10,
+  quantity: 10,
+};
 
 interface IntentAnalysisResult {
   intents: string[];
@@ -1053,56 +1106,72 @@ export class AIConsultationService {
     return response;
   }
 
-  private checkSevereSymptoms(message: string): { hasSevereSymptoms: boolean; response: string } {
-    const severeKeywords = [
-      { pattern: /抽搐|痉挛|癫痫|震颤/gi, name: '抽搐/痉挛', urgency: 'red' },
-      { pattern: /昏迷|昏厥|晕厥|意识不清/gi, name: '昏迷', urgency: 'red' },
-      { pattern: /呼吸困难|喘不过气|张口呼吸|呼吸急促且持续/gi, name: '呼吸困难', urgency: 'red' },
-      { pattern: /大量出血|血不止|喷血/gi, name: '大量出血', urgency: 'red' },
-      { pattern: /中毒|误食巧克力|误食洋葱|误食葡萄|吃老鼠药/gi, name: '中毒', urgency: 'red' },
-      { pattern: /尿闭|无法排尿|尿不出来|完全不尿/gi, name: '尿闭', urgency: 'red' },
-      { pattern: /骨折|断腿|断裂/gi, name: '骨折', urgency: 'red' },
-      { pattern: /持续呕吐|呕吐不止|吐血/gi, name: '持续呕吐', urgency: 'orange' },
-      { pattern: /严重腹泻|血便|拉血/gi, name: '严重腹泻', urgency: 'orange' },
-      { pattern: /高烧|体温超过40|体温41/gi, name: '高烧', urgency: 'orange' },
-      { pattern: /瘫痪|站不起来|完全不能动/gi, name: '瘫痪', urgency: 'red' },
-      { pattern: /眼球突出|眼睛受伤严重/gi, name: '眼部重伤', urgency: 'red' },
-    ];
-
-    for (const keyword of severeKeywords) {
-      if (keyword.pattern.test(message)) {
-        const isRed = keyword.urgency === 'red';
-        const response = isRed 
-          ? `🚨 **紧急情况警告** 🚨
-
-您描述的症状「${keyword.name}」属于**紧急情况**，需要立即就医！
-
-**请立即采取以下措施：**
-1. ⏰ 立即联系最近的24小时宠物医院
-2. 🚗 尽快将宠物送往医院，途中保持安静和温暖
-3. 📝 记录症状发生的时间和表现
-4. ⛔ 不要自行用药或处理，等待专业兽医
-
-**时间非常关键！** 这种情况延误可能导致严重后果。
-
-需要我帮您查找附近的宠物医院吗？`
-          : `⚠️ **紧急提示** ⚠️
-
-您描述的症状「${keyword.name}」需要**尽快就医**（建议24小时内）。
-
-**建议措施：**
-1. 📞 尽快预约宠物医院
-2. 👀 继续观察症状变化，如有加重立即就医
-3. 📝 记录症状详情供兽医参考
-4. ⛔ 避免自行用药
-
-如果症状加重或出现其他严重表现，请立即就医！`;
-
-        return { hasSevereSymptoms: true, response };
+  private checkSevereSymptoms(message: string): { hasSevereSymptoms: boolean; response: string; severity: 'low' | 'medium' | 'high' | 'urgent' } {
+    // 按严重程度从高到低检查
+    const severityLevels: Array<'urgent' | 'high' | 'medium' | 'low'> = ['urgent', 'high', 'medium', 'low'];
+    
+    for (const level of severityLevels) {
+      const assessment = SEVERITY_ASSESSMENT[level];
+      for (const keyword of assessment.keywords) {
+        if (message.includes(keyword)) {
+          // 找到匹配的严重程度
+          let response = assessment.response;
+          
+          // 根据具体关键词添加特定建议
+          if (level === 'urgent') {
+            response += '\n\n需要我帮您查找附近的宠物医院吗？';
+          } else if (level === 'high') {
+            response += '\n\n请问症状持续多长时间了？是否有其他伴随症状？';
+          } else if (level === 'medium') {
+            response += '\n\n请问这种情况持续多久了？是否有加重趋势？';
+          }
+          
+          return { 
+            hasSevereSymptoms: true, 
+            response,
+            severity: level 
+          };
+        }
       }
     }
 
-    return { hasSevereSymptoms: false, response: '' };
+    return { hasSevereSymptoms: false, response: '', severity: 'low' };
+  }
+  
+  // 评估整体严重程度
+  private assessOverallSeverity(
+    message: string,
+    detectedSymptoms: string[]
+  ): { severity: 'low' | 'medium' | 'high' | 'urgent'; reasoning: string[] } {
+    const reasoning: string[] = [];
+    let maxSeverity: 'low' | 'medium' | 'high' | 'urgent' = 'low';
+    
+    // 检查消息中的严重程度关键词
+    const severityCheck = this.checkSevereSymptoms(message);
+    if (severityCheck.hasSevereSymptoms) {
+      maxSeverity = severityCheck.severity;
+      reasoning.push(`检测到${severityCheck.severity === 'urgent' ? '紧急' : severityCheck.severity === 'high' ? '严重' : '中等'}程度关键词`);
+    }
+    
+    // 检查症状的严重程度
+    for (const symptom of detectedSymptoms) {
+      const symptomData = healthKnowledgeBase.symptoms[symptom];
+      if (symptomData) {
+        const hasHighSeverity = symptomData.conditions.some(c => c.severity === 'high' && c.probability > 0.15);
+        if (hasHighSeverity && (maxSeverity === 'low' || maxSeverity === 'medium')) {
+          maxSeverity = 'high';
+          reasoning.push(`症状「${symptom}」可能涉及严重疾病`);
+        }
+      }
+    }
+    
+    // 检查多个症状组合
+    if (detectedSymptoms.length >= 3 && maxSeverity === 'low') {
+      maxSeverity = 'medium';
+      reasoning.push('多个症状同时出现，建议关注');
+    }
+    
+    return { severity: maxSeverity, reasoning };
   }
 
   private checkOutOfScope(message: string): { isOutOfScope: boolean; response: string } {
@@ -1250,15 +1319,19 @@ export class AIConsultationService {
     
     const sanitizedQuestion = validation.sanitizedContent || this.sanitizeInput(question);
     
+    // 检查严重症状
     const severeSymptomCheck = this.checkSevereSymptoms(sanitizedQuestion);
     if (severeSymptomCheck.hasSevereSymptoms) {
       return {
         content: severeSymptomCheck.response,
         confidence: 0.95,
         detectedIntents: ['emergency'],
+        severity: severeSymptomCheck.severity,
+        reasoning: [`检测到${severeSymptomCheck.severity}程度症状`],
       };
     }
     
+    // 检查是否超出范围
     const outOfScopeCheck = this.checkOutOfScope(sanitizedQuestion);
     if (outOfScopeCheck.isOutOfScope) {
       return {
@@ -1266,16 +1339,23 @@ export class AIConsultationService {
         confidence: 0.90,
         detectedIntents: ['out_of_scope'],
         needsClarification: true,
+        severity: 'low',
       };
     }
     
+    // 处理多语言输入
     if (validation.detectedLanguage && validation.detectedLanguage !== MULTILINGUAL_CONFIG.defaultLanguage) {
       return this.handleMixedLanguageInput(sanitizedQuestion);
     }
     
+    // 分析意图
     const intentAnalysis = this.analyzeIntent(sanitizedQuestion);
     const detectedSymptoms = this.extractSymptoms(intentAnalysis.processedMessage);
     
+    // 评估整体严重程度
+    const severityAssessment = this.assessOverallSeverity(sanitizedQuestion, detectedSymptoms);
+    
+    // 处理模糊意图
     if (intentAnalysis.isAmbiguous && detectedSymptoms.length === 0) {
       return {
         content: this.generateClarificationResponse(intentAnalysis.ambiguityReason || '需要更多信息', detectedSymptoms),
@@ -1283,9 +1363,12 @@ export class AIConsultationService {
         needsClarification: true,
         clarificationQuestion: intentAnalysis.ambiguityReason,
         detectedIntents: intentAnalysis.intents,
+        severity: severityAssessment.severity,
+        reasoning: severityAssessment.reasoning,
       };
     }
     
+    // 处理多意图
     if (intentAnalysis.isMultiIntent && intentAnalysis.intents.length > 1) {
       const messageParts = this.splitMultiIntentMessage(sanitizedQuestion);
       return {
@@ -1293,21 +1376,35 @@ export class AIConsultationService {
         confidence: 0.88,
         isMultiIntent: true,
         detectedIntents: intentAnalysis.intents,
+        severity: severityAssessment.severity,
+        reasoning: severityAssessment.reasoning,
       };
     }
 
+    // 按意图优先级排序
+    const sortedIntents = intentAnalysis.intents.sort((a, b) => 
+      (INTENT_PRIORITY[b] || 0) - (INTENT_PRIORITY[a] || 0)
+    );
+
+    // 检查常见问题
     for (const [keyword, synonyms] of Object.entries(questionSynonyms)) {
       if (this.matchesSynonym(intentAnalysis.processedMessage, synonyms)) {
         const answer = healthKnowledgeBase.commonQuestions[keyword];
         if (answer) {
           let response = answer.answer;
           
+          // 添加推理说明
+          const reasoning: string[] = [];
+          reasoning.push(`识别到问题类型：${keyword}`);
+          
           if (intentAnalysis.detectedSlang.length > 0) {
             response += `\n\n💡 检测到网络用语：${intentAnalysis.detectedSlang.join('、')}`;
+            reasoning.push(`网络用语转换：${intentAnalysis.detectedSlang.join('、')}`);
           }
           
           if (intentAnalysis.detectedDialect.length > 0) {
             response += `\n\n🌐 检测到方言表达：${intentAnalysis.detectedDialect.join('、')}`;
+            reasoning.push(`方言转换：${intentAnalysis.detectedDialect.join('、')}`);
           }
           
           if (petType && healthKnowledgeBase.petTypeAdvice[petType]) {
@@ -1317,18 +1414,22 @@ export class AIConsultationService {
               .map(([, value]) => value);
             if (relevantAdvice.length > 0) {
               response += `\n\n🐱 针对${petType === 'cat' ? '猫咪' : '狗狗'}的建议：\n${relevantAdvice.map(a => `• ${a}`).join('\n')}`;
+              reasoning.push(`应用${petType === 'cat' ? '猫咪' : '狗狗'}特定建议`);
             }
           }
           
           return { 
             content: response, 
             confidence: answer.confidence,
-            detectedIntents: intentAnalysis.intents,
+            detectedIntents: sortedIntents,
+            severity: severityAssessment.severity,
+            reasoning: [...reasoning, ...severityAssessment.reasoning],
           };
         }
       }
     }
 
+    // 检查症状
     for (const [symptom, synonyms] of Object.entries(symptomSynonyms)) {
       if (this.matchesSynonym(intentAnalysis.processedMessage, synonyms)) {
         const data = healthKnowledgeBase.symptoms[symptom];
@@ -1362,6 +1463,12 @@ export class AIConsultationService {
           
           let content = `${severityEmoji} 根据您描述的「${symptom}」症状，可能的原因和建议如下：\n\n${conditionsStr}\n\n📝 日常护理建议:\n${adviceStr}${petAdvice}${slangNote}${dialectNote}`;
           
+          // 构建推理说明
+          const reasoning: string[] = [
+            `识别到症状：${symptom}`,
+            `可能原因：${data.conditions.slice(0, 3).map(c => c.name).join('、')}`,
+          ];
+          
           if (context) {
             content = this.buildContextualResponse(intentAnalysis.processedMessage, context, content, [symptom]);
           }
@@ -1370,35 +1477,56 @@ export class AIConsultationService {
             content += `\n\n🔍 补充提示：${intentAnalysis.ambiguityReason}`;
           }
           
+          // 根据严重程度添加提示
+          if (severityAssessment.severity === 'high' || severityAssessment.severity === 'urgent') {
+            content = SEVERITY_ASSESSMENT[severityAssessment.severity].response + '\n\n---\n\n' + content;
+          }
+          
           return { 
             content, 
             confidence: 0.92,
-            detectedIntents: intentAnalysis.intents,
+            detectedIntents: sortedIntents,
             needsClarification: intentAnalysis.isAmbiguous,
+            severity: severityAssessment.severity,
+            reasoning: [...reasoning, ...severityAssessment.reasoning],
           };
         }
       }
     }
 
+    // 生成上下文感知响应
     const contextAwareResponses = this.generateContextAwareResponse(
       intentAnalysis.processedMessage, 
       context, 
       detectedSymptoms, 
-      intentAnalysis.intents.length > 0 ? intentAnalysis.intents[0] : null
+      sortedIntents.length > 0 ? sortedIntents[0] : null
     );
+    
+    // 添加推理说明
+    const reasoning: string[] = [];
+    if (sortedIntents.length > 0) {
+      reasoning.push(`识别到意图：${sortedIntents.join('、')}`);
+    }
+    if (detectedSymptoms.length > 0) {
+      reasoning.push(`检测到症状：${detectedSymptoms.join('、')}`);
+    }
     
     if (intentAnalysis.detectedSlang.length > 0 || intentAnalysis.detectedDialect.length > 0) {
       contextAwareResponses.content += '\n\n';
       if (intentAnalysis.detectedSlang.length > 0) {
         contextAwareResponses.content += `💡 检测到网络用语：${intentAnalysis.detectedSlang.join('、')}\n`;
+        reasoning.push(`网络用语转换：${intentAnalysis.detectedSlang.join('、')}`);
       }
       if (intentAnalysis.detectedDialect.length > 0) {
         contextAwareResponses.content += `🌐 检测到方言表达：${intentAnalysis.detectedDialect.join('、')}`;
+        reasoning.push(`方言转换：${intentAnalysis.detectedDialect.join('、')}`);
       }
     }
     
-    contextAwareResponses.detectedIntents = intentAnalysis.intents;
+    contextAwareResponses.detectedIntents = sortedIntents;
     contextAwareResponses.needsClarification = intentAnalysis.isAmbiguous;
+    contextAwareResponses.severity = severityAssessment.severity;
+    contextAwareResponses.reasoning = [...reasoning, ...severityAssessment.reasoning];
     
     return contextAwareResponses;
   }
@@ -1409,82 +1537,133 @@ export class AIConsultationService {
     detectedSymptoms?: string[],
     intent?: string | null
   ): AIResponse {
+    const reasoning: string[] = [];
+    let severity: 'low' | 'medium' | 'high' | 'urgent' = 'low';
+    
     if (context && context.mentionedSymptoms.length > 0 && detectedSymptoms && detectedSymptoms.length === 0) {
       const previousSymptoms = context.mentionedSymptoms;
+      reasoning.push(`上下文关联：之前提到的症状「${previousSymptoms.join('、')}」`);
       return {
         content: `您之前提到了「${previousSymptoms.join('、')}」的症状，请问现在这些症状有好转吗？还是出现了新的问题？\n\n请详细描述一下当前的情况，我会为您提供更准确的建议。`,
         confidence: 0.88,
+        reasoning,
+        severity,
       };
     }
 
     if (intent === 'emergency') {
+      severity = 'urgent';
+      reasoning.push('识别到紧急意图');
       return {
         content: '⚠️ **紧急情况提示**\n\n根据您的描述，这可能是一个需要紧急处理的情况。建议您：\n\n1. 立即联系最近的宠物医院\n2. 在前往医院的路上保持宠物安静和温暖\n3. 如果可能，记录症状发生的时间和表现\n4. 不要自行用药，以免掩盖症状\n\n需要我帮您查找附近的宠物医院吗？',
         confidence: 0.95,
+        reasoning,
+        severity,
       };
     }
 
     if (intent === 'diagnosis') {
+      reasoning.push('识别到诊断意图');
+      if (detectedSymptoms && detectedSymptoms.length > 0) {
+        severity = 'medium';
+      }
       return {
         content: '根据您的描述，我需要更多信息来帮助分析可能的原因：\n\n1. 📅 这种症状持续多久了？\n2. 🐾 宠物的年龄和品种？\n3. 📊 症状的频率和严重程度？\n4. 🔍 是否有其他伴随症状？\n\n请提供这些信息，我会给出更准确的判断。',
         confidence: 0.85,
+        reasoning,
+        severity,
       };
     }
 
     if (intent === 'treatment') {
+      reasoning.push('识别到治疗意图');
       return {
         content: '关于治疗建议，我需要先了解具体情况：\n\n1. 宠物目前的主要症状是什么？\n2. 症状持续多长时间了？\n3. 是否已经看过兽医？\n4. 是否有用药史或过敏史？\n\n⚠️ 请注意：对于严重症状，建议先就医确诊，不要自行用药治疗。',
         confidence: 0.86,
+        reasoning,
+        severity,
       };
     }
 
     if (intent === 'prevention') {
+      reasoning.push('识别到预防意图');
       return {
         content: '预防措施建议：\n\n🏥 **定期体检**：每年至少一次全面体检\n💉 **疫苗接种**：按时完成疫苗接种\n🐛 **定期驱虫**：体内驱虫每3-6个月，体外驱虫每月\n🥗 **均衡饮食**：选择优质宠物食品\n🏃 **适量运动**：保持适当运动量\n🧼 **卫生管理**：定期清洁和梳理\n\n请问您想了解哪个方面的具体预防措施？',
         confidence: 0.90,
+        reasoning,
+        severity,
       };
     }
 
     if (intent === 'nutrition') {
+      reasoning.push('识别到营养意图');
       return {
         content: '关于宠物饮食营养建议：\n\n🍖 **主食选择**：\n• 选择符合AAFCO标准的优质商业粮\n• 幼宠需要高蛋白、高能量的幼宠粮\n• 老年宠物需要易消化的老年粮\n\n🚫 **禁忌食物**：\n• 巧克力、洋葱、葡萄、木糖醇\n• 煮熟的骨头、生鸡蛋\n\n💧 **饮水建议**：\n• 保持充足的清洁饮水\n• 猫咪可尝试流动水源增加饮水量\n\n请问您想了解哪种宠物或哪个年龄段的具体饮食建议？',
         confidence: 0.91,
+        reasoning,
+        severity,
       };
     }
 
     if (intent === 'behavior') {
+      reasoning.push('识别到行为意图');
       return {
         content: '关于宠物行为训练建议：\n\n🎯 **基础训练原则**：\n• 使用正向强化方法\n• 保持耐心和一致性\n• 每次训练5-10分钟\n\n📚 **基础指令**：\n• 坐下、趴下、等待、过来\n• 定点排便训练\n• 社交化训练\n\n⚠️ **常见问题**：\n• 分离焦虑：逐渐适应独处\n• 攻击行为：找出原因，避免惩罚\n• 破坏行为：提供足够玩具和运动\n\n请问您遇到了什么具体的行为问题？',
         confidence: 0.89,
+        reasoning,
+        severity,
       };
     }
 
-    const generalResponses = [
-      {
-        content: '感谢您的咨询！为了更好地帮助您，请告诉我：\n\n1. 🐾 您的宠物是什么品种？多大了？\n2. 📋 具体有什么症状或问题？\n3. ⏰ 这种情况持续多久了？\n4. 🔍 是否有其他伴随症状？\n\n提供这些信息后，我可以给您更准确的建议。',
-        confidence: 0.85,
-      },
-      {
+    // 不使用随机选择，而是根据输入特征选择最合适的响应
+    reasoning.push('生成通用响应');
+    
+    // 根据输入长度和内容选择响应
+    if (question.length < 10) {
+      return {
         content: '您好！我是您的AI健康顾问。我可以帮助您：\n\n🔍 分析宠物症状和可能原因\n💊 提供护理和治疗建议\n📋 解答日常养护问题\n⚠️ 判断是否需要紧急就医\n\n请详细描述您的问题，我会尽力为您提供专业建议。',
         confidence: 0.88,
-      },
-      {
+        reasoning,
+        severity,
+      };
+    } else if (question.includes('?') || question.includes('？')) {
+      return {
+        content: '感谢您的咨询！为了更好地帮助您，请告诉我：\n\n1. 🐾 您的宠物是什么品种？多大了？\n2. 📋 具体有什么症状或问题？\n3. ⏰ 这种情况持续多久了？\n4. 🔍 是否有其他伴随症状？\n\n提供这些信息后，我可以给您更准确的建议。',
+        confidence: 0.85,
+        reasoning,
+        severity,
+      };
+    } else {
+      return {
         content: '收到您的信息。为了更准确地分析，请问：\n\n• 宠物的种类、年龄、性别？\n• 主要症状是什么？\n• 症状持续多长时间？\n• 近期是否有环境变化或饮食变化？\n\n这些信息有助于我给出更精准的建议。',
         confidence: 0.86,
-      },
-    ];
-
-    const randomResponse = generalResponses[Math.floor(Math.random() * generalResponses.length)];
-    return { content: randomResponse.content, confidence: randomResponse.confidence };
+        reasoning,
+        severity,
+      };
+    }
   }
 
   generateResponse(message: AIMessage, petType?: string, context?: ConversationContext): AIMessage {
     const analysis = this.analyzeQuestion(message.content, petType, context);
     
+    // 构建响应内容，包含置信度和推理信息
+    let responseContent = analysis.content;
+    
+    // 如果有推理信息，添加到响应中（用于调试/透明度）
+    if (analysis.reasoning && analysis.reasoning.length > 0) {
+      // 在开发模式下可以显示推理过程
+      // responseContent += `\n\n---\n📋 **分析过程**：${analysis.reasoning.join(' → ')}`;
+    }
+    
+    // 如果置信度较低，添加提示
+    if (analysis.confidence < 0.8) {
+      responseContent += '\n\n💡 *以上建议基于有限信息，如有疑问请咨询专业兽医。*';
+    }
+    
     return {
       id: Date.now().toString(),
       role: 'assistant',
-      content: analysis.content,
+      content: responseContent,
       messageType: 'text',
       createdAt: new Date().toISOString(),
     };
@@ -1496,7 +1675,8 @@ export class AIConsultationService {
     context: ConversationContext,
     petType?: string
   ): Promise<AIMessage> {
-    await this.simulateDelay(800 + Math.random() * 700);
+    // 使用固定延迟而非随机延迟
+    await this.simulateDelay(1000);
     
     const _userMessage: AIMessage = {
       id: Date.now().toString(),
@@ -1510,6 +1690,12 @@ export class AIConsultationService {
     
     let responseContent = analysis.content;
     
+    // 添加推理信息（如果存在）
+    const reasoningParts: string[] = [];
+    if (analysis.reasoning && analysis.reasoning.length > 0) {
+      reasoningParts.push(...analysis.reasoning);
+    }
+    
     if (contextMessages.length > 0) {
       const lastMessage = contextMessages[contextMessages.length - 1];
       if (lastMessage.role === 'assistant') {
@@ -1521,8 +1707,14 @@ export class AIConsultationService {
         
         if (isFollowUp && context.mentionedSymptoms.length > 0) {
           responseContent = `好的，关于您之前提到的「${context.mentionedSymptoms.join('、')}」问题：\n\n${analysis.content}`;
+          reasoningParts.push('上下文跟进响应');
         }
       }
+    }
+    
+    // 如果置信度较低，添加提示
+    if (analysis.confidence < 0.8) {
+      responseContent += '\n\n💡 *以上建议基于有限信息，如有疑问请咨询专业兽医。*';
     }
     
     return {
@@ -1535,7 +1727,8 @@ export class AIConsultationService {
   }
 
   async sendMessage(consultationId: string, content: string, petType?: string): Promise<AIMessage> {
-    await this.simulateDelay(800 + Math.random() * 700);
+    // 使用固定延迟而非随机延迟
+    await this.simulateDelay(1000);
     
     const userMessage: AIMessage = {
       id: Date.now().toString(),
@@ -1551,19 +1744,31 @@ export class AIConsultationService {
   }
 
   async analyzeImage(imageUrl: string, petType?: string, userDescription?: string): Promise<ImageAnalysisResult> {
-    await this.simulateDelay(1000 + Math.random() * 500);
+    // 使用固定延迟
+    await this.simulateDelay(1200);
     
     const detectedIssues: string[] = [];
     let analysisType: ImageAnalysisResult['analysisType'] = 'general';
     let severityLevel: ImageAnalysisResult['severityLevel'] = 'low';
-    let confidence = 0.75 + Math.random() * 0.15;
+    // 使用基于输入的置信度计算，而非随机
+    let confidence = 0.78;
     
     const descriptionLower = (userDescription || '').toLowerCase();
+    const reasoning: string[] = [];
     
+    // 检测宠物类型
+    const petDetected = this.detectPetTypeFromDescription(descriptionLower);
+    if (petDetected) {
+      reasoning.push(`检测到宠物类型：${petDetected}`);
+    }
+    
+    // 分析图像内容
     for (const [category, keywords] of Object.entries(imageAnalysisPatterns)) {
       for (const keyword of keywords) {
         if (descriptionLower.includes(keyword)) {
           detectedIssues.push(keyword);
+          reasoning.push(`检测到问题：${keyword}（类别：${category}）`);
+          
           if (category === 'skinIssues' || category === 'bodyIssues') {
             analysisType = 'symptom';
             severityLevel = 'medium';
@@ -1586,6 +1791,8 @@ export class AIConsultationService {
     
     if (detectedIssues.length === 0) {
       detectedIssues.push('需要进一步观察');
+      reasoning.push('未检测到明确问题，建议进一步观察');
+      
       if (descriptionLower.includes('皮肤') || descriptionLower.includes('毛')) {
         analysisType = 'symptom';
         detectedIssues.push('皮肤状态需要关注');
@@ -1604,11 +1811,15 @@ export class AIConsultationService {
       }
     }
     
+    // 根据检测到的问题数量调整置信度
+    confidence += Math.min(detectedIssues.length * 0.03, 0.12);
+    
     const urgentKeywords = ['出血', '血', '严重', '紧急', '危险', '骨折', '昏迷', '抽搐'];
     for (const keyword of urgentKeywords) {
       if (descriptionLower.includes(keyword)) {
         severityLevel = 'urgent';
         confidence = Math.min(confidence + 0.1, 0.95);
+        reasoning.push(`检测到紧急关键词：${keyword}`);
         break;
       }
     }
@@ -1619,6 +1830,7 @@ export class AIConsultationService {
         if (descriptionLower.includes(keyword)) {
           severityLevel = 'high';
           confidence = Math.min(confidence + 0.05, 0.92);
+          reasoning.push(`检测到高严重程度关键词：${keyword}`);
           break;
         }
       }
@@ -1676,14 +1888,37 @@ export class AIConsultationService {
       analyzedAt: new Date().toISOString(),
     };
   }
+  
+  // 从描述中检测宠物类型
+  private detectPetTypeFromDescription(description: string): string | null {
+    const catKeywords = ['猫', '猫咪', '喵', '主子', '猫猫', 'cat', 'kitty'];
+    const dogKeywords = ['狗', '狗狗', '汪', '修勾', '修狗', '狗子', 'dog', 'puppy'];
+    
+    for (const keyword of catKeywords) {
+      if (description.includes(keyword)) {
+        return '猫咪';
+      }
+    }
+    
+    for (const keyword of dogKeywords) {
+      if (description.includes(keyword)) {
+        return '狗狗';
+      }
+    }
+    
+    return null;
+  }
 
   async processVoiceInput(audioUrl: string, transcript?: string): Promise<VoiceRecognitionResult> {
-    await this.simulateDelay(800 + Math.random() * 400);
+    // 使用固定延迟
+    await this.simulateDelay(1000);
     
     const mockTranscript = transcript || '我的宠物最近不太舒服，有点担心';
-    const confidence = 0.85 + Math.random() * 0.1;
+    // 基于输入长度计算置信度，而非随机
+    const confidence = Math.min(0.85 + (mockTranscript.length > 20 ? 0.1 : 0), 0.95);
     const language = 'zh-CN';
-    const duration = 3 + Math.random() * 7;
+    // 基于输入估算时长
+    const duration = Math.max(2, Math.min(mockTranscript.length * 0.3, 10));
     
     const detectedKeywords: string[] = [];
     const transcriptLower = mockTranscript.toLowerCase();

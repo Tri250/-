@@ -8,6 +8,7 @@ interface GlassModalProps {
  children: React.ReactNode;
  className?: string;
  size?: 'sm' | 'md' | 'lg';
+ fullScreenOnMobile?: boolean;
 }
 export function GlassModal({ isOpen, onClose, title, children, className, size = 'md' }: GlassModalProps) {
  const handleEscape = useCallback((event: KeyboardEvent) => {
@@ -28,22 +29,22 @@ export function GlassModal({ isOpen, onClose, title, children, className, size =
  if (!isOpen)
  return null;
  const sizeClasses = {
- sm: 'max-w-sm',
- md: 'max-w-md',
- lg: 'max-w-lg'
+ sm: 'sm:max-w-sm',
+ md: 'sm:max-w-md',
+ lg: 'sm:max-w-lg'
  };
- return (<div className="fixed inset-0 z-modal flex items-center justify-center p-4">
+ return (<div className="fixed inset-0 z-modal flex items-end sm:items-center justify-center">
  <div className="absolute inset-0 bg-neutral-900/50 backdrop-blur-sm animate-fade-in" onClick={onClose}/>
- <div className={cn('relative w-full max-w-lg rounded-2xl overflow-hidden', 'glass-card dark:glass-card-dark', 'shadow-elevated', sizeClasses[size], 'animate-scale-in', className)}>
- {title && (<div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200 dark:border-neutral-700">
- <h3 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100">
+ <div className={cn('relative w-full rounded-t-2xl sm:rounded-2xl overflow-hidden', 'glass-card dark:glass-card-dark', 'shadow-elevated', sizeClasses[size], 'animate-slide-up sm:animate-scale-in', 'max-h-[90vh] sm:max-h-[85vh]', className)}>
+ {title && (<div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-neutral-200 dark:border-neutral-700 sticky top-0 bg-white/95 dark:bg-neutral-800/95 backdrop-blur-sm z-10">
+ <h3 className="text-base sm:text-lg font-semibold text-neutral-800 dark:text-neutral-100">
  {title}
  </h3>
- <button onClick={onClose} className="p-1.5 rounded-lg text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors">
+ <button onClick={onClose} className="p-2 sm:p-1.5 rounded-lg text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center">
  <X className="h-5 w-5"/>
  </button>
  </div>)}
- <div className="p-6">
+ <div className="p-4 sm:p-6 overflow-y-auto max-h-[calc(90vh-64px)] sm:max-h-[calc(85vh-80px)]">
  {children}
  </div>
  </div>

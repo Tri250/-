@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   cryptoUtils,
   bruteForceProtection,
-  _csrfProtection,
-  _sessionManager,
+  csrfProtection as _csrfProtection,
+  sessionManager as _sessionManager,
   xssProtection,
 } from '../../../src/utils/security';
 

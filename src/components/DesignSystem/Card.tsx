@@ -147,11 +147,11 @@ interface SkeletonQuickActionProps {
 }
 
 export const SkeletonQuickActions: React.FC<SkeletonQuickActionProps> = ({ count = 6 }) => (
-  <div className="grid grid-cols-3 gap-3">
+  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
     {Array.from({ length: count }).map((_, i) => (
-      <div key={i} className="rounded-2xl p-3 text-center skeleton-card">
+      <div key={i} className="rounded-2xl p-4 sm:p-4.5 text-center skeleton-card min-h-[120px] sm:min-h-[130px]">
         <div className="animate-pulse">
-          <div className="w-12 h-12 mx-auto rounded-2xl skeleton mb-3" />
+          <div className="w-12 h-12 sm:w-13 sm:h-13 mx-auto rounded-xl skeleton mb-3" />
           <div className="h-4 w-16 mx-auto rounded skeleton-text mb-1" />
           <div className="h-3 w-12 mx-auto rounded skeleton-text" />
         </div>

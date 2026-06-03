@@ -365,7 +365,7 @@ export const AddRecordModal: React.FC<AddRecordModalProps> = ({
           <label className="block text-sm font-medium text-neutral-700 mb-2">
             记录类型
           </label>
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
             {RECORD_TYPE_CONFIG.map((config) => (
               <button
                 key={config.type}
@@ -374,7 +374,7 @@ export const AddRecordModal: React.FC<AddRecordModalProps> = ({
                   stopRecording();
                   stopVideoRecording();
                 }}
-                className={`flex flex-col items-center gap-1.5 p-3 rounded-xl transition-all ${
+                className={`flex flex-col items-center gap-1.5 p-3 rounded-xl transition-all min-h-[60px] ${
                   recordType === config.type
                     ? 'bg-primary-50 border-2 border-primary-500'
                     : 'bg-neutral-50 border-2 border-transparent hover:bg-neutral-100'
@@ -416,7 +416,7 @@ export const AddRecordModal: React.FC<AddRecordModalProps> = ({
               {!audioBlob && !isRecording && (
                 <button
                   onClick={startRecording}
-                  className="w-full py-4 rounded-xl flex flex-col items-center justify-center gap-2 bg-purple-100 text-purple-700 hover:bg-purple-200 transition-all"
+                  className="w-full py-5 sm:py-4 rounded-xl flex flex-col items-center justify-center gap-2 bg-purple-100 text-purple-700 hover:bg-purple-200 transition-all min-h-[44px]"
                 >
                   <Mic className="w-8 h-8" />
                   <span className="font-medium">点击开始录音</span>
@@ -433,7 +433,7 @@ export const AddRecordModal: React.FC<AddRecordModalProps> = ({
                   <span className="text-sm">正在录音...</span>
                   <button
                     onClick={stopRecording}
-                    className="mt-2 px-6 py-2 bg-white text-red-500 rounded-lg font-medium hover:bg-gray-100 transition-colors"
+                    className="mt-2 px-6 py-2.5 bg-white text-red-500 rounded-lg font-medium hover:bg-gray-100 transition-colors min-h-[44px]"
                   >
                     <Square className="w-4 h-4 inline mr-2" />
                     停止录音
@@ -446,7 +446,7 @@ export const AddRecordModal: React.FC<AddRecordModalProps> = ({
                   <div className="flex items-center justify-center gap-4">
                     <button
                       onClick={isPlaying ? pauseAudio : playAudio}
-                      className="w-12 h-12 rounded-full bg-purple-500 text-white flex items-center justify-center hover:bg-purple-600 transition-colors"
+                      className="w-12 h-12 rounded-full bg-purple-500 text-white flex items-center justify-center hover:bg-purple-600 transition-colors min-h-[44px] min-w-[44px]"
                     >
                       {isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6" />}
                     </button>
@@ -460,7 +460,7 @@ export const AddRecordModal: React.FC<AddRecordModalProps> = ({
                         setRecordingTime(0);
                         setVoiceTranscription(null);
                       }}
-                      className="px-4 py-2 text-sm text-purple-600 hover:text-purple-800"
+                      className="px-4 py-2.5 text-sm text-purple-600 hover:text-purple-800 min-h-[44px]"
                     >
                       重新录制
                     </button>
@@ -469,7 +469,7 @@ export const AddRecordModal: React.FC<AddRecordModalProps> = ({
                   {!voiceTranscription && !isTranscribing && (
                     <button
                       onClick={transcribeVoice}
-                      className="mt-4 w-full py-3 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-500 text-white font-medium flex items-center justify-center gap-2 hover:shadow-lg transition-all"
+                      className="mt-4 w-full py-3.5 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-500 text-white font-medium flex items-center justify-center gap-2 hover:shadow-lg transition-all min-h-[44px]"
                     >
                       <Volume2 className="w-4 h-4" />
                       转为文字
@@ -489,7 +489,7 @@ export const AddRecordModal: React.FC<AddRecordModalProps> = ({
                       <p className="text-sm text-neutral-600">{voiceTranscription}</p>
                       <button
                         onClick={() => setVoiceTranscription(null)}
-                        className="mt-2 text-xs text-purple-500 hover:text-purple-700"
+                        className="mt-2 text-xs text-purple-500 hover:text-purple-700 py-1"
                       >
                         清除转文字结果
                       </button>
@@ -523,7 +523,7 @@ export const AddRecordModal: React.FC<AddRecordModalProps> = ({
               {!selectedPdf && (
                 <button
                   onClick={() => pdfInputRef.current?.click()}
-                  className="w-full py-8 rounded-xl border-2 border-dashed border-orange-300 bg-orange-50 hover:bg-orange-100 hover:border-orange-400 transition-all cursor-pointer"
+                  className="w-full py-10 sm:py-8 rounded-xl border-2 border-dashed border-orange-300 bg-orange-50 hover:bg-orange-100 hover:border-orange-400 transition-all cursor-pointer min-h-[44px]"
                 >
                   <div className="flex flex-col items-center gap-3">
                     <Upload className="w-10 h-10 text-orange-500" />
@@ -589,7 +589,7 @@ export const AddRecordModal: React.FC<AddRecordModalProps> = ({
               {!selectedImage && (
                 <button
                   onClick={() => photoInputRef.current?.click()}
-                  className="w-full py-8 rounded-xl border-2 border-dashed border-green-300 bg-green-50 hover:bg-green-100 hover:border-green-400 transition-all cursor-pointer"
+                  className="w-full py-10 sm:py-8 rounded-xl border-2 border-dashed border-green-300 bg-green-50 hover:bg-green-100 hover:border-green-400 transition-all cursor-pointer min-h-[44px]"
                 >
                   <div className="flex flex-col items-center gap-3">
                     <Upload className="w-10 h-10 text-green-500" />
@@ -644,7 +644,7 @@ export const AddRecordModal: React.FC<AddRecordModalProps> = ({
                 <div className="space-y-3">
                   <button
                     onClick={startVideoRecording}
-                    className="w-full py-4 rounded-xl flex flex-col items-center justify-center gap-2 bg-red-100 text-red-700 hover:bg-red-200 transition-all"
+                    className="w-full py-5 sm:py-4 rounded-xl flex flex-col items-center justify-center gap-2 bg-red-100 text-red-700 hover:bg-red-200 transition-all min-h-[44px]"
                   >
                     <Camera className="w-8 h-8" />
                     <span className="font-medium">点击开始录像</span>
@@ -652,7 +652,7 @@ export const AddRecordModal: React.FC<AddRecordModalProps> = ({
                   
                   <button
                     onClick={() => videoInputRef.current?.click()}
-                    className="w-full py-3 rounded-xl border-2 border-dashed border-red-300 bg-red-50 hover:bg-red-100 hover:border-red-400 transition-all cursor-pointer"
+                    className="w-full py-3.5 rounded-xl border-2 border-dashed border-red-300 bg-red-50 hover:bg-red-100 hover:border-red-400 transition-all cursor-pointer min-h-[44px]"
                   >
                     <div className="flex items-center justify-center gap-2">
                       <Upload className="w-5 h-5 text-red-500" />
@@ -678,7 +678,7 @@ export const AddRecordModal: React.FC<AddRecordModalProps> = ({
                     </div>
                     <button
                       onClick={stopVideoRecording}
-                      className="mt-4 px-6 py-2 bg-white text-red-500 rounded-lg font-medium hover:bg-gray-100 transition-colors"
+                      className="mt-4 px-6 py-2.5 bg-white text-red-500 rounded-lg font-medium hover:bg-gray-100 transition-colors min-h-[44px]"
                     >
                       <Square className="w-4 h-4 inline mr-2" />
                       停止录像
@@ -728,7 +728,7 @@ export const AddRecordModal: React.FC<AddRecordModalProps> = ({
                 <button
                   key={tag.id}
                   onClick={() => toggleTag(tag.id)}
-                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
+                  className={`px-3 py-2 rounded-full text-sm font-medium transition-all min-h-[44px] ${
                     isSelected
                       ? 'ring-2 ring-offset-1 shadow-sm'
                       : 'opacity-70 hover:opacity-100'
@@ -752,7 +752,7 @@ export const AddRecordModal: React.FC<AddRecordModalProps> = ({
         <div className="flex items-center gap-3">
           <button
             onClick={() => setIsImportant(!isImportant)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all ${
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all min-h-[44px] ${
               isImportant
                 ? 'bg-amber-100 text-amber-700'
                 : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
@@ -765,17 +765,17 @@ export const AddRecordModal: React.FC<AddRecordModalProps> = ({
           </button>
         </div>
 
-        <div className="flex gap-3 pt-2">
+        <div className="flex gap-3 pt-2 pb-4 sm:pb-0">
           <button
             onClick={handleClose}
-            className="flex-1 py-3 rounded-xl bg-neutral-100 text-neutral-700 font-medium hover:bg-neutral-200 transition-colors"
+            className="flex-1 py-3.5 sm:py-3 rounded-xl bg-neutral-100 text-neutral-700 font-medium hover:bg-neutral-200 transition-colors min-h-[44px] text-sm sm:text-base"
           >
             取消
           </button>
           <button
             onClick={handleSubmit}
             disabled={isSubmitDisabled()}
-            className="flex-1 py-3 rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 text-white font-medium hover:shadow-lg hover:shadow-primary-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 py-3.5 sm:py-3 rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 text-white font-medium hover:shadow-lg hover:shadow-primary-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] text-sm sm:text-base"
           >
             保存记录
           </button>

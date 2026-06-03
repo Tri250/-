@@ -377,7 +377,7 @@ describe('AppStore', () => {
         petId: '1',
         type: 'image',
         result: {
-          emotion: 'calm',
+          emotion: 'happy',
           translation: '图像分析',
           confidence: 92,
         },

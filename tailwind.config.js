@@ -179,6 +179,12 @@ export default {
         '4xl': ['36px', { lineHeight: '44px' }],
         '5xl': ['48px', { lineHeight: '56px' }],
       },
+      width: {
+        13: '52px',
+      },
+      height: {
+        13: '52px',
+      },
       fontWeight: {
         normal: 400,
         medium: 500,
@@ -192,11 +198,14 @@ export default {
         2: '8px',
         3: '12px',
         4: '16px',
+        4.5: '18px',
         5: '20px',
         6: '24px',
+        6.5: '26px',
         8: '32px',
         10: '40px',
         12: '48px',
+        13: '52px',
         16: '64px',
         20: '80px',
       },

@@ -7,16 +7,25 @@
 // ============================================
 
 import { useState, useEffect, useRef } from 'react';
-import { Mic, Share2, RefreshCw, Sparkles, Heart, ChevronDown, ChevronUp, ChevronLeft, Activity, Waves, Music2, Camera, Upload, X, History, Clock } from 'lucide-react';
+import { Mic, Share2, RefreshCw, Sparkles, Heart, ChevronDown, ChevronUp, ChevronLeft, Activity, Waves, Music2, Camera, Upload, X, History, Clock, Volume2, Radio, Drum, Palette } from 'lucide-react';
 import { useAppStore, type Analysis } from '../store/appStore';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { EmotionIcons } from '../components/icons/EmotionIcons';
-import { ShareModal } from '../components/ShareModal';
 import { emotionService } from '../services/emotionService';
 import { EMOTION_CONFIGS } from '../types/emotion';
 import type { PrimaryEmotion, EmotionAnalysis } from '../types/emotion';
+// 新动画组件
+import { 
+  RecordingAnimation, 
+  AnalysisAnimation,
+  EmotionIconAnimation,
+  ConfidenceMeterAnimation,
+  TypewriterText,
+  ResultCardAnimation,
+  BadgeAnimation,
+} from '../components/animations';
 
 type AppStoreEmotion = 'happy' | 'anxious' | 'angry' | 'needs' | 'neutral';
 
@@ -46,70 +55,58 @@ function PawPrintIcon({ className = '' }: { className?: string }) {
   );
 }
 
-function SoundWave({ active, color }: { active: boolean; color: string }) {
-  const [barHeights, setBarHeights] = useState<number[]>([20, 20, 20, 20, 20, 20, 20]);
-  const bars = [1, 2, 3, 4, 5, 6, 7];
-  
-  useEffect(() => {
-    if (active) {
-      const interval = setInterval(() => {
-        setBarHeights(bars.map(() => 20 + Math.random() * 60));
-      }, 150);
-      return () => clearInterval(interval);
-    } else {
-      setBarHeights(bars.map(() => 20));
-    }
-  }, [active]);
-  
-  const colorMap: Record<string, string> = {
-    'green': '#22c55e',
-    'purple': '#a855f7',
-    'yellow': '#eab308',
-    'red': '#ef4444',
-    'blue': '#3b82f6',
-    'gray': '#6b7280',
-    'pink': '#ec4899',
-    'teal': '#14b8a6',
-  };
-  
-  const actualColor = colorMap[color] || '#f97316';
-  
-  return (
-    <div className="flex items-end justify-center gap-1 h-16">
-      {bars.map((_, index) => (
-        <div
-          key={index}
-          className={`w-1.5 rounded-full transition-all duration-150 ${active ? 'animate-pulse' : ''}`}
-          style={{
-            height: `${barHeights[index]}%`,
-            backgroundColor: active ? actualColor : '#d1d5db',
-            animationDelay: `${index * 0.1}s`,
-            animationDuration: '0.8s',
-          }}
-        />
-      ))}
-    </div>
-  );
-}
+// 主题颜色
+const THEME_COLORS = {
+  primary: '#f97316',      // orange-500
+  secondary: '#fb923c',    // orange-400
+  tertiary: '#fdba74',     // orange-300
+  success: '#22c55e',      // green-500
+  background: '#f8fafc',   // light gray
+};
 
 function EmotionMeter({ confidence, guaranteed }: { confidence: number; guaranteed?: boolean }) {
+  const [animatedConfidence, setAnimatedConfidence] = useState(0);
   const isHighConfidence = confidence >= 95;
+  
+  useEffect(() => {
+    const duration = 1000;
+    const startTime = Date.now();
+    const startValue = 0;
+    
+    const animate = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      // 弹性缓动
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setAnimatedConfidence(startValue + (confidence - startValue) * eased);
+      
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      }
+    };
+    
+    requestAnimationFrame(animate);
+  }, [confidence]);
   
   return (
     <div className="relative h-3 bg-gray-100 rounded-full overflow-hidden">
       <div
-        className={`h-full rounded-full transition-all duration-1000 ease-out ${
-          isHighConfidence ? 'bg-gradient-to-r from-green-400 to-emerald-500' : 'bg-gradient-to-r from-orange-400 to-amber-500'
-        }`}
-        style={{ width: `${confidence}%` }}
+        className="h-full rounded-full transition-all duration-300"
+        style={{ 
+          width: `${animatedConfidence}%`,
+          background: isHighConfidence 
+            ? `linear-gradient(90deg, ${THEME_COLORS.success}, #4ade80)`
+            : `linear-gradient(90deg, ${THEME_COLORS.primary}, ${THEME_COLORS.secondary})`,
+          boxShadow: `0 0 10px ${isHighConfidence ? THEME_COLORS.success : THEME_COLORS.primary}40`,
+        }}
       />
       <div className="absolute inset-0 flex items-center justify-center">
         <span className={`text-xs font-bold drop-shadow-sm ${isHighConfidence ? 'text-white' : 'text-gray-700'}`}>
-          置信度 {confidence}%
+          置信度 {Math.round(animatedConfidence)}%
         </span>
       </div>
-      {guaranteed && isHighConfidence && (
-        <div className="absolute -right-1 top-1/2 -translate-y-1/2">
+      {guaranteed && isHighConfidence && animatedConfidence >= 95 && (
+        <div className="absolute -right-1 top-1/2 -translate-y-1/2 animate-pulse">
           <span className="text-xs bg-green-500 text-white px-1 rounded-full">✓</span>
         </div>
       )}
@@ -167,6 +164,178 @@ function EmotionScoreBar({ emotion, score, isPrimary }: { emotion: PrimaryEmotio
       <span className={`text-xs w-8 text-right ${isPrimary ? 'font-semibold' : 'text-gray-400'}`}>
         {Math.round(score)}%
       </span>
+    </div>
+  );
+}
+
+// 分析维度卡片组件
+interface DimensionConfig {
+  id: string;
+  name: string;
+  icon: React.ReactNode;
+  gradient: string;
+  iconBg: string;
+  textColor: string;
+  description: string;
+}
+
+const DIMENSION_CONFIGS: DimensionConfig[] = [
+  {
+    id: 'pitch',
+    name: '音调分析',
+    icon: <Music2 className="w-5 h-5" />,
+    gradient: 'from-purple-500 to-violet-600',
+    iconBg: 'bg-purple-500',
+    textColor: 'text-purple-600',
+    description: '分析声音频率高低变化',
+  },
+  {
+    id: 'intensity',
+    name: '强度检测',
+    icon: <Volume2 className="w-5 h-5" />,
+    gradient: 'from-orange-500 to-amber-600',
+    iconBg: 'bg-orange-500',
+    textColor: 'text-orange-600',
+    description: '检测声音强度与能量',
+  },
+  {
+    id: 'frequency',
+    name: '频率识别',
+    icon: <Radio className="w-5 h-5" />,
+    gradient: 'from-blue-500 to-cyan-600',
+    iconBg: 'bg-blue-500',
+    textColor: 'text-blue-600',
+    description: '识别声波频率特征',
+  },
+  {
+    id: 'rhythm',
+    name: '节奏分析',
+    icon: <Drum className="w-5 h-5" />,
+    gradient: 'from-green-500 to-emerald-600',
+    iconBg: 'bg-green-500',
+    textColor: 'text-green-600',
+    description: '分析声音节奏规律',
+  },
+  {
+    id: 'timbre',
+    name: '音色特征',
+    icon: <Palette className="w-5 h-5" />,
+    gradient: 'from-pink-500 to-rose-600',
+    iconBg: 'bg-pink-500',
+    textColor: 'text-pink-600',
+    description: '识别声音独特品质',
+  },
+];
+
+function AnalysisDimensionCard({ 
+  dimension, 
+  isActive = false,
+  showAnimation = false,
+}: { 
+  dimension: DimensionConfig;
+  isActive?: boolean;
+  showAnimation?: boolean;
+}) {
+  return (
+    <div 
+      className={`
+        relative overflow-hidden rounded-xl p-3 
+        bg-gradient-to-br ${dimension.gradient} bg-opacity-10
+        border border-white/50 shadow-sm
+        transition-all duration-300 ease-out
+        hover:shadow-md hover:scale-[1.02]
+        ${isActive ? 'ring-2 ring-offset-2 ring-offset-white' : ''}
+      `}
+      style={{
+        background: `linear-gradient(135deg, var(--tw-gradient-stops))`,
+      }}
+    >
+      {/* 背景渐变 */}
+      <div className={`absolute inset-0 bg-gradient-to-br ${dimension.gradient} opacity-10`} />
+      
+      {/* 动画脉冲效果 */}
+      {showAnimation && (
+        <div className={`absolute inset-0 bg-gradient-to-br ${dimension.gradient} opacity-20 animate-pulse`} />
+      )}
+      
+      {/* 内容 */}
+      <div className="relative z-10">
+        {/* 图标和名称 */}
+        <div className="flex items-center gap-2 mb-2">
+          <div className={`
+            p-1.5 rounded-lg ${dimension.iconBg} text-white
+            shadow-sm transition-transform duration-300
+            ${showAnimation ? 'animate-bounce' : ''}
+          `}>
+            {dimension.icon}
+          </div>
+          <span className={`text-sm font-semibold ${dimension.textColor}`}>
+            {dimension.name}
+          </span>
+        </div>
+        
+        {/* 进度条 */}
+        <div className="space-y-1">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-500">分析中...</span>
+            <span className={`text-xs font-medium ${dimension.textColor}`}>
+              {showAnimation ? '活跃' : '就绪'}
+            </span>
+          </div>
+          <div className="h-1.5 bg-white/50 rounded-full overflow-hidden">
+            <div 
+              className={`
+                h-full rounded-full bg-gradient-to-r ${dimension.gradient}
+                transition-all duration-500 ease-out
+                ${showAnimation ? 'animate-pulse' : ''}
+              `}
+              style={{ width: showAnimation ? '100%' : '30%' }}
+            />
+          </div>
+        </div>
+      </div>
+      
+      {/* 活跃指示器 */}
+      {isActive && (
+        <div className="absolute top-2 right-2">
+          <div className={`w-2 h-2 rounded-full ${dimension.iconBg} animate-ping`} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AnalysisDimensionsGrid({ isActive = false }: { isActive?: boolean }) {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <div className="p-1.5 rounded-lg bg-gradient-to-br from-orange-500 to-amber-600 text-white">
+          <Activity className="w-4 h-4" />
+        </div>
+        <h3 className="text-sm font-semibold text-gray-700">分析维度</h3>
+        {isActive && (
+          <span className="text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full animate-pulse">
+            分析中
+          </span>
+        )}
+      </div>
+      
+      {/* 响应式网格: 2列(移动端) -> 3列(sm) -> 5列(lg) */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        {DIMENSION_CONFIGS.map((dimension) => (
+          <AnalysisDimensionCard
+            key={dimension.id}
+            dimension={dimension}
+            isActive={isActive}
+            showAnimation={isActive}
+          />
+        ))}
+      </div>
+      
+      {/* 说明文字 */}
+      <p className="text-xs text-gray-400 text-center mt-2">
+        AI将综合分析以上维度，确保95%+准确率
+      </p>
     </div>
   );
 }
@@ -493,7 +662,6 @@ export function TranslatorPage({ onNavigate }: { onNavigate?: (page: string) => 
   const { currentPet, addAnalysis, setCurrentEmotion, analyses } = useAppStore();
   const [isRecording, setIsRecording] = useState(false);
   const [showResult, setShowResult] = useState(false);
-  const [showShareModal, setShowShareModal] = useState(false);
   const [emotion, setEmotion] = useState<PrimaryEmotion>('calm');
   const [translation, setTranslation] = useState('');
   const [confidence, setConfidence] = useState(0);
@@ -507,6 +675,9 @@ export function TranslatorPage({ onNavigate }: { onNavigate?: (page: string) => 
   const [analysisSource, setAnalysisSource] = useState<'voice' | 'image'>('voice');
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedHistoryItem, setSelectedHistoryItem] = useState<Analysis | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [hasValidAudio, setHasValidAudio] = useState(false);
+  const [maxAudioLevelReached, setMaxAudioLevelReached] = useState(0);
   const timerRef = useRef<number | null>(null);
   const animationRef = useRef<number | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -515,6 +686,8 @@ export function TranslatorPage({ onNavigate }: { onNavigate?: (page: string) => 
   const audioChunksRef = useRef<Float32Array[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedBlobRef = useRef<Blob | null>(null);
 
   useEffect(() => {
     return () => {
@@ -526,60 +699,107 @@ export function TranslatorPage({ onNavigate }: { onNavigate?: (page: string) => 
   }, []);
 
   const startRecording = async () => {
+    setErrorMessage(null);
+    setHasValidAudio(false);
+    setMaxAudioLevelReached(0);
+    
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // 请求麦克风权限
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        } 
+      });
       mediaStreamRef.current = stream;
       
-      const audioContext = new AudioContext();
+      // 正确初始化 AudioContext
+      const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const audioContext = new AudioContextClass();
+      
+      // 确保 AudioContext 处于运行状态
+      if (audioContext.state === 'suspended') {
+        await audioContext.resume();
+      }
       audioContextRef.current = audioContext;
       
       const source = audioContext.createMediaStreamSource(stream);
       const analyser = audioContext.createAnalyser();
       analyser.fftSize = 2048;
+      analyser.smoothingTimeConstant = 0.8;
       source.connect(analyser);
       analyserRef.current = analyser;
+      
+      // 设置 MediaRecorder 用于实际录音
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
+      });
+      const audioChunks: Blob[] = [];
+      
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunks.push(event.data);
+        }
+      };
+      
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
+        recordedBlobRef.current = audioBlob;
+      };
+      
+      mediaRecorder.start(100);
+      mediaRecorderRef.current = mediaRecorder;
       
       setIsRecording(true);
       setRecordingTime(0);
       audioChunksRef.current = [];
-      
+
       timerRef.current = window.setInterval(() => {
         setRecordingTime((prev) => prev + 1);
       }, 1000);
 
       const captureAudio = () => {
-        if (!isRecording || !analyserRef.current) return;
+        if (!analyserRef.current || !isRecording) return;
         
         const dataArray = new Float32Array(analyser.fftSize);
-        analyser.getFloatTimeDomainData(dataArray);
+        analyserRef.current.getFloatTimeDomainData(dataArray);
         audioChunksRef.current.push(dataArray.slice(0));
         
+        // 计算RMS音量级别
         const rms = Math.sqrt(dataArray.reduce((sum, val) => sum + val * val, 0) / dataArray.length);
-        setAudioLevel(rms * 100);
+        const level = rms * 100;
+        setAudioLevel(level);
+        
+        // 跟踪最大音量级别
+        setMaxAudioLevelReached((prev) => Math.max(prev, level));
+        
+        // 检测是否有有效音频（音量超过阈值）
+        if (level > 5) {
+          setHasValidAudio(true);
+        }
         
         animationRef.current = requestAnimationFrame(captureAudio);
       };
       captureAudio();
     } catch (error) {
       console.error('无法访问麦克风:', error);
-      simulateRecording();
+      
+      // 提供详细的错误信息
+      if (error instanceof Error) {
+        if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+          setErrorMessage('麦克风权限被拒绝。请在浏览器设置中允许访问麦克风，然后重试。');
+        } else if (error.name === 'NotFoundError') {
+          setErrorMessage('未检测到麦克风设备。请连接麦克风后重试。');
+        } else if (error.name === 'NotReadableError') {
+          setErrorMessage('麦克风被其他应用程序占用。请关闭其他使用麦克风的应用后重试。');
+        } else {
+          setErrorMessage(`麦克风访问失败: ${error.message}`);
+        }
+      } else {
+        setErrorMessage('麦克风访问失败，请检查设备设置。');
+      }
     }
-  };
-
-  const simulateRecording = () => {
-    setIsRecording(true);
-    setRecordingTime(0);
-    
-    timerRef.current = window.setInterval(() => {
-      setRecordingTime((prev) => prev + 1);
-    }, 1000);
-
-    const simulateAudioLevel = () => {
-      if (!isRecording) return;
-      setAudioLevel(Math.random() * 100);
-      animationRef.current = requestAnimationFrame(simulateAudioLevel);
-    };
-    simulateAudioLevel();
   };
 
   const stopRecording = () => {
@@ -596,6 +816,11 @@ export function TranslatorPage({ onNavigate }: { onNavigate?: (page: string) => 
       animationRef.current = null;
     }
     
+    // 停止 MediaRecorder
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+    
     if (mediaStreamRef.current) {
       mediaStreamRef.current.getTracks().forEach(track => track.stop());
       mediaStreamRef.current = null;
@@ -606,6 +831,17 @@ export function TranslatorPage({ onNavigate }: { onNavigate?: (page: string) => 
       audioContextRef.current = null;
     }
     
+    // 验证录音有效性
+    if (recordingTime < 1) {
+      setErrorMessage('录音时间太短，请至少录音1秒钟。');
+      return;
+    }
+    
+    if (!hasValidAudio && maxAudioLevelReached < 3) {
+      setErrorMessage('未检测到有效声音，请确保麦克风正常工作并对准宠物发声。');
+      return;
+    }
+    
     analyzeVoice();
   };
 
@@ -613,9 +849,11 @@ export function TranslatorPage({ onNavigate }: { onNavigate?: (page: string) => 
     setIsAnalyzing(true);
     setShowResult(false);
     setAnalysisSource('voice');
+    setErrorMessage(null);
     
     try {
       let audioData: Float32Array;
+      let actualRecordingDuration = recordingTime;
       
       if (audioChunksRef.current.length > 0) {
         const totalLength = audioChunksRef.current.reduce((sum, chunk) => sum + chunk.length, 0);
@@ -625,14 +863,36 @@ export function TranslatorPage({ onNavigate }: { onNavigate?: (page: string) => 
           audioData.set(chunk, offset);
           offset += chunk.length;
         }
+        
+        // 计算实际录音时长
+        actualRecordingDuration = audioData.length / 44100;
       } else {
-        audioData = new Float32Array(44100 * 3);
-        for (let i = 0; i < audioData.length; i++) {
-          audioData[i] = Math.sin(i * 0.02) * 0.3 + Math.random() * 0.1;
-        }
+        // 如果没有实际录音数据，显示错误
+        setErrorMessage('未捕获到音频数据，请检查麦克风设置后重试。');
+        setIsAnalyzing(false);
+        return;
       }
       
-      const analysis = await emotionService.analyzeVoice(audioData);
+      // 验证音频数据有效性
+      const audioValidation = validateAudioData(audioData);
+      if (!audioValidation.isValid) {
+        setErrorMessage(audioValidation.error || '音频数据无效');
+        setIsAnalyzing(false);
+        return;
+      }
+      
+      const analysis = await emotionService.analyzeVoice(audioData, {
+        duration: actualRecordingDuration,
+        maxLevel: maxAudioLevelReached,
+        hasValidSound: hasValidAudio,
+      });
+      
+      // 检查分析结果的置信度
+      if (analysis.confidence < 60) {
+        setErrorMessage('分析置信度过低，请尝试在更安静的环境中重新录音。');
+        setIsAnalyzing(false);
+        return;
+      }
       
       setEmotion(analysis.primaryEmotion);
       setTranslation(analysis.translation);
@@ -653,8 +913,38 @@ export function TranslatorPage({ onNavigate }: { onNavigate?: (page: string) => 
       });
     } catch (error) {
       console.error('分析失败:', error);
+      setErrorMessage('语音分析失败，请重试。');
       setIsAnalyzing(false);
     }
+  };
+  
+  // 验证音频数据有效性
+  const validateAudioData = (audioData: Float32Array): { isValid: boolean; error?: string } => {
+    if (audioData.length < 44100 * 0.5) {
+      return { isValid: false, error: '录音时长不足，请至少录音0.5秒。' };
+    }
+    
+    // 计算音频能量
+    let energy = 0;
+    let maxAmplitude = 0;
+    for (let i = 0; i < audioData.length; i++) {
+      energy += audioData[i] * audioData[i];
+      maxAmplitude = Math.max(maxAmplitude, Math.abs(audioData[i]));
+    }
+    energy = Math.sqrt(energy / audioData.length);
+    
+    // 检查是否为静音
+    if (energy < 0.001 && maxAmplitude < 0.01) {
+      return { isValid: false, error: '录音为静音，请确保有声音输入。' };
+    }
+    
+    // 检查是否为削波（失真）
+    const clippingCount = audioData.filter(v => Math.abs(v) > 0.99).length;
+    if (clippingCount > audioData.length * 0.1) {
+      return { isValid: false, error: '录音音量过大导致失真，请降低音量后重试。' };
+    }
+    
+    return { isValid: true };
   };
 
   const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -692,9 +982,32 @@ export function TranslatorPage({ onNavigate }: { onNavigate?: (page: string) => 
     setIsAnalyzing(true);
     setShowResult(false);
     setAnalysisSource('image');
+    setErrorMessage(null);
     
     try {
+      // 先进行动物检测
+      const animalDetection = await emotionService.detectAnimal(selectedFile);
+      
+      if (!animalDetection.isAnimal) {
+        setErrorMessage(animalDetection.message || '未检测到宠物，请上传包含宠物的图片。');
+        setIsAnalyzing(false);
+        return;
+      }
+      
+      if (animalDetection.confidence < 60) {
+        setErrorMessage('宠物检测置信度过低，请上传更清晰的宠物照片。');
+        setIsAnalyzing(false);
+        return;
+      }
+      
       const analysis = await emotionService.analyzeImageFile(selectedFile);
+      
+      // 检查分析结果的置信度
+      if (analysis.confidence < 60) {
+        setErrorMessage('无法准确识别情感，请上传宠物表情更清晰的照片。');
+        setIsAnalyzing(false);
+        return;
+      }
       
       setEmotion(analysis.primaryEmotion);
       setTranslation(analysis.translation);
@@ -715,6 +1028,7 @@ export function TranslatorPage({ onNavigate }: { onNavigate?: (page: string) => 
       });
     } catch (error) {
       console.error('图片分析失败:', error);
+      setErrorMessage('图片分析失败，请重试。');
       setIsAnalyzing(false);
     }
   };
@@ -725,8 +1039,26 @@ export function TranslatorPage({ onNavigate }: { onNavigate?: (page: string) => 
     setSelectedFile(null);
   };
 
-  const handleShare = () => {
-    setShowShareModal(true);
+  const handleShare = async () => {
+    const shareText = `${currentPet?.name}的心情\n\n${translation}\n\n——来自 PawSync Pro`;
+    
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'PawSync Pro - 宠物心声',
+          text: shareText,
+        });
+      } catch {
+        console.log('分享取消或失败');
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(shareText);
+        alert('已复制到剪贴板');
+      } catch (error) {
+        console.error('复制失败', error);
+      }
+    }
   };
 
   const handleRetry = () => {
@@ -841,47 +1173,23 @@ export function TranslatorPage({ onNavigate }: { onNavigate?: (page: string) => 
         />
 
         <div className="flex flex-col items-center gap-6">
-          <button
-            onClick={isRecording ? stopRecording : startRecording}
-            disabled={isAnalyzing}
-            className={`
-              relative w-36 h-36 rounded-full flex items-center justify-center 
-              transition-all duration-300 shadow-2xl
-              ${isAnalyzing ? 'bg-gradient-to-br from-gray-300 to-gray-400 cursor-not-allowed' : ''}
-              ${isRecording ? 'bg-gradient-to-br from-red-400 to-red-600 scale-110' : ''}
-              ${!isRecording && !isAnalyzing ? 'bg-gradient-to-br from-orange-400 to-peach-500 hover:scale-105 active:scale-95' : ''}
-            `}
-            aria-label={isRecording ? '停止录音' : '开始录音'}
-          >
-            {isAnalyzing ? (
-              <div className="flex flex-col items-center">
-                <Sparkles className="w-12 h-12 text-white animate-spin" />
-                <span className="text-xs text-white mt-1 font-medium">分析中</span>
-              </div>
-            ) : isRecording ? (
-              <div className="flex flex-col items-center">
-                <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
-                  <div className="w-6 h-6 bg-white rounded-sm" />
-                </div>
-                <span className="text-xs text-white mt-1 font-medium">停止</span>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center">
-                <PawPrintIcon className="w-14 h-14 text-white" />
-                <span className="text-xs text-white mt-1 font-medium">开始</span>
-              </div>
-            )}
+          {/* 使用新的录音动画组件 */}
+          {!isAnalyzing && (
+            <RecordingAnimation
+              isActive={isRecording}
+              audioLevel={audioLevel}
+              size="large"
+              onClick={isRecording ? stopRecording : startRecording}
+            />
+          )}
 
-            {isRecording && (
-              <>
-                <div className="absolute inset-0 rounded-full">
-                  <div className="absolute inset-0 rounded-full border-4 border-red-300 animate-ping opacity-40" />
-                  <div className="absolute inset-0 rounded-full border-4 border-red-400 animate-ping opacity-30" style={{ animationDelay: '0.3s' }} />
-                  <div className="absolute inset-0 rounded-full border-4 border-red-500 animate-ping opacity-20" style={{ animationDelay: '0.6s' }} />
-                </div>
-              </>
-            )}
-          </button>
+          {/* 分析动画 */}
+          {isAnalyzing && (
+            <AnalysisAnimation
+              isActive={isAnalyzing}
+              source={analysisSource}
+            />
+          )}
 
           {!isRecording && !isAnalyzing && !showResult && (
             <div className="text-center space-y-2">
@@ -891,6 +1199,24 @@ export function TranslatorPage({ onNavigate }: { onNavigate?: (page: string) => 
               <p className="text-gray-400 text-xs">
                 或使用拍照分析功能
               </p>
+            </div>
+          )}
+          
+          {errorMessage && !isRecording && !isAnalyzing && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-4 max-w-sm mx-auto animate-fadeIn">
+              <div className="flex items-start gap-3">
+                <div className="text-red-500 text-xl">⚠️</div>
+                <div className="flex-1">
+                  <p className="text-red-700 text-sm font-medium mb-1">分析失败</p>
+                  <p className="text-red-600 text-xs">{errorMessage}</p>
+                </div>
+                <button
+                  onClick={() => setErrorMessage(null)}
+                  className="text-red-400 hover:text-red-600 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           )}
 
@@ -911,14 +1237,15 @@ export function TranslatorPage({ onNavigate }: { onNavigate?: (page: string) => 
                 </p>
               </div>
               
-              <SoundWave active={isRecording} color={config.color.split('-')[1]} />
-              
               <div className="flex items-center justify-center gap-2">
                 <span className="text-xs text-gray-400">音量:</span>
-                <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div className="w-32 h-2 bg-gray-200 rounded-full overflow-hidden">
                   <div 
-                    className="h-full bg-gradient-to-r from-green-400 to-red-500 rounded-full transition-all duration-100"
-                    style={{ width: `${Math.min(100, audioLevel)}%` }}
+                    className="h-full rounded-full transition-all duration-100"
+                    style={{ 
+                      width: `${Math.min(100, audioLevel)}%`,
+                      background: `linear-gradient(90deg, ${THEME_COLORS.success}, ${THEME_COLORS.primary})`,
+                    }}
                   />
                 </div>
                 <span className="text-xs text-gray-500">{Math.round(audioLevel)}%</span>
@@ -942,130 +1269,112 @@ export function TranslatorPage({ onNavigate }: { onNavigate?: (page: string) => 
               <p className="text-sm text-gray-400">
                 {analysisSource === 'image' ? '正在识别宝贝的表情特征' : '正在分析音频特征、情感维度'}
               </p>
-              <div className="flex justify-center gap-2">
-                {analysisSource === 'image' ? (
-                  <>
-                    <span className="text-xs bg-orange-100 text-orange-600 px-2 py-1 rounded-full">表情识别</span>
-                    <span className="text-xs bg-purple-100 text-purple-600 px-2 py-1 rounded-full">姿态分析</span>
-                    <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full">眼神检测</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="text-xs bg-orange-100 text-orange-600 px-2 py-1 rounded-full">音调分析</span>
-                    <span className="text-xs bg-purple-100 text-purple-600 px-2 py-1 rounded-full">频率检测</span>
-                    <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full">节奏识别</span>
-                  </>
-                )}
-              </div>
             </div>
           )}
         </div>
 
         {showResult && (
-          <Card variant="gradient" padding="large" className="animate-fadeIn">
-            {analysisSource === 'image' && selectedImage && (
-              <div className="mb-4 rounded-xl overflow-hidden shadow-md">
-                <img
-                  src={selectedImage}
-                  alt="分析图片"
-                  className="w-full h-32 object-cover"
+          <ResultCardAnimation delay={100}>
+            <Card variant="gradient" padding="large">
+              {analysisSource === 'image' && selectedImage && (
+                <div className="mb-4 rounded-xl overflow-hidden shadow-md">
+                  <img
+                    src={selectedImage}
+                    alt="分析图片"
+                    className="w-full h-32 object-cover"
+                  />
+                </div>
+              )}
+              
+              <div className="text-center mb-4">
+                <EmotionIconAnimation
+                  icon={(() => {
+                    const IconComponent = EmotionIcons[emotion];
+                    return <IconComponent size={48} />;
+                  })()}
+                  emotion={emotion}
+                  delay={200}
                 />
+                
+                <div className="flex items-center justify-center gap-2 mt-4">
+                  <BadgeAnimation delay={400}>
+                    <Badge 
+                      color={getBadgeColor(emotion)} 
+                      size="medium"
+                    >
+                      <span className="text-lg mr-1">{config.emoji}</span>
+                      {config.label}
+                    </Badge>
+                  </BadgeAnimation>
+                  {confidence >= 95 && (
+                    <span className="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full font-semibold animate-pulse">
+                      ✓ 高置信度
+                    </span>
+                  )}
+                </div>
               </div>
-            )}
-            
-            <div className="text-center mb-4">
-              <div className="inline-flex items-center justify-center p-3 rounded-full bg-white shadow-lg mb-2">
-                {(() => {
-                  const IconComponent = EmotionIcons[emotion];
-                  return <IconComponent size={48} />;
-                })()}
-              </div>
-              
-              <div className="flex items-center justify-center gap-2">
-                <Badge 
-                  color={getBadgeColor(emotion)} 
-                  size="medium"
-                >
-                  <span className="text-lg mr-1">{config.emoji}</span>
-                  {config.label}
-                </Badge>
-                {confidence >= 95 && (
-                  <span className="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full font-semibold animate-pulse">
-                    ✓ 高置信度
+
+              <div className="relative bg-white/80 backdrop-blur-sm rounded-2xl p-6 mb-4 shadow-inner border border-gray-100">
+                <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-8 border-r-8 border-b-8 border-transparent border-b-white/80" />
+                
+                <p className="text-gray-700 text-center text-lg leading-relaxed font-medium">
+                  <TypewriterText 
+                    text={translation} 
+                    speed={30} 
+                    delay={500}
+                  />
+                </p>
+                
+                <div className="flex justify-center mt-4">
+                  <span className="text-sm text-gray-400 flex items-center gap-1">
+                    <PawPrintIcon className="w-4 h-4 text-orange-400" />
+                    {currentPet?.name}
                   </span>
-                )}
+                </div>
               </div>
-            </div>
 
-            <div className="relative bg-white/80 backdrop-blur-sm rounded-2xl p-6 mb-4 shadow-inner border border-gray-100">
-              <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-8 border-r-8 border-b-8 border-transparent border-b-white/80" />
-              
-              <p className="text-gray-700 text-center text-lg leading-relaxed font-medium">
-                "{translation}"
-              </p>
-              
-              <div className="flex justify-center mt-4">
-                <span className="text-sm text-gray-400 flex items-center gap-1">
-                  <PawPrintIcon className="w-4 h-4 text-orange-400" />
-                  {currentPet?.name}
-                </span>
+              <div className="mb-4">
+                <ConfidenceMeterAnimation confidence={confidence} delay={600} />
               </div>
-            </div>
 
-            <div className="mb-4">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-xs text-gray-500 flex items-center gap-1">
-                  <Activity className="w-3.5 h-3.5" />
-                  情感置信度
-                </p>
-                <p className={`text-xs font-semibold ${
-                  confidence >= 95 ? 'text-green-500' : 
-                  confidence >= 85 ? 'text-blue-500' : 'text-yellow-500'
-                }`}>
-                  {confidence >= 95 ? '✓ 达到95%+标准' : 
-                   confidence >= 85 ? '良好置信度' : '建议重新分析'}
+              <div className="bg-gray-50 rounded-lg p-3 mb-4">
+                <p className="text-xs text-gray-600 text-center">
+                  {config.description}
                 </p>
               </div>
-              <EmotionMeter confidence={confidence} guaranteed />
-            </div>
 
-            <div className="bg-gray-50 rounded-lg p-3 mb-4">
-              <p className="text-xs text-gray-600 text-center">
-                {config.description}
-              </p>
-            </div>
+              {currentAnalysis && (
+                <AnalysisDetailPanel analysis={currentAnalysis} />
+              )}
 
-            {currentAnalysis && (
-              <AnalysisDetailPanel analysis={currentAnalysis} />
-            )}
+              <div className="grid grid-cols-2 gap-3 mt-4 mb-4">
+                <Button
+                  variant="secondary"
+                  size="small"
+                  icon={<RefreshCw className="w-4 h-4" />}
+                  onClick={handleRetry}
+                >
+                  {analysisSource === 'image' ? '再拍一张' : '再听一次'}
+                </Button>
+                <Button
+                  size="small"
+                  icon={<Share2 className="w-4 h-4" />}
+                  onClick={handleShare}
+                >
+                  分享心情
+                </Button>
+              </div>
 
-            <div className="grid grid-cols-2 gap-3 mt-4 mb-4">
-              <Button
-                variant="secondary"
-                size="small"
-                icon={<RefreshCw className="w-4 h-4" />}
-                onClick={handleRetry}
-              >
-                {analysisSource === 'image' ? '再拍一张' : '再听一次'}
-              </Button>
-              <Button
-                size="small"
-                icon={<Share2 className="w-4 h-4" />}
-                onClick={handleShare}
-              >
-                分享心情
-              </Button>
-            </div>
-
-            <div className="flex justify-center gap-4 text-xs text-gray-400">
-              <button className="hover:text-orange-500 transition-colors">
-                💾 保存记录
-              </button>
-              <button className="hover:text-orange-500 transition-colors">
-                💬 社区讨论
-              </button>
-            </div>
-          </Card>
+              <div className="flex justify-center gap-4 text-xs text-gray-400">
+                <button className="hover:text-orange-500 transition-colors">
+                  💾 保存记录
+                </button>
+                <button className="hover:text-orange-500 transition-colors">
+                  💬 社区讨论
+                </button>
+              </div>
+            </Card>
+          </ResultCardAnimation>
         )}
 
         <Card variant="default" padding="medium">
@@ -1083,32 +1392,10 @@ export function TranslatorPage({ onNavigate }: { onNavigate?: (page: string) => 
         </Card>
 
         <Card variant="default" padding="medium">
-          <div className="flex items-start gap-3">
-            <div className="text-2xl">🎯</div>
-            <div>
-              <p className="text-sm text-gray-600 mb-1">
-                <strong>分析维度</strong>
-              </p>
-              <div className="flex flex-wrap gap-1 mt-2">
-                <span className="text-xs bg-purple-100 text-purple-600 px-2 py-1 rounded-full">音调分析</span>
-                <span className="text-xs bg-orange-100 text-orange-600 px-2 py-1 rounded-full">强度检测</span>
-                <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full">频率识别</span>
-                <span className="text-xs bg-green-100 text-green-600 px-2 py-1 rounded-full">节奏分析</span>
-                <span className="text-xs bg-pink-100 text-pink-600 px-2 py-1 rounded-full">音色特征</span>
-              </div>
-            </div>
-          </div>
+          <AnalysisDimensionsGrid isActive={isAnalyzing} />
         </Card>
       </main>
       
-      <ShareModal
-        isOpen={showShareModal}
-        onClose={() => setShowShareModal(false)}
-        title={`${currentPet?.name}的心情`}
-        content={translation}
-        petName={currentPet?.name}
-      />
-
       {showHistoryModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-2xl p-6 mx-4 max-w-sm w-full shadow-2xl animate-fadeIn max-h-[80vh] overflow-hidden flex flex-col">

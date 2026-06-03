@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 import { dataExportManager } from '../services/dataExportService';
-import { permissionManager, PermissionType } from '../services/permissionService';
+import { permissionManager, PermissionType, PermissionStatus } from '../services/permissionService';
 
 interface SettingsPageProps {
   onNavigate: (page: string) => void;
@@ -62,7 +62,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
   const [toastMessage, setToastMessage] = useState('');
   const [isExporting, setIsExporting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [_permissionStatuses, setPermissionStatuses] = useState<Map<PermissionType, boolean>>(new Map());
+  const [_permissionStatuses, setPermissionStatuses] = useState<Map<PermissionType, PermissionStatus>>(new Map());
   const [privacySettings, setPrivacySettings] = useState({
     dataAnalysis: true,
     personalizedRecommendations: true,

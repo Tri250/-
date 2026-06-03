@@ -125,16 +125,16 @@ export const HealthRecordsPage: React.FC<HealthRecordsPageProps> = ({ onNavigate
   return (
     <div className="min-h-screen bg-neutral-50 pb-24">
       {/* Header */}
-      <header className="bg-white border-b border-neutral-200 px-4 py-4 sticky top-0 z-30">
-        <div className="max-w-md mx-auto flex items-center gap-4">
+      <header className="bg-white border-b border-neutral-200 px-4 py-3 sm:py-4 sticky top-0 z-30">
+        <div className="max-w-md mx-auto flex items-center gap-3 sm:gap-4">
           <button 
             onClick={() => onNavigate('home')}
-            className="p-2 -ml-2 rounded-full hover:bg-neutral-100 transition-colors"
+            className="p-2 -ml-2 rounded-full hover:bg-neutral-100 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
           >
             <ChevronLeft className="w-6 h-6 text-neutral-600" />
           </button>
           <div className="flex-1">
-            <h1 className="font-semibold text-neutral-800">健康记录</h1>
+            <h1 className="font-semibold text-neutral-800 text-base sm:text-lg">健康记录</h1>
             <p className="text-xs text-neutral-500">记录宠物的健康状况</p>
           </div>
         </div>
@@ -152,12 +152,12 @@ export const HealthRecordsPage: React.FC<HealthRecordsPageProps> = ({ onNavigate
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="搜索记录..."
-                className="w-full pl-10 pr-4 py-2.5 bg-neutral-100 rounded-xl text-sm border-none focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:bg-white transition-all"
+                className="w-full pl-10 pr-4 py-3 sm:py-2.5 bg-neutral-100 rounded-xl text-sm border-none focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:bg-white transition-all min-h-[44px]"
               />
             </div>
             <button
               onClick={() => setMultiSelectMode(!multiSelectMode)}
-              className={`p-2.5 rounded-xl transition-all ${
+              className={`p-3 sm:p-2.5 rounded-xl transition-all min-h-[44px] min-w-[44px] flex items-center justify-center ${
                 multiSelectMode 
                   ? 'bg-primary-500 text-white' 
                   : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
@@ -177,7 +177,7 @@ export const HealthRecordsPage: React.FC<HealthRecordsPageProps> = ({ onNavigate
                 </span>
                 <button
                   onClick={clearMultiSelect}
-                  className="text-xs text-primary-600 hover:text-primary-800"
+                  className="text-xs text-primary-600 hover:text-primary-800 py-1 px-2 min-h-[32px]"
                 >
                   清除筛选
                 </button>
@@ -187,7 +187,7 @@ export const HealthRecordsPage: React.FC<HealthRecordsPageProps> = ({ onNavigate
                   <button
                     key={tag.id}
                     onClick={() => toggleMultiSelectTag(tag.id)}
-                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all flex items-center gap-1 ${
+                    className={`px-4 py-2 sm:px-3 sm:py-1.5 rounded-full text-sm font-medium transition-all flex items-center gap-1 min-h-[44px] ${
                       selectedTags.includes(tag.id)
                         ? 'ring-2 ring-offset-1'
                         : 'opacity-70 hover:opacity-100'
@@ -208,10 +208,10 @@ export const HealthRecordsPage: React.FC<HealthRecordsPageProps> = ({ onNavigate
 
           {/* Tags Filter - Single Mode */}
           {!multiSelectMode && (
-            <div className="flex gap-2 overflow-x-auto pb-1 items-center">
+            <div className="flex gap-2 overflow-x-auto pb-1 items-center -mx-4 px-4 sm:mx-0 sm:px-0">
               <button
                 onClick={() => setSelectedTag(null)}
-                className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
+                className={`px-4 py-2 sm:px-3 sm:py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all min-h-[44px] ${
                   selectedTag === null
                     ? 'bg-primary-500 text-white'
                     : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
@@ -223,7 +223,7 @@ export const HealthRecordsPage: React.FC<HealthRecordsPageProps> = ({ onNavigate
                 <button
                   key={tag.id}
                   onClick={() => setSelectedTag(tag.id)}
-                  className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
+                  className={`px-4 py-2 sm:px-3 sm:py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all min-h-[44px] ${
                     selectedTag === tag.id
                       ? 'bg-primary-500 text-white'
                       : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
@@ -235,7 +235,7 @@ export const HealthRecordsPage: React.FC<HealthRecordsPageProps> = ({ onNavigate
               ))}
               <button
                 onClick={() => setShowTagCreator(true)}
-                className="px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap bg-neutral-100 text-neutral-600 hover:bg-neutral-200 flex items-center gap-1"
+                className="px-4 py-2 sm:px-3 sm:py-1.5 rounded-full text-sm font-medium whitespace-nowrap bg-neutral-100 text-neutral-600 hover:bg-neutral-200 flex items-center gap-1 min-h-[44px]"
               >
                 <Plus className="w-4 h-4" />
                 新标签
@@ -260,13 +260,13 @@ export const HealthRecordsPage: React.FC<HealthRecordsPageProps> = ({ onNavigate
 
       {/* Tag Creator Modal */}
       {showTagCreator && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-sm p-6 space-y-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm p-4 sm:p-6 space-y-4 max-h-[90vh] sm:max-h-none overflow-y-auto animate-slide-up sm:animate-scale-in">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-neutral-800">创建新标签</h3>
+              <h3 className="text-base sm:text-lg font-semibold text-neutral-800">创建新标签</h3>
               <button
                 onClick={() => setShowTagCreator(false)}
-                className="p-2 rounded-full hover:bg-neutral-100"
+                className="p-2 rounded-full hover:bg-neutral-100 min-h-[44px] min-w-[44px] flex items-center justify-center"
               >
                 <X className="w-5 h-5 text-neutral-500" />
               </button>
@@ -279,7 +279,7 @@ export const HealthRecordsPage: React.FC<HealthRecordsPageProps> = ({ onNavigate
                 value={newTagName}
                 onChange={(e) => setNewTagName(e.target.value)}
                 placeholder="输入标签名称..."
-                className="w-full px-4 py-2.5 bg-neutral-100 rounded-xl text-sm border-none focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                className="w-full px-4 py-3 sm:py-2.5 bg-neutral-100 rounded-xl text-sm border-none focus:outline-none focus:ring-2 focus:ring-primary-500/20 min-h-[44px]"
                 maxLength={10}
               />
             </div>
@@ -291,7 +291,7 @@ export const HealthRecordsPage: React.FC<HealthRecordsPageProps> = ({ onNavigate
                   <button
                     key={color}
                     onClick={() => setNewTagColor(color)}
-                    className={`w-8 h-8 rounded-full transition-all ${
+                    className={`w-10 h-10 sm:w-8 sm:h-8 rounded-full transition-all min-h-[44px] min-w-[44px] sm:min-h-[32px] sm:min-w-[32px] flex items-center justify-center ${
                       newTagColor === color ? 'ring-2 ring-offset-2 ring-primary-500' : ''
                     }`}
                     style={{ backgroundColor: color }}
@@ -300,17 +300,17 @@ export const HealthRecordsPage: React.FC<HealthRecordsPageProps> = ({ onNavigate
               </div>
             </div>
             
-            <div className="flex gap-3 pt-2">
+            <div className="flex gap-3 pt-2 pb-4 sm:pb-0">
               <button
                 onClick={() => setShowTagCreator(false)}
-                className="flex-1 py-3 rounded-xl bg-neutral-100 text-neutral-700 font-medium hover:bg-neutral-200"
+                className="flex-1 py-3.5 sm:py-3 rounded-xl bg-neutral-100 text-neutral-700 font-medium hover:bg-neutral-200 min-h-[44px] text-sm sm:text-base"
               >
                 取消
               </button>
               <button
                 onClick={handleCreateTag}
                 disabled={!newTagName.trim()}
-                className="flex-1 py-3 rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 text-white font-medium hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 py-3.5 sm:py-3 rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 text-white font-medium hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] text-sm sm:text-base"
               >
                 创建
               </button>
@@ -330,7 +330,7 @@ export const HealthRecordsPage: React.FC<HealthRecordsPageProps> = ({ onNavigate
               action={
                 <button 
                   onClick={() => setIsModalOpen(true)}
-                  className="px-6 py-2.5 bg-gradient-to-r from-primary-500 to-primary-600 text-white rounded-xl font-medium hover:shadow-lg hover:shadow-primary-500/30 transition-all"
+                  className="px-6 py-3 sm:py-2.5 bg-gradient-to-r from-primary-500 to-primary-600 text-white rounded-xl font-medium hover:shadow-lg hover:shadow-primary-500/30 transition-all min-h-[44px] text-sm sm:text-base"
                 >
                   开始记录
                 </button>

@@ -175,7 +175,7 @@ export function CameraListComponent() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end justify-center"
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center"
           onClick={() => setSelectedCamera(null)}
         >
           <motion.div
@@ -184,10 +184,10 @@ export function CameraListComponent() {
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-t-3xl w-full max-w-2xl max-h-[80vh] overflow-hidden"
+            className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-2xl max-h-[85vh] sm:max-h-[80vh] overflow-y-auto"
           >
-            {/* 摄像头预览 */}
-            <div className="relative h-64 bg-black">
+            {/* 摄像头预览 - 响应式高度 */}
+            <div className="relative h-48 sm:h-64 bg-black">
               <img
                 src={selectedCamera.thumbnail}
                 alt={selectedCamera.name}
@@ -197,42 +197,42 @@ export function CameraListComponent() {
                 onClick={() => handleViewCamera(selectedCamera)}
                 className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 hover:opacity-100 transition-opacity"
               >
-                <div className="px-6 py-3 bg-white rounded-xl flex items-center gap-2 shadow-lg">
-                  <Eye className="w-5 h-5" />
-                  <span className="font-medium">进入监控</span>
+                <div className="px-4 sm:px-6 py-2.5 sm:py-3 bg-white rounded-xl flex items-center gap-2 shadow-lg min-h-[44px]">
+                  <Eye className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span className="font-medium text-sm sm:text-base">进入监控</span>
                 </div>
               </button>
               
               <button
                 onClick={() => setSelectedCamera(null)}
-                className="absolute top-4 right-4 p-2 bg-black/50 rounded-full text-white hover:bg-black/70 transition-colors"
+                className="absolute top-3 right-3 sm:top-4 sm:right-4 p-2 sm:p-2.5 bg-black/50 rounded-full text-white hover:bg-black/70 active:bg-black/80 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
             </div>
 
             {/* 摄像头信息 */}
-            <div className="p-6 space-y-6">
+            <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
               <div>
-                <h2 className="text-xl font-bold text-gray-800 mb-2">{selectedCamera.name}</h2>
-                <div className="flex items-center gap-4 text-sm text-gray-500">
+                <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-1.5 sm:mb-2">{selectedCamera.name}</h2>
+                <div className="flex items-center gap-3 sm:gap-4 text-xs sm:text-sm text-gray-500">
                   <span>{getBrandLogo(selectedCamera.brand)}</span>
                   {selectedCamera.location && <span>· {selectedCamera.location}</span>}
                 </div>
               </div>
 
-              {/* 状态信息 */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-gray-50 rounded-xl p-4">
-                  <div className="flex items-center gap-2 mb-2">
+              {/* 状态信息 - 响应式网格 */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <div className="bg-gray-50 rounded-xl p-3 sm:p-4">
+                  <div className="flex items-center gap-2 mb-1.5 sm:mb-2">
                     {(() => {
                       const config = getStatusConfig(selectedCamera.status);
                       const Icon = config.icon;
                       return (
                         <>
-                          <div className={`w-3 h-3 ${config.color} rounded-full`} />
-                          <Icon className={`w-4 h-4 ${config.text}`} />
-                          <span className="text-sm font-medium">{config.label}</span>
+                          <div className={`w-2.5 h-2.5 sm:w-3 sm:h-3 ${config.color} rounded-full`} />
+                          <Icon className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${config.text}`} />
+                          <span className="text-xs sm:text-sm font-medium">{config.label}</span>
                         </>
                       );
                     })()}
@@ -243,67 +243,67 @@ export function CameraListComponent() {
                 </div>
 
                 {selectedCamera.battery !== undefined && (
-                  <div className="bg-gray-50 rounded-xl p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Battery className="w-4 h-4 text-gray-600" />
-                      <span className="text-sm font-medium">{selectedCamera.battery}%</span>
+                  <div className="bg-gray-50 rounded-xl p-3 sm:p-4">
+                    <div className="flex items-center gap-2 mb-1.5 sm:mb-2">
+                      <Battery className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-600" />
+                      <span className="text-xs sm:text-sm font-medium">{selectedCamera.battery}%</span>
                     </div>
                     <p className="text-xs text-gray-500">电池电量</p>
                   </div>
                 )}
               </div>
 
-              {/* 功能列表 */}
+              {/* 功能列表 - 响应式网格 */}
               <div>
-                <h3 className="text-sm font-medium text-gray-700 mb-3">功能支持</h3>
-                <div className="grid grid-cols-2 gap-2">
+                <h3 className="text-xs sm:text-sm font-medium text-gray-700 mb-2 sm:mb-3">功能支持</h3>
+                <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
                   {selectedCamera.hasPTZ && (
-                    <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-xl">
-                      <Zap className="w-4 h-4 text-blue-600" />
-                      <span className="text-sm text-gray-700">云台控制</span>
+                    <div className="flex items-center gap-1.5 sm:gap-2 p-2 sm:p-3 bg-blue-50 rounded-xl">
+                      <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600" />
+                      <span className="text-xs sm:text-sm text-gray-700">云台控制</span>
                     </div>
                   )}
                   {selectedCamera.hasNightVision && (
-                    <div className="flex items-center gap-2 p-3 bg-purple-50 rounded-xl">
-                      <Moon className="w-4 h-4 text-purple-600" />
-                      <span className="text-sm text-gray-700">夜视功能</span>
+                    <div className="flex items-center gap-1.5 sm:gap-2 p-2 sm:p-3 bg-purple-50 rounded-xl">
+                      <Moon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-600" />
+                      <span className="text-xs sm:text-sm text-gray-700">夜视功能</span>
                     </div>
                   )}
                   {selectedCamera.hasTwoWayAudio && (
-                    <div className="flex items-center gap-2 p-3 bg-green-50 rounded-xl">
-                      <Volume2 className="w-4 h-4 text-green-600" />
-                      <span className="text-sm text-gray-700">双向语音</span>
+                    <div className="flex items-center gap-1.5 sm:gap-2 p-2 sm:p-3 bg-green-50 rounded-xl">
+                      <Volume2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-600" />
+                      <span className="text-xs sm:text-sm text-gray-700">双向语音</span>
                     </div>
                   )}
                   {selectedCamera.hasMotionDetection && (
-                    <div className="flex items-center gap-2 p-3 bg-orange-50 rounded-xl">
-                      <Shield className="w-4 h-4 text-orange-600" />
-                      <span className="text-sm text-gray-700">移动侦测</span>
+                    <div className="flex items-center gap-1.5 sm:gap-2 p-2 sm:p-3 bg-orange-50 rounded-xl">
+                      <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-orange-600" />
+                      <span className="text-xs sm:text-sm text-gray-700">移动侦测</span>
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* 操作按钮 */}
-              <div className="flex gap-3">
+              {/* 操作按钮 - 响应式 */}
+              <div className="flex gap-2 sm:gap-3">
                 <button
                   onClick={() => handleViewCamera(selectedCamera)}
-                  className="flex-1 py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl flex items-center justify-center gap-2 font-medium"
+                  className="flex-1 py-3 sm:py-3.5 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl flex items-center justify-center gap-2 font-medium text-sm sm:text-base min-h-[44px]"
                 >
-                  <Eye className="w-5 h-5" />
+                  <Eye className="w-4 h-4 sm:w-5 sm:h-5" />
                   进入监控
                 </button>
                 <button
                   onClick={() => {}}
-                  className="p-3 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 transition-colors"
+                  className="p-2.5 sm:p-3 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 active:bg-gray-300 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
                 >
-                  <Settings className="w-5 h-5" />
+                  <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
                 </button>
                 <button
                   onClick={() => handleDeleteCamera(selectedCamera.id)}
-                  className="p-3 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-colors"
+                  className="p-2.5 sm:p-3 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 active:bg-red-200 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
                 >
-                  <Trash2 className="w-5 h-5" />
+                  <Trash2 className="w-4 h-4 sm:w-5 sm:h-5" />
                 </button>
               </div>
             </div>
@@ -330,9 +330,9 @@ export function CameraListComponent() {
               setShowMonitor(false);
               setSelectedCamera(null);
             }}
-            className="absolute top-4 left-4 p-3 bg-white/20 backdrop-blur-sm rounded-full text-white hover:bg-white/30 transition-colors z-50"
+            className="absolute top-3 left-3 sm:top-4 sm:left-4 p-2.5 sm:p-3 bg-white/20 backdrop-blur-sm rounded-full text-white hover:bg-white/30 active:bg-white/40 transition-colors z-50 min-h-[44px] min-w-[44px] flex items-center justify-center"
           >
-            <ChevronRight className="w-6 h-6" />
+            <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
         </motion.div>
       )}
@@ -354,55 +354,55 @@ export function CameraListComponent() {
   const onlineCount = cameras.filter(c => c.status === 'online').length;
 
   return (
-    <div className="space-y-6">
-      {/* 头部 */}
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 sm:space-y-6">
+      {/* 头部 - 响应式布局 */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800 mb-1">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-800 mb-0.5 sm:mb-1">
             📹 {petName}的摄像头
           </h1>
-          <p className="text-sm text-gray-500">
+          <p className="text-xs sm:text-sm text-gray-500">
             {onlineCount}/{cameras.length} 个摄像头在线
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 sm:gap-3">
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={loadCameras}
-            className="p-3 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors"
+            className="p-2.5 sm:p-3 bg-gray-100 rounded-xl hover:bg-gray-200 active:bg-gray-300 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
           >
-            <RefreshCw className="w-5 h-5 text-gray-600" />
+            <RefreshCw className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
           </motion.button>
 
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => setShowAddDialog(true)}
-            className="px-4 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl flex items-center gap-2 shadow-lg"
+            className="px-3 sm:px-4 py-2.5 sm:py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl flex items-center gap-1.5 sm:gap-2 shadow-lg min-h-[44px]"
           >
-            <Plus className="w-5 h-5" />
-            <span className="font-medium">添加摄像头</span>
+            <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+            <span className="font-medium text-sm sm:text-base">添加摄像头</span>
           </motion.button>
         </div>
       </div>
 
-      {/* 快速进入监控 */}
+      {/* 快速进入监控 - 响应式 */}
       {onlineCount > 0 && (
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => handleViewCamera(cameras.find(c => c.status === 'online')!)}
-          className="w-full py-6 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-2xl shadow-lg flex items-center justify-center gap-3"
+          className="w-full py-4 sm:py-6 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-2xl shadow-lg flex items-center justify-center gap-2 sm:gap-3 min-h-[44px]"
         >
-          <div className="w-3 h-3 bg-white rounded-full animate-pulse" />
-          <span className="text-lg font-medium">一键进入监控</span>
+          <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-white rounded-full animate-pulse" />
+          <span className="text-base sm:text-lg font-medium">一键进入监控</span>
         </motion.button>
       )}
 
-      {/* 摄像头列表 */}
-      <div className="space-y-3">
+      {/* 摄像头列表 - 响应式网格布局 */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
         {cameras.map((camera, index) => {
           const statusConfig = getStatusConfig(camera.status);
           const StatusIcon = statusConfig.icon;
@@ -414,11 +414,11 @@ export function CameraListComponent() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.05 }}
               onClick={() => setSelectedCamera(camera)}
-              className="bg-white rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer border border-gray-100"
+              className="bg-white rounded-2xl p-3 sm:p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer border border-gray-100"
             >
-              <div className="flex items-start gap-4">
-                {/* 缩略图 */}
-                <div className="relative w-24 h-18 bg-gray-100 rounded-xl overflow-hidden flex-shrink-0">
+              <div className="flex flex-col sm:flex-row items-start gap-3 sm:gap-4">
+                {/* 缩略图 - 响应式 */}
+                <div className="relative w-full sm:w-20 md:w-24 h-24 sm:h-20 md:h-24 bg-gray-100 rounded-xl overflow-hidden flex-shrink-0">
                   {camera.thumbnail ? (
                     <img
                       src={camera.thumbnail}
@@ -427,64 +427,70 @@ export function CameraListComponent() {
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
-                      <Camera className="w-8 h-8 text-gray-400" />
+                      <Camera className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400" />
                     </div>
                   )}
 
                   {/* 状态指示 */}
-                  <div className={`absolute top-1 right-1 w-3 h-3 ${statusConfig.color} rounded-full border-2 border-white`} />
+                  <div className={`absolute top-1.5 right-1.5 sm:top-1 sm:right-1 w-2.5 h-2.5 sm:w-3 sm:h-3 ${statusConfig.color} rounded-full border-2 border-white`} />
                 </div>
 
                 {/* 信息 */}
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0 w-full sm:w-auto">
                   <div className="flex items-start justify-between mb-1">
-                    <div>
-                      <h3 className="font-medium text-gray-800">{camera.name}</h3>
-                      <p className="text-xs text-gray-500">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-medium text-sm sm:text-base text-gray-800 truncate">{camera.name}</h3>
+                      <p className="text-xs text-gray-500 truncate">
                         {getBrandLogo(camera.brand)}
                         {camera.location && ` · ${camera.location}`}
                       </p>
                     </div>
-                    <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs ${statusConfig.color} text-white`}>
+                    <div className={`hidden sm:flex items-center gap-1 px-2 py-1 rounded-full text-xs ${statusConfig.color} text-white flex-shrink-0 ml-2`}>
                       <StatusIcon className="w-3 h-3" />
                       <span>{statusConfig.label}</span>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-2 text-xs text-gray-500">
-                    <Clock className="w-3 h-3" />
-                    <span>最后活跃: {formatLastActive(camera.lastActive)}</span>
+                    <Clock className="w-3 h-3 flex-shrink-0" />
+                    <span className="truncate">最后活跃: {formatLastActive(camera.lastActive)}</span>
                   </div>
 
                   {/* 功能标签 */}
-                  <div className="flex flex-wrap gap-1 mt-2">
+                  <div className="flex flex-wrap gap-1 mt-1.5 sm:mt-2">
                     {camera.hasPTZ && (
-                      <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded text-xs">云台</span>
+                      <span className="px-1.5 sm:px-2 py-0.5 bg-blue-50 text-blue-600 rounded text-xs">云台</span>
                     )}
                     {camera.hasNightVision && (
-                      <span className="px-2 py-0.5 bg-purple-50 text-purple-600 rounded text-xs">夜视</span>
+                      <span className="px-1.5 sm:px-2 py-0.5 bg-purple-50 text-purple-600 rounded text-xs">夜视</span>
                     )}
                     {camera.hasTwoWayAudio && (
-                      <span className="px-2 py-0.5 bg-green-50 text-green-600 rounded text-xs">双向语音</span>
+                      <span className="px-1.5 sm:px-2 py-0.5 bg-green-50 text-green-600 rounded text-xs">双向语音</span>
                     )}
+                  </div>
+                  
+                  {/* 移动端状态显示 */}
+                  <div className={`sm:hidden flex items-center gap-1 mt-2 px-2 py-1 rounded-full text-xs ${statusConfig.color} text-white w-fit`}>
+                    <StatusIcon className="w-3 h-3" />
+                    <span>{statusConfig.label}</span>
                   </div>
                 </div>
 
-                <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0 mt-2" />
+                <ChevronRight className="hidden sm:block w-5 h-5 text-gray-400 flex-shrink-0 mt-2" />
               </div>
             </motion.div>
           );
         })}
       </div>
 
-      {/* 空状态 */}
+      {/* 空状态 - 响应式 */}
       {cameras.length === 0 && (
-        <div className="text-center py-12">
-          <Camera className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <p className="text-gray-500 mb-4">还没有添加摄像头</p>
+        <div className="text-center py-8 sm:py-12">
+          <Camera className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-3 sm:mb-4" />
+          <p className="text-sm sm:text-base text-gray-500 mb-3 sm:mb-4">还没有添加摄像头</p>
           <button
             onClick={() => setShowAddDialog(true)}
-            className="px-6 py-3 bg-blue-500 text-white rounded-xl hover:shadow-lg transition-all"
+            className="px-5 sm:px-6 py-2.5 sm:py-3 bg-blue-500 text-white rounded-xl hover:shadow-lg active:shadow-md transition-all text-sm sm:text-base min-h-[44px]"
           >
             添加第一个摄像头
           </button>
