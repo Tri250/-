@@ -1,0 +1,269 @@
+/**
+ * Android Performance Optimizations
+ * 
+ * 针对Android平台的CSS性能优化
+ * 包含硬件加速、动画简化、渲染优化等
+ */
+
+/* ============================================
+   Android专用优化类
+   ============================================ */
+
+/* Android硬件加速容器 */
+.android-optimized {
+  /* 强制GPU渲染 */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  
+  /* 优化渲染层 */
+  will-change: transform, opacity;
+  
+  /* 防止闪烁 */
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  
+  /* 优化合成 */
+  contain: layout style paint;
+}
+
+/* 快速动画 - Android优化 */
+.android-fast-animation {
+  animation-duration: 150ms !important;
+  transition-duration: 150ms !important;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* 中速动画 */
+.android-medium-animation {
+  animation-duration: 250ms !important;
+  transition-duration: 250ms !important;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* 禁用动画 - 低端设备 */
+.android-no-animation {
+  animation: none !important;
+  transition: opacity 100ms !important;
+}
+
+/* 优化的滚动容器 */
+.android-scroll-optimized {
+  /* 启用硬件加速滚动 */
+  -webkit-overflow-scrolling: touch;
+  overflow-scrolling: touch;
+  
+  /* 优化滚动性能 */
+  scroll-behavior: smooth;
+  
+  /* 防止滚动卡顿 */
+  contain: strict;
+}
+
+/* 优化的图片容器 */
+.android-image-optimized {
+  /* 防止图片加载时的布局抖动 */
+  contain: layout;
+  
+  /* 优化图片渲染 */
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+}
+
+/* 优化的列表项 */
+.android-list-item {
+  /* GPU加速 */
+  transform: translate3d(0, 0, 0);
+  
+  /* 优化渲染 */
+  contain: layout style;
+  
+  /* 快速过渡 */
+  transition: transform 150ms cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 优化的卡片组件 */
+.android-card-optimized {
+  /* 硬件加速 */
+  transform: translateZ(0);
+  
+  /* 优化阴影渲染 */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  
+  /* 快速过渡 */
+  transition: transform 150ms cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.android-card-optimized:active {
+  transform: translateZ(0) scale(0.98);
+}
+
+/* 优化的按钮 */
+.android-button-optimized {
+  /* GPU加速 */
+  transform: translateZ(0);
+  
+  /* 快速响应 */
+  transition: transform 100ms cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 100ms cubic-bezier(0.4, 0, 0.2, 1);
+  
+  /* 防止点击穿透 */
+  touch-action: manipulation;
+  
+  /* 优化点击区域 */
+  -webkit-tap-highlight-color: transparent;
+}
+
+.android-button-optimized:active {
+  transform: translateZ(0) scale(0.95);
+  opacity: 0.9;
+}
+
+/* 优化的进度条 */
+.android-progress-optimized {
+  /* GPU加速 */
+  transform: translateZ(0);
+  
+  /* 优化动画 */
+  will-change: width;
+  
+  /* 快速过渡 */
+  transition: width 500ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 优化的圆形进度 */
+.android-circle-progress {
+  /* GPU加速 */
+  transform: translateZ(0);
+  
+  /* 优化SVG渲染 */
+  shape-rendering: geometricPrecision;
+  
+  /* 快速动画 */
+  transition: stroke-dashoffset 500ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ============================================
+   性能模式切换
+   ============================================ */
+
+/* 高性能模式 - 完整动画 */
+.performance-high .android-optimized {
+  animation-duration: 300ms;
+  transition-duration: 300ms;
+}
+
+/* 中性能模式 - 简化动画 */
+.performance-medium .android-optimized {
+  animation-duration: 200ms;
+  transition-duration: 200ms;
+}
+
+/* 低性能模式 - 最小动画 */
+.performance-low .android-optimized {
+  animation-duration: 100ms !important;
+  transition-duration: 100ms !important;
+}
+
+/* 禁用装饰性动画 */
+.performance-low .decorative-animation {
+  display: none !important;
+}
+
+/* ============================================
+   内存优化
+   ============================================ */
+
+/* 优化大量列表渲染 */
+.virtual-list-optimized {
+  /* 限制渲染范围 */
+  contain: strict;
+  
+  /* 优化重绘 */
+  content-visibility: auto;
+  contain-intrinsic-size: 0 500px;
+}
+
+/* 优化图片懒加载 */
+.lazy-image-optimized {
+  /* 占位尺寸 */
+  aspect-ratio: 16 / 9;
+  
+  /* 优化加载 */
+  content-visibility: auto;
+}
+
+/* ============================================
+   触摸优化
+   ============================================ */
+
+/* 优化触摸响应 */
+.touch-optimized {
+  /* 禁用双击缩放 */
+  touch-action: manipulation;
+  
+  /* 禁用长按菜单 */
+  -webkit-touch-callout: none;
+  
+  /* 禁用选择 */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* 优化滚动触摸 */
+.scroll-touch-optimized {
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ============================================
+   网络优化提示
+   ============================================ */
+
+/* 离线状态样式 */
+.offline-mode {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* 加载状态优化 */
+.skeleton-loading {
+  background: linear-gradient(
+    90deg,
+    #f0f0f0 25%,
+    #e0e0e0 50%,
+    #f0f0f0 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* ============================================
+   调试工具
+   ============================================ */
+
+/* 显示GPU层 */
+.debug-gpu-layers * {
+  outline: 1px solid rgba(255, 0, 0, 0.2);
+}
+
+.debug-gpu-layers .android-optimized {
+  outline: 2px solid rgba(0, 255, 0, 0.5);
+}
+
+/* 显示重绘区域 */
+.debug-repaint {
+  outline: 1px solid rgba(255, 165, 0, 0.5) !important;
+}

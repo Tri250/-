@@ -210,14 +210,21 @@ export default {
         20: '80px',
       },
       transitionDuration: {
+        'instant': '50ms',
+        'faster': '100ms',
         fast: '150ms',
         DEFAULT: '200ms',
+        medium: '250ms',
         slow: '300ms',
         slower: '400ms',
+        slowest: '500ms',
       },
       transitionTimingFunction: {
         'ease-out': 'cubic-bezier(0.33, 1, 0.68, 1)',
         'ease-in-out': 'cubic-bezier(0.4, 0, 0.2, 1)',
+        'spring': 'cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+        'bounce': 'cubic-bezier(0.68, -0.55, 0.265, 1.55)',
+        'smooth': 'cubic-bezier(0.4, 0, 0.2, 1)',
       },
       animation: {
         'pulse-slow': 'pulse 3s cubic-bezier(0.22, 0.61, 0.36, 1) infinite',

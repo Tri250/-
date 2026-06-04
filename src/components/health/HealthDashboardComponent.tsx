@@ -6,7 +6,7 @@
 // 描述: 沉浸式健康仪表盘 - 0-100分整体健康评分+四维度环形图
 // ============================================
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Shield, 
@@ -28,6 +28,13 @@ import {
 import { aiHealthAlertService } from '../../services/aiHealthAlertService';
 import { medicalRecordOCRService } from '../../services/medicalRecordOCRService';
 import type { ComprehensiveHealthScore, HealthDashboard } from '../../types/advanced-health';
+import { 
+  animationConfig, 
+  optimizedDuration, 
+  optimizedSpring,
+  shouldDisableDecorativeAnimations,
+  getHardwareAccelerationStyle 
+} from '../../lib/performanceOptimizer';
 
 type StatsTimeFilter = 'year' | 'quarter' | 'month';
 
@@ -45,6 +52,34 @@ export function HealthDashboardComponent({ petId, onNavigateToDetails }: HealthD
   const [statsTimeFilter, setStatsTimeFilter] = useState<StatsTimeFilter>('year');
   const [vaccineStats, setVaccineStats] = useState<{ completed: number; total: number; rate: number }>({ completed: 0, total: 0, rate: 0 });
   const [medicalVisitStats, setMedicalVisitStats] = useState<{ count: number; lastVisit: string }>({ count: 0, lastVisit: '' });
+
+  // 性能优化：是否禁用装饰性动画
+  const disableDecorative = shouldDisableDecorativeAnimations();
+  
+  // 优化的动画配置
+  const animationVariants = useMemo(() => ({
+    container: {
+      initial: { scale: 0.95, opacity: 0 },
+      animate: { scale: 1, opacity: 1 },
+      transition: { 
+        duration: optimizedDuration.enter / 1000, 
+        ease: [0.16, 1, 0.3, 1] as const
+      }
+    },
+    item: {
+      initial: { scale: 0.9, opacity: 0 },
+      animate: { scale: 1, opacity: 1 },
+      transition: { 
+        duration: optimizedDuration.main / 1000,
+        ease: [0.16, 1, 0.3, 1] as const
+      }
+    },
+    fadeSlide: {
+      initial: { y: 10, opacity: 0 },
+      animate: { y: 0, opacity: 1 },
+      transition: { duration: optimizedDuration.secondary / 1000 }
+    }
+  }), []);
 
   useEffect(() => {
     loadData();
@@ -88,7 +123,10 @@ export function HealthDashboardComponent({ petId, onNavigateToDetails }: HealthD
         lastVisit: lastVisitRecord?.date || '无记录'
       });
       
-      setTimeout(() => setAnimationComplete(true), 2000);
+      // 优化：根据性能配置调整动画完成时间
+      const animationDelay = animationConfig.complexity === 'full' ? 2000 : 
+                            animationConfig.complexity === 'reduced' ? 800 : 300;
+      setTimeout(() => setAnimationComplete(true), animationDelay);
     } catch (error) {
       console.error('Failed to load health data:', error);
     } finally {
@@ -147,12 +185,14 @@ export function HealthDashboardComponent({ petId, onNavigateToDetails }: HealthD
     <div className="space-y-6">
       {/* 整体健康评分卡片 */}
       <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+        initial={animationVariants.container.initial}
+        animate={animationVariants.container.animate}
+        transition={animationVariants.container.transition}
         className="bg-gradient-to-br from-green-500 via-emerald-500 to-teal-500 rounded-3xl p-6 text-white shadow-xl relative overflow-hidden"
+        style={getHardwareAccelerationStyle()}
       >
-        {/* 背景装饰 */}
+        {/* 背景装饰 - 性能优化：低端设备禁用 */}
+        {!disableDecorative && (
         <div className="absolute inset-0 opacity-10">
           <motion.div
             animate={{ rotate: 360 }}
@@ -165,6 +205,7 @@ export function HealthDashboardComponent({ petId, onNavigateToDetails }: HealthD
             className="absolute -bottom-30 -left-30 w-80 h-80 border-8 border-white rounded-full"
           />
         </div>
+        )}
 
         <div className="relative z-10">
           <div className="flex items-center justify-between mb-6">
@@ -172,7 +213,7 @@ export function HealthDashboardComponent({ petId, onNavigateToDetails }: HealthD
               <motion.p 
                 initial={{ x: -20, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
-                transition={{ delay: 0.3 }}
+                transition={{ delay: optimizedDuration.stagger / 1000 }}
                 className="text-green-100 text-sm font-medium"
               >
                 整体健康指数
@@ -180,7 +221,7 @@ export function HealthDashboardComponent({ petId, onNavigateToDetails }: HealthD
               <motion.div
                 initial={{ scale: 0 }}
                 animate={{ scale: animationComplete ? 1 : 0 }}
-                transition={{ type: 'spring', stiffness: 200, delay: 0.5 }}
+                transition={{ type: 'spring', ...optimizedSpring.fast, delay: optimizedDuration.stagger * 2 / 1000 }}
                 className="text-6xl font-bold mt-2"
               >
                 {healthScore.overall}
@@ -188,7 +229,7 @@ export function HealthDashboardComponent({ petId, onNavigateToDetails }: HealthD
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: animationComplete ? 1 : 0 }}
-                transition={{ delay: 0.8 }}
+                transition={{ delay: optimizedDuration.stagger * 3 / 1000 }}
                 className="flex items-center gap-2 mt-2"
               >
                 <span className={`flex items-center gap-1 text-sm px-2 py-1 rounded-full ${
@@ -207,7 +248,7 @@ export function HealthDashboardComponent({ petId, onNavigateToDetails }: HealthD
             <motion.div
               initial={{ scale: 0 }}
               animate={{ scale: animationComplete ? 1 : 0 }}
-              transition={{ type: 'spring', stiffness: 200, delay: 0.6 }}
+              transition={{ type: 'spring', ...optimizedSpring.gentle, delay: optimizedDuration.stagger * 2 / 1000 }}
               className="relative w-24 h-24"
             >
               <svg className="w-full h-full transform -rotate-90">
@@ -229,7 +270,7 @@ export function HealthDashboardComponent({ petId, onNavigateToDetails }: HealthD
                   strokeLinecap="round"
                   initial={{ strokeDasharray: '0 251' }}
                   animate={{ strokeDasharray: `${(healthScore.overall / 100) * 251} 251` }}
-                  transition={{ duration: 2, delay: 0.5, ease: 'easeOut' }}
+                  transition={{ duration: optimizedDuration.progress / 1000, delay: optimizedDuration.stagger / 1000, ease: 'easeOut' }}
                 />
               </svg>
               <div className="absolute inset-0 flex items-center justify-center">
@@ -243,7 +284,7 @@ export function HealthDashboardComponent({ petId, onNavigateToDetails }: HealthD
             <motion.div
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 1 }}
+              transition={{ delay: optimizedDuration.stagger * 4 / 1000 }}
               className="bg-white/10 backdrop-blur-sm rounded-xl p-3"
             >
               <p className="text-sm text-green-100">
@@ -281,13 +322,14 @@ export function HealthDashboardComponent({ petId, onNavigateToDetails }: HealthD
           return (
             <motion.div
               key={dimension.id}
-              initial={{ scale: 0.8, opacity: 0 }}
+              initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              transition={{ delay: index * 0.1 + 0.5 }}
+              transition={{ delay: index * optimizedDuration.stagger / 1000 + optimizedDuration.stagger / 1000 }}
               onClick={() => setSelectedDimension(isSelected ? null : dimension.id)}
               className={`relative bg-white rounded-2xl p-4 shadow-sm border-2 transition-all cursor-pointer ${
                 isSelected ? 'border-green-400 shadow-md' : 'border-transparent'
               }`}
+              style={getHardwareAccelerationStyle()}
             >
               <div className="flex items-center justify-between mb-3">
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center`} style={{ backgroundColor: `${config?.color}15` }}>
@@ -324,7 +366,7 @@ export function HealthDashboardComponent({ petId, onNavigateToDetails }: HealthD
                     strokeLinecap="round"
                     initial={{ strokeDasharray: '0 220' }}
                     animate={{ strokeDasharray: `${(dimension.score / 100) * 220} 220` }}
-                    transition={{ duration: 1.5, delay: index * 0.1 + 1, ease: 'easeOut' }}
+                    transition={{ duration: optimizedDuration.progress / 2000, delay: index * optimizedDuration.stagger / 1000 + optimizedDuration.stagger / 1000, ease: 'easeOut' }}
                   />
                 </svg>
                 <div className="absolute inset-0 flex items-center justify-center flex-col">
@@ -404,7 +446,7 @@ export function HealthDashboardComponent({ petId, onNavigateToDetails }: HealthD
             <motion.div
               initial={{ width: 0 }}
               animate={{ width: `${(dashboard.weight.current / dashboard.weight.target) * 100}%` }}
-              transition={{ duration: 1.5, delay: 2 }}
+              transition={{ duration: optimizedDuration.progress / 2000, delay: optimizedDuration.stagger / 1000 }}
               className="h-full bg-gradient-to-r from-green-400 to-green-600 rounded-full"
             />
           </div>
@@ -473,7 +515,7 @@ export function HealthDashboardComponent({ petId, onNavigateToDetails }: HealthD
                   strokeLinecap="round"
                   initial={{ strokeDasharray: '0 176' }}
                   animate={{ strokeDasharray: `${(vaccineStats.rate / 100) * 176} 176` }}
-                  transition={{ duration: 1.5, ease: 'easeOut' }}
+                  transition={{ duration: optimizedDuration.progress / 2000, ease: 'easeOut' }}
                 />
               </svg>
               <div className="absolute inset-0 flex items-center justify-center">
