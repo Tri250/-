@@ -6,7 +6,7 @@
 // 描述: 声音记忆墙 - 录制宠物声音、动态波形卡片
 // ============================================
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Mic, 
@@ -20,7 +20,10 @@ import {
   MoreVertical,
   Check,
   X,
-  Waves
+  Waves,
+  Share2,
+  Edit3,
+  Save
 } from 'lucide-react';
 import { useAppStore } from '../../store/appStore';
 
@@ -29,6 +32,7 @@ interface VoiceMemory {
   type: 'meow' | 'bark' | 'purr' | 'chirp' | 'growl' | 'whine' | 'other';
   label?: string;
   url: string;
+  blob?: Blob;
   duration: number;
   waveformData: number[];
   transcription?: string;
@@ -48,16 +52,38 @@ export function VoiceMemoryWallComponent() {
   const [selectedVoice, setSelectedVoice] = useState<VoiceMemory | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [notificationSound, setNotificationSound] = useState<string | null>(null);
+  const [editingVoice, setEditingVoice] = useState<VoiceMemory | null>(null);
+  const [editLabel, setEditLabel] = useState('');
+  
+  // 录音相关
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const _canvasRef = useRef<HTMLCanvasElement>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  
+  // 播放相关
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [playProgress, setPlayProgress] = useState(0);
+  
+  // 波形可视化
+  const [liveWaveform, setLiveWaveform] = useState<number[]>([]);
+  const waveformIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const petId = currentPet?.id || '1';
   const petName = currentPet?.name || '毛孩子';
 
   useEffect(() => {
     loadData();
+    return () => {
+      // 清理资源
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      stopRecording();
+    };
   }, [petId]);
 
   useEffect(() => {
@@ -177,57 +203,215 @@ export function VoiceMemoryWallComponent() {
     return `${Math.floor(hours / 24)}天前`;
   };
 
-  const handleStartRecording = () => {
-    setIsRecording(true);
-    setRecordingDuration(0);
-    
-    // 模拟音频分析器
+  // 开始录音
+  const startRecording = useCallback(async () => {
     try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      
+      // 设置音频分析器
       audioContextRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
       analyserRef.current = audioContextRef.current.createAnalyser();
       analyserRef.current.fftSize = 256;
+      
+      const source = audioContextRef.current.createMediaStreamSource(stream);
+      source.connect(analyserRef.current);
+      
+      // 创建 MediaRecorder
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
+      });
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+      
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+      
+      mediaRecorder.start(100);
+      setIsRecording(true);
+      setRecordingDuration(0);
+      
+      // 开始实时波形更新
+      startWaveformVisualization();
+      
     } catch (error) {
-      console.error('Audio context not supported:', error);
+      console.error('Failed to start recording:', error);
+      alert('无法访问麦克风，请检查权限设置');
     }
-  };
+  }, []);
 
-  const handleStopRecording = () => {
+  // 实时波形可视化
+  const startWaveformVisualization = useCallback(() => {
+    waveformIntervalRef.current = setInterval(() => {
+      if (analyserRef.current) {
+        const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+        analyserRef.current.getByteFrequencyData(dataArray);
+        
+        // 采样 15 个点用于显示
+        const step = Math.floor(dataArray.length / 15);
+        const waveform: number[] = [];
+        for (let i = 0; i < 15; i++) {
+          const value = dataArray[i * step] / 255;
+          waveform.push(Math.max(0.1, value));
+        }
+        setLiveWaveform(waveform);
+      }
+    }, 50);
+  }, []);
+
+  // 停止录音
+  const stopRecording = useCallback(() => {
+    return new Promise<void>((resolve) => {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.onstop = () => {
+          const audioBlob = new Blob(audioChunksRef.current, { 
+            type: mediaRecorderRef.current?.mimeType || 'audio/webm' 
+          });
+          const audioUrl = URL.createObjectURL(audioBlob);
+          
+          // 创建新的语音记忆
+          const newVoice: VoiceMemory = {
+            id: `voice-${Date.now()}`,
+            type: 'other',
+            label: `录音 ${voices.length + 1}`,
+            url: audioUrl,
+            blob: audioBlob,
+            duration: recordingDuration,
+            waveformData: liveWaveform.length > 0 ? liveWaveform : generateRandomWaveform(),
+            timestamp: new Date().toISOString(),
+            isUsedAsNotification: false
+          };
+          
+          setVoices(prev => [newVoice, ...prev]);
+          
+          // 清理
+          cleanupRecording();
+          resolve();
+        };
+        
+        mediaRecorderRef.current.stop();
+      } else {
+        cleanupRecording();
+        resolve();
+      }
+    });
+  }, [voices.length, recordingDuration, liveWaveform]);
+
+  const cleanupRecording = () => {
     setIsRecording(false);
-    
-    // 创建新的语音记忆
-    const newVoice: VoiceMemory = {
-      id: `voice-${Date.now()}`,
-      type: 'meow',
-      label: `录音 ${voices.length + 1}`,
-      url: '/audio/new-recording.mp3',
-      duration: recordingDuration,
-      waveformData: generateRandomWaveform(),
-      timestamp: new Date().toISOString(),
-      isUsedAsNotification: false
-    };
-    
-    setVoices(prev => [newVoice, ...prev]);
     setRecordingDuration(0);
-
-    // 关闭音频上下文
+    setLiveWaveform([]);
+    
+    if (waveformIntervalRef.current) {
+      clearInterval(waveformIntervalRef.current);
+    }
+    
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    
     if (audioContextRef.current) {
       audioContextRef.current.close();
+      audioContextRef.current = null;
     }
+    
+    mediaRecorderRef.current = null;
+    audioChunksRef.current = [];
   };
 
   const generateRandomWaveform = () => {
     return Array.from({ length: 15 }, () => Math.random() * 0.6 + 0.2);
   };
 
-  const handlePlay = (voice: VoiceMemory) => {
+  // 播放音频
+  const handlePlay = useCallback((voice: VoiceMemory) => {
     if (playingId === voice.id) {
-      setPlayingId(null);
+      // 暂停
+      if (audioRef.current) {
+        audioRef.current.pause();
+        setPlayingId(null);
+      }
     } else {
-      setPlayingId(voice.id);
-      // 模拟播放
-      setTimeout(() => setPlayingId(null), voice.duration * 1000);
+      // 停止之前的播放
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      
+      // 创建新的音频
+      const audio = new Audio(voice.url);
+      audioRef.current = audio;
+      
+      audio.onloadedmetadata = () => {
+        audio.play();
+        setPlayingId(voice.id);
+        setPlayProgress(0);
+      };
+      
+      audio.ontimeupdate = () => {
+        setPlayProgress(audio.currentTime / audio.duration);
+      };
+      
+      audio.onended = () => {
+        setPlayingId(null);
+        setPlayProgress(0);
+      };
+      
+      audio.onerror = () => {
+        console.error('Failed to play audio');
+        setPlayingId(null);
+        // 如果是模拟数据，显示提示
+        if (voice.url.startsWith('/audio/')) {
+          alert('演示音频不可用，请录制新的声音');
+        }
+      };
     }
-  };
+  }, [playingId]);
+
+  // 下载音频
+  const handleDownload = useCallback((voice: VoiceMemory) => {
+    if (voice.blob) {
+      // 如果有 blob，直接下载
+      const url = URL.createObjectURL(voice.blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${voice.label || '录音'}.webm`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } else if (voice.url && !voice.url.startsWith('/audio/')) {
+      // 如果有有效的 URL
+      const a = document.createElement('a');
+      a.href = voice.url;
+      a.download = `${voice.label || '录音'}.mp3`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } else {
+      // 演示数据，提示用户
+      alert('演示音频不可下载，请录制新的声音');
+    }
+  }, []);
+
+  // 分享音频
+  const handleShare = useCallback(async (voice: VoiceMemory) => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: voice.label || '宠物声音',
+          text: `听听${petName}的声音！`,
+        });
+      } catch (error) {
+        console.log('Share cancelled');
+      }
+    } else {
+      alert('您的浏览器不支持分享功能');
+    }
+  }, [petName]);
 
   const handleSetAsNotification = (voiceId: string) => {
     setVoices(prev => prev.map(v => ({
@@ -239,9 +423,31 @@ export function VoiceMemoryWallComponent() {
 
   const handleDelete = (voiceId: string) => {
     if (!confirm('确定要删除这条声音记忆吗？')) return;
+    
+    const voice = voices.find(v => v.id === voiceId);
+    if (voice?.url.startsWith('blob:')) {
+      URL.revokeObjectURL(voice.url);
+    }
+    
     setVoices(prev => prev.filter(v => v.id !== voiceId));
     if (notificationSound === voiceId) {
       setNotificationSound(null);
+    }
+  };
+
+  // 编辑标签
+  const handleStartEdit = (voice: VoiceMemory) => {
+    setEditingVoice(voice);
+    setEditLabel(voice.label || '');
+  };
+
+  const handleSaveEdit = () => {
+    if (editingVoice) {
+      setVoices(prev => prev.map(v => 
+        v.id === editingVoice.id ? { ...v, label: editLabel } : v
+      ));
+      setEditingVoice(null);
+      setEditLabel('');
     }
   };
 
@@ -287,7 +493,7 @@ export function VoiceMemoryWallComponent() {
   // 录音动画
   const RecordingAnimation = () => (
     <motion.div
-      animate={{ scale: [1, 1.2, 1] }}
+      animate={{ scale: [1, 1.02, 1] }}
       transition={{ duration: 1, repeat: Infinity }}
       className="w-full h-full bg-gradient-to-br from-red-100 to-pink-100 rounded-2xl flex flex-col items-center justify-center p-8"
     >
@@ -304,7 +510,7 @@ export function VoiceMemoryWallComponent() {
         transition={{ duration: 1.5, repeat: Infinity }}
         className="flex items-center gap-2 mb-4"
       >
-        <div className="w-3 h-3 bg-red-500 rounded-full" />
+        <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
         <span className="text-red-600 font-medium">正在录音...</span>
       </motion.div>
 
@@ -315,13 +521,13 @@ export function VoiceMemoryWallComponent() {
       {/* 实时波形 */}
       <div className="w-full max-w-md">
         <WaveformVisualizer 
-          data={generateRandomWaveform()} 
+          data={liveWaveform.length > 0 ? liveWaveform : generateRandomWaveform()} 
           isPlaying={true} 
         />
       </div>
 
       <button
-        onClick={handleStopRecording}
+        onClick={() => stopRecording()}
         className="mt-8 px-8 py-4 bg-white text-red-600 rounded-2xl font-medium hover:bg-red-50 transition-colors shadow-lg flex items-center gap-2"
       >
         <Square className="w-5 h-5" />
@@ -330,65 +536,127 @@ export function VoiceMemoryWallComponent() {
     </motion.div>
   );
 
-  // 播放动画
-  const PlayAnimation = () => (
-    <motion.div
-      initial={{ scale: 0 }}
-      animate={{ scale: 1 }}
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-      onClick={() => setPlayingId(null)}
-    >
-      <motion.div
-        initial={{ scale: 0.8, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-3xl p-8 max-w-md w-full text-center"
-      >
-        {selectedVoice && (
-          <>
-            <div className="text-6xl mb-4">
-              {getTypeConfig(selectedVoice.type).emoji}
+  // 播放详情模态框
+  const PlayDetailModal = () => (
+    <AnimatePresence>
+      {selectedVoice && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={() => setSelectedVoice(null)}
+        >
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.8, opacity: 0 }}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-3xl p-6 max-w-md w-full"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                <span className="text-2xl">{getTypeConfig(selectedVoice.type).emoji}</span>
+                {selectedVoice.label}
+              </h3>
+              <button
+                onClick={() => setSelectedVoice(null)}
+                className="p-2 hover:bg-gray-100 rounded-full"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
             </div>
-            
-            <h3 className="text-xl font-bold text-gray-800 mb-2">
-              {selectedVoice.label}
-            </h3>
-
-            {selectedVoice.transcription && (
-              <p className="text-2xl text-purple-600 mb-2 font-medium">
-                "{selectedVoice.transcription}"
-              </p>
-            )}
-
-            {selectedVoice.translation && (
-              <p className="text-gray-600 mb-4">
-                翻译：{selectedVoice.translation}
-              </p>
-            )}
 
             {/* 波形可视化 */}
             <div className="bg-gray-50 rounded-2xl p-4 mb-4">
               <WaveformVisualizer 
                 data={selectedVoice.waveformData}
-                isPlaying={true}
-                progress={0.5}
+                isPlaying={playingId === selectedVoice.id}
+                progress={playProgress}
               />
               <div className="flex justify-between text-xs text-gray-500 mt-2">
-                <span>{formatDuration(0)}</span>
+                <span>{formatDuration(selectedVoice.duration * playProgress)}</span>
                 <span>{formatDuration(selectedVoice.duration)}</span>
               </div>
             </div>
 
-            {getEmotionConfig(selectedVoice.emotion) && (
-              <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full ${getEmotionConfig(selectedVoice.emotion)?.color}`}>
-                <span>{getEmotionConfig(selectedVoice.emotion)?.emoji}</span>
-                <span className="text-sm font-medium">{getEmotionConfig(selectedVoice.emotion)?.label}</span>
+            {selectedVoice.transcription && (
+              <div className="mb-4 p-3 bg-purple-50 rounded-xl">
+                <p className="text-sm text-gray-500 mb-1">识别结果</p>
+                <p className="text-lg text-purple-600 font-medium">
+                  "{selectedVoice.transcription}"
+                </p>
+                {selectedVoice.translation && (
+                  <p className="text-sm text-gray-600 mt-2">
+                    💬 {selectedVoice.translation}
+                  </p>
+                )}
               </div>
             )}
-          </>
-        )}
-      </motion.div>
-    </motion.div>
+
+            {getEmotionConfig(selectedVoice.emotion) && (
+              <div className="mb-4">
+                <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-full ${getEmotionConfig(selectedVoice.emotion)?.color}`}>
+                  <span>{getEmotionConfig(selectedVoice.emotion)?.emoji}</span>
+                  <span className="text-sm font-medium">{getEmotionConfig(selectedVoice.emotion)?.label}</span>
+                </span>
+              </div>
+            )}
+
+            {/* 操作按钮 */}
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => handlePlay(selectedVoice)}
+                className={`py-3 rounded-xl flex items-center justify-center gap-2 transition-colors ${
+                  playingId === selectedVoice.id
+                    ? 'bg-purple-500 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {playingId === selectedVoice.id ? (
+                  <>
+                    <Pause className="w-5 h-5" />
+                    <span>暂停</span>
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-5 h-5" />
+                    <span>播放</span>
+                  </>
+                )}
+              </button>
+              
+              <button
+                onClick={() => handleDownload(selectedVoice)}
+                className="py-3 bg-gray-100 text-gray-700 rounded-xl flex items-center justify-center gap-2 hover:bg-gray-200 transition-colors"
+              >
+                <Download className="w-5 h-5" />
+                <span>下载</span>
+              </button>
+              
+              <button
+                onClick={() => handleShare(selectedVoice)}
+                className="py-3 bg-gray-100 text-gray-700 rounded-xl flex items-center justify-center gap-2 hover:bg-gray-200 transition-colors"
+              >
+                <Share2 className="w-5 h-5" />
+                <span>分享</span>
+              </button>
+              
+              <button
+                onClick={() => {
+                  setSelectedVoice(null);
+                  handleDelete(selectedVoice.id);
+                }}
+                className="py-3 bg-red-50 text-red-600 rounded-xl flex items-center justify-center gap-2 hover:bg-red-100 transition-colors"
+              >
+                <Trash2 className="w-5 h-5" />
+                <span>删除</span>
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 
   if (loading) {
@@ -429,7 +697,7 @@ export function VoiceMemoryWallComponent() {
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
-          onClick={handleStartRecording}
+          onClick={startRecording}
           className="w-full py-6 bg-gradient-to-r from-red-500 to-pink-500 text-white rounded-2xl shadow-lg flex items-center justify-center gap-3"
         >
           <motion.div
@@ -466,46 +734,52 @@ export function VoiceMemoryWallComponent() {
               </button>
             </div>
 
-            <div className="space-y-2">
-              {voices.map((voice) => (
-                <div
-                  key={voice.id}
-                  className={`flex items-center justify-between p-3 rounded-xl transition-colors ${
-                    notificationSound === voice.id 
-                      ? 'bg-purple-50 border-2 border-purple-300' 
-                      : 'bg-gray-50 hover:bg-gray-100'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl">{getTypeConfig(voice.type).emoji}</span>
-                    <div>
-                      <p className="font-medium text-gray-800">{voice.label}</p>
-                      <p className="text-xs text-gray-500">{formatDuration(voice.duration)}</p>
+            {voices.length > 0 ? (
+              <div className="space-y-2">
+                {voices.map((voice) => (
+                  <div
+                    key={voice.id}
+                    className={`flex items-center justify-between p-3 rounded-xl transition-colors ${
+                      notificationSound === voice.id 
+                        ? 'bg-purple-50 border-2 border-purple-300' 
+                        : 'bg-gray-50 hover:bg-gray-100'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">{getTypeConfig(voice.type).emoji}</span>
+                      <div>
+                        <p className="font-medium text-gray-800">{voice.label}</p>
+                        <p className="text-xs text-gray-500">{formatDuration(voice.duration)}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      {notificationSound === voice.id && (
+                        <span className="text-xs text-purple-600 font-medium">已设为提示音</span>
+                      )}
+                      <button
+                        onClick={() => handleSetAsNotification(voice.id)}
+                        className={`p-2 rounded-lg transition-colors ${
+                          notificationSound === voice.id
+                            ? 'bg-purple-100 text-purple-600'
+                            : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                        }`}
+                      >
+                        {notificationSound === voice.id ? (
+                          <Check className="w-4 h-4" />
+                        ) : (
+                          <Volume2 className="w-4 h-4" />
+                        )}
+                      </button>
                     </div>
                   </div>
-                  
-                  <div className="flex items-center gap-2">
-                    {notificationSound === voice.id && (
-                      <span className="text-xs text-purple-600 font-medium">已设为提示音</span>
-                    )}
-                    <button
-                      onClick={() => handleSetAsNotification(voice.id)}
-                      className={`p-2 rounded-lg transition-colors ${
-                        notificationSound === voice.id
-                          ? 'bg-purple-100 text-purple-600'
-                          : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-                      }`}
-                    >
-                      {notificationSound === voice.id ? (
-                        <Check className="w-4 h-4" />
-                      ) : (
-                        <Volume2 className="w-4 h-4" />
-                      )}
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-center text-gray-500 py-4">
+                还没有声音记忆，先录制一些吧
+              </p>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -538,8 +812,32 @@ export function VoiceMemoryWallComponent() {
 
                 <div className="flex-1">
                   <div className="flex items-center justify-between mb-2">
-                    <div>
-                      <h3 className="font-medium text-gray-800">{voice.label}</h3>
+                    <div className="flex-1">
+                      {editingVoice?.id === voice.id ? (
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={editLabel}
+                            onChange={(e) => setEditLabel(e.target.value)}
+                            className="flex-1 px-2 py-1 border border-purple-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            autoFocus
+                          />
+                          <button
+                            onClick={handleSaveEdit}
+                            className="p-1 bg-purple-100 text-purple-600 rounded-lg hover:bg-purple-200"
+                          >
+                            <Save className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => setEditingVoice(null)}
+                            className="p-1 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <h3 className="font-medium text-gray-800">{voice.label}</h3>
+                      )}
                       <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
                         <span>{config.label}</span>
                         <span>·</span>
@@ -557,8 +855,16 @@ export function VoiceMemoryWallComponent() {
                         </span>
                       )}
                       <button
+                        onClick={() => handleStartEdit(voice)}
+                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                        title="编辑"
+                      >
+                        <Edit3 className="w-4 h-4 text-gray-500" />
+                      </button>
+                      <button
                         onClick={() => setSelectedVoice(voice)}
                         className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                        title="更多"
                       >
                         <MoreVertical className="w-4 h-4 text-gray-500" />
                       </button>
@@ -570,6 +876,7 @@ export function VoiceMemoryWallComponent() {
                     <WaveformVisualizer 
                       data={voice.waveformData} 
                       isPlaying={isPlaying}
+                      progress={isPlaying ? playProgress : 0}
                     />
                   </div>
 
@@ -630,7 +937,7 @@ export function VoiceMemoryWallComponent() {
                     </button>
 
                     <button
-                      onClick={() => {}}
+                      onClick={() => handleDownload(voice)}
                       className="p-2.5 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 transition-colors"
                       title="下载"
                     >
@@ -663,12 +970,8 @@ export function VoiceMemoryWallComponent() {
         </div>
       )}
 
-      {/* 播放模态框 */}
-      <AnimatePresence>
-        {selectedVoice && (
-          <PlayAnimation />
-        )}
-      </AnimatePresence>
+      {/* 播放详情模态框 */}
+      <PlayDetailModal />
     </div>
   );
 }
