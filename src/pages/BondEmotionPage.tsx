@@ -9,10 +9,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Heart, 
-  Camera,
-  Plus,
-  X
+  Heart
 } from 'lucide-react';
 import { MemoryTimelineComponent } from '../components/bond/MemoryTimelineComponent';
 import { VoiceMemoryWallComponent } from '../components/bond/VoiceMemoryWallComponent';
@@ -24,7 +21,6 @@ type TabType = 'memories' | 'voices' | 'remote';
 export function BondEmotionPage() {
   const { currentPet } = useAppStore();
   const [activeTab, setActiveTab] = useState<TabType>('memories');
-  const [showUploadModal, setShowUploadModal] = useState(false);
 
   const petName = currentPet?.name || '毛孩子';
 
@@ -79,16 +75,6 @@ export function BondEmotionPage() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setShowUploadModal(true)}
-                className="p-2 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-xl shadow-lg"
-              >
-                <Plus className="w-5 h-5" />
-              </motion.button>
-            </div>
           </div>
         </div>
       </header>
@@ -103,12 +89,7 @@ export function BondEmotionPage() {
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.3 }}
           >
-            {activeTab === 'memories' ? (
-              <MemoryTimelineComponent 
-                externalShowUploadModal={showUploadModal}
-                onExternalShowUploadModalChange={setShowUploadModal}
-              />
-            ) : renderContent()}
+            {renderContent()}
           </motion.div>
         </AnimatePresence>
       </main>
@@ -139,50 +120,6 @@ export function BondEmotionPage() {
         </div>
       </nav>
 
-      {/* 添加回忆模态框 */}
-      <AnimatePresence>
-        {showUploadModal && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowUploadModal(false)}
-              className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40"
-            />
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.8, opacity: 0, y: 20 }}
-              className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 bg-white rounded-2xl shadow-xl p-2 w-64"
-            >
-              <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100 mb-2">
-                <h3 className="font-semibold text-gray-800">添加回忆</h3>
-                <button
-                  onClick={() => setShowUploadModal(false)}
-                  className="p-1 hover:bg-gray-100 rounded-full transition-colors"
-                >
-                  <X className="w-4 h-4 text-gray-500" />
-                </button>
-              </div>
-              <button 
-                onClick={() => {
-                  setShowUploadModal(false);
-                }}
-                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-pink-50 rounded-xl transition-colors"
-              >
-                <div className="w-10 h-10 bg-pink-100 rounded-xl flex items-center justify-center">
-                  <Camera className="w-5 h-5 text-pink-600" />
-                </div>
-                <div className="text-left">
-                  <p className="font-medium text-gray-800">添加回忆</p>
-                  <p className="text-xs text-gray-500">记录{petName}的精彩瞬间</p>
-                </div>
-              </button>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
     </div>
   );
 }
