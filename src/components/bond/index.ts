@@ -9,3 +9,4 @@
 export { MemoryTimelineComponent } from './MemoryTimelineComponent';
 export { VoiceMemoryWallComponent } from './VoiceMemoryWallComponent';
 export { RemoteInteractionCenterComponent } from './RemoteInteractionCenterComponent';
+export { AddMemoryModal } from './AddMemoryModal';

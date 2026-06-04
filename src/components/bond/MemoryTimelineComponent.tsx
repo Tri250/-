@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '../../store/appStore';
 import type { Milestone } from '../../types/bond';
+import { AddMemoryModal } from './AddMemoryModal';
 
 interface MemoryItem {
   id: string;
@@ -241,6 +242,12 @@ export function MemoryTimelineComponent({
   const handleDelete = (id: string) => {
     if (!confirm('确定要删除这个回忆吗？')) return;
     setMemories(prev => prev.filter(m => m.id !== id));
+  };
+
+  // 处理添加新回忆
+  const handleAddMemory = (memory: unknown) => {
+    const newMemory = memory as MemoryItem;
+    setMemories(prev => [newMemory, ...prev]);
   };
 
   const renderMilestoneCard = (milestone: Milestone) => {
@@ -597,6 +604,13 @@ export function MemoryTimelineComponent({
 
       {/* 详情模态框 */}
       <DetailModal />
+      
+      {/* 添加回忆模态框 */}
+      <AddMemoryModal 
+        isOpen={_showUploadModal}
+        onClose={() => _setShowUploadModal(false)}
+        onAdd={handleAddMemory}
+      />
     </div>
   );
 }
