@@ -1040,24 +1040,22 @@ export function TranslatorPage({ onNavigate }: { onNavigate?: (page: string) => 
   };
 
   const handleShare = async () => {
-    const shareText = `${currentPet?.name}的心情\n\n${translation}\n\n——来自 爪爪连心❤️`;
-
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: '爪爪连心❤️ - 宠物心声',
-          text: shareText,
-        });
-      } catch {
-        console.log('分享取消或失败');
+    try {
+      const { ShareService } = await import('../lib/platformService');
+      
+      const shareText = `${currentPet?.name}的心情\n\n${translation}\n\n——来自 爪爪连心❤️`;
+      
+      const success = await ShareService.share({
+        title: '爪爪连心❤️ - 宠物心声',
+        text: shareText,
+        dialogTitle: '分享宠物心声'
+      });
+      
+      if (!success) {
+        console.log('分享已处理');
       }
-    } else {
-      try {
-        await navigator.clipboard.writeText(shareText);
-        alert('已复制到剪贴板');
-      } catch (error) {
-        console.error('复制失败', error);
-      }
+    } catch (error) {
+      console.error('分享失败', error);
     }
   };
 

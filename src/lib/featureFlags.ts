@@ -45,7 +45,7 @@ export interface FeatureFlags {
 }
 
 // 获取功能开关配置
-const getFeatureFlags = (): FeatureFlags => {
+const createFeatureFlags = (): FeatureFlags => {
   const isDev = import.meta.env.VITE_ENV === 'development';
   const isMockEnabled = import.meta.env.VITE_ENABLE_MOCK_DATA === 'true';
 
@@ -94,7 +94,7 @@ let featureFlagsInstance: FeatureFlags | null = null;
  */
 export const getFeatureFlags = (): FeatureFlags => {
   if (!featureFlagsInstance) {
-    featureFlagsInstance = getFeatureFlags();
+    featureFlagsInstance = createFeatureFlags();
   }
   return featureFlagsInstance;
 };
@@ -186,9 +186,6 @@ export const subscribeToFeatureFlags = (listener: FeatureFlagListener): (() => v
  * 通知功能开关变更
  */
 export const notifyFeatureFlagsChange = (): void => {
-  featureFlagsInstance = getFeatureFlags();
+  featureFlagsInstance = createFeatureFlags();
   listeners.forEach((listener) => listener(featureFlagsInstance!));
 };
-
-// 重新导出类型
-export type { FeatureFlags };

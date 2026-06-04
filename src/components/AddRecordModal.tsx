@@ -158,6 +158,15 @@ export const AddRecordModal: React.FC<AddRecordModalProps> = ({
 
   const startRecording = async () => {
     try {
+      // 检查并请求麦克风权限
+      const { PermissionService } = await import('../lib/permissionService');
+      const hasPermission = await PermissionService.ensurePermission('microphone');
+      
+      if (!hasPermission) {
+        alert('需要麦克风权限才能录音，请在设置中开启');
+        return;
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
@@ -282,6 +291,23 @@ export const AddRecordModal: React.FC<AddRecordModalProps> = ({
 
   const startVideoRecording = async () => {
     try {
+      // 检查并请求相机和麦克风权限
+      const { PermissionService } = await import('../lib/permissionService');
+      const [hasCamera, hasMicrophone] = await Promise.all([
+        PermissionService.ensurePermission('camera'),
+        PermissionService.ensurePermission('microphone'),
+      ]);
+      
+      if (!hasCamera) {
+        alert('需要相机权限才能录像，请在设置中开启');
+        return;
+      }
+      
+      if (!hasMicrophone) {
+        alert('需要麦克风权限才能录像，请在设置中开启');
+        return;
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { facingMode: 'environment' }, 
         audio: true 

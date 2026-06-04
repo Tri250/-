@@ -4,18 +4,17 @@
  * 演示如何使用 PlatformService 确保 Android 和 Web 功能一致性
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Share2, Check, Copy, AlertCircle } from 'lucide-react';
-import { ShareService } from '../lib/platformService';
-import { Button } from './ui/Button';
-import { useState } from 'react';
+import { ShareService } from '../../lib/platformService';
+import { Button } from './Button';
 
 interface ShareButtonProps {
   title: string;
   text: string;
   url?: string;
-  variant?: 'primary' | 'secondary' | 'outline';
-  size?: 'sm' | 'md' | 'lg';
+  variant?: 'primary' | 'secondary' | 'ghost';
+  size?: 'small' | 'medium' | 'large';
   className?: string;
 }
 
@@ -24,7 +23,7 @@ export const ShareButton: React.FC<ShareButtonProps> = ({
   text,
   url,
   variant = 'primary',
-  size = 'md',
+  size = 'medium',
   className = '',
 }) => {
   const [status, setStatus] = useState<'idle' | 'success' | 'error' | 'copied'>('idle');
@@ -39,7 +38,6 @@ export const ShareButton: React.FC<ShareButtonProps> = ({
         title,
         text,
         url,
-        dialogTitle: '分享到',
       });
 
       if (success) {
@@ -97,7 +95,7 @@ export const ShareButton: React.FC<ShareButtonProps> = ({
       onClick={handleShare}
       disabled={loading}
       className={`${className} ${status === 'success' ? 'bg-green-500 hover:bg-green-600' : ''} ${status === 'error' ? 'bg-red-500 hover:bg-red-600' : ''}`}
-      leftIcon={getStatusIcon()}
+      icon={getStatusIcon()}
     >
       {loading ? '分享中...' : getStatusText()}
     </Button>
@@ -110,8 +108,8 @@ export const ShareButton: React.FC<ShareButtonProps> = ({
 interface HapticButtonProps {
   children: React.ReactNode;
   onClick: () => void;
-  variant?: 'primary' | 'secondary' | 'outline';
-  size?: 'sm' | 'md' | 'lg';
+  variant?: 'primary' | 'secondary' | 'ghost';
+  size?: 'small' | 'medium' | 'large';
   hapticStyle?: 'light' | 'medium' | 'heavy' | 'selection';
   disabled?: boolean;
   className?: string;
@@ -121,16 +119,19 @@ export const HapticButton: React.FC<HapticButtonProps> = ({
   children,
   onClick,
   variant = 'primary',
-  size = 'md',
+  size = 'medium',
   hapticStyle = 'medium',
   disabled = false,
   className = '',
 }) => {
-  const { HapticsService } = require('../lib/platformService');
-
   const handleClick = async () => {
     // 触发触觉反馈
-    await HapticsService[hapticStyle]();
+    try {
+      const { HapticsService } = await import('../../lib/platformService');
+      await HapticsService[hapticStyle]();
+    } catch {
+      // 忽略触觉反馈错误
+    }
     // 执行点击回调
     onClick();
   };
@@ -164,16 +165,17 @@ export const CameraButton: React.FC<CameraButtonProps> = ({
   quality = 80,
   className = '',
 }) => {
-  const { CameraService } = require('../lib/platformService');
   const [capturing, setCapturing] = useState(false);
 
   const handleCapture = async () => {
     setCapturing(true);
 
     try {
+      const { CameraService } = await import('../../lib/platformService');
+      
       // 检查权限
       const hasPermission = await CameraService.checkPermission();
-      if (!hasPermission) {
+      if (hasPermission !== 'granted') {
         const granted = await CameraService.requestPermission();
         if (!granted) {
           throw new Error('Camera permission denied');
@@ -203,11 +205,11 @@ export const CameraButton: React.FC<CameraButtonProps> = ({
   return (
     <Button
       variant="primary"
-      size="lg"
+      size="large"
       onClick={handleCapture}
       disabled={capturing}
       className={className}
-      leftIcon={<div className="camera-icon" />}
+      icon={<div className="camera-icon" />}
     >
       {capturing ? '拍摄中...' : '拍照'}
     </Button>

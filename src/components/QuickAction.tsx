@@ -12,6 +12,19 @@ const actions = [
 ];
 
 export function QuickAction({ onAction }: QuickActionProps) {
+  const handleAction = async (actionId: string) => {
+    // 添加触觉反馈
+    try {
+      const { HapticsService } = await import('../lib/platformService');
+      await HapticsService.light();
+    } catch {
+      // 忽略触觉反馈错误
+    }
+    
+    // 执行操作
+    onAction(actionId);
+  };
+
   return (
     <div 
       className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4"
@@ -23,7 +36,7 @@ export function QuickAction({ onAction }: QuickActionProps) {
         return (
           <button
             key={item.id}
-            onClick={() => onAction(item.id)}
+            onClick={() => handleAction(item.id)}
             className={`flex flex-col items-center gap-2.5 p-4 sm:p-5 rounded-2xl ${item.bgColor} border border-neutral-100/50 dark:border-neutral-800/50 shadow-sm hover:shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 touch-manipulation min-h-[100px] sm:min-h-[110px]`}
             aria-label={item.label}
             role="listitem"

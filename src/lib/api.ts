@@ -1,4 +1,37 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+/**
+ * API Client - 统一的 API 客户端
+ * 
+ * 自动根据环境变量配置 API 地址
+ * 确保 Android 和 Web 端使用正确的后端地址
+ */
+
+// 从环境变量获取 API 地址，确保跨平台一致性
+const getApiBaseUrl = (): string => {
+  // 优先使用环境变量
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (envUrl) {
+    return envUrl;
+  }
+
+  // 根据环境自动选择
+  const mode = import.meta.env.MODE;
+  if (mode === 'production') {
+    return 'https://api.pawsync.com';
+  } else if (mode === 'staging') {
+    return 'https://staging-api.pawsync.com';
+  }
+
+  // 开发环境默认
+  return 'http://localhost:3000/api';
+};
+
+const API_BASE_URL = getApiBaseUrl();
+
+// 开发模式下输出 API 配置信息
+if (import.meta.env.DEV) {
+  console.log('[API] Environment:', import.meta.env.MODE);
+  console.log('[API] Base URL:', API_BASE_URL);
+}
 
 class ApiClient {
   private token: string | null = null;

@@ -224,18 +224,18 @@ export function HealthReportPage({ onNavigate }: HealthReportPageProps) {
 
   const handleShareReport = async () => {
     try {
-      const shareData = {
+      const { ShareService } = await import('../lib/platformService');
+      
+      const success = await ShareService.share({
         title: `${petName}的健康报告`,
         text: `${petName}的健康评分: ${healthScore?.overall || 'N/A'}分，查看详细报告请点击链接`,
-        url: window.location.href
-      };
+        url: window.location.href,
+        dialogTitle: '分享健康报告'
+      });
       
-      if (navigator.share && navigator.canShare(shareData)) {
-        await navigator.share(shareData);
-      } else {
-        const textToCopy = `${petName}的健康报告\n健康评分: ${healthScore?.overall || 'N/A'}分\n生成时间: ${new Date().toLocaleString('zh-CN')}\n查看详情: ${window.location.href}`;
-        await navigator.clipboard.writeText(textToCopy);
-        alert('报告信息已复制到剪贴板，可分享给他人');
+      if (!success) {
+        // ShareService 已自动处理降级（复制到剪贴板）
+        console.log('分享已处理');
       }
     } catch (error) {
       console.error('分享失败:', error);

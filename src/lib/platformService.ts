@@ -5,7 +5,7 @@
  * 确保功能在所有平台上有一致的行为和优雅的降级处理
  */
 
-import { isPlatform } from '@capacitor/core';
+import { Capacitor } from '@capacitor/core';
 
 // 平台类型
 export type PlatformType = 'android' | 'ios' | 'web';
@@ -14,8 +14,8 @@ export type PlatformType = 'android' | 'ios' | 'web';
  * 获取当前平台类型
  */
 export const getCurrentPlatform = (): PlatformType => {
-  if (isPlatform('android')) return 'android';
-  if (isPlatform('ios')) return 'ios';
+  if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') return 'android';
+  if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios') return 'ios';
   return 'web';
 };
 
@@ -23,17 +23,17 @@ export const getCurrentPlatform = (): PlatformType => {
  * 检查是否为原生平台（Android 或 iOS）
  */
 export const isNativePlatform = (): boolean => {
-  return isPlatform('android') || isPlatform('ios');
+  return Capacitor.isNativePlatform();
 };
 
 /**
  * 检查当前平台
  */
 export const platformCheck = {
-  isAndroid: () => isPlatform('android'),
-  isIOS: () => isPlatform('ios'),
-  isWeb: () => !isPlatform('android') && !isPlatform('ios'),
-  isNative: () => isNativePlatform(),
+  isAndroid: () => Capacitor.getPlatform() === 'android',
+  isIOS: () => Capacitor.getPlatform() === 'ios',
+  isWeb: () => !Capacitor.isNativePlatform(),
+  isNative: () => Capacitor.isNativePlatform(),
 };
 
 /**
@@ -134,7 +134,8 @@ export const ShareService = {
     if (platformCheck.isNative()) {
       try {
         const { Share } = await import('@capacitor/share');
-        return await Share.canShare();
+        const result = await Share.canShare();
+        return result.value;
       } catch {
         return false;
       }
@@ -147,19 +148,15 @@ export const ShareService = {
    * 分享内容
    */
   async share(options: ShareOptions): Promise<boolean> {
-    const { title, text, url, dialogTitle } = options;
+    const { title, text, url } = options;
 
     // 优先使用原生分享
     if (platformCheck.isNative()) {
       try {
         const { Share } = await import('@capacitor/share');
-        const shareOptions = {
-          title,
-          text,
-          url,
-        };
-        if (await Share.canShare(shareOptions)) {
-          await Share.share(shareOptions);
+        const canShare = await Share.canShare();
+        if (canShare.value) {
+          await Share.share({ title, text, url });
           return true;
         }
       } catch (error) {
@@ -207,9 +204,14 @@ export const CameraService = {
   async checkPermission(): Promise<'granted' | 'denied' | 'prompt'> {
     if (platformCheck.isNative()) {
       try {
-        const { Camera, PermissionStatus } = await import('@capacitor/camera');
+        const { Camera } = await import('@capacitor/camera');
         const status = await Camera.checkPermissions();
-        return status.camera as PermissionStatus;
+        // CameraPermissionState 可能包含 'prompt-with-rationale' 或 'limited'，统一映射
+        const cameraState = status.camera;
+        if (cameraState === 'prompt-with-rationale' || cameraState === 'limited') {
+          return 'prompt';
+        }
+        return cameraState;
       } catch {
         return 'prompt';
       }
@@ -224,9 +226,9 @@ export const CameraService = {
   async requestPermission(): Promise<boolean> {
     if (platformCheck.isNative()) {
       try {
-        const { Camera, PermissionStatus } = await import('@capacitor/camera');
+        const { Camera } = await import('@capacitor/camera');
         const status = await Camera.requestPermissions();
-        return status.camera === PermissionStatus.Granted;
+        return status.camera === 'granted';
       } catch {
         return false;
       }
@@ -507,17 +509,20 @@ export const KeyboardService = {
    * 添加键盘显示监听器
    */
   onShow(callback: () => void): () => void {
+    let cleanup: (() => void) | null = null;
+    
     if (platformCheck.isNative()) {
       import('@capacitor/keyboard').then(({ Keyboard }) => {
         Keyboard.addListener('keyboardDidShow', callback);
+        cleanup = () => Keyboard.removeAllListeners();
       });
     } else {
       window.addEventListener('keyboardDidShow', callback);
+      cleanup = () => window.removeEventListener('keyboardDidShow', callback);
     }
+    
     return () => {
-      if (platformCheck.isNative()) {
-        Keyboard.removeAllListeners();
-      }
+      if (cleanup) cleanup();
     };
   },
 
@@ -525,17 +530,20 @@ export const KeyboardService = {
    * 添加键盘隐藏监听器
    */
   onHide(callback: () => void): () => void {
+    let cleanup: (() => void) | null = null;
+    
     if (platformCheck.isNative()) {
       import('@capacitor/keyboard').then(({ Keyboard }) => {
         Keyboard.addListener('keyboardDidHide', callback);
+        cleanup = () => Keyboard.removeAllListeners();
       });
     } else {
       window.addEventListener('keyboardDidHide', callback);
+      cleanup = () => window.removeEventListener('keyboardDidHide', callback);
     }
+    
     return () => {
-      if (platformCheck.isNative()) {
-        Keyboard.removeAllListeners();
-      }
+      if (cleanup) cleanup();
     };
   },
 };
