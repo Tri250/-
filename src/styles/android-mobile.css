@@ -1,0 +1,454 @@
+/**
+ * PawSync Pro 4.0 温暖治愈版
+ * Android移动端专用样式 - 行业最高标准优化
+ * 
+ * 优化要点：
+ * 1. 安全区域适配（StatusBar + NavigationBar）
+ * 2. 触摸反馈优化（涟漪效果、触摸高亮）
+ * 3. 移动端字体适配（系统字体优先）
+ * 4. 性能优化动画（GPU加速、减少重绘）
+ * 5. 深色模式适配（Android 10+ Dark Theme）
+ * 6. 无障碍优化（TalkBack支持、高对比度）
+ */
+
+/* ============================================================================
+   Android安全区域适配
+   ============================================================================ */
+
+@supports (padding-top: env(safe-area-inset-top)) {
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top, 24px);
+  }
+  
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 20px);
+  }
+  
+  .safe-area-left {
+    padding-left: env(safe-area-inset-left, 0);
+  }
+  
+  .safe-area-right {
+    padding-right: env(safe-area-inset-right, 0);
+  }
+}
+
+/* Android 15+ 预测性返回手势支持 */
+@supports (padding: env(android-predictive-back-gesture-area)) {
+  .predictive-back-area {
+    padding-left: env(android-predictive-back-gesture-area, 20px);
+  }
+}
+
+/* ============================================================================
+   Android触摸反馈优化 - Material Design 3风格
+   ============================================================================ */
+
+/* 涟漪效果基础样式 */
+.ripple-effect {
+  position: relative;
+  overflow: hidden;
+}
+
+.ripple-effect::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(249, 115, 22, 0.2);
+  transform: translate(-50%, -50%);
+  transition: width 0.4s ease-out, height 0.4s ease-out, opacity 0.4s ease-out;
+  opacity: 0;
+}
+
+.ripple-effect:active::after {
+  width: 200%;
+  height: 200%;
+  opacity: 1;
+}
+
+/* 涟漪效果 - 薄荷绿（健康模块） */
+.ripple-mint::after {
+  background: rgba(34, 197, 94, 0.2);
+}
+
+/* 涟漪效果 - 薰衣草紫（AI模块） */
+.ripple-lavender::after {
+  background: rgba(139, 92, 246, 0.2);
+}
+
+/* 涟漪效果 - 樱花粉（个人模块） */
+.ripple-sakura::after {
+  background: rgba(236, 72, 153, 0.2);
+}
+
+/* 触摸高亮效果 */
+.touch-highlight {
+  transition: background-color 0.15s ease-out, transform 0.15s ease-out;
+}
+
+.touch-highlight:active {
+  background-color: rgba(249, 115, 22, 0.08);
+  transform: scale(0.98);
+}
+
+/* ============================================================================
+   Android字体适配 - 系统字体优先
+   ============================================================================ */
+
+/* Android系统字体栈 */
+:root {
+  --font-family-android: 'Roboto', 'Noto Sans SC', 'Noto Sans CJK', 'HarmonyOS Sans', 'PingFang SC', 'Microsoft YaHei', system-ui, -apple-system, sans-serif;
+  --font-family-display: 'Google Sans', 'Roboto', 'Noto Sans SC', system-ui, sans-serif;
+  --font-family-mono: 'Roboto Mono', 'Noto Sans Mono', 'SF Mono', monospace;
+}
+
+body {
+  font-family: var(--font-family-android);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-synthesis: none;
+}
+
+/* 标题字体 */
+.font-display {
+  font-family: var(--font-family-display);
+  letter-spacing: -0.02em;
+}
+
+/* ============================================================================
+   Android性能优化动画 - GPU加速
+   ============================================================================ */
+
+/* GPU加速动画 */
+.gpu-accelerated {
+  will-change: transform, opacity;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* 减少重绘动画 */
+.optimized-animation {
+  animation: optimizedFadeIn 0.3s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+@keyframes optimizedFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) translateZ(0);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) translateZ(0);
+  }
+}
+
+/* 触摸响应动画 */
+.touch-response {
+  transition: transform 0.1s cubic-bezier(0.22, 0.61, 0.36, 1),
+              opacity 0.1s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+/* 滚动性能优化 */
+.scroll-optimized {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+/* ============================================================================
+   Android深色模式适配 - Material Design 3
+   ============================================================================ */
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Material Design 3 Dark Theme Colors */
+    --md-surface: #1C1917;
+    --md-surface-variant: #292524;
+    --md-on-surface: #E7E5E4;
+    --md-on-surface-variant: #A8A29E;
+    --md-primary: #F97316;
+    --md-on-primary: #FFFFFF;
+    --md-primary-container: #431407;
+    --md-on-primary-container: #FFEDD5;
+    --md-secondary: #22C55E;
+    --md-secondary-container: #052E16;
+    --md-outline: #78716C;
+    --md-outline-variant: #44403C;
+  }
+  
+  body {
+    background-color: var(--md-surface);
+    color: var(--md-on-surface);
+  }
+  
+  /* 深色模式下的玻璃卡片 */
+  .glass-card {
+    background: rgba(28, 25, 23, 0.85);
+    border-color: rgba(249, 115, 22, 0.1);
+  }
+  
+  /* 深色模式下的导航栏 */
+  .nav-bar {
+    background: rgba(28, 25, 23, 0.95);
+    border-color: rgba(249, 115, 22, 0.08);
+  }
+  
+  /* 深色模式下的涟漪效果 */
+  .ripple-effect::after {
+    background: rgba(249, 115, 22, 0.15);
+  }
+}
+
+/* ============================================================================
+   Android无障碍优化 - TalkBack支持
+   ============================================================================ */
+
+/* 高对比度模式 */
+@media (prefers-contrast: high) {
+  .glass-card {
+    border-width: 2px;
+    border-color: rgba(249, 115, 22, 0.5);
+  }
+  
+  .nav-item-active {
+    border-width: 2px;
+    border-color: currentColor;
+  }
+  
+  button, a {
+    min-height: 48px;
+    min-width: 48px;
+  }
+}
+
+/* 减少动画模式 */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  
+  .gpu-accelerated {
+    will-change: auto;
+  }
+}
+
+/* ============================================================================
+   Android移动端布局优化
+   ============================================================================ */
+
+/* 防止iOS/Android Safari地址栏影响 */
+html {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  height: 100%;
+  overflow: hidden;
+  position: fixed;
+  width: 100%;
+}
+
+#root {
+  height: 100%;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 移动端输入框优化 */
+input, textarea, select {
+  font-size: 16px; /* 防止iOS自动缩放 */
+  -webkit-appearance: none;
+  appearance: none;
+  border-radius: 12px;
+}
+
+/* 移动端按钮优化 */
+button {
+  -webkit-tap-highlight-color: transparent;
+  tap-highlight-color: transparent;
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* 移动端图片优化 */
+img {
+  max-width: 100%;
+  height: auto;
+  object-fit: cover;
+}
+
+/* ============================================================================
+   Android特定组件优化
+   ============================================================================ */
+
+/* Material Design 3 FAB */
+.fab {
+  position: fixed;
+  right: 16px;
+  bottom: 80px;
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #F97316 0%, #FB923C 100%);
+  box-shadow: 0 6px 20px rgba(249, 115, 22, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.fab:active {
+  transform: scale(0.95);
+  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.2);
+}
+
+/* Material Design 3 Bottom Sheet */
+.bottom-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 247, 237, 0.95);
+  border-radius: 28px 28px 0 0;
+  padding: 8px 16px 24px;
+  box-shadow: 0 -8px 32px rgba(249, 115, 22, 0.15);
+  max-height: 80vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Material Design 3 Snackbar */
+.snackbar {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: 80px;
+  background: rgba(41, 37, 36, 0.9);
+  color: #E7E5E4;
+  padding: 16px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 2000;
+}
+
+/* Material Design 3 Chip */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  border-radius: 8px;
+  background: rgba(249, 115, 22, 0.1);
+  color: #F97316;
+  font-size: 14px;
+  font-weight: 500;
+  min-height: 32px;
+}
+
+.chip-selected {
+  background: linear-gradient(135deg, #F97316 0%, #FB923C 100%);
+  color: white;
+}
+
+/* Material Design 3 Card */
+.md-card {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(249, 115, 22, 0.08);
+  border: 1px solid rgba(249, 115, 22, 0.05);
+}
+
+.md-card-elevated {
+  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.12);
+}
+
+.md-card-filled {
+  background: rgba(249, 115, 22, 0.08);
+  border: none;
+}
+
+/* Material Design 3 Navigation Bar */
+.md-nav-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 80px;
+  background: rgba(255, 247, 237, 0.95);
+  backdrop-filter: blur(20px);
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding-bottom: env(safe-area-inset-bottom, 20px);
+  z-index: 1000;
+}
+
+.md-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 16px;
+  border-radius: 16px;
+  min-width: 64px;
+  min-height: 56px;
+}
+
+.md-nav-item-active {
+  background: rgba(249, 115, 22, 0.15);
+}
+
+/* ============================================================================
+   Android性能优化 - 减少内存占用
+   ============================================================================ */
+
+/* 虚拟列表优化 */
+.virtual-list-item {
+  position: absolute;
+  left: 0;
+  right: 0;
+  contain: strict;
+}
+
+/* 图片懒加载 */
+.lazy-image {
+  opacity: 0;
+  transition: opacity 0.3s ease-out;
+}
+
+.lazy-image-loaded {
+  opacity: 1;
+}
+
+/* ============================================================================
+   Android WebView兼容性
+   ============================================================================ */
+
+/* WebView滚动优化 */
+.webview-scroll {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* WebView触摸优化 */
+.webview-touch {
+  touch-action: pan-y;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* WebView文本选择 */
+.webview-selectable {
+  -webkit-user-select: text;
+  user-select: text;
+}

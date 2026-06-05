@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Android移动端专用样式 */
+@import './styles/android-mobile.css';
+
 /**
  * PawSync Pro 4.0 温暖治愈版
  * 全局样式 - 双主色系统（暖橙 + 薄荷绿）

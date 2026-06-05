@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!--
+    PawSync Pro 4.0 温暖治愈版
+    colors.xml - Material Design 3 配色系统
+    
+    双主色系统：
+    - 暖橙 #F97316（关爱、温暖）
+    - 薄荷绿 #22C55E（健康、专业）
+    
+    辅助色系：
+    - 薰衣草紫 #8B5CF6（AI智能）
+    - 樱花粉 #EC4899（可爱温柔）
+    - 奶油黄 #EAB308（活力提醒）
+    -->
+
+    <!-- ============================================
+         主色 A - 暖橙（关爱、温暖）
+         ============================================ -->
+
+    <color name="primary_50">#FFF7ED</color>
+    <color name="primary_100">#FFEDD5</color>
+    <color name="primary_200">#FED7AA</color>
+    <color name="primary_300">#FDBA74</color>
+    <color name="primary_400">#FB923C</color>
+    <color name="primary_500">#F97316</color>  <!-- 标准暖橙 -->
+    <color name="primary_600">#EA580C</color>
+    <color name="primary_700">#C2410C</color>
+    <color name="primary_800">#9A3412</color>
+    <color name="primary_900">#7C2D12</color>
+
+    <!-- ============================================
+         主色 B - 薄荷绿（健康、专业）
+         ============================================ -->
+
+    <color name="secondary_50">#F0FDF4</color>
+    <color name="secondary_100">#DCFCE7</color>
+    <color name="secondary_200">#BBF7D0</color>
+    <color name="secondary_300">#86EFAC</color>
+    <color name="secondary_400">#4ADE80</color>
+    <color name="secondary_500">#22C55E</color>  <!-- 标准薄荷绿 -->
+    <color name="secondary_600">#16A34A</color>
+    <color name="secondary_700">#15803D</color>
+    <color name="secondary_800">#166534</color>
+    <color name="secondary_900">#14532D</color>
+
+    <!-- ============================================
+         辅助色 - 薰衣草紫（AI智能）
+         ============================================ -->
+
+    <color name="lavender_50">#F5F3FF</color>
+    <color name="lavender_100">#EDE9FE</color>
+    <color name="lavender_200">#DDD6FE</color>
+    <color name="lavender_300">#C4B5FD</color>
+    <color name="lavender_400">#A78BFA</color>
+    <color name="lavender_500">#8B5CF6</color>  <!-- 标准薰衣草紫 -->
+    <color name="lavender_600">#7C3AED</color>
+    <color name="lavender_700">#6D28D9</color>
+    <color name="lavender_800">#5B21B6</color>
+    <color name="lavender_900">#4C1D95</color>
+
+    <!-- ============================================
+         辅助色 - 樱花粉（可爱温柔）
+         ============================================ -->
+
+    <color name="sakura_50">#FDF2F8</color>
+    <color name="sakura_100">#FCE7F3</color>
+    <color name="sakura_200">#FBCFE8</color>
+    <color name="sakura_300">#F9A8D4</color>
+    <color name="sakura_400">#F472B6</color>
+    <color name="sakura_500">#EC4899</color>  <!-- 标准樱花粉 -->
+    <color name="sakura_600">#DB2777</color>
+    <color name="sakura_700">#BE185D</color>
+    <color name="sakura_800">#9D174D</color>
+    <color name="sakura_900">#831843</color>
+
+    <!-- ============================================
+         辅助色 - 奶油黄（活力提醒）
+         ============================================ -->
+
+    <color name="cream_50">#FEFCE8</color>
+    <color name="cream_100">#FEF9C3</color>
+    <color name="cream_200">#FEF08A</color>
+    <color name="cream_300">#FDE047</color>
+    <color name="cream_400">#FACC15</color>
+    <color name="cream_500">#EAB308</color>  <!-- 标准奶油黄 -->
+    <color name="cream_600">#CA8A04</color>
+    <color name="cream_700">#A16207</color>
+    <color name="cream_800">#854D0E</color>
+    <color name="cream_900">#713F12</color>
+
+    <!-- ============================================
+         功能色 - 状态色
+         ============================================ -->
+
+    <color name="success_500">#22C55E</color>
+    <color name="warning_500">#EAB308</color>
+    <color name="danger_500">#EF4444</color>
+    <color name="info_500">#0EA5E9</color>
+
+    <!-- ============================================
+         中性色 - 暖灰系
+         ============================================ -->
+
+    <color name="neutral_0">#FFFFFF</color>
+    <color name="neutral_50">#FAFAF9</color>
+    <color name="neutral_100">#F5F5F4</color>
+    <color name="neutral_200">#E7E5E4</color>
+    <color name="neutral_300">#D4D4D4</color>
+    <color name="neutral_400">#78716C</color>
+    <color name="neutral_500">#57534E</color>
+    <color name="neutral_600">#292524</color>
+    <color name="neutral_700">#1C1917</color>
+    <color name="neutral_800">#171412</color>
+    <color name="neutral_900">#0C0A09</color>
+
+    <!-- ============================================
+         Material Design 3 语义色
+         ============================================ -->
+
+    <!-- 亮色模式 -->
+    <color name="background_light">#FAFAF9</color>
+    <color name="surface_light">#FFFFFF</color>
+    <color name="on_background_light">#292524</color>
+    <color name="on_surface_light">#292524</color>
+    <color name="on_surface_variant">#78716C</color>
+    <color name="outline">#D4D4D4</color>
+    <color name="outline_variant">#E7E5E4</color>
+
+    <!-- 深色模式 -->
+    <color name="background_dark">#171412</color>
+    <color name="surface_dark">#1C1917</color>
+    <color name="on_background_dark">#E7E5E4</color>
+    <color name="on_surface_dark">#E7E5E4</color>
+    <color name="on_surface_dark_variant">#A8A29E</color>
+    <color name="outline_dark">#44403C</color>
+    <color name="outline_variant_dark">#292524</color>
+
+    <!-- 主色上的文字 -->
+    <color name="on_primary">#FFFFFF</color>
+    <color name="on_secondary">#FFFFFF</color>
+    <color name="on_lavender">#FFFFFF</color>
+    <color name="on_sakura">#FFFFFF</color>
+
+    <!-- ============================================
+         状态栏和导航栏颜色
+         ============================================ -->
+
+    <color name="status_bar_light">#FAFAF9</color>
+    <color name="nav_bar_light">#FFFFFF</color>
+    <color name="status_bar_dark">#171412</color>
+    <color name="nav_bar_dark">#1C1917</color>
+
+    <!-- ============================================
+         导航栏项目颜色选择器
+         ============================================ -->
+
+    <color name="nav_item_active">#F97316</color>
+    <color name="nav_item_inactive">#78716C</color>
+
+    <!-- ============================================
+         旧版兼容（保持向后兼容）
+         ============================================ -->
+
+    <color name="colorPrimary">@color/primary_500</color>
+    <color name="colorPrimaryDark">@color/primary_600</color>
+    <color name="colorAccent">@color/primary_500</color>
+
+</resources>
