@@ -443,23 +443,49 @@ PY
           echo "Ref: ${{ github.ref }}" >> docs/ci-debug/STATUS
           echo "Run ID: ${{ github.run_id }}" >> docs/ci-debug/STATUS
           echo "" >> docs/ci-debug/STATUS
-          echo "===== Last 100 lines of gradle logs (if any) =====" >> docs/ci-debug/STATUS
+          echo "===== Last 200 lines of gradle logs (if any) =====" >> docs/ci-debug/STATUS
           for f in /tmp/gradle-release.log /tmp/gradle-debug.log /tmp/cap-sync.log; do
             if [ -f "$f" ]; then
               echo "" >> docs/ci-debug/STATUS
               echo "----- $f -----" >> docs/ci-debug/STATUS
-              tail -100 "$f" >> docs/ci-debug/STATUS
+              tail -200 "$f" >> docs/ci-debug/STATUS
             fi
           done
-          cat docs/ci-debug/STATUS
-          echo "=== trying to commit to ci-debug branch ==="
+          echo "===== android dir =====" >> docs/ci-debug/STATUS
+          ls -la android/ >> docs/ci-debug/STATUS 2>&1
+          echo "===== capacitor-cordova-android-plugins/build.gradle =====" >> docs/ci-debug/STATUS
+          cat android/capacitor-cordova-android-plugins/build.gradle >> docs/ci-debug/STATUS 2>&1
+          echo "" >> docs/ci-debug/STATUS
+          echo "===== android/app/capacitor.build.gradle =====" >> docs/ci-debug/STATUS
+          cat android/app/capacitor.build.gradle >> docs/ci-debug/STATUS 2>&1
+          echo "" >> docs/ci-debug/STATUS
+          echo "===== AndroidManifest.xml (intent-filter) =====" >> docs/ci-debug/STATUS
+          grep -A 5 "intent-filter" android/app/src/main/AndroidManifest.xml >> docs/ci-debug/STATUS 2>&1
+          echo "" >> docs/ci-debug/STATUS
+          echo "===== Java version =====" >> docs/ci-debug/STATUS
+          java -version >> docs/ci-debug/STATUS 2>&1
+          echo "" >> docs/ci-debug/STATUS
+          echo "===== Gradle wrapper =====" >> docs/ci-debug/STATUS
+          cat android/gradle/wrapper/gradle-wrapper.properties >> docs/ci-debug/STATUS 2>&1
+          echo "" >> docs/ci-debug/STATUS
+          echo "===== ANDROID_SDK_ROOT =====" >> docs/ci-debug/STATUS
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> docs/ci-debug/STATUS
+          echo "ANDROID_HOME=$ANDROID_HOME" >> docs/ci-debug/STATUS
+          echo "" >> docs/ci-debug/STATUS
+          echo "===== platforms =====" >> docs/ci-debug/STATUS
+          ls $ANDROID_SDK_ROOT/platforms/ >> docs/ci-debug/STATUS 2>&1
+          echo "" >> docs/ci-debug/STATUS
+          echo "===== build-tools =====" >> docs/ci-debug/STATUS
+          ls $ANDROID_SDK_ROOT/build-tools/ >> docs/ci-debug/STATUS 2>&1
+          echo "" >> docs/ci-debug/STATUS
+          echo "===== Trying to push to ci-debug branch =====" >> docs/ci-debug/STATUS
+          echo "current branch: $(git rev-parse --abbrev-ref HEAD)" >> docs/ci-debug/STATUS
           git config user.email "ci-bot@pawsync.pro"
           git config user.name "PawSync CI Bot"
-          CURRENT=$(git rev-parse --abbrev-ref HEAD)
-          echo "current branch: $CURRENT"
-          git branch -D ci-debug 2>/dev/null || true
+          git branch -D ci-debug 2>/dev/null
           git checkout -B ci-debug
           git add docs/ci-debug/
-          git commit -m "ci(debug): run ${{ github.run_number }} status=${{ job.status }} conclusion=${{ job.conclusion }}" || echo "no changes to commit"
-          git push origin ci-debug --force 2>&1 | tail -5 || echo "push failed"
-          echo "=== done ==="
+          git commit -m "ci(debug): run ${{ github.run_number }} status=${{ job.status }} conclusion=${{ job.conclusion }}" 2>&1 >> docs/ci-debug/STATUS
+          git push origin ci-debug --force 2>&1 >> docs/ci-debug/STATUS
+          echo "===== Done =====" >> docs/ci-debug/STATUS
+          cat docs/ci-debug/STATUS
