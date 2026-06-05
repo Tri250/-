@@ -8,7 +8,9 @@
 
 import { useState, useEffect } from 'react';
 import { Navigation } from './components/Navigation';
+import { NavigationOptimized } from './components/NavigationOptimized';
 import { HomePageV4 } from './pages/HomePageV4';
+import { HomePageOptimized } from './pages/HomePageOptimized';
 import { TranslatorPage } from './pages/TranslatorPage';
 import { HealthPage } from './pages/HealthPage';
 import { ProfilePage } from './pages/ProfilePage';
@@ -94,7 +96,7 @@ export default function App() {
   const renderPage = () => {
     switch (currentPage) {
       case 'home':
-        return <HomePageV4 onNavigate={setCurrentPage} />;
+        return <HomePageOptimized onNavigate={setCurrentPage} />;
       case 'pets':
         return <PetsPage onNavigate={setCurrentPage} />;
       case 'translator':
@@ -149,7 +151,7 @@ export default function App() {
   return (
     <div className={`min-h-screen ${settings.darkMode ? 'bg-gray-900' : 'bg-neutral-50'}`}>
       {renderPage()}
-      <Navigation currentPage={currentPage} onNavigate={setCurrentPage} />
+      <NavigationOptimized currentPage={currentPage} onNavigate={setCurrentPage} />
     </div>
   );
 }
