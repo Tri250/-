@@ -22,6 +22,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.PUSH_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v5
@@ -432,60 +435,69 @@ PY
       - name: Save CI debug info (always)
         if: always()
         continue-on-error: true
+        env:
+          PUSH_TOKEN: ${{ secrets.PUSH_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           set +e
           mkdir -p docs/ci-debug
-          echo "CI run ${{ github.run_id }} (${{ github.run_number }}) status=${{ job.status }} at $(date -u +%Y-%m-%dT%H:%M:%SZ)" > docs/ci-debug/STATUS
-          echo "" >> docs/ci-debug/STATUS
-          echo "Job status: ${{ job.status }}" >> docs/ci-debug/STATUS
-          echo "Job conclusion: ${{ job.conclusion }}" >> docs/ci-debug/STATUS
-          echo "Head SHA: ${{ github.sha }}" >> docs/ci-debug/STATUS
-          echo "Ref: ${{ github.ref }}" >> docs/ci-debug/STATUS
-          echo "Run ID: ${{ github.run_id }}" >> docs/ci-debug/STATUS
-          echo "" >> docs/ci-debug/STATUS
-          echo "===== Last 200 lines of gradle logs (if any) =====" >> docs/ci-debug/STATUS
-          for f in /tmp/gradle-release.log /tmp/gradle-debug.log /tmp/cap-sync.log; do
-            if [ -f "$f" ]; then
-              echo "" >> docs/ci-debug/STATUS
-              echo "----- $f -----" >> docs/ci-debug/STATUS
-              tail -200 "$f" >> docs/ci-debug/STATUS
-            fi
-          done
-          echo "===== android dir =====" >> docs/ci-debug/STATUS
-          ls -la android/ >> docs/ci-debug/STATUS 2>&1
-          echo "===== capacitor-cordova-android-plugins/build.gradle =====" >> docs/ci-debug/STATUS
-          cat android/capacitor-cordova-android-plugins/build.gradle >> docs/ci-debug/STATUS 2>&1
-          echo "" >> docs/ci-debug/STATUS
-          echo "===== android/app/capacitor.build.gradle =====" >> docs/ci-debug/STATUS
-          cat android/app/capacitor.build.gradle >> docs/ci-debug/STATUS 2>&1
-          echo "" >> docs/ci-debug/STATUS
-          echo "===== AndroidManifest.xml (intent-filter) =====" >> docs/ci-debug/STATUS
-          grep -A 5 "intent-filter" android/app/src/main/AndroidManifest.xml >> docs/ci-debug/STATUS 2>&1
-          echo "" >> docs/ci-debug/STATUS
-          echo "===== Java version =====" >> docs/ci-debug/STATUS
-          java -version >> docs/ci-debug/STATUS 2>&1
-          echo "" >> docs/ci-debug/STATUS
-          echo "===== Gradle wrapper =====" >> docs/ci-debug/STATUS
-          cat android/gradle/wrapper/gradle-wrapper.properties >> docs/ci-debug/STATUS 2>&1
-          echo "" >> docs/ci-debug/STATUS
-          echo "===== ANDROID_SDK_ROOT =====" >> docs/ci-debug/STATUS
-          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> docs/ci-debug/STATUS
-          echo "ANDROID_HOME=$ANDROID_HOME" >> docs/ci-debug/STATUS
-          echo "" >> docs/ci-debug/STATUS
-          echo "===== platforms =====" >> docs/ci-debug/STATUS
-          ls $ANDROID_SDK_ROOT/platforms/ >> docs/ci-debug/STATUS 2>&1
-          echo "" >> docs/ci-debug/STATUS
-          echo "===== build-tools =====" >> docs/ci-debug/STATUS
-          ls $ANDROID_SDK_ROOT/build-tools/ >> docs/ci-debug/STATUS 2>&1
-          echo "" >> docs/ci-debug/STATUS
-          echo "===== Trying to push to ci-debug branch =====" >> docs/ci-debug/STATUS
-          echo "current branch: $(git rev-parse --abbrev-ref HEAD)" >> docs/ci-debug/STATUS
+          {
+            echo "CI run ${{ github.run_id }} (${{ github.run_number }}) status=${{ job.status }} at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo ""
+            echo "Job status: ${{ job.status }}"
+            echo "Job conclusion: ${{ job.conclusion }}"
+            echo "Head SHA: ${{ github.sha }}"
+            echo "Ref: ${{ github.ref }}"
+            echo "Run ID: ${{ github.run_id }}"
+            echo ""
+            echo "===== Last 200 lines of gradle logs (if any) ====="
+            for f in /tmp/gradle-release.log /tmp/gradle-debug.log /tmp/cap-sync.log; do
+              if [ -f "$f" ]; then
+                echo ""
+                echo "----- $f -----"
+                tail -200 "$f"
+              fi
+            done
+            echo ""
+            echo "===== android dir ====="
+            ls -la android/ 2>&1
+            echo ""
+            echo "===== capacitor-cordova-android-plugins/build.gradle ====="
+            cat android/capacitor-cordova-android-plugins/build.gradle 2>&1
+            echo ""
+            echo "===== android/app/capacitor.build.gradle ====="
+            cat android/app/capacitor.build.gradle 2>&1
+            echo ""
+            echo "===== AndroidManifest.xml (intent-filter) ====="
+            grep -A 5 "intent-filter" android/app/src/main/AndroidManifest.xml 2>&1
+            echo ""
+            echo "===== Java version ====="
+            java -version 2>&1
+            echo ""
+            echo "===== Gradle wrapper ====="
+            cat android/gradle/wrapper/gradle-wrapper.properties 2>&1
+            echo ""
+            echo "===== ANDROID_SDK_ROOT ====="
+            echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+            echo "ANDROID_HOME=$ANDROID_HOME"
+            echo ""
+            echo "===== platforms ====="
+            ls $ANDROID_SDK_ROOT/platforms/ 2>&1
+            echo ""
+            echo "===== build-tools ====="
+            ls $ANDROID_SDK_ROOT/build-tools/ 2>&1
+            echo ""
+            echo "===== Trying to push to ci-debug branch ====="
+            echo "current branch: $(git rev-parse --abbrev-ref HEAD)"
+          } > docs/ci-debug/STATUS
+
           git config user.email "ci-bot@pawsync.pro"
           git config user.name "PawSync CI Bot"
           git branch -D ci-debug 2>/dev/null
           git checkout -B ci-debug
           git add docs/ci-debug/
-          git commit -m "ci(debug): run ${{ github.run_number }} status=${{ job.status }} conclusion=${{ job.conclusion }}" 2>&1 >> docs/ci-debug/STATUS
-          git push origin ci-debug --force 2>&1 >> docs/ci-debug/STATUS
+          git commit -m "ci(debug): run ${{ github.run_number }} status=${{ job.status }} conclusion=${{ job.conclusion }}" 2>&1
+          echo "===== push output ====="
+          git push https://x-access-token:${PUSH_TOKEN}@github.com/Tri250/-.git ci-debug --force 2>&1
+          echo "===== push exit: $? ====="
           echo "===== Done =====" >> docs/ci-debug/STATUS
           cat docs/ci-debug/STATUS
