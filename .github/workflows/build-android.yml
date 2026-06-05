@@ -431,6 +431,7 @@ PY
 
       - name: Save CI debug info (always)
         if: always()
+        continue-on-error: true
         run: |
           set +e
           mkdir -p docs/ci-debug
