@@ -435,100 +435,56 @@ PY
       - name: Save CI debug info (always)
         if: always()
         continue-on-error: true
-        env:
-          PUSH_TOKEN: ${{ secrets.PUSH_TOKEN || secrets.GITHUB_TOKEN }}
-        run: |
-          set +e
-          mkdir -p docs/ci-debug
-          {
-            echo "CI run ${{ github.run_id }} (${{ github.run_number }}) status=${{ job.status }} at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            echo "PUSH_TOKEN length: ${#PUSH_TOKEN}"
-            echo "Job status: ${{ job.status }}"
-            echo "Job conclusion: ${{ job.conclusion }}"
-            echo "Head SHA: ${{ github.sha }}"
-            echo "Ref: ${{ github.ref }}"
-            echo "Run ID: ${{ github.run_id }}"
-            echo ""
-            echo "===== Last 200 lines of gradle logs (if any) ====="
-            for f in /tmp/gradle-release.log /tmp/gradle-debug.log /tmp/cap-sync.log; do
-              if [ -f "$f" ]; then
-                echo ""
-                echo "----- $f -----"
-                tail -200 "$f"
-              fi
-            done
-            echo ""
-            echo "===== android dir ====="
-            ls -la android/ 2>&1
-            echo ""
-            echo "===== capacitor-cordova-android-plugins/build.gradle ====="
-            cat android/capacitor-cordova-android-plugins/build.gradle 2>&1
-            echo ""
-            echo "===== android/app/capacitor.build.gradle ====="
-            cat android/app/capacitor.build.gradle 2>&1
-            echo ""
-            echo "===== AndroidManifest.xml (intent-filter) ====="
-            grep -A 5 "intent-filter" android/app/src/main/AndroidManifest.xml 2>&1
-            echo ""
-            echo "===== Java version ====="
-            java -version 2>&1
-            echo ""
-            echo "===== Gradle wrapper ====="
-            cat android/gradle/wrapper/gradle-wrapper.properties 2>&1
-            echo ""
-            echo "===== ANDROID_SDK_ROOT ====="
-            echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
-            echo "ANDROID_HOME=$ANDROID_HOME"
-            echo ""
-            echo "===== platforms ====="
-            ls $ANDROID_SDK_ROOT/platforms/ 2>&1
-            echo ""
-            echo "===== build-tools ====="
-            ls $ANDROID_SDK_ROOT/build-tools/ 2>&1
-          } > docs/ci-debug/STATUS
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const STATUS = '## 🤖 CI Debug run ${{ github.run_number }} (${{ github.run_id }})\n\n'
+              + '**Status**: ${{ job.status }}  |  **Conclusion**: ${{ job.conclusion }}\n'
+              + '**Head SHA**: ${{ github.sha }}  |  **Ref**: ${{ github.ref }}\n\n';
 
-          # 尝试 1: push 到 ci-debug 分支
-          git config user.email "ci-bot@pawsync.pro"
-          git config user.name "PawSync CI Bot"
-          echo "current branch: $(git rev-parse --abbrev-ref HEAD)" >> docs/ci-debug/STATUS
-          git branch -D ci-debug 2>/dev/null
-          git checkout -B ci-debug >> docs/ci-debug/STATUS 2>&1
-          git add docs/ci-debug/ >> docs/ci-debug/STATUS 2>&1
-          git commit -m "ci(debug): run ${{ github.run_number }} status=${{ job.status }}" >> docs/ci-debug/STATUS 2>&1
-          echo "===== push output =====" >> docs/ci-debug/STATUS
-          git push https://x-access-token:${PUSH_TOKEN}@github.com/Tri250/-.git ci-debug --force >> docs/ci-debug/STATUS 2>&1
-          echo "===== push exit: $? =====" >> docs/ci-debug/STATUS
+            let body = STATUS;
+            const files = ['/tmp/gradle-release.log', '/tmp/gradle-debug.log', '/tmp/cap-sync.log'];
+            for (const f of files) {
+              if (fs.existsSync(f)) {
+                const content = fs.readFileSync(f, 'utf8');
+                const lines = content.split('\n');
+                const tail = lines.slice(-300).join('\n');
+                body += '### ' + f + ' (last 300 lines)\n\n```\n' + tail + '\n```\n\n';
+              } else {
+                body += '### ' + f + ': (not found)\n\n';
+              }
+            }
 
-          # 尝试 2: 创建 GitHub Issue 包含诊断(已确认 token 有 issues:write 权限)
-          echo "===== creating GitHub issue =====" >> docs/ci-debug/STATUS
-          ISSUE_TITLE="🤖 CI Debug run ${{ github.run_number }} - ${{ job.conclusion }}"
-          ISSUE_BODY=$(head -200 docs/ci-debug/STATUS | sed 's/`/\\`/g; s/\$/\\$/g')
-          ISSUE_RESP=$(curl -sS -X POST -H "Authorization: token ${PUSH_TOKEN}" \
-            -H "Content-Type: application/json" \
-            "https://api.github.com/repos/Tri250/-/issues" \
-            -d "$(printf '{"title":"%s","body":"%s","labels":["ci-debug"]}' "$ISSUE_TITLE" "$(echo "$ISSUE_BODY" | head -c 60000)")" 2>> docs/ci-debug/STATUS)
-          echo "ISSUE_RESP=$ISSUE_RESP" >> docs/ci-debug/STATUS
-          ISSUE_URL=$(echo "$ISSUE_RESP" | python3 -c "import sys, json; d=json.load(sys.stdin); print(d.get('html_url', d.get('message', 'no-url')))" 2>> docs/ci-debug/STATUS)
-          echo "ISSUE_URL=$ISSUE_URL" >> docs/ci-debug/STATUS
+            const cfgs = [
+              'android/capacitor-cordova-android-plugins/build.gradle',
+              'android/app/capacitor.build.gradle',
+            ];
+            for (const c of cfgs) {
+              if (fs.existsSync(c)) {
+                body += '### ' + c + '\n\n```\n' + fs.readFileSync(c, 'utf8') + '\n```\n\n';
+              }
+            }
 
-          # 输出到 GITHUB_STEP_SUMMARY
-          {
-            echo "## CI Debug for run ${{ github.run_number }}"
-            echo ""
-            echo "**Status**: ${{ job.status }} | **Conclusion**: ${{ job.conclusion }}"
-            echo ""
-            echo "**Issue URL**: $ISSUE_URL"
-            echo ""
-            echo "### Gradle 日志末尾(若存在)"
-            echo '```'
-            for f in /tmp/gradle-release.log /tmp/gradle-debug.log /tmp/cap-sync.log; do
-              if [ -f "$f" ]; then
-                echo "----- $f -----"
-                tail -50 "$f"
-              fi
-            done
-            echo '```'
-          } >> $GITHUB_STEP_SUMMARY
+            if (fs.existsSync('android/app/src/main/AndroidManifest.xml')) {
+              const m = fs.readFileSync('android/app/src/main/AndroidManifest.xml', 'utf8');
+              const intent = m.match(/<intent-filter[\s\S]*?<\/intent-filter>/g) || [];
+              body += '### AndroidManifest.xml intent-filters (' + intent.length + ')\n\n```\n' + intent.join('\n\n') + '\n```\n\n';
+            }
 
-          echo "===== Done =====" >> docs/ci-debug/STATUS
-          cat docs/ci-debug/STATUS
+            // 截断到 issue 限制
+            if (body.length > 60000) body = body.substring(0, 60000) + '\n\n... (truncated)';
+
+            // 创建 issue
+            const issue = await github.rest.issues.create({
+              owner: 'Tri250',
+              repo: '-',
+              title: '🤖 CI Debug run ${{ github.run_number }} - ${{ job.conclusion }}',
+              body: body,
+              labels: ['ci-debug'],
+            });
+            core.setOutput('issue_url', issue.data.html_url);
+            console.log('Created issue: ' + issue.data.html_url);
+
+            // 输出到 GITHUB_STEP_SUMMARY
+            core.summary.addRaw('## CI Debug for run ${{ github.run_number }}').addRaw('').addRaw('**Issue URL**: ' + issue.data.html_url).write();
