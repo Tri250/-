@@ -10,7 +10,6 @@ on:
 env:
   GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.internal.http.connectionTimeout=180000 -Dorg.gradle.internal.http.socketTimeout=180000"
   NODE_VERSION: '20'
-  JAVA_VERSION: '17'
 
 jobs:
   build:
@@ -27,14 +26,21 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
 
-      - name: Setup Java JDK
+      - name: Setup Java JDK 17
         uses: actions/setup-java@v5
         with:
-          java-version: ${{ env.JAVA_VERSION }}
+          java-version: '17'
           distribution: 'temurin'
 
-      - name: Show Java version
-        run: java -version 2>&1
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          android-version: '35'
+          build-tools-version: '35.0.0'
+          packages: |
+            platform-tools
+            platforms;android-35
+            build-tools;35.0.0
 
       - name: Cache Gradle
         uses: actions/cache@v4
@@ -46,9 +52,9 @@ jobs:
             android/app/build
             android/build
             android/capacitor-cordova-android-plugins/build
-          key: ${{ runner.os }}-gradle-v4-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', 'android/variables.gradle', 'package-lock.json') }}
+          key: ${{ runner.os }}-gradle-v5-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', 'android/variables.gradle', 'package-lock.json') }}
           restore-keys: |
-            ${{ runner.os }}-gradle-v4-
+            ${{ runner.os }}-gradle-v5-
             ${{ runner.os }}-gradle-
 
       - name: Install npm dependencies
@@ -173,21 +179,19 @@ EOF
           grep -n "JavaVersion" android/app/capacitor.build.gradle
           grep -n "gradle:8" android/capacitor-cordova-android-plugins/build.gradle
 
-      - name: Restore deep link intent-filter (cap sync 会重置 AndroidManifest.xml)
+      - name: Restore deep link intent-filter
         run: |
           set -e
           MANIFEST=android/app/src/main/AndroidManifest.xml
-          echo "==== 修复前 AndroidManifest.xml 关键行 ===="
+          echo "==== 修复前关键行 ===="
           grep -n "intent-filter\|MainActivity\|com.pawsync" $MANIFEST || true
 
-          # 如果还没有 pawsync 深链, 用 python 注入
           if ! grep -q "com.pawsync.pro://" $MANIFEST; then
             python3 - <<'PY'
 import re, pathlib
 p = pathlib.Path('android/app/src/main/AndroidManifest.xml')
 src = p.read_text(encoding='utf-8')
 
-# 在 MainActivity 内的 <intent-filter> (LAUNCHER 那个) 之后追加深链
 deep_links = '''
             <!-- Deep link: pawsync:// -->
             <intent-filter android:autoVerify="true">
@@ -208,29 +212,26 @@ deep_links = '''
             </intent-filter>
 '''
 
-# 找到 LAUNCHER intent-filter 的结束 </intent-filter>, 之后 </activity> 之前注入
 pattern = re.compile(
     r'(<category android:name="android.intent.category.LAUNCHER" />\s*</intent-filter>)',
     re.MULTILINE,
 )
 new_src, n = pattern.subn(r'\1\n' + deep_links, src, count=1)
 if n == 0:
-    # 兜底: 在 MainActivity 的 </activity> 前注入
     new_src = src.replace('</activity>', deep_links + '        </activity>')
 p.write_text(new_src, encoding='utf-8')
 print('注入深链成功')
 PY
           else
-            echo "深链已存在, 跳过注入"
+            echo "深链已存在, 跳过"
           fi
 
-          echo "==== 修复后 AndroidManifest.xml 关键行 ===="
+          echo "==== 修复后关键行 ===="
           grep -n "intent-filter\|com.pawsync" $MANIFEST | head -20
 
       - name: Set local.properties
         run: |
           echo "sdk.dir=${ANDROID_SDK_ROOT}" > android/local.properties
-          echo "==== local.properties ===="
           cat android/local.properties
 
       - name: Show environment
@@ -241,15 +242,15 @@ PY
           java -version 2>&1
           echo "==== Gradle wrapper ===="
           cat android/gradle/wrapper/gradle-wrapper.properties
-          echo "==== Platforms available ===="
+          echo "==== Platforms ===="
           ls $ANDROID_SDK_ROOT/platforms/ 2>/dev/null || echo "no platforms dir"
-          echo "==== build-tools available ===="
+          echo "==== build-tools ===="
           ls $ANDROID_SDK_ROOT/build-tools/ 2>/dev/null || echo "no build-tools dir"
 
       - name: Grant execute permission for gradlew
         run: chmod +x android/gradlew
 
-      - name: Build Debug APK first (faster, validates toolchain)
+      - name: Build Debug APK
         working-directory: android
         run: |
           set -e
@@ -260,20 +261,31 @@ PY
           echo "==== assembleDebug exit: $GRADLE_EXIT ===="
           if [ "$GRADLE_EXIT" -ne 0 ]; then
             echo "::error::assembleDebug failed with exit code $GRADLE_EXIT"
-            echo "==== FAILURE section ===="
-            grep -A 60 -B 2 "FAILURE:" /tmp/gradle-debug.log | head -100
-            echo ""
-            echo "==== What went wrong ===="
-            grep -A 40 "What went wrong" /tmp/gradle-debug.log | head -60
-            echo ""
-            echo "==== Could not resolve ===="
-            grep -B 2 -A 15 "Could not resolve" /tmp/gradle-debug.log | head -60 || true
-            echo ""
-            echo "==== ERROR/Exception lines ===="
-            grep -E "error:|Exception|FAILED|Caused by:" /tmp/gradle-debug.log | head -30
-            echo ""
-            echo "==== Last 60 lines ===="
-            tail -60 /tmp/gradle-debug.log
+            {
+              echo "## ❌ assembleDebug 失败"
+              echo ""
+              echo "### Exit code: $GRADLE_EXIT"
+              echo ""
+              echo "### FAILURE section"
+              echo '```'
+              grep -A 60 -B 2 "FAILURE:" /tmp/gradle-debug.log | head -100
+              echo '```'
+              echo ""
+              echo "### What went wrong"
+              echo '```'
+              grep -A 40 "What went wrong" /tmp/gradle-debug.log | head -60
+              echo '```'
+              echo ""
+              echo "### Could not resolve"
+              echo '```'
+              grep -B 2 -A 15 "Could not resolve" /tmp/gradle-debug.log | head -60 || true
+              echo '```'
+              echo ""
+              echo "### Last 60 lines"
+              echo '```'
+              tail -60 /tmp/gradle-debug.log
+              echo '```'
+            } >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
           echo "==== Debug APK output ===="
@@ -290,20 +302,31 @@ PY
           echo "==== assembleRelease exit: $GRADLE_EXIT ===="
           if [ "$GRADLE_EXIT" -ne 0 ]; then
             echo "::error::assembleRelease failed with exit code $GRADLE_EXIT"
-            echo "==== FAILURE section ===="
-            grep -A 60 -B 2 "FAILURE:" /tmp/gradle-release.log | head -100
-            echo ""
-            echo "==== What went wrong ===="
-            grep -A 40 "What went wrong" /tmp/gradle-release.log | head -60
-            echo ""
-            echo "==== Could not resolve ===="
-            grep -B 2 -A 15 "Could not resolve" /tmp/gradle-release.log | head -60 || true
-            echo ""
-            echo "==== ERROR/Exception lines ===="
-            grep -E "error:|Exception|FAILED|Caused by:" /tmp/gradle-release.log | head -30
-            echo ""
-            echo "==== Last 60 lines ===="
-            tail -60 /tmp/gradle-release.log
+            {
+              echo "## ❌ assembleRelease 失败"
+              echo ""
+              echo "### Exit code: $GRADLE_EXIT"
+              echo ""
+              echo "### FAILURE section"
+              echo '```'
+              grep -A 60 -B 2 "FAILURE:" /tmp/gradle-release.log | head -100
+              echo '```'
+              echo ""
+              echo "### What went wrong"
+              echo '```'
+              grep -A 40 "What went wrong" /tmp/gradle-release.log | head -60
+              echo '```'
+              echo ""
+              echo "### Could not resolve"
+              echo '```'
+              grep -B 2 -A 15 "Could not resolve" /tmp/gradle-release.log | head -60 || true
+              echo '```'
+              echo ""
+              echo "### Last 60 lines"
+              echo '```'
+              tail -60 /tmp/gradle-release.log
+              echo '```'
+            } >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
           echo "==== Release APK output ===="
