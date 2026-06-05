@@ -12,7 +12,7 @@ permissions:
 
 env:
   GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.internal.http.connectionTimeout=180000 -Dorg.gradle.internal.http.socketTimeout=180000"
-  NODE_VERSION: '20'
+  NODE_VERSION: '22'
 
 jobs:
   build:
