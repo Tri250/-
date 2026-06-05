@@ -425,3 +425,37 @@ PY
             /tmp/cap-sync.log
           if-no-files-found: warn
           retention-days: 7
+
+      - name: Save CI debug info (always)
+        if: always()
+        run: |
+          set +e
+          mkdir -p docs/ci-debug
+          echo "CI run ${{ github.run_id }} (${{ github.run_number }}) status=${{ job.status }} at $(date -u +%Y-%m-%dT%H:%M:%SZ)" > docs/ci-debug/STATUS
+          echo "" >> docs/ci-debug/STATUS
+          echo "Job status: ${{ job.status }}" >> docs/ci-debug/STATUS
+          echo "Job conclusion: ${{ job.conclusion }}" >> docs/ci-debug/STATUS
+          echo "Head SHA: ${{ github.sha }}" >> docs/ci-debug/STATUS
+          echo "Ref: ${{ github.ref }}" >> docs/ci-debug/STATUS
+          echo "Run ID: ${{ github.run_id }}" >> docs/ci-debug/STATUS
+          echo "" >> docs/ci-debug/STATUS
+          echo "===== Last 100 lines of gradle logs (if any) =====" >> docs/ci-debug/STATUS
+          for f in /tmp/gradle-release.log /tmp/gradle-debug.log /tmp/cap-sync.log; do
+            if [ -f "$f" ]; then
+              echo "" >> docs/ci-debug/STATUS
+              echo "----- $f -----" >> docs/ci-debug/STATUS
+              tail -100 "$f" >> docs/ci-debug/STATUS
+            fi
+          done
+          cat docs/ci-debug/STATUS
+          echo "=== trying to commit to ci-debug branch ==="
+          git config user.email "ci-bot@pawsync.pro"
+          git config user.name "PawSync CI Bot"
+          CURRENT=$(git rev-parse --abbrev-ref HEAD)
+          echo "current branch: $CURRENT"
+          git branch -D ci-debug 2>/dev/null || true
+          git checkout -B ci-debug
+          git add docs/ci-debug/
+          git commit -m "ci(debug): run ${{ github.run_number }} status=${{ job.status }} conclusion=${{ job.conclusion }}" || echo "no changes to commit"
+          git push origin ci-debug --force 2>&1 | tail -5 || echo "push failed"
+          echo "=== done ==="
