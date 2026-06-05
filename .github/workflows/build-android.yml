@@ -20,6 +20,20 @@ jobs:
     timeout-minutes: 90
 
     steps:
+      - name: Early debug (always first)
+        if: always()
+        continue-on-error: true
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = await github.rest.issues.create({
+              owner: 'Tri250',
+              repo: '-',
+              title: '🤖 CI run ${{ github.run_number }} start',
+              body: 'CI run ${{ github.run_number }} (id=${{ github.run_id }}) starting at ${{ github.event.head_commit.timestamp }} on ${{ github.ref }}\n\nThis is a canary issue to confirm the Save debug step runs.',
+            });
+            console.log('Created canary issue: ' + issue.data.html_url);
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
