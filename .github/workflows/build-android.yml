@@ -442,7 +442,8 @@ PY
           mkdir -p docs/ci-debug
           {
             echo "CI run ${{ github.run_id }} (${{ github.run_number }}) status=${{ job.status }} at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            echo ""
+            echo "PUSH_TOKEN length: ${#PUSH_TOKEN}"
+            echo "PUSH_TOKEN starts: ${PUSH_TOKEN:0:5}"
             echo "Job status: ${{ job.status }}"
             echo "Job conclusion: ${{ job.conclusion }}"
             echo "Head SHA: ${{ github.sha }}"
@@ -485,19 +486,17 @@ PY
             echo ""
             echo "===== build-tools ====="
             ls $ANDROID_SDK_ROOT/build-tools/ 2>&1
-            echo ""
-            echo "===== Trying to push to ci-debug branch ====="
-            echo "current branch: $(git rev-parse --abbrev-ref HEAD)"
           } > docs/ci-debug/STATUS
 
           git config user.email "ci-bot@pawsync.pro"
           git config user.name "PawSync CI Bot"
+          echo "current branch: $(git rev-parse --abbrev-ref HEAD)" >> docs/ci-debug/STATUS
           git branch -D ci-debug 2>/dev/null
-          git checkout -B ci-debug
-          git add docs/ci-debug/
-          git commit -m "ci(debug): run ${{ github.run_number }} status=${{ job.status }} conclusion=${{ job.conclusion }}" 2>&1
-          echo "===== push output ====="
-          git push https://x-access-token:${PUSH_TOKEN}@github.com/Tri250/-.git ci-debug --force 2>&1
-          echo "===== push exit: $? ====="
+          git checkout -B ci-debug >> docs/ci-debug/STATUS 2>&1
+          git add docs/ci-debug/ >> docs/ci-debug/STATUS 2>&1
+          git commit -m "ci(debug): run ${{ github.run_number }} status=${{ job.status }}" >> docs/ci-debug/STATUS 2>&1
+          echo "===== push output =====" >> docs/ci-debug/STATUS
+          git push https://x-access-token:${PUSH_TOKEN}@github.com/Tri250/-.git ci-debug --force >> docs/ci-debug/STATUS 2>&1
+          echo "===== push exit: $? =====" >> docs/ci-debug/STATUS
           echo "===== Done =====" >> docs/ci-debug/STATUS
           cat docs/ci-debug/STATUS
