@@ -11,6 +11,7 @@ import { Navigation } from './components/Navigation';
 import { NavigationOptimized } from './components/NavigationOptimized';
 import { HomePageV4 } from './pages/HomePageV4';
 import { HomePageOptimized } from './pages/HomePageOptimized';
+import { HomePageComplete } from './pages/HomePageComplete';
 import { TranslatorPage } from './pages/TranslatorPage';
 import { HealthPage } from './pages/HealthPage';
 import { ProfilePage } from './pages/ProfilePage';
@@ -96,7 +97,7 @@ export default function App() {
   const renderPage = () => {
     switch (currentPage) {
       case 'home':
-        return <HomePageOptimized onNavigate={setCurrentPage} />;
+        return <HomePageComplete onNavigate={setCurrentPage} />;
       case 'pets':
         return <PetsPage onNavigate={setCurrentPage} />;
       case 'translator':
