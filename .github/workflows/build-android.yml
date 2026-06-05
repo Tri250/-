@@ -21,7 +21,7 @@ jobs:
 
     steps:
       - name: Early debug (always first)
-        if: always()
+        if: ${{ always() || failure() || success() || cancelled() }}
         continue-on-error: true
         uses: actions/github-script@v7
         with:
