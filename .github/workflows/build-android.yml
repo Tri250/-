@@ -443,7 +443,6 @@ PY
           {
             echo "CI run ${{ github.run_id }} (${{ github.run_number }}) status=${{ job.status }} at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
             echo "PUSH_TOKEN length: ${#PUSH_TOKEN}"
-            echo "PUSH_TOKEN starts: ${PUSH_TOKEN:0:5}"
             echo "Job status: ${{ job.status }}"
             echo "Job conclusion: ${{ job.conclusion }}"
             echo "Head SHA: ${{ github.sha }}"
@@ -488,6 +487,7 @@ PY
             ls $ANDROID_SDK_ROOT/build-tools/ 2>&1
           } > docs/ci-debug/STATUS
 
+          # 尝试 1: push 到 ci-debug 分支
           git config user.email "ci-bot@pawsync.pro"
           git config user.name "PawSync CI Bot"
           echo "current branch: $(git rev-parse --abbrev-ref HEAD)" >> docs/ci-debug/STATUS
@@ -498,5 +498,37 @@ PY
           echo "===== push output =====" >> docs/ci-debug/STATUS
           git push https://x-access-token:${PUSH_TOKEN}@github.com/Tri250/-.git ci-debug --force >> docs/ci-debug/STATUS 2>&1
           echo "===== push exit: $? =====" >> docs/ci-debug/STATUS
+
+          # 尝试 2: 创建 GitHub Issue 包含诊断(已确认 token 有 issues:write 权限)
+          echo "===== creating GitHub issue =====" >> docs/ci-debug/STATUS
+          ISSUE_TITLE="🤖 CI Debug run ${{ github.run_number }} - ${{ job.conclusion }}"
+          ISSUE_BODY=$(head -200 docs/ci-debug/STATUS | sed 's/`/\\`/g; s/\$/\\$/g')
+          ISSUE_RESP=$(curl -sS -X POST -H "Authorization: token ${PUSH_TOKEN}" \
+            -H "Content-Type: application/json" \
+            "https://api.github.com/repos/Tri250/-/issues" \
+            -d "$(printf '{"title":"%s","body":"%s","labels":["ci-debug"]}' "$ISSUE_TITLE" "$(echo "$ISSUE_BODY" | head -c 60000)")" 2>> docs/ci-debug/STATUS)
+          echo "ISSUE_RESP=$ISSUE_RESP" >> docs/ci-debug/STATUS
+          ISSUE_URL=$(echo "$ISSUE_RESP" | python3 -c "import sys, json; d=json.load(sys.stdin); print(d.get('html_url', d.get('message', 'no-url')))" 2>> docs/ci-debug/STATUS)
+          echo "ISSUE_URL=$ISSUE_URL" >> docs/ci-debug/STATUS
+
+          # 输出到 GITHUB_STEP_SUMMARY
+          {
+            echo "## CI Debug for run ${{ github.run_number }}"
+            echo ""
+            echo "**Status**: ${{ job.status }} | **Conclusion**: ${{ job.conclusion }}"
+            echo ""
+            echo "**Issue URL**: $ISSUE_URL"
+            echo ""
+            echo "### Gradle 日志末尾(若存在)"
+            echo '```'
+            for f in /tmp/gradle-release.log /tmp/gradle-debug.log /tmp/cap-sync.log; do
+              if [ -f "$f" ]; then
+                echo "----- $f -----"
+                tail -50 "$f"
+              fi
+            done
+            echo '```'
+          } >> $GITHUB_STEP_SUMMARY
+
           echo "===== Done =====" >> docs/ci-debug/STATUS
           cat docs/ci-debug/STATUS
