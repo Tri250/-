@@ -286,6 +286,14 @@ PY
               tail -60 /tmp/gradle-debug.log
               echo '```'
             } >> $GITHUB_STEP_SUMMARY
+            mkdir -p docs/ci-debug
+            cp /tmp/gradle-debug.log docs/ci-debug/last-debug-failure.log
+            echo "CI run ${{ github.run_id }} assembleDebug FAILED with exit $GRADLE_EXIT at $(date -u +%Y-%m-%dT%H:%M:%SZ)" > docs/ci-debug/STATUS
+            git config user.email "ci-bot@pawsync.pro"
+            git config user.name "PawSync CI Bot"
+            git add docs/ci-debug/
+            git commit -m "ci(failure): assembleDebug exit=$GRADLE_EXIT run=${{ github.run_number }}" || true
+            git push origin main 2>&1 | tail -3 || true
             exit 1
           fi
           echo "==== Debug APK output ===="
@@ -327,6 +335,14 @@ PY
               tail -60 /tmp/gradle-release.log
               echo '```'
             } >> $GITHUB_STEP_SUMMARY
+            mkdir -p docs/ci-debug
+            cp /tmp/gradle-release.log docs/ci-debug/last-release-failure.log
+            echo "CI run ${{ github.run_id }} assembleRelease FAILED with exit $GRADLE_EXIT at $(date -u +%Y-%m-%dT%H:%M:%SZ)" > docs/ci-debug/STATUS
+            git config user.email "ci-bot@pawsync.pro"
+            git config user.name "PawSync CI Bot"
+            git add docs/ci-debug/
+            git commit -m "ci(failure): assembleRelease exit=$GRADLE_EXIT run=${{ github.run_number }}" || true
+            git push origin main 2>&1 | tail -3 || true
             exit 1
           fi
           echo "==== Release APK output ===="
