@@ -8,7 +8,7 @@
 
 import { useState, useEffect } from 'react';
 import { Navigation } from './components/Navigation';
-import { HomePage } from './pages/HomePage';
+import { HomePageV4 } from './pages/HomePageV4';
 import { TranslatorPage } from './pages/TranslatorPage';
 import { HealthPage } from './pages/HealthPage';
 import { ProfilePage } from './pages/ProfilePage';
@@ -94,7 +94,7 @@ export default function App() {
   const renderPage = () => {
     switch (currentPage) {
       case 'home':
-        return <HomePage onNavigate={setCurrentPage} />;
+        return <HomePageV4 onNavigate={setCurrentPage} />;
       case 'pets':
         return <PetsPage onNavigate={setCurrentPage} />;
       case 'translator':

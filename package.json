@@ -26,7 +26,7 @@
     "react-dom": "^18.3.1",
     "react-router-dom": "^7.3.0",
     "tailwind-merge": "^3.0.2",
-    "zustand": "^5.0.3"
+    "zustand": "^5.0.14"
   },
   "devDependencies": {
     "@eslint/js": "^9.25.0",
@@ -51,6 +51,6 @@
     "vite": "^6.3.5",
     "vite-plugin-trae-solo-badge": "^1.0.0",
     "vite-tsconfig-paths": "^5.1.4",
-    "vitest": "^4.1.7"
+    "vitest": "^4.1.8"
   }
 }

@@ -2,6 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
+/**
+ * PawSync Pro 4.0 温暖治愈版
+ * 全局样式 - 双主色系统（暖橙 + 薄荷绿）
+ */
+
 :root {
   font-family: 'HarmonyOS Sans', 'PingFang SC', 'Microsoft YaHei', -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
   line-height: 1.5;
@@ -10,13 +15,28 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  
+  /* 双主色CSS变量 */
+  --color-primary: #F97316;
+  --color-primary-light: #FFF7ED;
+  --color-primary-dark: #EA580C;
+  
+  --color-secondary: #22C55E;
+  --color-secondary-light: #F0FDF4;
+  --color-secondary-dark: #16A34A;
+  
+  --color-ai: #8B5CF6;
+  --color-ai-light: #F5F3FF;
+  
+  --color-warning: #EAB308;
+  --color-danger: #EF4444;
 }
 
 body {
   margin: 0;
   min-height: 100vh;
-  background-color: #F9FAFB;
-  color: #1F2937;
+  background-color: #FAFAF9;
+  color: #292524;
 }
 
 #root {
@@ -24,34 +44,231 @@ body {
 }
 
 .dark body {
-  background-color: #030712;
-  color: #E5E7EB;
+  background-color: #171412;
+  color: #E7E5E4;
 }
 
+/* ============================================================================
+   玻璃卡片组件 - 温暖治愈风格
+   ============================================================================ */
+
 @layer components {
+  /* 主色玻璃卡片 - 暖橙 */
   .glass-card {
-    background: rgba(255, 255, 255, 0.85);
+    background: rgba(255, 247, 237, 0.85);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(249, 115, 22, 0.15);
+    box-shadow: 0 8px 32px rgba(249, 115, 22, 0.08);
   }
 
   .glass-card-dark {
-    background: rgba(31, 41, 55, 0.85);
+    background: rgba(28, 25, 23, 0.85);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(249, 115, 22, 0.1);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
   }
 
-  .text-gradient {
-    background: linear-gradient(135deg, #4A90D9 0%, #6C5CE7 100%);
+  /* 健康玻璃卡片 - 薄荷绿 */
+  .glass-card-mint {
+    background: rgba(240, 253, 244, 0.85);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(34, 197, 94, 0.15);
+    box-shadow: 0 8px 32px rgba(34, 197, 94, 0.08);
+  }
+
+  /* AI玻璃卡片 - 薰衣草紫 */
+  .glass-card-ai {
+    background: rgba(245, 243, 255, 0.85);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(139, 92, 246, 0.15);
+    box-shadow: 0 8px 32px rgba(139, 92, 246, 0.08);
+  }
+
+  /* 温暖渐变文字 */
+  .text-gradient-warm {
+    background: linear-gradient(135deg, #F97316 0%, #FB923C 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
+
+  .text-gradient-health {
+    background: linear-gradient(135deg, #22C55E 0%, #4ADE80 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .text-gradient-ai {
+    background: linear-gradient(135deg, #8B5CF6 0%, #A78BFA 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .text-gradient-dual {
+    background: linear-gradient(135deg, #F97316 0%, #22C55E 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* 宠物动态卡片 - 朋友圈式 */
+  .pet-timeline-card {
+    background: linear-gradient(135deg, rgba(255, 247, 237, 0.95) 0%, rgba(255, 255, 255, 0.9) 100%);
+    border-radius: 24px;
+    border: 1px solid rgba(249, 115, 22, 0.1);
+    box-shadow: 0 4px 20px rgba(249, 115, 22, 0.06);
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .pet-timeline-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 30px rgba(249, 115, 22, 0.12);
+  }
+
+  .pet-timeline-card-dark {
+    background: linear-gradient(135deg, rgba(28, 25, 23, 0.95) 0%, rgba(41, 37, 36, 0.9) 100%);
+    border: 1px solid rgba(249, 115, 22, 0.08);
+  }
+
+  /* 健康评分圆环 */
+  .health-score-ring {
+    position: relative;
+    width: 200px;
+    height: 200px;
+  }
+
+  .health-score-ring::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: conic-gradient(
+      #22C55E 0deg,
+      #4ADE80 calc(var(--score) * 3.6deg),
+      #E7E5E4 calc(var(--score) * 3.6deg),
+      #E7E5E4 360deg
+    );
+    mask: radial-gradient(farthest-side, transparent calc(50% - 20px), #fff calc(50% - 20px));
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(50% - 20px), #fff calc(50% - 20px));
+  }
+
+  /* Streak火焰效果 */
+  .streak-fire-effect {
+    position: relative;
+  }
+
+  .streak-fire-effect::after {
+    content: '';
+    position: absolute;
+    inset: -10px;
+    background: radial-gradient(circle, rgba(249, 115, 22, 0.4) 0%, transparent 70%);
+    animation: firePulse 1s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  /* 宠物开心动画容器 */
+  .pet-happy-animation {
+    animation: happyBounce 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  /* 庆祝效果 */
+  .celebrate-effect {
+    animation: celebrate 1s ease-out;
+  }
+
+  /* 快速记录按钮 */
+  .quick-record-btn {
+    background: linear-gradient(135deg, #F97316 0%, #FB923C 100%);
+    border-radius: 16px;
+    padding: 12px 20px;
+    color: white;
+    font-weight: 600;
+    transition: all 0.2s ease-out;
+    box-shadow: 0 4px 12px rgba(249, 115, 22, 0.2);
+  }
+
+  .quick-record-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 20px rgba(249, 115, 22, 0.3);
+  }
+
+  .quick-record-btn:active {
+    transform: scale(0.98);
+  }
+
+  /* 健康模块按钮 */
+  .health-btn {
+    background: linear-gradient(135deg, #22C55E 0%, #4ADE80 100%);
+    border-radius: 16px;
+    padding: 12px 20px;
+    color: white;
+    font-weight: 600;
+    transition: all 0.2s ease-out;
+    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.2);
+  }
+
+  .health-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 20px rgba(34, 197, 94, 0.3);
+  }
+
+  /* AI模块按钮 */
+  .ai-btn {
+    background: linear-gradient(135deg, #8B5CF6 0%, #A78BFA 100%);
+    border-radius: 16px;
+    padding: 12px 20px;
+    color: white;
+    font-weight: 600;
+    transition: all 0.2s ease-out;
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.2);
+  }
+
+  .ai-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 20px rgba(139, 92, 246, 0.3);
+  }
+
+  /* 导航栏样式 */
+  .nav-bar {
+    background: rgba(255, 247, 237, 0.95);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid rgba(249, 115, 22, 0.1);
+  }
+
+  .nav-bar-dark {
+    background: rgba(28, 25, 23, 0.95);
+    border-top: 1px solid rgba(249, 115, 22, 0.08);
+  }
+
+  .nav-item-active {
+    color: #F97316;
+    background: rgba(249, 115, 22, 0.1);
+    border-radius: 12px;
+  }
+
+  .nav-item-health-active {
+    color: #22C55E;
+    background: rgba(34, 197, 94, 0.1);
+    border-radius: 12px;
+  }
+
+  .nav-item-ai-active {
+    color: #8B5CF6;
+    background: rgba(139, 92, 246, 0.1);
+    border-radius: 12px;
+  }
 }
+
+/* ============================================================================
+   滚动条样式
+   ============================================================================ */
 
 ::-webkit-scrollbar {
   width: 6px;
@@ -63,22 +280,81 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #D1D5DB;
+  background: #D6D3D1;
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #9CA3AF;
+  background: #A8A29E;
 }
 
 .dark ::-webkit-scrollbar-thumb {
-  background: #4B5563;
+  background: #44403C;
 }
 
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: #6B7280;
+  background: #57534E;
 }
+
+/* ============================================================================
+   安全区域
+   ============================================================================ */
 
 .safe-area-bottom {
   padding-bottom: env(safe-area-inset-bottom, 20px);
+}
+
+.safe-area-top {
+  padding-top: env(safe-area-inset-top, 20px);
+}
+
+/* ============================================================================
+   动画辅助类
+   ============================================================================ */
+
+.animate-on-record {
+  animation: happyBounce 0.6s cubic-bezier(0.34, 1.56, 0.64, 1),
+             happyWiggle 0.5s ease-in-out 0.1s;
+}
+
+.animate-streak {
+  animation: streakFire 0.8s ease-out, firePulse 1s ease-in-out 0.8s infinite;
+}
+
+.animate-celebrate {
+  animation: celebrate 1s ease-out, sparkle 1.5s ease-in-out 1s infinite;
+}
+
+/* ============================================================================
+   手绘插画占位（后续替换真实插画）
+   ============================================================================ */
+
+.illustration-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #FFF7ED 0%, #F0FDF4 100%);
+  border-radius: 16px;
+  color: #F97316;
+  font-size: 48px;
+}
+
+.illustration-vaccine {
+  /* 疫苗接种插画占位 */
+}
+
+.illustration-checkup {
+  /* 体检插画占位 */
+}
+
+.illustration-medication {
+  /* 喂药插画占位 */
+}
+
+.illustration-weight {
+  /* 体重记录插画占位 */
+}
+
+.illustration-happy-pet {
+  /* 宠物开心插画占位 */
 }
