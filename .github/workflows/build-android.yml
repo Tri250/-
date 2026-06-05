@@ -6,6 +6,16 @@ on:
   pull_request:
     branches: [ main ]
   workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build type'
+        required: true
+        default: 'release'
+        type: choice
+        options:
+          - release
+          - debug
+          - both
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
@@ -27,7 +37,7 @@ jobs:
       - name: Setup Java JDK
         uses: actions/setup-java@v5
         with:
-          java-version: '17'
+          java-version: '21'
           distribution: 'temurin'
 
       - name: Install npm dependencies
@@ -45,27 +55,69 @@ jobs:
             npx cap sync android
           fi
 
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+
       - name: Fix Gradle configs for consistency
         run: |
-          # Fix capacitor-cordova-android-plugins build.gradle
+          # Set local.properties
+          echo "sdk.dir=${ANDROID_SDK_ROOT}" > android/local.properties
+          
+          # Fix capacitor-cordova-android-plugins build.gradle if exists
           if [ -f "android/capacitor-cordova-android-plugins/build.gradle" ]; then
-            sed -i 's/classpath \'com.android.tools.build:gradle:8.13.0\'/classpath \'com.android.tools.build:gradle:8.7.3\'/' android/capacitor-cordova-android-plugins/build.gradle
             sed -i 's/JavaVersion.VERSION_21/JavaVersion.VERSION_17/' android/capacitor-cordova-android-plugins/build.gradle
           fi
-          # Fix capacitor.build.gradle
+          
+          # Fix capacitor.build.gradle if exists
           if [ -f "android/app/capacitor.build.gradle" ]; then
             sed -i 's/JavaVersion.VERSION_21/JavaVersion.VERSION_17/' android/app/capacitor.build.gradle
           fi
-          # Set local.properties
-          echo "sdk.dir=${ANDROID_SDK_ROOT}" > android/local.properties
+
+      - name: Build Release APK
+        if: github.event.inputs.build_type == 'release' || github.event.inputs.build_type == 'both' || github.event.inputs.build_type == ''
+        working-directory: android
+        run: ./gradlew assembleRelease --stacktrace
 
       - name: Build Debug APK
+        if: github.event.inputs.build_type == 'debug' || github.event.inputs.build_type == 'both' || github.event.inputs.build_type == ''
         working-directory: android
-        run: ./gradlew assembleDebug --stacktrace --warning-mode all
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Upload Release APK
+        if: github.event.inputs.build_type == 'release' || github.event.inputs.build_type == 'both' || github.event.inputs.build_type == ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: pawsync-pro-release-apk
+          path: android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+          retention-days: 30
 
       - name: Upload Debug APK
+        if: github.event.inputs.build_type == 'debug' || github.event.inputs.build_type == 'both' || github.event.inputs.build_type == ''
         uses: actions/upload-artifact@v4
         with:
           name: pawsync-pro-debug-apk
           path: android/app/build/outputs/apk/debug/*.apk
           if-no-files-found: warn
+          retention-days: 30
+
+      - name: Generate Build Summary
+        run: |
+          echo "## 📱 APK Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Build Configuration" >> $GITHUB_STEP_SUMMARY
+          echo "- **App Name**: 爪爪连心❤️ (PawSync Pro)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version**: 1.0.0" >> $GITHUB_STEP_SUMMARY
+          echo "- **Package**: com.pawsync.pro" >> $GITHUB_STEP_SUMMARY
+          echo "- **Min SDK**: 24 (Android 7.0)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Target SDK**: 35 (Android 14/15/16)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Supported Android Versions" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Android 14 (API 34)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Android 15 (API 35)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Android 16 (API 36, forward compatible)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Download APK" >> $GITHUB_STEP_SUMMARY
+          echo "Download the APK from the **Artifacts** section below." >> $GITHUB_STEP_SUMMARY
