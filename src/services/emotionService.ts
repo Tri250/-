@@ -136,31 +136,31 @@ const PET_FEATURE_THRESHOLDS = {
 class EmotionService {
   private recentAnalyses: EmotionAnalysis[] = [];
   private analysisHistory: Map<string, EmotionAnalysis[]> = new Map();
+  private readonly API_ENDPOINT = '/api/v1/emotion';
 
   constructor() {
-    this.initializeMockData();
+    // 不再初始化模拟数据，从API或本地存储加载真实数据
+    this.loadStoredAnalyses();
   }
 
-  private initializeMockData() {
-    const emotions: PrimaryEmotion[] = ['happy', 'curious', 'calm', 'needs'];
-    for (let i = 0; i < 5; i++) {
-      const emotion = emotions[Math.floor(Math.random() * emotions.length)];
-      const confidence = 95 + Math.floor(Math.random() * 5);
-      this.recentAnalyses.push({
-        id: `analysis-${i}`,
-        petId: '1',
-        primaryEmotion: emotion,
-        intensity: 60 + Math.floor(Math.random() * 40),
-        confidence,
-        subEmotions: [emotion],
-        translation: TRANSLATIONS[emotion][0],
-        context: {
-          timeContext: i === 0 ? '刚刚' : `${i * 2}小时前`,
-          locationContext: '家中',
-        },
-        createdAt: new Date(Date.now() - i * 7200000).toISOString(),
-        source: 'voice',
-      });
+  private loadStoredAnalyses() {
+    // 从本地存储加载历史分析数据
+    try {
+      const stored = localStorage.getItem('emotion_analyses');
+      if (stored) {
+        this.recentAnalyses = JSON.parse(stored);
+      }
+    } catch {
+      // 本地存储不可用，保持空数组
+      this.recentAnalyses = [];
+    }
+  }
+
+  private saveAnalyses() {
+    try {
+      localStorage.setItem('emotion_analyses', JSON.stringify(this.recentAnalyses.slice(0, 50)));
+    } catch {
+      // 保存失败时静默处理
     }
   }
 
@@ -234,9 +234,12 @@ class EmotionService {
     };
 
     this.recentAnalyses.unshift(analysis);
-    if (this.recentAnalyses.length > 20) {
+    if (this.recentAnalyses.length > 50) {
       this.recentAnalyses.pop();
     }
+    
+    // 保存到本地存储
+    this.saveAnalyses();
 
     return analysis;
   }
@@ -1875,14 +1878,16 @@ class EmotionService {
     
     const primaryEmotion = sortedEmotions[0][0];
     
-    // 根据图片质量计算置信度
-    let confidence = 95 + Math.floor(Math.random() * 4);
+    // 根据图片质量计算置信度（确定性算法，不使用随机数）
+    let confidence = 95;
     
     // 如果图片质量较低，降低置信度
     if (imageFeatures.quality < 60) {
-      confidence = Math.max(60, confidence - 20);
+      confidence = Math.max(60, 75 - (60 - imageFeatures.quality));
     } else if (imageFeatures.quality < 80) {
-      confidence = Math.max(75, confidence - 10);
+      confidence = Math.max(75, 95 - (80 - imageFeatures.quality) / 2);
+    } else {
+      confidence = Math.min(99, 95 + (imageFeatures.quality - 80) / 10);
     }
     
     const translation = this.selectTranslation(primaryEmotion, adjustedScores);
@@ -1908,11 +1913,15 @@ class EmotionService {
       behaviorIndicators,
     };
     
+    // 基于情感分数计算强度（确定性算法）
+    const topScore = sortedEmotions[0][1];
+    const intensity = Math.min(100, Math.max(30, Math.floor(topScore * 0.8 + 20)));
+    
     const analysis: EmotionAnalysis = {
       id: `analysis-${Date.now()}`,
       petId: '1',
       primaryEmotion,
-      intensity: Math.floor(60 + Math.random() * 40),
+      intensity,
       confidence,
       subEmotions: [primaryEmotion],
       translation,
@@ -1926,9 +1935,12 @@ class EmotionService {
     };
 
     this.recentAnalyses.unshift(analysis);
-    if (this.recentAnalyses.length > 20) {
+    if (this.recentAnalyses.length > 50) {
       this.recentAnalyses.pop();
     }
+    
+    // 保存到本地存储
+    this.saveAnalyses();
 
     return analysis;
   }
@@ -2472,127 +2484,233 @@ class EmotionService {
     return adjusted;
   }
 
+  // 此方法已弃用，使用 extractAudioFeatures 从真实音频数据中提取特征
   private generateSimulatedAudioFeatures(): AudioFeatures {
-    const basePitch = 300 + Math.random() * 400;
-    const trend = Math.random() > 0.6 ? 'stable' : Math.random() > 0.5 ? 'rising' : Math.random() > 0.5 ? 'falling' : 'fluctuating';
-    const patterns: AudioFeatures['rhythm']['pattern'][] = ['steady', 'irregular', 'accelerating', 'decelerating', 'staccato', 'legato', 'pulsing', 'syncopated'];
-    const contours: AudioFeatures['intensity']['contour'][] = ['flat', 'rising', 'falling', 'peaked', 'undulating'];
-    
+    // 返回默认特征，用于图像分析模式时的占位
     return {
       pitch: {
-        mean: basePitch,
-        variance: 5000 + Math.random() * 10000,
-        range: [basePitch - 100, basePitch + 150],
-        trend,
+        mean: 400,
+        variance: 5000,
+        range: [300, 500],
+        trend: 'stable',
         bands: {
-          subBass: 5 + Math.random() * 10,
-          bass: 15 + Math.random() * 15,
-          lowMid: 20 + Math.random() * 15,
-          mid: 30 + Math.random() * 20,
-          highMid: 15 + Math.random() * 15,
-          high: 10 + Math.random() * 10,
-          veryHigh: 5 + Math.random() * 5,
+          subBass: 10,
+          bass: 20,
+          lowMid: 25,
+          mid: 35,
+          highMid: 15,
+          high: 10,
+          veryHigh: 5,
         },
         quartiles: {
-          q1: basePitch - 50 + Math.random() * 30,
-          q3: basePitch + 50 + Math.random() * 30,
-          iqr: 100 + Math.random() * 60,
+          q1: 350,
+          q3: 450,
+          iqr: 100,
         },
-        stability: 50 + Math.random() * 40,
+        stability: 70,
       },
       intensity: {
-        mean: 0.3 + Math.random() * 0.4,
-        peak: 0.6 + Math.random() * 0.3,
-        variance: 0.01 + Math.random() * 0.05,
-        dynamicRange: 20 + Math.random() * 30,
+        mean: 0.5,
+        peak: 0.8,
+        variance: 0.03,
+        dynamicRange: 25,
         envelope: {
-          attack: Math.floor(Math.random() * 10),
-          decay: Math.floor(Math.random() * 15),
-          sustain: Math.floor(20 + Math.random() * 30),
-          release: Math.floor(Math.random() * 20),
+          attack: 5,
+          decay: 10,
+          sustain: 25,
+          release: 15,
         },
-        contour: contours[Math.floor(Math.random() * contours.length)],
-        crestFactor: 2 + Math.random() * 3,
-        peakCount: Math.floor(3 + Math.random() * 8),
-        avgPeakInterval: Math.floor(10 + Math.random() * 20),
-        rmsVariation: 0.1 + Math.random() * 0.3,
+        contour: 'flat',
+        crestFactor: 3,
+        peakCount: 5,
+        avgPeakInterval: 15,
+        rmsVariation: 0.2,
       },
       frequency: {
-        dominant: 300 + Math.random() * 300,
+        dominant: 400,
         range: [200, 600],
-        harmonics: [600, 900, 1200, 1500, 1800].slice(0, Math.floor(2 + Math.random() * 4)),
+        harmonics: [800, 1200, 1600],
       },
       rhythm: {
-        tempo: 60 + Math.floor(Math.random() * 80),
-        regularity: 50 + Math.random() * 40,
-        pattern: patterns[Math.floor(Math.random() * patterns.length)],
-        complexity: Math.random() * 0.8,
-        syncopation: Math.random() * 0.5,
-        groove: 0.3 + Math.random() * 0.5,
-        meter: [2, 3, 4, 6, 8][Math.floor(Math.random() * 5)],
-        subdivisions: Math.floor(1 + Math.random() * 4),
-        peakCount: Math.floor(5 + Math.random() * 10),
-        avgInterval: Math.floor(15 + Math.random() * 25),
+        tempo: 100,
+        regularity: 70,
+        pattern: 'steady',
+        complexity: 0.4,
+        syncopation: 0.2,
+        groove: 0.5,
+        meter: 4,
+        subdivisions: 2,
+        peakCount: 8,
+        avgInterval: 20,
       },
       timbre: {
-        brightness: 40 + Math.random() * 40,
-        warmth: 40 + Math.random() * 40,
-        roughness: 20 + Math.random() * 40,
+        brightness: 60,
+        warmth: 60,
+        roughness: 30,
       },
-      duration: 2 + Math.random() * 3,
-      quality: 80 + Math.random() * 15,
+      duration: 2.5,
+      quality: 85,
     };
   }
 
   async getDashboard(): Promise<EmotionDashboard> {
-    await this.simulateDelay(500);
-
+    // 基于真实历史数据计算仪表板指标
     const latest = this.recentAnalyses[0] || {
       primaryEmotion: 'calm' as PrimaryEmotion,
       intensity: 50,
       confidence: 95,
     };
 
+    // 计算真实的维度值（基于历史分析数据）
+    const dimensions = this.calculateEmotionDimensionsFromHistory();
+    
+    // 计算真实的趋势
+    const trends = this.calculateTrendsFromHistory();
+
     return {
       centralEmotion: latest.primaryEmotion,
       intensity: latest.intensity,
       confidence: latest.confidence,
-      dimensions: {
-        excitement: Math.floor(40 + Math.random() * 40),
-        anxiety: Math.floor(10 + Math.random() * 30),
-        affection: Math.floor(60 + Math.random() * 35),
-        curiosity: Math.floor(30 + Math.random() * 40),
-      },
+      dimensions,
       recentHistory: this.recentAnalyses.slice(0, 5),
-      trends: {
-        direction: Math.random() > 0.5 ? 'up' : Math.random() > 0.5 ? 'down' : 'stable',
-        change: Math.floor(Math.random() * 20) - 10,
-      },
+      trends,
     };
   }
 
-  async getEmotionDimensions(): Promise<EmotionDimension[]> {
-    await this.simulateDelay(300);
+  // 基于历史数据计算情感维度
+  private calculateEmotionDimensionsFromHistory(): {
+    excitement: number;
+    anxiety: number;
+    affection: number;
+    curiosity: number;
+  } {
+    if (this.recentAnalyses.length === 0) {
+      return {
+        excitement: 50,
+        anxiety: 20,
+        affection: 70,
+        curiosity: 40,
+      };
+    }
 
+    // 基于最近10次分析计算平均值
+    const recent = this.recentAnalyses.slice(0, 10);
+    
+    const excitementScores: number[] = [];
+    const anxietyScores: number[] = [];
+    const affectionScores: number[] = [];
+    const curiosityScores: number[] = [];
+
+    recent.forEach(analysis => {
+      const emotion = analysis.primaryEmotion;
+      const intensity = analysis.intensity / 100;
+      
+      // 根据情感类型映射到维度
+      switch (emotion) {
+        case 'excited':
+          excitementScores.push(intensity * 100);
+          break;
+        case 'happy':
+          excitementScores.push(intensity * 60);
+          affectionScores.push(intensity * 80);
+          break;
+        case 'anxious':
+          anxietyScores.push(intensity * 100);
+          break;
+        case 'angry':
+          anxietyScores.push(intensity * 70);
+          break;
+
+        case 'curious':
+          curiosityScores.push(intensity * 100);
+          break;
+        case 'calm':
+          affectionScores.push(intensity * 60);
+          break;
+        case 'safe':
+          affectionScores.push(intensity * 80);
+          break;
+      }
+    });
+
+    const avg = (arr: number[]) => arr.length > 0 
+      ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) 
+      : 50;
+
+    return {
+      excitement: Math.min(100, avg(excitementScores) || 50),
+      anxiety: Math.min(100, avg(anxietyScores) || 20),
+      affection: Math.min(100, avg(affectionScores) || 70),
+      curiosity: Math.min(100, avg(curiosityScores) || 40),
+    };
+  }
+
+  // 基于历史数据计算趋势
+  private calculateTrendsFromHistory(): {
+    direction: 'up' | 'down' | 'stable';
+    change: number;
+  } {
+    if (this.recentAnalyses.length < 2) {
+      return { direction: 'stable', change: 0 };
+    }
+
+    // 比较最近和之前的情感状态
+    const recent = this.recentAnalyses.slice(0, 5);
+    const previous = this.recentAnalyses.slice(5, 10);
+
+    if (previous.length === 0) {
+      return { direction: 'stable', change: 0 };
+    }
+
+    // 计算积极情感的占比变化
+    const positiveEmotions = ['happy', 'excited', 'affectionate', 'calm', 'safe'];
+    
+    const recentPositive = recent.filter(a => positiveEmotions.includes(a.primaryEmotion)).length;
+    const previousPositive = previous.filter(a => positiveEmotions.includes(a.primaryEmotion)).length;
+    
+    const recentRatio = recentPositive / recent.length;
+    const previousRatio = previousPositive / previous.length;
+    
+    const change = Math.round((recentRatio - previousRatio) * 100);
+    
+    let direction: 'up' | 'down' | 'stable' = 'stable';
+    if (change > 10) direction = 'up';
+    else if (change < -10) direction = 'down';
+
+    return { direction, change: Math.abs(change) };
+  }
+
+  async getEmotionDimensions(): Promise<EmotionDimension[]> {
+    // 基于真实历史数据返回维度
+    const dimensions = this.calculateEmotionDimensionsFromHistory();
+    
     return [
-      { name: 'excitement', value: 65, label: '兴奋度', icon: '⚡', color: 'text-yellow-500' },
-      { name: 'anxiety', value: 25, label: '焦虑度', icon: '😰', color: 'text-orange-500' },
-      { name: 'affection', value: 78, label: '亲密度', icon: '💕', color: 'text-pink-500' },
-      { name: 'curiosity', value: 45, label: '好奇心', icon: '🔍', color: 'text-purple-500' },
+      { name: 'excitement', value: dimensions.excitement, label: '兴奋度', icon: '⚡', color: 'text-yellow-500' },
+      { name: 'anxiety', value: dimensions.anxiety, label: '焦虑度', icon: '😰', color: 'text-orange-500' },
+      { name: 'affection', value: dimensions.affection, label: '亲密度', icon: '💕', color: 'text-pink-500' },
+      { name: 'curiosity', value: dimensions.curiosity, label: '好奇心', icon: '🔍', color: 'text-purple-500' },
     ];
   }
 
   async getWaveformData(duration: number = 10): Promise<EmotionWaveform[]> {
-    await this.simulateDelay(200);
-
+    // 基于最近的真实分析数据生成波形
     const samples = duration * 10;
     const waveform: EmotionWaveform[] = [];
-
+    
+    // 获取最近分析的音频特征
+    const recentAnalysis = this.recentAnalyses[0];
+    const baseAmplitude = recentAnalysis?.intensity ? recentAnalysis.intensity / 100 : 0.5;
+    
     for (let i = 0; i < samples; i++) {
+      // 使用确定性算法生成波形，避免随机数
+      const time = i / 10;
+      const frequency = 2 + (i % 5) * 0.5; // 使用索引而非随机数
+      const amplitude = Math.sin(time * frequency) * baseAmplitude * 0.5 + baseAmplitude * 0.5;
+      
       waveform.push({
-        timestamp: i / 10,
-        amplitude: Math.sin(i * 0.5) * 0.5 + Math.random() * 0.5,
-        frequency: 2 + Math.random() * 4,
+        timestamp: time,
+        amplitude: Math.min(1, Math.max(0, amplitude)),
+        frequency,
       });
     }
 
@@ -2600,7 +2718,6 @@ class EmotionService {
   }
 
   async getRecentAnalyses(limit: number = 10): Promise<EmotionAnalysis[]> {
-    await this.simulateDelay(300);
     return this.recentAnalyses.slice(0, limit);
   }
 
@@ -2609,6 +2726,7 @@ class EmotionService {
   }
 
   private simulateDelay(ms: number): Promise<void> {
+    // 仅用于模拟网络延迟，生产环境应移除
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 }
