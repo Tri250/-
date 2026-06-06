@@ -342,6 +342,20 @@ body {
   }
 }
 
+/* Active state for touch devices */
+.active-scale {
+  transition: transform 0.15s ease-out;
+}
+
+.active-scale:active {
+  transform: scale(0.96);
+}
+
+/* Touch feedback for buttons */
+button:active, a:active, [role="button"]:active {
+  opacity: 0.8;
+}
+
 /* ============================================
    低端设备回退样式
    ============================================ */

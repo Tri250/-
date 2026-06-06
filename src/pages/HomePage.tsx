@@ -441,7 +441,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
                 </div>
                 
                 <div 
-                  className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4"
+                  className="grid grid-cols-2 gap-3"
                   role="list"
                   aria-label="快捷功能列表"
                 >
