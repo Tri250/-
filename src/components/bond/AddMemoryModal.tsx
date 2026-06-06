@@ -19,7 +19,6 @@ import {
   Heart,
   Stethoscope,
   Sparkles,
-  Clock,
   Utensils,
   Gamepad2,
   Users,
@@ -38,8 +37,6 @@ import {
   X,
   ChevronRight,
   Image,
-  Calendar,
-  Tag,
   Send,
   Smile,
   AlertCircle

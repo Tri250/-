@@ -22,7 +22,6 @@ import {
   CheckCircle2,
   Wifi,
   WifiOff,
-  ChevronRight,
   Volume2,
   Bell,
   Calendar,
@@ -31,7 +30,6 @@ import {
   Trash2,
   Edit3,
   Mic,
-  Square,
   Save
 } from 'lucide-react';
 import { useAppStore } from '../../store/appStore';

@@ -1,29 +1,21 @@
+// ============================================
+// HomePage - 首页（优化版）
+// P0-1: 首页信息架构简化
+// ============================================
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
-  ChevronRight, 
   Heart, 
-  Bot, 
-  FileText, 
-  BookOpen, 
-  Calendar, 
-  Activity,
-  Star,
-  Clock,
-  ArrowUpRight,
-  Camera,
-  Video,
-  MessageCircle,
   RefreshCw,
-  Sparkles,
-  Bell
+  Star,
+  Clock
 } from 'lucide-react';
-import { GlassCard, SkeletonCard as _SkeletonCard, SkeletonQuickActions, LiquidHeroCard } from '../components/DesignSystem';
+import { GlassCard, SkeletonQuickActions } from '../components/DesignSystem';
+import { SmartTodayCard, CoreFeatures, PersonalizedFeed } from '../components/home';
 import '../styles/animations.css';
 import { useAppStore } from '../store/appStore';
 import { useBondStore } from '../store/bondStore';
 import { usePetStore } from '../store/petStore';
-import { useReminderStore } from '../store/reminderStore';
-import { useHealthRecordStore } from '../store/healthRecordStore';
 import { cameraAdapterService } from '../services/cameraAdapterService';
 import type { CameraDevice } from '../types/camera';
 
@@ -31,26 +23,11 @@ interface HomePageProps {
   onNavigate: (page: string) => void;
 }
 
-interface QuickAction {
-  icon: React.ElementType;
-  label: string;
-  description: string;
-  color: string;
-  bgGradient: string;
-  page: string;
-  badge?: string;
-  badgeColor?: string;
-  isPrimary?: boolean;
-}
-
 export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
   const { currentPet, currentEmotion, healthScore } = useAppStore();
-  const { metrics, badges, totalPoints, streakDays } = useBondStore();
-  const unlockedBadges = badges.filter(b => b.isUnlocked).length;
+  const { metrics, totalPoints, streakDays } = useBondStore();
   const { pets, currentPetId, setCurrentPet } = usePetStore();
-  const { getUpcomingReminders } = useReminderStore();
-  const { getFilteredRecords } = useHealthRecordStore();
-  const [cameras, setCameras] = useState<CameraDevice[]>([]);
+  const [, setCameras] = useState<CameraDevice[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [pullDistance, setPullDistance] = useState(0);
@@ -105,77 +82,6 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
     }
   }, [pullDistance, isRefreshing, handleRefresh]);
 
-  const upcomingReminders = currentPetId ? getUpcomingReminders(currentPetId, 3) : [];
-  const recentRecords = currentPetId ? getFilteredRecords(currentPetId).slice(0, 3) : [];
-  const onlineCameras = cameras.filter(c => c.status === 'online');
-
-  const quickActions: QuickAction[] = [
-    {
-      icon: Video,
-      label: '实时监控',
-      description: '查看毛孩动态',
-      color: '#3B82F6',
-      bgGradient: 'from-blue-500 via-blue-600 to-cyan-500',
-      page: 'camera-monitor',
-      badge: onlineCameras.length > 0 ? `${onlineCameras.length}台` : undefined,
-      badgeColor: 'bg-blue-500',
-      isPrimary: true,
-    },
-    {
-      icon: Bot,
-      label: 'AI健康顾问',
-      description: '智能问诊咨询',
-      color: '#8B5CF6',
-      bgGradient: 'from-purple-500 via-violet-500 to-fuchsia-500',
-      page: 'ai-consultant',
-      badge: 'AI',
-      badgeColor: 'bg-gradient-to-r from-purple-500 to-pink-500',
-      isPrimary: true,
-    },
-    {
-      icon: MessageCircle,
-      label: '情绪翻译',
-      description: '读懂宠物心声',
-      color: '#F97316',
-      bgGradient: 'from-orange-500 via-red-400 to-rose-500',
-      page: 'translator',
-      badge: '95%+',
-      badgeColor: 'bg-orange-500',
-      isPrimary: true,
-    },
-    {
-      icon: FileText,
-      label: '健康记录',
-      description: '追踪健康状况',
-      color: '#10B981',
-      bgGradient: 'from-emerald-500 via-teal-500 to-cyan-500',
-      page: 'health-records',
-      isPrimary: false,
-    },
-    {
-      icon: BookOpen,
-      label: '健康手册',
-      description: '专业养宠知识',
-      color: '#6366F1',
-      bgGradient: 'from-indigo-500 via-purple-500 to-blue-500',
-      page: 'health-manual',
-      badge: '60+篇',
-      badgeColor: 'bg-indigo-500',
-      isPrimary: false,
-    },
-    {
-      icon: Calendar,
-      label: '智能提醒',
-      description: '重要日程管理',
-      color: '#F59E0B',
-      bgGradient: 'from-amber-500 via-yellow-500 to-orange-500',
-      page: 'reminders',
-      badge: upcomingReminders.length > 0 ? `${upcomingReminders.length}条` : undefined,
-      badgeColor: 'bg-amber-500',
-      isPrimary: false,
-    },
-  ];
-
   const getEmotionEmoji = (emotion: string) => {
     const map: Record<string, string> = {
       happy: '😸',
@@ -206,11 +112,6 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
     return map[emotion] || '未知';
   };
 
-  const handleCardClick = useCallback((page: string) => {
-    onNavigate(page);
-  }, [onNavigate]);
-
-  const _refreshProgress = Math.min(pullDistance / 60, 1);
   const refreshRotation = pullDistance * 2;
 
   return (
@@ -225,6 +126,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
         className="transition-transform duration-300 ease-out"
         style={{ transform: `translateY(${isRefreshing ? 60 : pullDistance * 0.5}px)` }}
       >
+        {/* 下拉刷新指示器 */}
         <div 
           className={`absolute left-1/2 -translate-x-1/2 z-50 flex flex-col items-center justify-center transition-all duration-300 ${
             pullDistance > 20 || isRefreshing ? 'opacity-100 scale-100' : 'opacity-0 scale-75'
@@ -246,6 +148,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
           </span>
         </div>
 
+        {/* 头部区域 */}
         <header className="relative overflow-hidden">
           {/* ColorOS 16 液态玻璃背景渐变 */}
           <div className="absolute inset-0 bg-gradient-to-br from-[#FF8A65] via-[#FFB74D] to-[#FFCC80]" />
@@ -281,7 +184,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
               </button>
             </div>
 
-            {/* 液态玻璃宠物选择器 */}
+            {/* 宠物选择器 */}
             <div className="flex gap-2.5 mb-6 overflow-x-auto pb-1 scrollbar-thin animate-liquid-fade-in liquid-card-enter-2">
               {pets.map((pet, index) => (
                 <button
@@ -324,44 +227,47 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
               </button>
             </div>
 
-            {/* 液态玻璃Hero卡片 */}
-            <LiquidHeroCard gradient="orange" className="p-4">
-              <div className="flex items-center gap-4">
-                <div className="relative">
-                  <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-white/30 to-white/10 flex items-center justify-center border border-white/20 shadow-inner backdrop-blur-sm">
-                    <span className="text-4xl drop-shadow-lg">{getEmotionEmoji(currentEmotion)}</span>
-                  </div>
-                  <div className="absolute -bottom-0.5 -right-0.5 w-6 h-6 rounded-full bg-emerald-400 border-2 border-white shadow-lg flex items-center justify-center animate-pulse-indicator">
-                    <div className="w-2 h-2 rounded-full bg-white" />
-                  </div>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-lg font-bold text-white">{currentPet?.name}</h3>
-                  <p className="text-sm text-white/80 mt-0.5">{getEmotionLabel(currentEmotion)}</p>
-                  <div className="flex items-center gap-3 mt-2.5">
-                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-yellow-400/25 border border-yellow-400/15 backdrop-blur-sm">
-                      <Star className="w-3.5 h-3.5 text-yellow-200 fill-current" />
-                      <span className="text-xs text-yellow-100 font-medium">{unlockedBadges} 徽章</span>
+            {/* Hero 卡片 - 宠物状态 */}
+            <div className="animate-liquid-fade-in liquid-card-enter-3">
+              <div className="relative p-4 rounded-3xl bg-white/20 backdrop-blur-xl border border-white/20 shadow-xl">
+                <div className="flex items-center gap-4">
+                  <div className="relative">
+                    <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-white/30 to-white/10 flex items-center justify-center border border-white/20 shadow-inner backdrop-blur-sm">
+                      <span className="text-4xl drop-shadow-lg">{getEmotionEmoji(currentEmotion)}</span>
                     </div>
-                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-blue-400/25 border border-blue-400/15 backdrop-blur-sm">
-                      <Clock className="w-3.5 h-3.5 text-blue-200" />
-                      <span className="text-xs text-blue-100 font-medium">{streakDays} 天</span>
+                    <div className="absolute -bottom-0.5 -right-0.5 w-6 h-6 rounded-full bg-emerald-400 border-2 border-white shadow-lg flex items-center justify-center animate-pulse-indicator">
+                      <div className="w-2 h-2 rounded-full bg-white" />
                     </div>
                   </div>
-                </div>
-                <div className="text-right flex-shrink-0">
-                  <div className="text-3xl font-black text-white tabular-nums tracking-tight drop-shadow-sm">{healthScore}</div>
-                  <div className="text-xs text-white/60 font-medium">健康分</div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-lg font-bold text-white">{currentPet?.name}</h3>
+                    <p className="text-sm text-white/80 mt-0.5">{getEmotionLabel(currentEmotion)}</p>
+                    <div className="flex items-center gap-3 mt-2.5">
+                      <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-yellow-400/25 border border-yellow-400/15 backdrop-blur-sm">
+                        <Star className="w-3.5 h-3.5 text-yellow-200 fill-current" />
+                        <span className="text-xs text-yellow-100 font-medium">{0} 徽章</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-blue-400/25 border border-blue-400/15 backdrop-blur-sm">
+                        <Clock className="w-3.5 h-3.5 text-blue-200" />
+                        <span className="text-xs text-blue-100 font-medium">{streakDays} 天</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <div className="text-3xl font-black text-white tabular-nums tracking-tight drop-shadow-sm">{healthScore}</div>
+                    <div className="text-xs text-white/60 font-medium">健康分</div>
+                  </div>
                 </div>
               </div>
-            </LiquidHeroCard>
+            </div>
           </div>
         </header>
 
+        {/* 主内容区 - 新架构 */}
         <main className="max-w-md mx-auto px-4 -mt-8 space-y-5">
           {isLoading ? (
             <>
-              <GlassCard variant="liquid" className="animate-liquid-fade-in liquid-card-enter-1">
+              <GlassCard variant="liquid" className="animate-liquid-fade-in">
                 <div className="space-y-3">
                   <div className="h-4 w-3/4 skeleton rounded-lg" />
                   <div className="h-3 w-full skeleton rounded-lg" />
@@ -369,8 +275,8 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
                   <div className="h-20 w-full skeleton rounded-xl mt-2" />
                 </div>
               </GlassCard>
-              <SkeletonQuickActions count={6} />
-              <GlassCard variant="liquid" className="animate-liquid-fade-in liquid-card-enter-4">
+              <SkeletonQuickActions count={4} />
+              <GlassCard variant="liquid" className="animate-liquid-fade-in">
                 <div className="space-y-3">
                   <div className="h-4 w-2/3 skeleton rounded-lg" />
                   <div className="h-16 w-full skeleton rounded-xl" />
@@ -380,189 +286,23 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
             </>
           ) : (
             <>
-              {onlineCameras.length > 0 && (
-                <GlassCard 
-                  variant="liquid" 
-                  className="animate-liquid-fade-in liquid-card-enter-1 overflow-hidden"
-                  enable3D={true}
-                  enableLiquid={true}
-                  enableShine={true}
-                >
-                  <div className="flex items-center justify-between mb-3.5">
-                    <h3 className="font-bold text-neutral-800 dark:text-neutral-100 flex items-center gap-2 text-base">
-                      <div className="w-8 h-8 rounded-lg bg-blue-100/80 dark:bg-blue-900/30 backdrop-blur-sm flex items-center justify-center">
-                        <Camera className="w-[18px] h-[18px] text-blue-600 dark:text-blue-400" />
-                      </div>
-                      在线设备
-                    </h3>
-                    <button 
-                      className="text-xs text-blue-600 dark:text-blue-400 font-semibold flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-50/80 dark:bg-blue-900/20 hover:bg-blue-100/80 dark:hover:bg-blue-900/30 transition-colors active-scale backdrop-blur-sm"
-                      onClick={() => onNavigate('camera-monitor')}
-                    >
-                      查看全部
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2.5">
-                    {onlineCameras.slice(0, 2).map((camera, index) => (
-                      <button
-                        key={camera.id}
-                        onClick={() => onNavigate('camera-monitor')}
-                        className="relative aspect-video rounded-xl overflow-hidden group active-scale"
-                        style={{ animationDelay: `${0.1 + index * 0.05}s` }}
-                      >
-                        <div className="absolute inset-0 bg-gradient-to-br from-neutral-200/80 to-neutral-300/80 dark:from-neutral-700/80 dark:to-neutral-800/80 backdrop-blur-sm flex items-center justify-center">
-                          <Video className="w-8 h-8 text-neutral-400 dark:text-neutral-500" />
-                        </div>
-                        <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between">
-                          <span className="text-xs text-white font-medium px-2 py-1 rounded-lg bg-black/50 backdrop-blur-md">
-                            {camera.name}
-                          </span>
-                          <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-lg shadow-emerald-400/50" />
-                        </div>
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
-                          <div className="w-12 h-12 rounded-full bg-white/90 backdrop-blur-md flex items-center justify-center shadow-xl transform scale-75 group-hover:scale-100 transition-transform duration-300">
-                            <ArrowUpRight className="w-5 h-5 text-blue-600" />
-                          </div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </GlassCard>
-              )}
-
-              <div className="space-y-3 animate-liquid-fade-in liquid-card-enter-3">
-                <div className="flex items-center justify-between px-1">
-                  <h3 className="font-bold text-neutral-800 dark:text-neutral-100 flex items-center gap-2 text-base">
-                    <Sparkles className="w-5 h-5 text-amber-500" />
-                    快捷功能
-                  </h3>
-                </div>
-                
-                <div 
-                  className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4"
-                  role="list"
-                  aria-label="快捷功能列表"
-                >
-                  {quickActions.map((action, index) => (
-                    <button
-                      key={action.page}
-                      onClick={() => handleCardClick(action.page)}
-                      className="group relative col-span-1 active-scale overflow-hidden rounded-2xl touch-manipulation"
-                      style={{ animationDelay: `${0.15 + index * 0.06}s` }}
-                      aria-label={`${action.label}：${action.description}`}
-                      role="listitem"
-                    >
-                      <div className="relative bg-white/70 dark:bg-neutral-900/70 backdrop-blur-xl rounded-2xl p-4 sm:p-4.5 h-full min-h-[120px] sm:min-h-[130px] border border-white/50 dark:border-neutral-700/50 group-hover:bg-white/85 dark:group-hover:bg-neutral-800/85 group-hover:border-white/60 dark:group-hover:border-neutral-600/60 group-hover:shadow-xl dark:group-hover:shadow-black/30 transition-all duration-300 liquid-hover">
-                        {/* 液态玻璃光泽效果 */}
-                        <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/30 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-                        
-                        <div className="relative mb-3">
-                          <div className={`w-12 h-12 sm:w-13 sm:h-13 mx-auto rounded-2xl bg-gradient-to-br ${action.bgGradient} flex items-center justify-center shadow-lg transform group-hover:scale-110 group-hover:-rotate-6 transition-all duration-300`}>
-                            <action.icon className="w-6 h-6 sm:w-6.5 sm:h-6.5 text-white" strokeWidth={2} />
-                          </div>
-                          {action.badge && (
-                            <div className={`absolute -top-1 -right-1 ${action.badgeColor || 'bg-red-500'} text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-md leading-none min-w-[20px] text-center`}>
-                            {action.badge}
-                          </div>
-                          )}
-                        </div>
-                        
-                        <h4 className="font-bold text-sm text-neutral-800 dark:text-neutral-100 text-center mb-0.5 truncate">{action.label}</h4>
-                        <p className="text-[11px] text-neutral-500 dark:text-neutral-400 text-center truncate">{action.description}</p>
-                        
-                        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-0 h-0.5 rounded-full bg-gradient-to-r opacity-0 group-hover:w-4/5 group-hover:opacity-100 transition-all duration-300" style={{ backgroundImage: `linear-gradient(to right, transparent, ${action.color}, transparent)` }} />
-                      </div>
-                    </button>
-                  ))}
-                </div>
+              {/* 1. 智能今日卡片 */}
+              <div className="animate-liquid-fade-in">
+                <SmartTodayCard onNavigate={onNavigate} />
               </div>
 
-              {upcomingReminders.length > 0 && (
-                <GlassCard 
-                  variant="liquid" 
-                  className="animate-liquid-fade-in liquid-card-enter-4 overflow-hidden"
-                  enable3D={true}
-                  enableLiquid={true}
-                >
-                  <div className="flex items-center justify-between mb-3.5">
-                    <h3 className="font-bold text-neutral-800 dark:text-neutral-100 flex items-center gap-2 text-base">
-                      <div className="w-8 h-8 rounded-lg bg-amber-100/80 dark:bg-amber-900/30 backdrop-blur-sm flex items-center justify-center">
-                        <Bell className="w-[18px] h-[18px] text-amber-600 dark:text-amber-400" />
-                      </div>
-                      即将到来
-                    </h3>
-                    <button 
-                      className="text-xs text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50/80 dark:bg-amber-900/20 hover:bg-amber-100/80 dark:hover:bg-amber-900/30 transition-colors active-scale backdrop-blur-sm"
-                      onClick={() => onNavigate('reminders')}
-                    >
-                      全部
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                  <div className="space-y-2">
-                    {upcomingReminders.map((reminder, index) => (
-                      <div 
-                        key={reminder.id}
-                        className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-amber-50/90 to-orange-50/60 dark:from-amber-900/25 dark:to-orange-900/15 hover:from-amber-100/90 hover:to-orange-100/70 dark:hover:from-amber-900/35 dark:hover:to-orange-900/25 transition-all cursor-pointer active-scale group backdrop-blur-sm"
-                        style={{ animationDelay: `${0.2 + index * 0.05}s` }}
-                        onClick={() => onNavigate('reminders')}
-                      >
-                        <div className="w-1.5 h-8 rounded-full bg-gradient-to-b from-amber-400 to-orange-400" />
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-semibold text-sm text-neutral-800 dark:text-neutral-100 truncate">{reminder.title}</h4>
-                          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">{reminder.date} {reminder.time}</p>
-                        </div>
-                        <ArrowUpRight className="w-4 h-4 text-neutral-300 dark:text-neutral-600 group-hover:text-amber-500 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all flex-shrink-0" />
-                      </div>
-                    ))}
-                  </div>
-                </GlassCard>
-              )}
+              {/* 2. 核心功能入口（精简为4个） */}
+              <div className="animate-liquid-fade-in">
+                <CoreFeatures onNavigate={onNavigate} />
+              </div>
 
-              {recentRecords.length > 0 && (
-                <GlassCard 
-                  variant="liquid" 
-                  className="animate-liquid-fade-in liquid-card-enter-5 overflow-hidden"
-                  enable3D={true}
-                  enableLiquid={true}
-                >
-                  <div className="flex items-center justify-between mb-3.5">
-                    <h3 className="font-bold text-neutral-800 dark:text-neutral-100 flex items-center gap-2 text-base">
-                      <div className="w-8 h-8 rounded-lg bg-emerald-100/80 dark:bg-emerald-900/30 backdrop-blur-sm flex items-center justify-center">
-                        <Activity className="w-[18px] h-[18px] text-emerald-600 dark:text-emerald-400" />
-                      </div>
-                      最近记录
-                    </h3>
-                    <button 
-                      className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50/80 dark:bg-emerald-900/20 hover:bg-emerald-100/80 dark:hover:bg-emerald-900/30 transition-colors active-scale backdrop-blur-sm"
-                      onClick={() => onNavigate('health-records')}
-                    >
-                      更多
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                  <div className="space-y-2">
-                    {recentRecords.map((record, index) => (
-                      <div 
-                        key={record.id}
-                        className="p-3 rounded-xl bg-gradient-to-r from-emerald-50/90 to-teal-50/60 dark:from-emerald-900/25 dark:to-teal-900/15 hover:shadow-sm dark:hover:shadow-none hover:from-emerald-100/90 hover:to-teal-100/70 dark:hover:from-emerald-900/35 dark:hover:to-teal-900/25 transition-all cursor-pointer active-scale group backdrop-blur-sm"
-                        style={{ animationDelay: `${0.25 + index * 0.05}s` }}
-                        onClick={() => onNavigate('health-records')}
-                      >
-                        <div className="flex items-center justify-between">
-                          <h4 className="font-semibold text-sm text-neutral-800 dark:text-neutral-100 truncate pr-2">{record.title}</h4>
-                          <span className="text-xs text-neutral-400 dark:text-neutral-500 flex-shrink-0">{record.createdAt?.split('T')[0]}</span>
-                        </div>
-                        <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 line-clamp-2 leading-relaxed">{record.content}</p>
-                      </div>
-                    ))}
-                  </div>
-                </GlassCard>
-              )}
+              {/* 3. 个性化内容流 */}
+              <div className="animate-liquid-fade-in">
+                <PersonalizedFeed onNavigate={onNavigate} />
+              </div>
 
-              <div className="flex items-center justify-center py-6 animate-liquid-fade-in liquid-card-enter-6">
+              {/* 底部统计 */}
+              <div className="flex items-center justify-center py-6 animate-liquid-fade-in">
                 <div className="flex items-center gap-5 text-xs text-neutral-400 dark:text-neutral-500">
                   <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-neutral-100/90 dark:bg-neutral-800/90 hover:bg-neutral-200/90 dark:hover:bg-neutral-700/90 transition-colors cursor-default backdrop-blur-sm">
                     <Star className="w-3 h-3 text-amber-400 animate-pulse-glow" />

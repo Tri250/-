@@ -405,7 +405,7 @@ export function VoiceMemoryWallComponent() {
           title: voice.label || '宠物声音',
           text: `听听${petName}的声音！`,
         });
-      } catch (error) {
+      } catch {
         console.log('Share cancelled');
       }
     } else {
