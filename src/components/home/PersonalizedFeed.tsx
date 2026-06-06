@@ -3,7 +3,7 @@
 // 类似社交Feed的个性化内容展示
 // ============================================
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Heart, 
@@ -44,6 +44,60 @@ export const PersonalizedFeed: React.FC<PersonalizedFeedProps> = ({ onNavigate }
   
   const currentPetId = currentPet?.id;
   const recentRecords = currentPetId ? getFilteredRecords(currentPetId).slice(0, 3) : [];
+
+  // 辅助函数定义在 useMemo 之前，使用 useCallback 避免重复创建
+  const getEmotionLabel = useCallback((emotion: string) => {
+    const map: Record<string, string> = {
+      happy: '很开心',
+      curious: '很好奇',
+      anxious: '有点焦虑',
+      angry: '有点生气',
+      needs: '需要关注',
+      relaxed: '很放松',
+      excited: '很兴奋',
+      sleepy: '困了',
+      calm: '很平静',
+    };
+    return map[emotion] || '心情不错';
+  }, []);
+
+  const getEmotionAdvice = useCallback((emotion: string) => {
+    const map: Record<string, string> = {
+      happy: '趁TA开心，多拍些照片记录美好时刻吧！',
+      curious: '好奇心旺盛，是训练新技能的好时机',
+      anxious: '看起来有些不安，试试播放舒缓音乐',
+      angry: '情绪不太好，给TA一些独处空间',
+      needs: '在寻求关注，快去陪陪TA吧',
+      relaxed: '很放松的状态，适合梳理毛发',
+      excited: '精力充沛，可以安排一些运动游戏',
+      sleepy: '困了，准备让TA好好休息吧',
+      calm: '心情平静，是日常护理的好时机',
+    };
+    return map[emotion] || '去了解一下TA的需求吧';
+  }, []);
+
+  const getDailyTip = useCallback((petType?: string) => {
+    const tips = {
+      dog: [
+        '狗狗每天需要至少30分钟的户外活动',
+        '定期修剪指甲可以防止行走不适',
+        '狗狗的鼻子湿润程度可以反映健康状况',
+      ],
+      cat: [
+        '猫咪每天需要12-16小时的睡眠',
+        '提供猫抓板可以保护家具',
+        '猫咪喜欢高处，准备猫爬架很重要',
+      ],
+      default: [
+        '定期体检可以及早发现健康问题',
+        '保持饮食规律有助于消化健康',
+        '适当的运动对身心健康都很重要',
+      ],
+    };
+    const typeTips = petType === 'dog' ? tips.dog : petType === 'cat' ? tips.cat : tips.default;
+    const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / (1000 * 60 * 60 * 24));
+    return typeTips[dayOfYear % typeTips.length];
+  }, []);
 
   const feedItems = useMemo<FeedItem[]>(() => {
     const items: FeedItem[] = [];
@@ -134,60 +188,7 @@ export const PersonalizedFeed: React.FC<PersonalizedFeedProps> = ({ onNavigate }
 
     // 按优先级排序
     return items.sort((a, b) => b.priority - a.priority).slice(0, 4);
-  }, [currentPet, currentEmotion, healthScore, metrics, streakDays, recentRecords]);
-
-  const getEmotionLabel = (emotion: string) => {
-    const map: Record<string, string> = {
-      happy: '很开心',
-      curious: '很好奇',
-      anxious: '有点焦虑',
-      angry: '有点生气',
-      needs: '需要关注',
-      relaxed: '很放松',
-      excited: '很兴奋',
-      sleepy: '困了',
-      calm: '很平静',
-    };
-    return map[emotion] || '心情不错';
-  };
-
-  const getEmotionAdvice = (emotion: string) => {
-    const map: Record<string, string> = {
-      happy: '趁TA开心，多拍些照片记录美好时刻吧！',
-      curious: '好奇心旺盛，是训练新技能的好时机',
-      anxious: '看起来有些不安，试试播放舒缓音乐',
-      angry: '情绪不太好，给TA一些独处空间',
-      needs: '在寻求关注，快去陪陪TA吧',
-      relaxed: '很放松的状态，适合梳理毛发',
-      excited: '精力充沛，可以安排一些运动游戏',
-      sleepy: '困了，准备让TA好好休息吧',
-      calm: '心情平静，是日常护理的好时机',
-    };
-    return map[emotion] || '去了解一下TA的需求吧';
-  };
-
-  const getDailyTip = (petType?: string) => {
-    const tips = {
-      dog: [
-        '狗狗每天需要至少30分钟的户外活动',
-        '定期修剪指甲可以防止行走不适',
-        '狗狗的鼻子湿润程度可以反映健康状况',
-      ],
-      cat: [
-        '猫咪每天需要12-16小时的睡眠',
-        '提供猫抓板可以保护家具',
-        '猫咪喜欢高处，准备猫爬架很重要',
-      ],
-      default: [
-        '定期体检可以及早发现健康问题',
-        '保持饮食规律有助于消化健康',
-        '适当的运动对身心健康都很重要',
-      ],
-    };
-    const typeTips = petType === 'dog' ? tips.dog : petType === 'cat' ? tips.cat : tips.default;
-    const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / (1000 * 60 * 60 * 24));
-    return typeTips[dayOfYear % typeTips.length];
-  };
+  }, [currentPet, currentEmotion, healthScore, streakDays, recentRecords, getEmotionLabel, getEmotionAdvice, getDailyTip]);
 
   if (feedItems.length === 0) return null;
 

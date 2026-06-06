@@ -14,10 +14,11 @@ interface LazyRouteOptions {
   delay?: number;
 }
 
-export function lazyRoute<T extends ComponentType<unknown>>(
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function lazyRoute<T extends ComponentType<any>>(
   factory: () => Promise<{ default: T }>,
   options: LazyRouteOptions = {}
-): React.FC<Record<string, unknown>> {
+): React.FC<any> {
   const { fallback, delay = 0 } = options;
   
   const LazyComponent = lazy(() => {
@@ -30,7 +31,7 @@ export function lazyRoute<T extends ComponentType<unknown>>(
     return factory();
   });
 
-  const LazyRouteWrapper: React.FC<Record<string, unknown>> = (props) => {
+  const LazyRouteWrapper: React.FC<any> = (props) => {
     return React.createElement(
       Suspense,
       { fallback: fallback || React.createElement(LoadingIndicator, { text: '加载中...' }) },
