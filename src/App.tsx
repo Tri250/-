@@ -6,34 +6,47 @@
 // 描述: 应用主入口组件
 // ============================================
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense, lazy } from 'react';
 import { Navigation } from './components/Navigation';
 import { HomePage } from './pages/HomePage';
-import { TranslatorPage } from './pages/TranslatorPage';
-import { HealthPage } from './pages/HealthPage';
-import { ProfilePage } from './pages/ProfilePage';
-import { CameraPage } from './pages/CameraPage';
-import { MonitorPage } from './pages/MonitorPage';
-import { TrainingPage } from './pages/TrainingPage';
-import { ServicesPage } from './pages/ServicesPage';
-import { InsurancePage } from './pages/InsurancePage';
-import { MedicalPage } from './pages/MedicalPage';
-import { AIConsultantPage } from './pages/AIConsultantPage';
-import { HealthRecordsPage } from './pages/HealthRecordsPage';
-import { HealthManualPage } from './pages/HealthManualPage';
-import { RemindersPage } from './pages/RemindersPage';
-import { AdvancedHealthPage } from './pages/AdvancedHealthPage';
-import { BondEmotionPage } from './pages/BondEmotionPage';
-import { CameraMonitorPage } from './pages/CameraMonitorPage';
-import { PetsPage } from './pages/PetsPage';
-import { HealthReportPage } from './pages/HealthReportPage';
-import { SettingsPage } from './pages/SettingsPage';
-import { FavoritesPage } from './pages/FavoritesPage';
-import { HelpFeedbackPage } from './pages/HelpFeedbackPage';
-import { DeveloperInfoPage } from './pages/DeveloperInfoPage';
 import { useAppStore } from './store/appStore';
 import { PawPrint } from 'lucide-react';
 import { useDeviceCapabilities, applyPerformanceClass } from './utils/performanceDetection';
+import { FloatingActionButton } from './components/FloatingActionButton';
+
+// 懒加载其他页面（性能优化）
+const TranslatorPage = lazy(() => import('./pages/TranslatorPage'));
+const HealthPage = lazy(() => import('./pages/HealthPage'));
+const ProfilePage = lazy(() => import('./pages/ProfilePage'));
+const CameraPage = lazy(() => import('./pages/CameraPage'));
+const MonitorPage = lazy(() => import('./pages/MonitorPage'));
+const TrainingPage = lazy(() => import('./pages/TrainingPage'));
+const ServicesPage = lazy(() => import('./pages/ServicesPage'));
+const InsurancePage = lazy(() => import('./pages/InsurancePage'));
+const MedicalPage = lazy(() => import('./pages/MedicalPage'));
+const AIConsultantPage = lazy(() => import('./pages/AIConsultantPage'));
+const HealthRecordsPage = lazy(() => import('./pages/HealthRecordsPage'));
+const HealthManualPage = lazy(() => import('./pages/HealthManualPage'));
+const RemindersPage = lazy(() => import('./pages/RemindersPage'));
+const AdvancedHealthPage = lazy(() => import('./pages/AdvancedHealthPage'));
+const BondEmotionPage = lazy(() => import('./pages/BondEmotionPage'));
+const CameraMonitorPage = lazy(() => import('./pages/CameraMonitorPage'));
+const PetsPage = lazy(() => import('./pages/PetsPage'));
+const HealthReportPage = lazy(() => import('./pages/HealthReportPage'));
+const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const FavoritesPage = lazy(() => import('./pages/FavoritesPage'));
+const HelpFeedbackPage = lazy(() => import('./pages/HelpFeedbackPage'));
+const DeveloperInfoPage = lazy(() => import('./pages/DeveloperInfoPage'));
+
+// 页面加载占位符
+const PageLoader = () => (
+  <div className="min-h-screen flex items-center justify-center">
+    <div className="flex flex-col items-center gap-4">
+      <div className="w-12 h-12 border-4 border-orange-200 border-t-orange-500 rounded-full animate-spin" />
+      <p className="text-gray-500 text-sm">加载中...</p>
+    </div>
+  </div>
+);
 
 function LoadingScreen({ progress, message }: { progress: number; message: string }) {
   return (
@@ -157,8 +170,11 @@ export default function App() {
 
   return (
     <div className={`min-h-screen ${settings.darkMode ? 'bg-gray-900' : 'bg-neutral-50'}`}>
-      {renderPage()}
+      <Suspense fallback={<PageLoader />}>
+        {renderPage()}
+      </Suspense>
       <Navigation currentPage={currentPage} onNavigate={setCurrentPage} />
+      <FloatingActionButton onNavigate={setCurrentPage} />
     </div>
   );
 }

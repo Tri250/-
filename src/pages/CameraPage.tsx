@@ -9,7 +9,7 @@ import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
 
-export function CameraPage() {
+export default function CameraPage() {
   const { devices, selectedDevice, isLoading, loadDevices, selectDevice, addDevice, removeDevice } = useCameraStore();
   const [showPairing, setShowPairing] = useState(false);
   const [showPlayer, setShowPlayer] = useState(false);

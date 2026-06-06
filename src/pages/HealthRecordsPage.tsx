@@ -17,7 +17,7 @@ interface HealthRecordsPageProps {
   onNavigate: (page: string) => void;
 }
 
-export const HealthRecordsPage: React.FC<HealthRecordsPageProps> = ({ onNavigate }) => {
+const HealthRecordsPage: React.FC<HealthRecordsPageProps> = ({ onNavigate }) => {
   const { 
     tags, 
     selectedTag, 
@@ -370,3 +370,5 @@ export const HealthRecordsPage: React.FC<HealthRecordsPageProps> = ({ onNavigate
     </div>
   );
 };
+
+export default HealthRecordsPage;

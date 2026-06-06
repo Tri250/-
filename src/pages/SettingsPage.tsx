@@ -44,7 +44,7 @@ const languageOptions = [
   { value: 'en-US', label: 'English' },
 ];
 
-export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
+export default function SettingsPage({ onNavigate }: SettingsPageProps) {
   const { settings, updateSettings, clearAllData, logout } = useAppStore();
   const [showFontSizeModal, setShowFontSizeModal] = useState(false);
   const [showLanguageModal, setShowLanguageModal] = useState(false);

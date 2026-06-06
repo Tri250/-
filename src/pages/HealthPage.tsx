@@ -32,7 +32,7 @@ const careCategoryConfig = {
   behavior: { icon: BookOpen, label: '行为训练', color: 'text-purple-500', bgColor: 'bg-purple-50' },
 };
 
-export function HealthPage() {
+export default function HealthPage() {
   const { healthAlerts, healthScore, currentPet, careTips } = useAppStore();
   const [nightMode, setNightMode] = useState(true);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);

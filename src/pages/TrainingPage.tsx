@@ -11,7 +11,7 @@ import { GraduationCap, Play, CheckCircle, Clock, Award, ChevronRight, Star, Loc
 import { useTrainingStore } from '../store/trainingStore';
 import { useBondStore } from '../store/bondStore';
 
-export function TrainingPage() {
+export default function TrainingPage() {
   const { courses, totalTrainingTime, streakDays, startSession } = useTrainingStore();
   const { addDailyActivity, unlockBadge } = useBondStore();
   const [activeCategory, setActiveCategory] = useState<'all' | 'basic' | 'behavior' | 'trick' | 'social'>('all');

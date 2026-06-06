@@ -18,7 +18,7 @@ interface HelpFeedbackPageProps {
   onNavigate: (page: string) => void;
 }
 
-export const HelpFeedbackPage: React.FC<HelpFeedbackPageProps> = ({ onNavigate }) => {
+export default function HelpFeedbackPage({ onNavigate }: HelpFeedbackPageProps) {
   const [activeTab, setActiveTab] = useState<'help' | 'feedback'>('help');
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
   const [feedbackType, setFeedbackType] = useState<'bug' | 'suggestion' | 'other'>('suggestion');

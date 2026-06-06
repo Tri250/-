@@ -23,7 +23,7 @@ interface RemindersPageProps {
   onNavigate: (page: string) => void;
 }
 
-export const RemindersPage: React.FC<RemindersPageProps> = ({ onNavigate }) => {
+export default function RemindersPage({ onNavigate }: RemindersPageProps) {
   const { selectedType, viewMode, getFilteredReminders, getUpcomingReminders, setSelectedType, setViewMode, toggleComplete, addReminder } = useReminderStore();
   const { currentPetId } = usePetStore();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);

@@ -29,7 +29,7 @@ interface CameraMonitorPageProps {
   onNavigate: (page: string) => void;
 }
 
-export const CameraMonitorPage: React.FC<CameraMonitorPageProps> = ({ onNavigate }) => {
+export default function CameraMonitorPage({ onNavigate }: CameraMonitorPageProps) {
   const { devices, addDevice, loadDevices } = useCameraStore();
   const [selectedCamera, setSelectedCamera] = useState<CameraDevice | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);

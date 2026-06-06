@@ -13,7 +13,7 @@ interface DeveloperInfoPageProps {
   onNavigate: (page: string) => void;
 }
 
-export const DeveloperInfoPage: React.FC<DeveloperInfoPageProps> = ({ onNavigate }) => {
+export default function DeveloperInfoPage({ onNavigate }: DeveloperInfoPageProps) {
   const developerInfo = {
     name: '热爱生活的小陈',
     title: '全栈开发者 & 宠物爱好者',

@@ -10,7 +10,7 @@ import { useState } from 'react';
 import { Stethoscope, MessageSquare, Calendar, CheckCircle } from 'lucide-react';
 import { useMedicalStore } from '../store/medicalStore';
 
-export function MedicalPage() {
+export default function MedicalPage() {
   const { symptoms, consultations, currentConsultation, startAIConsultation } = useMedicalStore();
   const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);

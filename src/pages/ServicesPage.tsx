@@ -12,7 +12,7 @@ interface ServicesPageProps {
   onNavigate?: (page: string) => void;
 }
 
-export function ServicesPage({ onNavigate }: ServicesPageProps) {
+export default function ServicesPage({ onNavigate }: ServicesPageProps) {
   const services = [
     {
       id: 'insurance',

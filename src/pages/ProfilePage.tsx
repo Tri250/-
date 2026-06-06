@@ -14,7 +14,7 @@ const menuItems = [
   { icon: Code, label: '开发作者', description: '热爱生活的小陈工', page: 'developer-info' },
 ];
 
-export function ProfilePage({ onNavigate }: ProfilePageProps) {
+export default function ProfilePage({ onNavigate }: ProfilePageProps) {
   const { currentPet, analyses, updateCurrentPet } = useAppStore();
   const [showEdit, setShowEdit] = useState(false);
   const [petName, setPetName] = useState(currentPet?.name || '');

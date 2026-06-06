@@ -38,7 +38,7 @@ interface HealthReportPageProps {
   onNavigate: (page: string) => void;
 }
 
-export function HealthReportPage({ onNavigate }: HealthReportPageProps) {
+export default function HealthReportPage({ onNavigate }: HealthReportPageProps) {
   const { currentPet } = useAppStore();
   const [healthScore, setHealthScore] = useState<ComprehensiveHealthScore | null>(null);
   const [dashboard, setDashboard] = useState<HealthDashboard | null>(null);

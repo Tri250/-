@@ -18,7 +18,7 @@ import { useAppStore } from '../store/appStore';
 
 type TabType = 'memories' | 'voices' | 'remote';
 
-export function BondEmotionPage() {
+export default function BondEmotionPage() {
   const { currentPet } = useAppStore();
   const [activeTab, setActiveTab] = useState<TabType>('memories');
 

@@ -59,7 +59,7 @@ const CategorySkeleton: React.FC = () => (
   </div>
 );
 
-export const HealthManualPage: React.FC<HealthManualPageProps> = ({ onNavigate }) => {
+export default function HealthManualPage({ onNavigate }: HealthManualPageProps) {
   const { 
     selectedCategory, 
     searchQuery, 

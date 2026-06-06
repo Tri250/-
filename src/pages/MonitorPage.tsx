@@ -104,7 +104,7 @@ function ActionButton({
   );
 }
 
-export function MonitorPage() {
+export default function MonitorPage() {
   const { devices, selectedDevice, selectDevice, loadDevices } = useCameraStore();
   const { 
     isMonitoring, 

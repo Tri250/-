@@ -22,7 +22,7 @@ const PET_ICONS: Record<PetType, { emoji: string; color: string }> = {
   other: { emoji: '🐾', color: 'bg-gray-100 text-gray-600' },
 };
 
-export const PetsPage: React.FC<PetsPageProps> = ({ onNavigate }) => {
+export default function PetsPage({ onNavigate }: PetsPageProps) {
   const { pets, addPet, deletePet, updatePet, setCurrentPet, currentPetId, importPetsFromCSV, importPetsFromJSON } = usePetStore();
   const [showAddForm, setShowAddForm] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);

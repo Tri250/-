@@ -658,7 +658,7 @@ function AnalysisDetailPanel({ analysis }: { analysis: EmotionAnalysis }) {
   );
 }
 
-export function TranslatorPage({ onNavigate }: { onNavigate?: (page: string) => void }) {
+export default function TranslatorPage({ onNavigate }: { onNavigate?: (page: string) => void }) {
   const { currentPet, addAnalysis, setCurrentEmotion, analyses } = useAppStore();
   const [isRecording, setIsRecording] = useState(false);
   const [showResult, setShowResult] = useState(false);

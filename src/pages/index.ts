@@ -1,0 +1,23 @@
+// 页面统一导出（用于懒加载）
+export { default as TranslatorPage } from './TranslatorPage';
+export { default as HealthPage } from './HealthPage';
+export { default as ProfilePage } from './ProfilePage';
+export { default as CameraPage } from './CameraPage';
+export { default as MonitorPage } from './MonitorPage';
+export { default as TrainingPage } from './TrainingPage';
+export { default as ServicesPage } from './ServicesPage';
+export { default as InsurancePage } from './InsurancePage';
+export { default as MedicalPage } from './MedicalPage';
+export { default as AIConsultantPage } from './AIConsultantPage';
+export { default as HealthRecordsPage } from './HealthRecordsPage';
+export { default as HealthManualPage } from './HealthManualPage';
+export { default as RemindersPage } from './RemindersPage';
+export { default as AdvancedHealthPage } from './AdvancedHealthPage';
+export { default as BondEmotionPage } from './BondEmotionPage';
+export { default as CameraMonitorPage } from './CameraMonitorPage';
+export { default as PetsPage } from './PetsPage';
+export { default as HealthReportPage } from './HealthReportPage';
+export { default as SettingsPage } from './SettingsPage';
+export { default as FavoritesPage } from './FavoritesPage';
+export { default as HelpFeedbackPage } from './HelpFeedbackPage';
+export { default as DeveloperInfoPage } from './DeveloperInfoPage';

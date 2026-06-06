@@ -30,7 +30,7 @@ interface AdvancedHealthPageProps {
   onNavigate?: (page: string) => void;
 }
 
-export function AdvancedHealthPage({ onNavigate }: AdvancedHealthPageProps) {
+export default function AdvancedHealthPage({ onNavigate }: AdvancedHealthPageProps) {
   const { currentPet } = useAppStore();
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [showNavigation, setShowNavigation] = useState(true);

@@ -10,7 +10,7 @@ import { useState } from 'react';
 import { Shield, Check } from 'lucide-react';
 import { useInsuranceStore } from '../store/insuranceStore';
 
-export function InsurancePage() {
+export default function InsurancePage() {
   const { plans, policies, selectPlan, purchasePolicy } = useInsuranceStore();
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
 

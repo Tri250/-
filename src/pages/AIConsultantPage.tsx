@@ -35,7 +35,7 @@ const QUICK_QUESTIONS = [
   '狗狗换牙期需要注意什么？',
 ];
 
-export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }) => {
+const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }) => {
   const { 
     currentConsultationId, 
     isTyping, 
@@ -798,7 +798,9 @@ export const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }
             />
           </div>
         </div>
-      )}
+      )}</div>
     </div>
   );
 };
+
+export default AIConsultantPage;

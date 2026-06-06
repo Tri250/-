@@ -12,7 +12,7 @@ interface FavoritesPageProps {
   onNavigate: (page: string) => void;
 }
 
-export const FavoritesPage: React.FC<FavoritesPageProps> = ({ onNavigate }) => {
+export default function FavoritesPage({ onNavigate }: FavoritesPageProps) {
   const { analyses } = useAppStore();
   const [activeTab, setActiveTab] = useState<'all' | 'translations' | 'photos'>('all');
 
