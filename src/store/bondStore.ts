@@ -16,7 +16,7 @@ export interface BondMetrics {
 
 export interface DailyActivity {
   id: string;
-  petId: string;
+  petId?: string;
   type: 'translation' | 'training' | 'interaction' | 'health';
   description: string;
   points: number;

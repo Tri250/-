@@ -1,14 +1,22 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 
 buildscript {
+    ext {
+        kotlin_version = '2.0.21'
+    }
 
     repositories {
         google()
         mavenCentral()
+        gradlePluginPortal()
     }
+    
     dependencies {
         classpath 'com.android.tools.build:gradle:8.7.3'
-
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+        classpath 'com.google.gms:google-services:4.4.2'
+        classpath 'com.google.firebase:firebase-crashlytics-gradle:3.0.2'
+        
         // NOTE: Do not place your application dependencies here; they belong
         // in the individual module build.gradle files
     }
@@ -20,9 +28,31 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        maven { url 'https://jitpack.io' }
+        maven { url 'https://plugins.gradle.org/m2/' }
     }
 }
 
 task clean(type: Delete) {
     delete rootProject.buildDir
+}
+
+// 配置所有子项目
+subprojects {
+    afterEvaluate { project ->
+        if (project.hasProperty("android")) {
+            android {
+                compileOptions {
+                    sourceCompatibility JavaVersion.VERSION_21
+                    targetCompatibility JavaVersion.VERSION_21
+                }
+            }
+        }
+    }
+}
+
+// 包装任务配置
+wrapper {
+    gradleVersion = '8.9'
+    distributionType = Wrapper.DistributionType.ALL
 }

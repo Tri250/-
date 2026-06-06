@@ -99,6 +99,7 @@ export const HealthRecordsPage: React.FC<HealthRecordsPageProps> = ({ onNavigate
     addTag({
       name: newTagName.trim(),
       color: newTagColor,
+      icon: 'Tag',
     });
     
     setNewTagName('');

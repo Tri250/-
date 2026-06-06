@@ -17,8 +17,8 @@ export interface User {
 }
 
 export interface Pet {
-  id: string;
-  userId: string;
+  id?: string;
+  userId?: string;
   name: string;
   breed: string;
   age: number;
@@ -48,7 +48,7 @@ export interface HealthAlert {
   severity: 'low' | 'medium' | 'high';
   message: string;
   timestamp: string;
-  isRead: boolean;
+  isRead?: boolean;
 }
 
 export interface CareTip {
@@ -170,11 +170,11 @@ export const useAppStore = create<AppState>()(
             set({ user, isAuthenticated: true });
             
             // 加载该用户的宠物
-            const allPets = await petDB.getAll();
-            const userPets = allPets.filter((p: Pet) => p.userId === user.id);
+            const allPets = await petDB.getAll() as Pet[];
+            const userPets = allPets.filter((p) => p.userId === user.id);
             set({ pets: userPets });
             
-            if (userPets.length > 0) {
+            if (userPets.length > 0 && userPets[0].id) {
               set({ currentPet: userPets[0] });
               
               // 加载该宠物的分析记录
@@ -207,7 +207,7 @@ export const useAppStore = create<AppState>()(
         set({ user, isAuthenticated: !!user });
       },
 
-      login: async (email, password) => {
+      login: async (email, _password) => {
         set({ initProgress: 30, initMessage: '正在验证账号...' });
         
         try {
@@ -365,10 +365,13 @@ export const useAppStore = create<AppState>()(
       },
 
       markAlertAsRead: async (alertId) => {
-        await healthAlertDB.update(alertId, { isRead: true });
+        const alert = get().healthAlerts.find(a => a.id === alertId);
+        if (!alert) return;
+        const updatedAlert = { ...alert, isRead: true };
+        await healthAlertDB.update(alertId, updatedAlert);
         set((state) => ({
           healthAlerts: state.healthAlerts.map(a =>
-            a.id === alertId ? { ...a, isRead: true } : a
+            a.id === alertId ? updatedAlert : a
           ),
         }));
       },

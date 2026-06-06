@@ -11,17 +11,18 @@ export interface HealthTag {
   id: string;
   name: string;
   color: string;
-  icon: string;
+  icon?: string;
 }
 
 export interface HealthRecord {
   id: string;
   petId: string;
-  type: 'text' | 'photo' | 'voice' | 'pdf';
+  type: 'text' | 'photo' | 'voice' | 'video' | 'file' | 'pdf';
   title: string;
   content: string;
   tags: string[];
   attachments?: string[];
+  voiceDuration?: number;
   voiceTranscription?: string;
   pdfFileName?: string;
   createdAt: string;

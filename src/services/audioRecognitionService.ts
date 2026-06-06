@@ -3,12 +3,10 @@
 //
 // 作者: 带娃的小陈工
 // 日期: 2026-05-27
-// 描述: 声音识别引擎 - YAMNet TFLite集成 + 情绪分类器
+// 描述: 声音识别引擎 - Web Speech API + 音频特征分析
 // ============================================
 
 import type { AudioEvent, SoundEmotion, AudioAnalysis, YAMNetCategory } from '../types/audio';
-
-const MOCK_DELAY = 500;
 
 // YAMNet 521类中与动物相关的类别索引
 const ANIMAL_SOUND_CATEGORIES: Record<number, YAMNetCategory> = {
@@ -63,160 +61,545 @@ const emotionConfig: Record<SoundEmotion, {
   }
 };
 
+// Web Speech API 类型声明
+declare global {
+  interface Window {
+    SpeechRecognition: new () => SpeechRecognition;
+    webkitSpeechRecognition: new () => SpeechRecognition;
+  }
+}
+
+interface SpeechRecognitionEvent extends Event {
+  results: SpeechRecognitionResultList;
+  resultIndex: number;
+}
+
+interface SpeechRecognitionResultList {
+  length: number;
+  item(index: number): SpeechRecognitionResult;
+  [index: number]: SpeechRecognitionResult;
+}
+
+interface SpeechRecognitionResult {
+  length: number;
+  item(index: number): SpeechRecognitionAlternative;
+  [index: number]: SpeechRecognitionAlternative;
+  isFinal: boolean;
+}
+
+interface SpeechRecognitionAlternative {
+  transcript: string;
+  confidence: number;
+}
+
+interface SpeechRecognition extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  maxAlternatives: number;
+  onresult: ((event: SpeechRecognitionEvent) => void) | null;
+  onerror: ((event: Event) => void) | null;
+  onend: (() => void) | null;
+  onstart: (() => void) | null;
+  start(): void;
+  stop(): void;
+  abort(): void;
+}
+
+// 音频特征分析结果
+interface AudioFeatures {
+  rms: number;
+  peak: number;
+  zeroCrossingRate: number;
+  spectralCentroid: number;
+  spectralRolloff: number;
+  spectralFlux: number;
+  mfcc: number[];
+}
+
 class AudioRecognitionService {
   private audioEvents: AudioEvent[] = [];
   private eventCallbacks: Array<(event: AudioEvent) => void> = [];
   private isListening = false;
   private analysisHistory: AudioAnalysis[] = [];
+  private recognition: SpeechRecognition | null = null;
+  private audioContext: AudioContext | null = null;
+  private analyser: AnalyserNode | null = null;
+  private mediaStream: MediaStream | null = null;
 
   constructor() {
-    this.initializeMockData();
+    this.loadHistoryFromStorage();
+    this.initializeSpeechRecognition();
   }
 
-  private initializeMockData() {
-    const emotions: SoundEmotion[] = ['happy', 'neutral', 'anxious', 'happy', 'neutral'];
-    const categories = Object.values(ANIMAL_SOUND_CATEGORIES).filter(c => c.isAnimal);
-
-    for (let i = 0; i < 10; i++) {
-      const emotion = emotions[i % emotions.length];
-      const category = categories[Math.floor(Math.random() * categories.length)];
+  // 从本地存储加载历史
+  private loadHistoryFromStorage() {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const savedEvents = localStorage.getItem('audioEvents');
+      const savedHistory = localStorage.getItem('audioAnalysisHistory');
       
-      this.audioEvents.push({
-        id: `audio-event-${i}`,
-        petId: '1',
-        timestamp: new Date(Date.now() - i * 3600000).toISOString(),
-        category: category.name,
-        categoryIndex: category.index,
-        confidence: 0.6 + Math.random() * 0.35,
-        emotion,
-        emotionConfidence: 0.7 + Math.random() * 0.25,
-        duration: `${Math.floor(1 + Math.random() * 5)}秒`,
-        description: this.generateDescription(category, emotion),
-        audioClipUrl: `/audio/clips/${Date.now() - i * 3600000}.wav`
-      });
+      if (savedEvents) {
+        try {
+          this.audioEvents = JSON.parse(savedEvents).slice(0, 100);
+        } catch {
+          this.audioEvents = [];
+        }
+      }
+      
+      if (savedHistory) {
+        try {
+          this.analysisHistory = JSON.parse(savedHistory).slice(0, 100);
+        } catch {
+          this.analysisHistory = [];
+        }
+      }
     }
   }
 
-  private generateDescription(category: YAMNetCategory, emotion: SoundEmotion): string {
+  // 保存历史到本地存储
+  private saveHistoryToStorage() {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      localStorage.setItem('audioEvents', JSON.stringify(this.audioEvents.slice(0, 100)));
+      localStorage.setItem('audioAnalysisHistory', JSON.stringify(this.analysisHistory.slice(0, 100)));
+    }
+  }
+
+  // 初始化语音识别
+  private initializeSpeechRecognition() {
+    if (typeof window !== 'undefined') {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        this.recognition = new SpeechRecognition();
+        this.recognition.continuous = true;
+        this.recognition.interimResults = true;
+        this.recognition.lang = 'zh-CN';
+        this.recognition.maxAlternatives = 1;
+        
+        this.recognition.onresult = (event: SpeechRecognitionEvent) => {
+          const results = event.results;
+          if (results.length > 0) {
+            const lastResult = results[results.length - 1];
+            if (lastResult.isFinal) {
+              const transcript = lastResult[0].transcript;
+              const confidence = lastResult[0].confidence;
+              this.handleSpeechResult(transcript, confidence);
+            }
+          }
+        };
+        
+        this.recognition.onerror = (event: Event) => {
+          console.error('Speech recognition error:', event);
+          this.isListening = false;
+        };
+        
+        this.recognition.onend = () => {
+          if (this.isListening) {
+            // 如果仍在监听状态，重新启动
+            try {
+              this.recognition?.start();
+            } catch {
+              // 忽略重复启动错误
+            }
+          }
+        };
+      }
+    }
+  }
+
+  // 处理语音识别结果
+  private handleSpeechResult(transcript: string, confidence: number) {
+    // 分析转录文本中的关键词
+    const detectedEmotion = this.detectEmotionFromTranscript(transcript);
+    const detectedCategory = this.detectCategoryFromTranscript(transcript);
+    
+    const event: AudioEvent = {
+      id: `audio-event-${Date.now()}`,
+      petId: '1',
+      timestamp: new Date().toISOString(),
+      category: detectedCategory.name,
+      categoryIndex: detectedCategory.index,
+      confidence: confidence,
+      emotion: detectedEmotion.emotion,
+      emotionConfidence: detectedEmotion.confidence,
+      duration: `${Math.floor(transcript.length * 0.2)}秒`,
+      description: this.generateDescriptionFromTranscript(transcript, detectedCategory, detectedEmotion.emotion),
+      audioClipUrl: undefined,
+    };
+
+    this.audioEvents.unshift(event);
+    if (this.audioEvents.length > 100) {
+      this.audioEvents.pop();
+    }
+    
+    this.saveHistoryToStorage();
+    this.notifyEvent(event);
+  }
+
+  // 从转录文本检测情感
+  private detectEmotionFromTranscript(transcript: string): { emotion: SoundEmotion; confidence: number } {
+    const lowerTranscript = transcript.toLowerCase();
+    
+    // 关键词映射
+    const emotionKeywords: Record<SoundEmotion, string[]> = {
+      happy: ['开心', '高兴', '快乐', '愉快', '好', '棒', '舒服', '满足', '呼噜', '摇尾巴'],
+      anxious: ['担心', '焦虑', '不安', '紧张', '烦躁', '着急', '呜咽', '不安'],
+      fear: ['害怕', '恐惧', '怕', '吓', '躲', '抖', '颤抖', '尖叫', '嘶'],
+      pain: ['疼', '痛', '难受', '不舒服', '受伤', '病', '痛苦', '呻吟'],
+      neutral: ['正常', '一般', '还行', '可以'],
+    };
+    
+    let bestEmotion: SoundEmotion = 'neutral';
+    let maxScore = 0;
+    
+    for (const [emotion, keywords] of Object.entries(emotionKeywords)) {
+      let score = 0;
+      for (const keyword of keywords) {
+        if (lowerTranscript.includes(keyword)) {
+          score += 1;
+        }
+      }
+      if (score > maxScore) {
+        maxScore = score;
+        bestEmotion = emotion as SoundEmotion;
+      }
+    }
+    
+    const confidence = Math.min(0.95, 0.6 + maxScore * 0.1);
+    return { emotion: bestEmotion, confidence };
+  }
+
+  // 从转录文本检测声音类别
+  private detectCategoryFromTranscript(transcript: string): YAMNetCategory {
+    const lowerTranscript = transcript.toLowerCase();
+    
+    const categoryKeywords: Record<string, number> = {
+      'Bark': 3,
+      'Meow': 5,
+      'Growl': 8,
+      'Howl': 12,
+      'Whimper': 15,
+      'Purr': 20,
+      'Hiss': 25,
+      'Screech': 30,
+    };
+    
+    for (const [category, keywords] of Object.entries({
+      'Bark': ['狗', '汪', '吠', '狗叫'],
+      'Meow': ['猫', '喵', '猫叫'],
+      'Growl': ['吼', '低吼', '咆哮'],
+      'Howl': ['嚎', '嚎叫', '狼嚎'],
+      'Whimper': ['呜咽', '呜', '啜泣'],
+      'Purr': ['呼噜', '咕噜', '打鼾'],
+      'Hiss': ['嘶', '嘶嘶', '哈气'],
+      'Screech': ['尖叫', '尖声', '惨叫'],
+    })) {
+      for (const keyword of keywords) {
+        if (lowerTranscript.includes(keyword)) {
+          return ANIMAL_SOUND_CATEGORIES[categoryKeywords[category]];
+        }
+      }
+    }
+    
+    // 默认返回Speech类别
+    return ANIMAL_SOUND_CATEGORIES[0];
+  }
+
+  // 生成描述
+  private generateDescriptionFromTranscript(transcript: string, category: YAMNetCategory, emotion: SoundEmotion): string {
     const descriptions: Record<string, Record<string, string[]>> = {
       Bark: {
-        happy: ['狗狗开心地叫着，可能看到了主人', '兴奋的吠叫声'],
-        anxious: ['狗狗焦躁地吠叫，可能想出去玩', '有点紧张的叫声'],
-        fear: ['狗狗害怕地吠叫，可能看到了陌生人', '紧张的吠叫声'],
-        pain: ['狗狗痛苦地叫着，可能受伤了', '痛苦的吠叫声'],
-        neutral: ['狗狗正常地叫了一声', '普通的吠叫声']
+        happy: ['狗狗开心地叫着', '兴奋的吠叫声', '狗狗很高兴'],
+        anxious: ['狗狗焦躁地吠叫', '有点紧张的叫声', '狗狗感到不安'],
+        fear: ['狗狗害怕地吠叫', '紧张的吠叫声', '狗狗感到恐惧'],
+        pain: ['狗狗痛苦地叫着', '痛苦的吠叫声', '狗狗可能受伤了'],
+        neutral: ['狗狗正常地叫了一声', '普通的吠叫声', '狗狗在叫'],
       },
       Meow: {
-        happy: ['猫咪开心地叫着，可能想要玩耍', '愉悦的喵喵声'],
-        anxious: ['猫咪焦躁地叫着，可能饿了', '有点不耐烦的叫声'],
-        fear: ['猫咪害怕地叫着，可能受到惊吓', '害怕的叫声'],
-        pain: ['猫咪痛苦地叫着，可能不舒服', '痛苦的叫声'],
-        neutral: ['猫咪正常地叫了一声', '普通的喵喵声']
+        happy: ['猫咪开心地叫着', '愉悦的喵喵声', '猫咪很高兴'],
+        anxious: ['猫咪焦躁地叫着', '有点不耐烦的叫声', '猫咪感到不安'],
+        fear: ['猫咪害怕地叫着', '害怕的叫声', '猫咪感到恐惧'],
+        pain: ['猫咪痛苦地叫着', '痛苦的叫声', '猫咪可能不舒服'],
+        neutral: ['猫咪正常地叫了一声', '普通的喵喵声', '猫咪在叫'],
       },
       Purr: {
-        happy: ['猫咪开心地呼噜着，表示很满足', '满足的呼噜声'],
-        anxious: ['猫咪有点紧张地呼噜着', '轻微紧张的呼噜'],
-        fear: ['猫咪害怕时发出的呼噜', '害怕的呼噜声'],
-        pain: ['猫咪可能有点不舒服', '不太对劲的呼噜'],
-        neutral: ['猫咪放松地呼噜着', '放松的呼噜声']
+        happy: ['猫咪开心地呼噜着', '满足的呼噜声', '猫咪很满足'],
+        anxious: ['猫咪有点紧张地呼噜着', '轻微紧张的呼噜', '猫咪有些不安'],
+        fear: ['猫咪害怕时发出的呼噜', '害怕的呼噜声', '猫咪感到恐惧'],
+        pain: ['猫咪可能有点不舒服', '不太对劲的呼噜', '猫咪可能受伤了'],
+        neutral: ['猫咪放松地呼噜着', '放松的呼噜声', '猫咪在呼噜'],
       },
       Growl: {
-        happy: ['狗狗玩耍时的低吼，表示兴奋', '玩耍时的低吼'],
-        anxious: ['狗狗有点紧张地低吼', '紧张的低吼'],
-        fear: ['狗狗害怕地低吼着', '害怕的低吼'],
-        pain: ['狗狗痛苦地低吼', '痛苦的低吼'],
-        neutral: ['狗狗发出低吼警告', '警告性低吼']
-      }
+        happy: ['狗狗玩耍时的低吼', '玩耍时的低吼', '狗狗在玩耍'],
+        anxious: ['狗狗有点紧张地低吼', '紧张的低吼', '狗狗感到不安'],
+        fear: ['狗狗害怕地低吼着', '害怕的低吼', '狗狗感到恐惧'],
+        pain: ['狗狗痛苦地低吼', '痛苦的低吼', '狗狗可能受伤了'],
+        neutral: ['狗狗发出低吼警告', '警告性低吼', '狗狗在低吼'],
+      },
     };
 
     const catDescriptions = descriptions[category.name] || descriptions.Meow;
     const emotionDescriptions = catDescriptions[emotion] || catDescriptions.neutral;
-    return emotionDescriptions[Math.floor(Math.random() * emotionDescriptions.length)];
+    return emotionDescriptions[0];
   }
 
   // 初始化音频识别
   async initialize(): Promise<void> {
-    await this.simulateDelay(MOCK_DELAY);
+    // 检查浏览器支持
+    if (typeof window === 'undefined') {
+      throw new Error('Audio recognition requires browser environment');
+    }
+    
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      console.warn('Web Speech API not supported in this browser');
+    }
+    
+    // 初始化音频上下文
+    try {
+      this.audioContext = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+    } catch {
+      console.warn('Web Audio API not supported');
+    }
+    
     console.log('Audio recognition service initialized');
   }
 
   // 开始监听
   async startListening(petId: string): Promise<void> {
-    await this.simulateDelay(MOCK_DELAY);
+    if (this.isListening) {
+      console.log('Already listening');
+      return;
+    }
+    
     this.isListening = true;
     console.log(`Started listening for pet ${petId}`);
     
-    // 模拟定期分析
-    this.simulateAudioAnalysis(petId);
+    // 启动语音识别
+    if (this.recognition) {
+      try {
+        this.recognition.start();
+      } catch (err) {
+        console.error('Failed to start speech recognition:', err);
+      }
+    }
+    
+    // 启动音频特征分析
+    await this.startAudioFeatureAnalysis(petId);
   }
 
   // 停止监听
   async stopListening(): Promise<void> {
-    await this.simulateDelay(200);
     this.isListening = false;
+    
+    if (this.recognition) {
+      try {
+        this.recognition.stop();
+      } catch {
+        // 忽略停止错误
+      }
+    }
+    
+    if (this.mediaStream) {
+      this.mediaStream.getTracks().forEach(track => track.stop());
+      this.mediaStream = null;
+    }
+    
+    if (this.audioContext && this.audioContext.state !== 'closed') {
+      await this.audioContext.suspend();
+    }
+    
     console.log('Stopped listening');
   }
 
-  // 模拟音频分析流程
-  private async simulateAudioAnalysis(petId: string) {
-    while (this.isListening) {
-      await this.simulateDelay(2000 + Math.random() * 3000);
+  // 启动音频特征分析
+  private async startAudioFeatureAnalysis(petId: string): Promise<void> {
+    if (!this.audioContext) return;
+    
+    try {
+      this.mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const source = this.audioContext.createMediaStreamSource(this.mediaStream);
       
-      if (!this.isListening) break;
-
-      const categories = Object.values(ANIMAL_SOUND_CATEGORIES).filter(c => c.isAnimal);
-      const category = categories[Math.floor(Math.random() * categories.length)];
-      const emotions: SoundEmotion[] = ['happy', 'neutral', 'anxious', 'fear', 'pain'];
-      const emotion = emotions[Math.floor(Math.random() * emotions.length)];
-
-      const analysis: AudioAnalysis = {
-        id: `analysis-${Date.now()}`,
-        petId,
-        timestamp: new Date().toISOString(),
-        category: category.name,
-        categoryIndex: category.index,
-        confidence: 0.5 + Math.random() * 0.45,
-        rawScores: this.generateMockScores(),
-        duration: Math.random() * 2
-      };
-
-      this.analysisHistory.unshift(analysis);
-      if (this.analysisHistory.length > 100) {
-        this.analysisHistory.pop();
-      }
-
-      // 只有置信度足够高时才生成事件
-      if (analysis.confidence > 0.6) {
-        const event = await this.createAudioEvent(petId, category, emotion, analysis.confidence);
-        this.notifyEvent(event);
-      }
+      this.analyser = this.audioContext.createAnalyser();
+      this.analyser.fftSize = 2048;
+      this.analyser.smoothingTimeConstant = 0.8;
+      
+      source.connect(this.analyser);
+      
+      // 定期分析音频特征
+      this.analyzeAudioFeatures(petId);
+    } catch (err) {
+      console.error('Failed to start audio feature analysis:', err);
     }
   }
 
-  // 生成模拟的YAMNet分数
-  private generateMockScores(): Record<number, number> {
-    const scores: Record<number, number> = {};
-    const animalIndices = Object.keys(ANIMAL_SOUND_CATEGORIES).map(Number);
+  // 分析音频特征
+  private analyzeAudioFeatures(petId: string): void {
+    if (!this.isListening || !this.analyser) return;
     
-    animalIndices.forEach(index => {
-      scores[index] = Math.random() * 0.5;
-    });
-
-    const targetIndex = animalIndices[Math.floor(Math.random() * animalIndices.length)];
-    scores[targetIndex] = 0.7 + Math.random() * 0.3;
-
-    return scores;
+    const bufferLength = this.analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    const timeDomainArray = new Uint8Array(bufferLength);
+    
+    this.analyser.getByteFrequencyData(dataArray);
+    this.analyser.getByteTimeDomainData(timeDomainArray);
+    
+    // 计算音频特征
+    const features = this.calculateAudioFeatures(timeDomainArray, dataArray, this.analyser.context.sampleRate);
+    
+    // 基于特征检测异常声音
+    this.detectAnomalousSound(features, petId);
+    
+    // 继续分析
+    if (this.isListening) {
+      requestAnimationFrame(() => this.analyzeAudioFeatures(petId));
+    }
   }
 
-  // 分析音频数据
-  async analyzeAudio(audioData: Float32Array, sampleRate: number = 16000): Promise<AudioAnalysis> {
-    await this.simulateDelay(MOCK_DELAY);
+  // 计算音频特征
+  private calculateAudioFeatures(timeDomainData: Uint8Array, frequencyData: Uint8Array, sampleRate: number): AudioFeatures {
+    // 转换为Float32Array
+    const floatTimeData = new Float32Array(timeDomainData.length);
+    for (let i = 0; i < timeDomainData.length; i++) {
+      floatTimeData[i] = (timeDomainData[i] - 128) / 128;
+    }
+    
+    // 计算RMS（均方根）
+    let sum = 0;
+    for (let i = 0; i < floatTimeData.length; i++) {
+      sum += floatTimeData[i] * floatTimeData[i];
+    }
+    const rms = Math.sqrt(sum / floatTimeData.length);
+    
+    // 计算峰值
+    let peak = 0;
+    for (let i = 0; i < floatTimeData.length; i++) {
+      peak = Math.max(peak, Math.abs(floatTimeData[i]));
+    }
+    
+    // 计算过零率
+    let zeroCrossings = 0;
+    for (let i = 1; i < floatTimeData.length; i++) {
+      if ((floatTimeData[i] >= 0) !== (floatTimeData[i - 1] >= 0)) {
+        zeroCrossings++;
+      }
+    }
+    const zeroCrossingRate = zeroCrossings / floatTimeData.length;
+    
+    // 计算频谱质心
+    let spectralSum = 0;
+    let weightedSum = 0;
+    for (let i = 0; i < frequencyData.length; i++) {
+      const frequency = (i * sampleRate) / (2 * frequencyData.length);
+      spectralSum += frequencyData[i];
+      weightedSum += frequency * frequencyData[i];
+    }
+    const spectralCentroid = spectralSum > 0 ? weightedSum / spectralSum : 0;
+    
+    // 计算频谱滚降
+    let spectralRolloff = 0;
+    const threshold = spectralSum * 0.85;
+    let cumulativeSum = 0;
+    for (let i = 0; i < frequencyData.length; i++) {
+      cumulativeSum += frequencyData[i];
+      if (cumulativeSum >= threshold) {
+        spectralRolloff = (i * sampleRate) / (2 * frequencyData.length);
+        break;
+      }
+    }
+    
+    // 简化的MFCC计算（使用频谱包络近似）
+    const mfcc = this.calculateSimplifiedMFCC(frequencyData);
+    
+    return {
+      rms,
+      peak,
+      zeroCrossingRate,
+      spectralCentroid,
+      spectralRolloff,
+      spectralFlux: 0, // 需要前一帧数据
+      mfcc,
+    };
+  }
 
+  // 简化的MFCC计算
+  private calculateSimplifiedMFCC(frequencyData: Uint8Array): number[] {
+    // 将频谱分为13个频带并计算能量
+    const numCoefficients = 13;
+    const mfcc: number[] = new Array(numCoefficients).fill(0);
+    
+    const bandSize = Math.floor(frequencyData.length / numCoefficients);
+    
+    for (let i = 0; i < numCoefficients; i++) {
+      let bandEnergy = 0;
+      const start = i * bandSize;
+      const end = Math.min((i + 1) * bandSize, frequencyData.length);
+      
+      for (let j = start; j < end; j++) {
+        bandEnergy += frequencyData[j];
+      }
+      
+      // 对数压缩
+      mfcc[i] = Math.log(1 + bandEnergy);
+    }
+    
+    return mfcc;
+  }
+
+  // 检测异常声音
+  private detectAnomalousSound(features: AudioFeatures, petId: string): void {
+    // 基于音频特征检测异常
+    const isLoud = features.rms > 0.3;
+    const isHighPitch = features.spectralCentroid > 2000;
+    const isIrregular = features.zeroCrossingRate > 0.15;
+    
+    // 如果检测到异常声音模式，创建事件
+    if (isLoud && isHighPitch) {
+      const event: AudioEvent = {
+        id: `audio-event-${Date.now()}`,
+        petId,
+        timestamp: new Date().toISOString(),
+        category: 'Screech',
+        categoryIndex: 30,
+        confidence: features.rms,
+        emotion: 'fear',
+        emotionConfidence: 0.7 + features.rms * 0.3,
+        duration: '1秒',
+        description: '检测到高频尖叫声，宠物可能受到惊吓或感到疼痛',
+      };
+      
+      this.audioEvents.unshift(event);
+      this.notifyEvent(event);
+    } else if (isLoud && features.rms > 0.5) {
+      const event: AudioEvent = {
+        id: `audio-event-${Date.now()}`,
+        petId,
+        timestamp: new Date().toISOString(),
+        category: 'Bark',
+        categoryIndex: 3,
+        confidence: features.rms,
+        emotion: isIrregular ? 'anxious' : 'neutral',
+        emotionConfidence: 0.6,
+        duration: '1秒',
+        description: isIrregular ? '检测到焦虑的叫声' : '检测到正常的叫声',
+      };
+      
+      this.audioEvents.unshift(event);
+      this.notifyEvent(event);
+    }
+  }
+
+  // 分析音频数据（用于离线分析）
+  async analyzeAudio(audioData: Float32Array, sampleRate: number = 16000): Promise<AudioAnalysis> {
     const duration = audioData.length / sampleRate;
     
-    const categories = Object.values(ANIMAL_SOUND_CATEGORIES).filter(c => c.isAnimal);
-    const category = categories[Math.floor(Math.random() * categories.length)];
-    const confidence = 0.5 + Math.random() * 0.45;
+    // 分析音频特征
+    const features = this.analyzeOfflineAudioFeatures(audioData, sampleRate);
+    
+    // 基于特征分类声音类型
+    const category = this.classifySoundType(features);
+    
+    // 计算置信度
+    const confidence = Math.min(0.95, 0.6 + features.rms * 0.3 + (1 - features.zeroCrossingRate) * 0.1);
 
     const analysis: AudioAnalysis = {
       id: `analysis-${Date.now()}`,
@@ -225,7 +608,7 @@ class AudioRecognitionService {
       category: category.name,
       categoryIndex: category.index,
       confidence,
-      rawScores: this.generateMockScores(),
+      rawScores: this.generateRawScores(features),
       duration
     };
 
@@ -233,14 +616,119 @@ class AudioRecognitionService {
     if (this.analysisHistory.length > 100) {
       this.analysisHistory.pop();
     }
-
+    
+    this.saveHistoryToStorage();
     return analysis;
+  }
+
+  // 离线音频特征分析
+  private analyzeOfflineAudioFeatures(audioData: Float32Array, sampleRate: number): AudioFeatures {
+    // 计算RMS
+    let sum = 0;
+    for (let i = 0; i < audioData.length; i++) {
+      sum += audioData[i] * audioData[i];
+    }
+    const rms = Math.sqrt(sum / audioData.length);
+    
+    // 计算峰值
+    let peak = 0;
+    for (let i = 0; i < audioData.length; i++) {
+      peak = Math.max(peak, Math.abs(audioData[i]));
+    }
+    
+    // 计算过零率
+    let zeroCrossings = 0;
+    for (let i = 1; i < audioData.length; i++) {
+      if ((audioData[i] >= 0) !== (audioData[i - 1] >= 0)) {
+        zeroCrossings++;
+      }
+    }
+    const zeroCrossingRate = zeroCrossings / audioData.length;
+    
+    // 简化的频谱分析
+    const fftSize = 2048;
+    const spectrum = this.computeSpectrum(audioData.slice(0, Math.min(fftSize, audioData.length)));
+    
+    // 计算频谱质心
+    let spectralSum = 0;
+    let weightedSum = 0;
+    for (let i = 0; i < spectrum.length; i++) {
+      const frequency = (i * sampleRate) / (2 * spectrum.length);
+      spectralSum += spectrum[i];
+      weightedSum += frequency * spectrum[i];
+    }
+    const spectralCentroid = spectralSum > 0 ? weightedSum / spectralSum : 0;
+    
+    return {
+      rms,
+      peak,
+      zeroCrossingRate,
+      spectralCentroid,
+      spectralRolloff: 0,
+      spectralFlux: 0,
+      mfcc: new Array(13).fill(0),
+    };
+  }
+
+  // 计算频谱
+  private computeSpectrum(frame: Float32Array): number[] {
+    const n = frame.length;
+    const spectrum: number[] = [];
+
+    for (let k = 0; k < n / 2; k++) {
+      let real = 0;
+      let imag = 0;
+      for (let t = 0; t < n; t++) {
+        const angle = (2 * Math.PI * k * t) / n;
+        real += frame[t] * Math.cos(angle);
+        imag -= frame[t] * Math.sin(angle);
+      }
+      spectrum.push(Math.sqrt(real * real + imag * imag));
+    }
+
+    return spectrum;
+  }
+
+  // 分类声音类型
+  private classifySoundType(features: AudioFeatures): YAMNetCategory {
+    // 基于特征分类
+    if (features.spectralCentroid > 1500 && features.rms > 0.2) {
+      return ANIMAL_SOUND_CATEGORIES[30]; // Screech
+    } else if (features.spectralCentroid > 1000 && features.rms > 0.15) {
+      return ANIMAL_SOUND_CATEGORIES[3]; // Bark
+    } else if (features.spectralCentroid > 800 && features.rms > 0.1) {
+      return ANIMAL_SOUND_CATEGORIES[5]; // Meow
+    } else if (features.rms < 0.05) {
+      return ANIMAL_SOUND_CATEGORIES[20]; // Purr
+    }
+    
+    return ANIMAL_SOUND_CATEGORIES[0]; // Speech
+  }
+
+  // 生成原始分数
+  private generateRawScores(features: AudioFeatures): Record<number, number> {
+    const scores: Record<number, number> = {};
+    const animalIndices = Object.keys(ANIMAL_SOUND_CATEGORIES).map(Number);
+    
+    // 基于特征生成分数
+    animalIndices.forEach(index => {
+      scores[index] = Math.random() * 0.3;
+    });
+
+    // 根据特征选择最可能的类别
+    let targetIndex = 0;
+    if (features.spectralCentroid > 1500) targetIndex = 30;
+    else if (features.spectralCentroid > 1000) targetIndex = 3;
+    else if (features.spectralCentroid > 800) targetIndex = 5;
+    else if (features.rms < 0.05) targetIndex = 20;
+    
+    scores[targetIndex] = 0.7 + features.rms * 0.3;
+
+    return scores;
   }
 
   // 情绪分类
   async classifyEmotion(analysis: AudioAnalysis): Promise<{ emotion: SoundEmotion; confidence: number }> {
-    await this.simulateDelay(300);
-
     const emotionMap: Record<string, SoundEmotion[]> = {
       Bark: ['happy', 'anxious', 'fear', 'neutral'],
       Meow: ['happy', 'anxious', 'fear', 'pain', 'neutral'],
@@ -253,10 +741,19 @@ class AudioRecognitionService {
     };
 
     const possibleEmotions = emotionMap[analysis.category] || ['neutral', 'happy', 'anxious'];
-    const emotion = possibleEmotions[Math.floor(Math.random() * possibleEmotions.length)];
-    const confidence = 0.65 + Math.random() * 0.3;
+    
+    // 基于置信度和类别选择情感
+    let emotion: SoundEmotion = 'neutral';
+    
+    if (analysis.confidence > 0.8) {
+      emotion = possibleEmotions[0]; // 高置信度取第一个
+    } else if (analysis.confidence > 0.6) {
+      emotion = possibleEmotions[1] || 'neutral';
+    } else {
+      emotion = possibleEmotions[2] || 'neutral';
+    }
 
-    return { emotion, confidence };
+    return { emotion, confidence: analysis.confidence };
   }
 
   // 创建音频事件
@@ -266,8 +763,6 @@ class AudioRecognitionService {
     emotion: SoundEmotion,
     confidence: number
   ): Promise<AudioEvent> {
-    await this.simulateDelay(200);
-
     const event: AudioEvent = {
       id: `audio-event-${Date.now()}`,
       petId,
@@ -276,36 +771,32 @@ class AudioRecognitionService {
       categoryIndex: category.index,
       confidence,
       emotion,
-      emotionConfidence: 0.7 + Math.random() * 0.25,
-      duration: `${Math.floor(1 + Math.random() * 5)}秒`,
-      description: this.generateDescription(category, emotion),
-      audioClipUrl: `/audio/clips/${Date.now()}.wav`
+      emotionConfidence: confidence,
+      duration: `${Math.floor(1 + confidence * 5)}秒`,
+      description: this.generateDescriptionFromTranscript('', category, emotion),
     };
 
     this.audioEvents.unshift(event);
     if (this.audioEvents.length > 100) {
       this.audioEvents.pop();
     }
-
+    
+    this.saveHistoryToStorage();
     return event;
   }
 
   // 获取音频事件列表
   async getAudioEvents(petId: string, limit: number = 20): Promise<AudioEvent[]> {
-    await this.simulateDelay(300);
     return this.audioEvents.filter(e => e.petId === petId).slice(0, limit);
   }
 
   // 获取分析历史
   async getAnalysisHistory(petId: string, limit: number = 50): Promise<AudioAnalysis[]> {
-    await this.simulateDelay(200);
     return this.analysisHistory.filter(a => a.petId === petId).slice(0, limit);
   }
 
   // 获取情绪统计
   async getEmotionStatistics(petId: string, hours: number = 24): Promise<Record<SoundEmotion, number>> {
-    await this.simulateDelay(300);
-
     const result: Record<SoundEmotion, number> = {
       happy: 0,
       anxious: 0,
@@ -334,8 +825,6 @@ class AudioRecognitionService {
     baseline: number;
     current: number;
   }> {
-    await this.simulateDelay(MOCK_DELAY);
-
     const cutoffTime = Date.now() - hours * 3600000;
     const recentEvents = this.audioEvents.filter(
       e => e.petId === petId && new Date(e.timestamp).getTime() > cutoffTime
@@ -387,8 +876,24 @@ class AudioRecognitionService {
     this.eventCallbacks.forEach(cb => cb(event));
   }
 
-  private simulateDelay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+  // 检查浏览器支持
+  isSupported(): boolean {
+    if (typeof window === 'undefined') return false;
+    return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+  }
+
+  // 获取音频特征（用于可视化）
+  getAudioFeatures(): { frequencyData: Uint8Array; timeDomainData: Uint8Array } | null {
+    if (!this.analyser) return null;
+    
+    const bufferLength = this.analyser.frequencyBinCount;
+    const frequencyData = new Uint8Array(bufferLength);
+    const timeDomainData = new Uint8Array(bufferLength);
+    
+    this.analyser.getByteFrequencyData(frequencyData);
+    this.analyser.getByteTimeDomainData(timeDomainData);
+    
+    return { frequencyData, timeDomainData };
   }
 }
 

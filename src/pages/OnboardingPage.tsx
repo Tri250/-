@@ -18,7 +18,7 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
     breed: '',
     age: '',
   });
-  const { addPet, setCurrentPet, completeOnboarding } = useAppStore();
+  const { addPet, completeOnboarding } = useAppStore();
 
   const totalSteps = 3;
 
@@ -45,7 +45,6 @@ export function OnboardingPage({ onComplete }: OnboardingPageProps) {
       avatarUrl: '',
     };
     addPet(newPet);
-    setCurrentPet({ ...newPet, id: Date.now().toString() });
     completeOnboarding();
     onComplete();
   };

@@ -23,8 +23,9 @@ export enum StoreNames {
 }
 
 // 数据库接口
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 interface PawSyncDB extends IDBDatabase {
-  // 类型标记
+  // 类型标记 - 继承 IDBDatabase 的所有属性
 }
 
 // 数据库连接单例

@@ -18,9 +18,9 @@ interface LazyRouteOptions {
 export function lazyRoute<T extends ComponentType<any>>(
   factory: () => Promise<{ default: T }>,
   options: LazyRouteOptions = {}
-): React.FC<any> {
+): React.FC<Record<string, unknown>> {
   const { fallback, delay = 0 } = options;
-  
+
   const LazyComponent = lazy(() => {
     if (delay > 0) {
       return Promise.all([
@@ -31,7 +31,7 @@ export function lazyRoute<T extends ComponentType<any>>(
     return factory();
   });
 
-  const LazyRouteWrapper: React.FC<any> = (props) => {
+  const LazyRouteWrapper: React.FC<Record<string, unknown>> = (props) => {
     return React.createElement(
       Suspense,
       { fallback: fallback || React.createElement(LoadingIndicator, { text: '加载中...' }) },

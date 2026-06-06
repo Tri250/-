@@ -1,7 +1,10 @@
 ext {
+    // SDK 版本
     minSdkVersion = 24
     compileSdkVersion = 36
     targetSdkVersion = 36
+    
+    // AndroidX 版本
     androidxAppCompatVersion = '1.7.0'
     androidxCoreVersion = '1.15.0'
     androidxCoreSplashScreenVersion = '1.0.1'
@@ -9,10 +12,24 @@ ext {
     androidxBrowserVersion = '1.8.0'
     androidxLocalBroadcastManagerVersion = '1.1.0'
     androidxCoordinatorLayoutVersion = '1.2.0'
+    
+    // Firebase 和 Play Services
     firebaseMessagingVersion = '24.1.0'
     playServicesLocationVersion = '21.3.0'
+    
+    // 测试版本
     junitVersion = '4.13.2'
     androidxJunitVersion = '1.2.1'
     androidxEspressoCoreVersion = '3.6.1'
+    
+    // Cordova
     cordovaAndroidVersion = '10.1.1'
+    
+    // Kotlin
+    kotlinVersion = '2.0.21'
+    
+    // 其他依赖版本
+    gsonVersion = '2.11.0'
+    okhttpVersion = '4.12.0'
+    glideVersion = '4.16.0'
 }

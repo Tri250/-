@@ -1,6 +1,34 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- 应用主色调 - 橙色主题 -->
     <color name="colorPrimary">#f97316</color>
     <color name="colorPrimaryDark">#ea580c</color>
     <color name="colorAccent">#f97316</color>
+    
+    <!-- 状态栏和导航栏颜色 -->
+    <color name="statusBarColor">#f8fafc</color>
+    <color name="navigationBarColor">#f8fafc</color>
+    
+    <!-- 背景颜色 -->
+    <color name="backgroundColor">#f8fafc</color>
+    <color name="surfaceColor">#ffffff</color>
+    
+    <!-- 文字颜色 -->
+    <color name="textPrimary">#1e293b</color>
+    <color name="textSecondary">#64748b</color>
+    <color name="textHint">#94a3b8</color>
+    
+    <!-- 通知图标颜色 -->
+    <color name="notificationIconColor">#f97316</color>
+    
+    <!-- 强调色 -->
+    <color name="accentOrange">#f97316</color>
+    <color name="accentOrangeLight">#fdba74</color>
+    <color name="accentOrangeDark">#c2410c</color>
+    
+    <!-- 功能颜色 -->
+    <color name="success">#22c55e</color>
+    <color name="warning">#f59e0b</color>
+    <color name="error">#ef4444</color>
+    <color name="info">#3b82f6</color>
 </resources>

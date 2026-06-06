@@ -38,7 +38,7 @@ interface FeedItem {
 
 export const PersonalizedFeed: React.FC<PersonalizedFeedProps> = ({ onNavigate }) => {
   const { currentPet, currentEmotion, healthScore } = useAppStore();
-  const { metrics, streakDays } = useBondStore();
+  const { streakDays } = useBondStore();
   // const { pets } = usePetStore();
   const { getFilteredRecords } = useHealthRecordStore();
   
