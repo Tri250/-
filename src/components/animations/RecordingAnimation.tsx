@@ -226,6 +226,7 @@ export function RecordingAnimation({
       {/* 主按钮 */}
       <button
         onClick={onClick}
+        type="button"
         className={`
           relative ${sizeConfig[size].container} rounded-full
           flex items-center justify-center
@@ -235,12 +236,15 @@ export function RecordingAnimation({
             : 'bg-gradient-to-br from-orange-400 to-orange-500 hover:scale-105 active:scale-95'
           }
           shadow-2xl
+          cursor-pointer
+          touch-manipulation
         `}
         style={{
           boxShadow: isActive 
             ? `0 0 40px rgba(239, 68, 68, 0.4), 0 0 80px rgba(239, 68, 68, 0.2)` 
             : `0 0 30px rgba(249, 115, 22, 0.3)`,
         }}
+        aria-label={isActive ? '停止录音' : '开始录音'}
       >
         {/* 有机波浪 */}
         {isActive && <OrganicWaves audioLevel={audioLevel} isActive={isActive} />}

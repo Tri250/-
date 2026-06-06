@@ -759,8 +759,11 @@ export function TranslatorPage({ onNavigate }: { onNavigate?: (page: string) => 
         setRecordingTime((prev) => prev + 1);
       }, 1000);
 
+      // 使用ref来跟踪录音状态，避免闭包问题
+      const isRecordingRef = { current: true };
+      
       const captureAudio = () => {
-        if (!analyserRef.current || !isRecording) return;
+        if (!analyserRef.current || !isRecordingRef.current) return;
         
         const dataArray = new Float32Array(analyser.fftSize);
         analyserRef.current.getFloatTimeDomainData(dataArray);
@@ -782,6 +785,9 @@ export function TranslatorPage({ onNavigate }: { onNavigate?: (page: string) => 
         animationRef.current = requestAnimationFrame(captureAudio);
       };
       captureAudio();
+      
+      // 将停止函数附加到ref，以便外部可以停止录音
+      (stopRecording as any).isRecordingRef = isRecordingRef;
     } catch (error) {
       console.error('无法访问麦克风:', error);
       
@@ -803,6 +809,12 @@ export function TranslatorPage({ onNavigate }: { onNavigate?: (page: string) => 
   };
 
   const stopRecording = () => {
+    // 更新ref状态以停止captureAudio循环
+    const isRecordingRef = (stopRecording as any).isRecordingRef;
+    if (isRecordingRef) {
+      isRecordingRef.current = false;
+    }
+    
     setIsRecording(false);
     setAudioLevel(0);
     
