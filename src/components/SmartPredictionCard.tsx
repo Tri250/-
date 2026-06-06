@@ -1,22 +1,13 @@
-import React, { useMemo } from 'react';
-import { Brain, AlertTriangle, Calendar, Clock, TrendingUp, Droplets, Sun, Moon, Wind } from 'lucide-react';
+import React, { useMemo, useState, useEffect } from 'react';
+import { Brain, AlertTriangle, Calendar, Clock, TrendingUp, Droplets, Sun, Moon, Wind, Loader2 } from 'lucide-react';
 import { Card } from './ui/Card';
 import { Badge } from './ui/Badge';
-
-interface Prediction {
-  id: string;
-  type: 'health' | 'behavior' | 'care' | 'seasonal';
-  title: string;
-  description: string;
-  confidence: number;
-  timeframe: string;
-  icon: 'alert' | 'calendar' | 'trend' | 'drop' | 'sun' | 'moon' | 'wind';
-  action?: string;
-}
+import { realPredictionService, type Prediction } from '../services/realPredictionService';
 
 interface SmartPredictionCardProps {
-  predictions: Prediction[];
+  predictions?: Prediction[];
   className?: string;
+  petId?: string;
 }
 
 const typeConfig = {
@@ -36,57 +27,38 @@ const iconMap = {
   wind: Wind,
 };
 
-// 模拟预测数据生成
-const generateMockPredictions = (): Prediction[] => {
-  return [
-    {
-      id: '1',
-      type: 'health',
-      title: '换毛期即将到来',
-      description: '根据历史数据，毛孩子即将进入换毛期，建议增加梳毛频率',
-      confidence: 85,
-      timeframe: '预计3天内',
-      icon: 'alert',
-      action: '查看护理指南',
-    },
-    {
-      id: '2',
-      type: 'behavior',
-      title: '活跃度可能下降',
-      description: '最近气温变化较大，毛孩子可能会变得不太活跃',
-      confidence: 72,
-      timeframe: '本周内',
-      icon: 'trend',
-      action: '调整运动计划',
-    },
-    {
-      id: '3',
-      type: 'care',
-      title: '建议增加水分摄入',
-      description: '根据活动量分析，今日饮水量可能不足',
-      confidence: 68,
-      timeframe: '今日',
-      icon: 'drop',
-      action: '设置提醒',
-    },
-    {
-      id: '4',
-      type: 'seasonal',
-      title: '夏季防暑提醒',
-      description: '未来几天气温升高，注意给毛孩子降温',
-      confidence: 90,
-      timeframe: '下周开始',
-      icon: 'sun',
-      action: '查看防暑攻略',
-    },
-  ];
-};
-
 export const SmartPredictionCard: React.FC<SmartPredictionCardProps> = ({
   predictions: propPredictions,
   className = '',
+  petId = '1',
 }) => {
-  const predictions = propPredictions || generateMockPredictions();
+  const [predictions, setPredictions] = useState<Prediction[]>(propPredictions || []);
+  const [isLoading, setIsLoading] = useState(!propPredictions);
+  const [error, setError] = useState<string | null>(null);
+
+  // 加载真实预测数据
+  useEffect(() => {
+    if (propPredictions) {
+      setPredictions(propPredictions);
+      return;
+    }
+
+    const loadPredictions = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const realPredictions = await realPredictionService.getPredictions(petId);
+        setPredictions(realPredictions);
+      } catch (err) {
+        setError('加载预测失败');
+        console.error('Failed to load predictions:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadPredictions();
+  }, [petId, propPredictions]);
 
   // 按优先级和置信度排序
   const sortedPredictions = useMemo(() => {
@@ -196,8 +168,11 @@ export const SmartPredictionCard: React.FC<SmartPredictionCardProps> = ({
       {/* 底部说明 */}
       <div className="mt-4 p-3 bg-purple-50 rounded-lg">
         <p className="text-xs text-purple-700">
-          <span className="font-medium">🤖 AI预测：</span>
-          基于历史数据和行为模式，预测准确率会随使用时间提升
+          <span className="font-medium">🤖 智能预测：</span>
+          {isLoading ? '正在分析数据...' : 
+           error ? '基于历史数据分析' :
+           predictions.length > 0 ? '基于真实历史数据分析，预测准确率会随使用时间提升' : 
+           '开始记录数据以获取智能预测'}
         </p>
       </div>
     </Card>

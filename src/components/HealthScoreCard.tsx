@@ -1,23 +1,17 @@
-import React, { useMemo } from 'react';
-import { Heart, Activity, Moon, Utensils, Dumbbell, Droplets, TrendingUp, TrendingDown, AlertCircle } from 'lucide-react';
+import React, { useMemo, useState, useEffect } from 'react';
+import { Heart, Activity, Moon, Utensils, Dumbbell, Droplets, TrendingUp, TrendingDown, AlertCircle, Loader2 } from 'lucide-react';
 import { Card } from './ui/Card';
 import { Badge } from './ui/Badge';
 import { CircularProgress } from './ui/CircularProgress';
-
-interface HealthMetrics {
-  activity: number;
-  diet: number;
-  sleep: number;
-  mental: number;
-  medical: number;
-}
+import { realHealthScoreService, type HealthMetrics, type HealthScoreResult } from '../services/realHealthScoreService';
 
 interface HealthScoreCardProps {
-  score: number;
-  metrics: HealthMetrics;
+  score?: number;
+  metrics?: HealthMetrics;
   lastCheckDate?: string;
   trend?: 'up' | 'down' | 'stable';
   className?: string;
+  petId?: string;
 }
 
 const metricConfig = {
@@ -36,12 +30,53 @@ const scoreLevels = [
 ];
 
 export const HealthScoreCard: React.FC<HealthScoreCardProps> = ({
-  score,
-  metrics,
-  lastCheckDate,
-  trend = 'stable',
+  score: propScore,
+  metrics: propMetrics,
+  lastCheckDate: propLastCheckDate,
+  trend: propTrend,
   className = '',
+  petId = '1',
 }) => {
+  const [healthData, setHealthData] = useState<HealthScoreResult | null>(null);
+  const [isLoading, setIsLoading] = useState(!propScore || !propMetrics);
+  const [error, setError] = useState<string | null>(null);
+
+  // 加载真实健康评分数据
+  useEffect(() => {
+    if (propScore !== undefined && propMetrics !== undefined) {
+      return;
+    }
+
+    const loadHealthScore = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const data = await realHealthScoreService.getHealthScore(petId);
+        setHealthData(data);
+      } catch (err) {
+        setError('加载健康评分失败');
+        console.error('Failed to load health score:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadHealthScore();
+  }, [petId, propScore, propMetrics]);
+
+  // 使用传入的props或加载的数据
+  const score = propScore ?? healthData?.score ?? 70;
+  const metrics = propMetrics ?? healthData?.metrics ?? {
+    activity: 70,
+    diet: 75,
+    sleep: 70,
+    mental: 70,
+    medical: 75
+  };
+  const lastCheckDate = propLastCheckDate ?? healthData?.lastCheckDate;
+  const trend = propTrend ?? healthData?.trend ?? 'stable';
+  const suggestions = healthData?.suggestions || [];
+
   const level = useMemo(() => {
     return scoreLevels.find(l => score >= l.min) || scoreLevels[scoreLevels.length - 1];
   }, [score]);
@@ -55,6 +90,17 @@ export const HealthScoreCard: React.FC<HealthScoreCardProps> = ({
 
   const TrendIcon = trend === 'up' ? TrendingUp : trend === 'down' ? TrendingDown : AlertCircle;
   const trendColor = trend === 'up' ? 'text-green-500' : trend === 'down' ? 'text-red-500' : 'text-gray-400';
+
+  if (isLoading) {
+    return (
+      <Card className={`p-5 ${className}`}>
+        <div className="flex items-center justify-center h-48">
+          <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+          <span className="ml-2 text-gray-500">计算健康评分...</span>
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <Card className={`p-5 ${className}`}>
@@ -136,12 +182,21 @@ export const HealthScoreCard: React.FC<HealthScoreCardProps> = ({
       </div>
 
       {/* 建议 */}
-      {weakMetrics.length > 0 && (
-        <div className="mt-4 p-3 bg-orange-50 rounded-lg">
-          <p className="text-xs text-orange-700">
-            <span className="font-medium">💡 建议：</span>
-            加强{weakMetrics.map(([key]) => metricConfig[key as keyof typeof metricConfig].label).join('、')}管理
-          </p>
+      {(weakMetrics.length > 0 || suggestions.length > 0) && (
+        <div className="mt-4 p-3 bg-orange-50 rounded-lg space-y-2">
+          {suggestions.length > 0 ? (
+            suggestions.map((suggestion, index) => (
+              <p key={index} className="text-xs text-orange-700">
+                <span className="font-medium">💡 建议{index + 1}：</span>
+                {suggestion}
+              </p>
+            ))
+          ) : (
+            <p className="text-xs text-orange-700">
+              <span className="font-medium">💡 建议：</span>
+              加强{weakMetrics.map(([key]) => metricConfig[key as keyof typeof metricConfig].label).join('、')}管理
+            </p>
+          )}
         </div>
       )}
     </Card>

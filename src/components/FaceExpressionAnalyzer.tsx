@@ -1,8 +1,10 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Camera, RefreshCw, Smile, Frown, Meh, AlertCircle, Heart, Sparkles } from 'lucide-react';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
+import { realFaceExpressionService } from '../services/realFaceExpressionService';
+import type { FaceExpression } from '../types/face';
 
 interface ExpressionResult {
   expression: 'happy' | 'sad' | 'angry' | 'surprised' | 'neutral' | 'sleepy';
@@ -14,11 +16,13 @@ interface ExpressionResult {
     tailPosition?: 'up' | 'down' | 'neutral';
   };
   interpretation: string;
+  processingTime?: number;
 }
 
 interface FaceExpressionAnalyzerProps {
   onAnalyze?: (result: ExpressionResult) => void;
   className?: string;
+  petType?: 'cat' | 'dog';
 }
 
 const expressionConfig = {
@@ -60,40 +64,40 @@ const expressionConfig = {
   },
 };
 
-// 模拟表情分析
-const mockAnalyzeExpression = (imageData: string): Promise<ExpressionResult> => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const expressions: ExpressionResult['expression'][] = ['happy', 'sad', 'angry', 'surprised', 'neutral', 'sleepy'];
-      const randomExpression = expressions[Math.floor(Math.random() * expressions.length)];
-      
-      resolve({
-        expression: randomExpression,
-        confidence: 70 + Math.random() * 25,
-        details: {
-          eyeOpenness: 30 + Math.random() * 70,
-          mouthOpenness: Math.random() * 50,
-          earPosition: Math.random() > 0.5 ? 'up' : Math.random() > 0.5 ? 'down' : 'neutral',
-        },
-        interpretation: expressionConfig[randomExpression].description,
-      });
-    }, 1500);
-  });
+// 将 FaceExpression 映射到组件使用的 expression 类型
+const mapExpression = (expression: FaceExpression): ExpressionResult['expression'] => {
+  const mapping: Record<FaceExpression, ExpressionResult['expression']> = {
+    happy: 'happy',
+    relaxed: 'neutral',
+    tense: 'angry',
+    pain: 'sad',
+    curious: 'surprised',
+    aggressive: 'angry'
+  };
+  return mapping[expression] || 'neutral';
 };
 
 export const FaceExpressionAnalyzer: React.FC<FaceExpressionAnalyzerProps> = ({
   onAnalyze,
   className = '',
+  petType = 'dog',
 }) => {
   const [image, setImage] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState<ExpressionResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 初始化服务
+  useEffect(() => {
+    realFaceExpressionService.initialize();
+  }, []);
 
   const handleImageSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setError(null);
     const reader = new FileReader();
     reader.onload = (event) => {
       setImage(event.target?.result as string);
@@ -106,18 +110,38 @@ export const FaceExpressionAnalyzer: React.FC<FaceExpressionAnalyzerProps> = ({
     if (!image) return;
 
     setIsAnalyzing(true);
+    setError(null);
     try {
-      const analysisResult = await mockAnalyzeExpression(image);
-      setResult(analysisResult);
-      onAnalyze?.(analysisResult);
+      // 使用真实的表情分析服务
+      const analysisResult = await realFaceExpressionService.analyzeFace(image, petType);
+      
+      // 转换为组件内部格式
+      const mappedResult: ExpressionResult = {
+        expression: mapExpression(analysisResult.expression),
+        confidence: analysisResult.confidence,
+        details: {
+          eyeOpenness: analysisResult.landmarks?.find(l => l.name?.includes('Eye')) ? 70 : 30,
+          mouthOpenness: analysisResult.landmarks?.find(l => l.name?.includes('mouth')) ? 40 : 10,
+          earPosition: analysisResult.expression === 'aggressive' ? 'back' : 
+                       analysisResult.expression === 'curious' ? 'up' : 'neutral',
+        },
+        interpretation: analysisResult.description || expressionConfig[mapExpression(analysisResult.expression)].description,
+        processingTime: analysisResult.processingTime,
+      };
+      
+      setResult(mappedResult);
+      onAnalyze?.(mappedResult);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '分析失败，请重试');
     } finally {
       setIsAnalyzing(false);
     }
-  }, [image, onAnalyze]);
+  }, [image, onAnalyze, petType]);
 
   const handleReset = useCallback(() => {
     setImage(null);
     setResult(null);
+    setError(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -179,6 +203,13 @@ export const FaceExpressionAnalyzer: React.FC<FaceExpressionAnalyzerProps> = ({
           className="hidden"
         />
       </div>
+
+      {/* 错误提示 */}
+      {error && (
+        <div className="mb-4 p-3 bg-red-50 rounded-lg">
+          <p className="text-sm text-red-600">{error}</p>
+        </div>
+      )}
 
       {/* 分析按钮 */}
       {image && !result && !isAnalyzing && (
