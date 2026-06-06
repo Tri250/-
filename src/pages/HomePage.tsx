@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import { GlassCard, SkeletonQuickActions } from '../components/DesignSystem';
 import { SmartTodayCard, CoreFeatures, PersonalizedFeed } from '../components/home';
+import { WeatherCard, WeatherForecast } from '../components/weather';
+import { useWeatherStore } from '../store/weatherStore';
 import '../styles/animations.css';
 import { useAppStore } from '../store/appStore';
 import { useBondStore } from '../store/bondStore';
@@ -27,6 +29,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
   const { currentPet, currentEmotion, healthScore } = useAppStore();
   const { metrics, totalPoints, streakDays } = useBondStore();
   const { pets, currentPetId, setCurrentPet } = usePetStore();
+  const { weatherData, fetchWeather, apiKey, startAutoUpdate, stopAutoUpdate } = useWeatherStore();
   const [, setCameras] = useState<CameraDevice[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -34,6 +37,17 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
   const [isPulling, setIsPulling] = useState(false);
   const touchStartY = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // 初始化天气
+  useEffect(() => {
+    if (apiKey) {
+      fetchWeather();
+      startAutoUpdate();
+    }
+    return () => {
+      stopAutoUpdate();
+    };
+  }, [apiKey]);
 
   const loadData = useCallback(async () => {
     const devices = await cameraAdapterService.getDevices();
@@ -286,12 +300,24 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
             </>
           ) : (
             <>
-              {/* 1. 智能今日卡片 */}
+              {/* 1. 天气卡片 */}
+              <div className="animate-liquid-fade-in">
+                <WeatherCard />
+              </div>
+
+              {/* 2. 天气预报 */}
+              {weatherData && (
+                <div className="animate-liquid-fade-in">
+                  <WeatherForecast />
+                </div>
+              )}
+
+              {/* 3. 智能今日卡片 */}
               <div className="animate-liquid-fade-in">
                 <SmartTodayCard onNavigate={onNavigate} />
               </div>
 
-              {/* 2. 核心功能入口（精简为4个） */}
+              {/* 4. 核心功能入口（精简为4个） */}
               <div className="animate-liquid-fade-in">
                 <CoreFeatures onNavigate={onNavigate} />
               </div>
