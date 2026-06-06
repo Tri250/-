@@ -26,6 +26,7 @@ import { useReminderStore } from '../store/reminderStore';
 import { useHealthRecordStore } from '../store/healthRecordStore';
 import { cameraAdapterService } from '../services/cameraAdapterService';
 import type { CameraDevice } from '../types/camera';
+import { usePullToRefresh } from '../hooks/useGestures';
 
 interface HomePageProps {
   onNavigate: (page: string) => void;

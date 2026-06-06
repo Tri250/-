@@ -7,9 +7,12 @@
 // ============================================
 
 import { useState } from 'react';
-import { Activity, AlertTriangle, Bell, Heart, Moon, Sun, Thermometer, ChevronRight, Shield, Utensils, Scissors, Zap, BookOpen, Star } from 'lucide-react';
+import { Activity, AlertTriangle, Bell, Heart, Moon, Sun, Thermometer, ChevronRight, Shield, Utensils, Scissors, Zap, BookOpen, Star, X, Sparkles, Camera, Brain } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 import { Card } from '../components/ui/Card';
+import { HealthScoreCard } from '../components/HealthScoreCard';
+import { FaceExpressionAnalyzer } from '../components/FaceExpressionAnalyzer';
+import { SmartPredictionCard } from '../components/SmartPredictionCard';
 
 const alertTypeConfig = {
   cough: { icon: Activity, label: '咳嗽', color: 'text-yellow-500', bgColor: 'bg-yellow-50' },
@@ -36,6 +39,11 @@ export default function HealthPage() {
   const { healthAlerts, healthScore, currentPet, careTips } = useAppStore();
   const [nightMode, setNightMode] = useState(true);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  
+  // 功能弹窗状态
+  const [showHealthScoreModal, setShowHealthScoreModal] = useState(false);
+  const [showFaceExpressionModal, setShowFaceExpressionModal] = useState(false);
+  const [showSmartPredictionModal, setShowSmartPredictionModal] = useState(false);
 
   const healthMetrics = [
     { label: '心率', value: '120', unit: 'bpm', icon: Heart, color: 'text-red-500', bgColor: 'bg-red-50' },
@@ -133,6 +141,63 @@ export default function HealthPage() {
             ))}
           </div>
         </div>
+
+        {/* AI功能入口 */}
+        <section>
+          <h2 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-purple-500" />
+            AI 智能分析
+          </h2>
+          <div className="grid grid-cols-3 gap-3">
+            {/* 健康评分入口 */}
+            <Card
+              variant="default"
+              padding="medium"
+              className="cursor-pointer hover:shadow-md transition-shadow"
+              onClick={() => setShowHealthScoreModal(true)}
+            >
+              <div className="flex flex-col items-center text-center">
+                <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-emerald-500 rounded-xl flex items-center justify-center mb-2">
+                  <Heart className="w-5 h-5 text-white" />
+                </div>
+                <p className="text-sm font-medium text-gray-800">健康评分</p>
+                <p className="text-xs text-gray-500 mt-1">综合评估</p>
+              </div>
+            </Card>
+
+            {/* 表情识别入口 */}
+            <Card
+              variant="default"
+              padding="medium"
+              className="cursor-pointer hover:shadow-md transition-shadow"
+              onClick={() => setShowFaceExpressionModal(true)}
+            >
+              <div className="flex flex-col items-center text-center">
+                <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-pink-500 rounded-xl flex items-center justify-center mb-2">
+                  <Camera className="w-5 h-5 text-white" />
+                </div>
+                <p className="text-sm font-medium text-gray-800">表情识别</p>
+                <p className="text-xs text-gray-500 mt-1">拍照分析</p>
+              </div>
+            </Card>
+
+            {/* 智能预测入口 */}
+            <Card
+              variant="default"
+              padding="medium"
+              className="cursor-pointer hover:shadow-md transition-shadow"
+              onClick={() => setShowSmartPredictionModal(true)}
+            >
+              <div className="flex flex-col items-center text-center">
+                <div className="w-10 h-10 bg-gradient-to-br from-purple-400 to-indigo-500 rounded-xl flex items-center justify-center mb-2">
+                  <Brain className="w-5 h-5 text-white" />
+                </div>
+                <p className="text-sm font-medium text-gray-800">智能预测</p>
+                <p className="text-xs text-gray-500 mt-1">AI预警</p>
+              </div>
+            </Card>
+          </div>
+        </section>
 
         {/* 夜间监护模式 */}
         <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
@@ -285,6 +350,80 @@ export default function HealthPage() {
           </p>
         </div>
       </main>
+
+      {/* 健康评分弹窗 */}
+      {showHealthScoreModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl p-6 mx-4 max-w-md w-full shadow-2xl animate-fadeIn max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                <Heart className="w-5 h-5 text-green-500" />
+                健康评分详情
+              </h3>
+              <button
+                onClick={() => setShowHealthScoreModal(false)}
+                className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <HealthScoreCard
+              score={healthScore}
+              metrics={{
+                activity: 85,
+                diet: 78,
+                sleep: 92,
+                mental: 88,
+                medical: 95,
+              }}
+              lastCheckDate="2026-06-06"
+              trend="up"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* 表情识别弹窗 */}
+      {showFaceExpressionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl p-6 mx-4 max-w-md w-full shadow-2xl animate-fadeIn max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                <Camera className="w-5 h-5 text-orange-500" />
+                表情识别分析
+              </h3>
+              <button
+                onClick={() => setShowFaceExpressionModal(false)}
+                className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <FaceExpressionAnalyzer />
+          </div>
+        </div>
+      )}
+
+      {/* 智能预测弹窗 */}
+      {showSmartPredictionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl p-6 mx-4 max-w-md w-full shadow-2xl animate-fadeIn max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                <Brain className="w-5 h-5 text-purple-500" />
+                智能预测
+              </h3>
+              <button
+                onClick={() => setShowSmartPredictionModal(false)}
+                className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <SmartPredictionCard predictions={undefined} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

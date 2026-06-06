@@ -7,7 +7,7 @@
 // ============================================
 
 import { useState, useEffect, useRef } from 'react';
-import { Mic, Share2, RefreshCw, Sparkles, Heart, ChevronDown, ChevronUp, ChevronLeft, Activity, Waves, Music2, Camera, Upload, X, History, Clock, Volume2, Radio, Drum, Palette } from 'lucide-react';
+import { Mic, Share2, RefreshCw, Sparkles, Heart, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Activity, Waves, Music2, Camera, Upload, X, History, Clock, Volume2, Radio, Drum, Palette } from 'lucide-react';
 import { useAppStore, type Analysis } from '../store/appStore';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -26,6 +26,7 @@ import {
   ResultCardAnimation,
   BadgeAnimation,
 } from '../components/animations';
+import { EmotionTrendChart } from '../components/EmotionTrendChart';
 
 type AppStoreEmotion = 'happy' | 'anxious' | 'angry' | 'needs' | 'neutral';
 
@@ -108,6 +109,61 @@ function EmotionMeter({ confidence, guaranteed }: { confidence: number; guarante
       {guaranteed && isHighConfidence && animatedConfidence >= 95 && (
         <div className="absolute -right-1 top-1/2 -translate-y-1/2 animate-pulse">
           <span className="text-xs bg-green-500 text-white px-1 rounded-full">✓</span>
+        </div>
+      )}
+
+      {/* 情绪趋势分析弹窗 */}
+      {showTrendModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl p-6 mx-4 max-w-md w-full shadow-2xl animate-fadeIn max-h-[85vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                <Activity className="w-5 h-5 text-orange-500" />
+                情绪趋势分析
+              </h3>
+              <button
+                onClick={() => setShowTrendModal(false)}
+                className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto space-y-4">
+              {/* 导入情绪趋势组件 */}
+              <EmotionTrendChart 
+                data={[
+                  { date: '周一', happy: 60, anxious: 20, angry: 5, neutral: 10, needs: 5, overall: 75 },
+                  { date: '周二', happy: 70, anxious: 15, angry: 3, neutral: 8, needs: 4, overall: 82 },
+                  { date: '周三', happy: 55, anxious: 25, angry: 8, neutral: 7, needs: 5, overall: 68 },
+                  { date: '周四', happy: 80, anxious: 10, angry: 2, neutral: 5, needs: 3, overall: 88 },
+                  { date: '周五', happy: 75, anxious: 12, angry: 4, neutral: 6, needs: 3, overall: 85 },
+                  { date: '周六', happy: 85, anxious: 8, angry: 2, neutral: 3, needs: 2, overall: 92 },
+                  { date: '周日', happy: 78, anxious: 10, angry: 3, neutral: 5, needs: 4, overall: 87 },
+                ]}
+                period="week"
+              />
+              
+              {/* 本周总结 */}
+              <Card variant="default" padding="medium">
+                <h4 className="font-medium text-gray-800 mb-3">本周情绪总结</h4>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">最开心的一天</span>
+                    <span className="font-medium text-green-600">周六 (92分)</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">平均情绪指数</span>
+                    <span className="font-medium text-orange-600">82.4分</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">情绪波动</span>
+                    <span className="font-medium text-blue-600">中等</span>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -675,6 +731,7 @@ export default function TranslatorPage({ onNavigate }: { onNavigate?: (page: str
   const [analysisSource, setAnalysisSource] = useState<'voice' | 'image'>('voice');
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedHistoryItem, setSelectedHistoryItem] = useState<Analysis | null>(null);
+  const [showTrendModal, setShowTrendModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [hasValidAudio, setHasValidAudio] = useState(false);
   const [maxAudioLevelReached, setMaxAudioLevelReached] = useState(0);
@@ -1447,6 +1504,30 @@ export default function TranslatorPage({ onNavigate }: { onNavigate?: (page: str
 
         <Card variant="default" padding="medium">
           <AnalysisDimensionsGrid isActive={isAnalyzing} />
+        </Card>
+
+        {/* 情绪趋势分析入口 */}
+        <Card 
+          variant="default" 
+          padding="medium"
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => setShowTrendModal(true)}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-pink-500 rounded-xl flex items-center justify-center">
+                <Activity className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <p className="font-medium text-gray-800">情绪趋势分析</p>
+                <p className="text-xs text-gray-500">查看毛孩子的情绪变化趋势</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge color="orange" size="small">AI分析</Badge>
+              <ChevronRight className="w-5 h-5 text-gray-400" />
+            </div>
+          </div>
         </Card>
       </main>
       

@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Edit, History, Settings, Crown, Star, Heart, ChevronRight, Camera, Code, Check } from 'lucide-react';
+import { Edit, History, Settings, Crown, Star, Heart, ChevronRight, Camera, Code, Check, Users } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
+import FamilyShareCard from '../components/FamilyShareCard';
 
 interface ProfilePageProps {
   onNavigate?: (page: string) => void;
@@ -8,6 +9,7 @@ interface ProfilePageProps {
 
 const menuItems = [
   { icon: History, label: '分析历史', description: '查看所有翻译记录', page: 'history' },
+  { icon: Users, label: '家庭共享', description: '邀请家人一起守护毛孩子', action: 'family-share' },
   { icon: Settings, label: '设置', description: '隐私、通知等设置', page: 'settings' },
   { icon: Heart, label: '收藏', description: '收藏的精彩时刻', page: 'favorites' },
   { icon: Star, label: '帮助与反馈', description: '使用帮助与问题反馈', page: 'help-feedback' },
@@ -17,9 +19,26 @@ const menuItems = [
 export default function ProfilePage({ onNavigate }: ProfilePageProps) {
   const { currentPet, analyses, updateCurrentPet } = useAppStore();
   const [showEdit, setShowEdit] = useState(false);
+  const [showFamilyModal, setShowFamilyModal] = useState(false);
   const [petName, setPetName] = useState(currentPet?.name || '');
   const [petBreed, setPetBreed] = useState(currentPet?.breed || '');
   const [petAge, setPetAge] = useState(currentPet?.age.toString() || '');
+
+  // 示例家庭成员数据
+  const familyMembers = [
+    {
+      id: '1',
+      name: '我',
+      role: 'owner' as const,
+      permissions: {
+        viewHealth: true,
+        editHealth: true,
+        viewLocation: true,
+        receiveAlerts: true,
+      },
+      lastActive: '刚刚',
+    },
+  ];
 
   const handleSaveEdit = () => {
     if (currentPet) {
@@ -173,7 +192,9 @@ export default function ProfilePage({ onNavigate }: ProfilePageProps) {
               <button
                 key={item.label}
                 onClick={() => {
-                  if (onNavigate && item.page) {
+                  if (item.action === 'family-share') {
+                    setShowFamilyModal(true);
+                  } else if (onNavigate && item.page) {
                     onNavigate(item.page);
                   }
                 }}
@@ -191,6 +212,25 @@ export default function ProfilePage({ onNavigate }: ProfilePageProps) {
             );
           })}
         </div>
+
+        {/* 家庭共享弹窗 */}
+        {showFamilyModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+            <div className="w-full max-w-md max-h-[80vh] overflow-y-auto">
+              <FamilyShareCard
+                members={familyMembers}
+                onInvite={() => console.log('邀请家庭成员')}
+                onUpdatePermissions={(memberId, permissions) => console.log('更新权限', memberId, permissions)}
+              />
+              <button
+                onClick={() => setShowFamilyModal(false)}
+                className="w-full mt-3 py-3 bg-white rounded-xl text-gray-600 font-medium shadow-sm"
+              >
+                关闭
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="text-center">
           <p className="text-xs text-gray-400">爪爪连心❤️ v1.0.0</p>
