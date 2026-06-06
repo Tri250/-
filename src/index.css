@@ -1,9 +1,9 @@
+/* Android性能优化样式 - 必须在@tailwind之前 */
+@import './styles/android-performance.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-/* Android性能优化样式 */
-@import './styles/android-performance.css';
 
 /* ============================================
    微交互动画
