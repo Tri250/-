@@ -339,14 +339,14 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
                 <div className="flex-1 min-w-0">
                   <h3 className="text-lg font-bold text-white">{currentPet?.name}</h3>
                   <p className="text-sm text-white/80 mt-0.5">{getEmotionLabel(currentEmotion)}</p>
-                  <div className="flex items-center gap-3 mt-2.5">
-                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-yellow-400/25 border border-yellow-400/15 backdrop-blur-sm">
-                      <Star className="w-3.5 h-3.5 text-yellow-200 fill-current" />
-                      <span className="text-xs text-yellow-100 font-medium">{unlockedBadges} 徽章</span>
+                  <div className="flex items-center gap-2 mt-2.5 flex-wrap">
+                    <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-yellow-400/25 border border-yellow-400/15 backdrop-blur-sm whitespace-nowrap">
+                      <Star className="w-3 h-3 text-yellow-200 fill-current flex-shrink-0" />
+                      <span className="text-xs text-yellow-100 font-medium">{unlockedBadges}徽章</span>
                     </div>
-                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-blue-400/25 border border-blue-400/15 backdrop-blur-sm">
-                      <Clock className="w-3.5 h-3.5 text-blue-200" />
-                      <span className="text-xs text-blue-100 font-medium">{streakDays} 天</span>
+                    <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-blue-400/25 border border-blue-400/15 backdrop-blur-sm whitespace-nowrap">
+                      <Clock className="w-3 h-3 text-blue-200 flex-shrink-0" />
+                      <span className="text-xs text-blue-100 font-medium">{streakDays}天</span>
                     </div>
                   </div>
                 </div>
