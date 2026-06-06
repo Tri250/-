@@ -93,17 +93,17 @@ function LoadingScreen({ progress, message }: { progress: number; message: strin
   );
 }
 
-// 页面切换动画配置
+// 页面切换动画配置 - 优化为更平滑的淡入淡出
 const pageVariants = {
-  initial: { opacity: 0, x: 20 },
-  animate: { opacity: 1, x: 0 },
-  exit: { opacity: 0, x: -20 }
+  initial: { opacity: 0 },
+  animate: { opacity: 1 },
+  exit: { opacity: 0 }
 };
 
 const pageTransition = {
-  type: 'spring' as const,
-  stiffness: 300,
-  damping: 30
+  type: 'tween' as const,
+  duration: 0.2,
+  ease: 'easeOut'
 };
 
 export default function App() {
