@@ -31,11 +31,13 @@ export function lazyRoute<T extends ComponentType<any>>(
     return factory();
   });
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const LazyRouteWrapper: React.FC<Record<string, unknown>> = (props) => {
     return React.createElement(
       Suspense,
       { fallback: fallback || React.createElement(LoadingIndicator, { text: '加载中...' }) },
-      React.createElement(LazyComponent, props)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      React.createElement(LazyComponent as React.ComponentType<any>, props as any)
     );
   };
 

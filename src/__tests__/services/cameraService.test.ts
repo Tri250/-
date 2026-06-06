@@ -4,6 +4,10 @@ import { cameraManager } from '../../services/cameraService';
 describe('CameraService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // 清除localStorage中的设备数据
+    localStorage.removeItem('pawsync_camera_devices');
+    // 重新初始化cameraManager
+    (cameraManager as unknown as { devices: unknown[] }).devices = [];
   });
 
   afterEach(() => {
@@ -11,13 +15,26 @@ describe('CameraService', () => {
   });
 
   describe('getAllDevices - 获取所有设备', () => {
-    it('应该返回设备列表', async () => {
+    it('初始应该返回空设备列表', async () => {
       const devices = await cameraManager.getAllDevices();
       expect(Array.isArray(devices)).toBe(true);
+      expect(devices.length).toBe(0);
+    });
+
+    it('连接设备后应该返回设备列表', async () => {
+      vi.useFakeTimers();
+      await cameraManager.connectXiaomi('TEST-001');
+      vi.useRealTimers();
+      
+      const devices = await cameraManager.getAllDevices();
       expect(devices.length).toBeGreaterThan(0);
     });
 
     it('设备应该包含正确的属性', async () => {
+      vi.useFakeTimers();
+      await cameraManager.connectXiaomi('TEST-002');
+      vi.useRealTimers();
+      
       const devices = await cameraManager.getAllDevices();
       const device = devices[0];
       
@@ -29,24 +46,27 @@ describe('CameraService', () => {
       expect(device).toHaveProperty('model');
     });
 
-    it('应该返回在线和离线设备', async () => {
+    it('新连接的设备应该在线', async () => {
+      vi.useFakeTimers();
+      await cameraManager.connectXiaomi('TEST-003');
+      vi.useRealTimers();
+      
       const devices = await cameraManager.getAllDevices();
       const onlineDevices = devices.filter(d => d.status === 'online');
-      const offlineDevices = devices.filter(d => d.status === 'offline');
       
       expect(onlineDevices.length).toBeGreaterThan(0);
-      expect(offlineDevices.length).toBeGreaterThan(0);
     });
   });
 
   describe('getDeviceById - 根据ID获取设备', () => {
     it('应该返回匹配的设备', async () => {
-      const devices = await cameraManager.getAllDevices();
-      const firstDevice = devices[0];
+      vi.useFakeTimers();
+      const device = await cameraManager.connectXiaomi('TEST-004');
+      vi.useRealTimers();
       
-      const result = await cameraManager.getDeviceById(firstDevice.id);
+      const result = await cameraManager.getDeviceById(device.id);
       expect(result).not.toBeNull();
-      expect(result?.id).toBe(firstDevice.id);
+      expect(result?.id).toBe(device.id);
     });
 
     it('不存在的设备ID应该返回null', async () => {
@@ -59,9 +79,7 @@ describe('CameraService', () => {
     it('应该连接新的小米设备', async () => {
       vi.useFakeTimers();
       const deviceCode = 'TEST-MI-001';
-      const promise = cameraManager.connectXiaomi(deviceCode);
-      vi.advanceTimersByTime(800);
-      const device = await promise;
+      const device = await cameraManager.connectXiaomi(deviceCode);
       vi.useRealTimers();
       
       expect(device).toHaveProperty('id');
@@ -73,13 +91,14 @@ describe('CameraService', () => {
     it('应该重新连接已存在的设备', async () => {
       vi.useFakeTimers();
       const deviceCode = 'MJSXJ02CM';
-      const promise = cameraManager.connectXiaomi(deviceCode);
-      vi.advanceTimersByTime(800);
-      const device = await promise;
+      // 先连接一次
+      const firstDevice = await cameraManager.connectXiaomi(deviceCode);
+      // 再次连接同一个设备
+      const device = await cameraManager.connectXiaomi(deviceCode);
       vi.useRealTimers();
       
       expect(device.status).toBe('online');
-      expect(device.name).toBe('客厅摄像头');
+      expect(device.id).toBe(firstDevice.id);
     });
   });
 
@@ -87,9 +106,7 @@ describe('CameraService', () => {
     it('应该连接新的华为设备', async () => {
       vi.useFakeTimers();
       const deviceCode = 'TEST-HW-001';
-      const promise = cameraManager.connectHuawei(deviceCode);
-      vi.advanceTimersByTime(800);
-      const device = await promise;
+      const device = await cameraManager.connectHuawei(deviceCode);
       vi.useRealTimers();
       
       expect(device).toHaveProperty('id');
@@ -103,9 +120,7 @@ describe('CameraService', () => {
     it('应该连接新的荣耀设备', async () => {
       vi.useFakeTimers();
       const deviceCode = 'TEST-HONOR-001';
-      const promise = cameraManager.connectHonor(deviceCode);
-      vi.advanceTimersByTime(800);
-      const device = await promise;
+      const device = await cameraManager.connectHonor(deviceCode);
       vi.useRealTimers();
       
       expect(device).toHaveProperty('id');
@@ -117,39 +132,29 @@ describe('CameraService', () => {
 
   describe('removeDevice - 删除设备', () => {
     it('应该成功删除存在的设备', async () => {
-      const devicesBefore = await cameraManager.getAllDevices();
-      const deviceToRemove = devicesBefore[0];
-      
       vi.useFakeTimers();
-      const promise = cameraManager.removeDevice(deviceToRemove.id);
-      vi.advanceTimersByTime(500);
-      const result = await promise;
+      const device = await cameraManager.connectXiaomi('TEST-REMOVE');
       vi.useRealTimers();
       
+      const devicesBefore = await cameraManager.getAllDevices();
+      expect(devicesBefore.length).toBe(1);
+      
+      const result = await cameraManager.removeDevice(device.id);
       expect(result).toBe(true);
       
       const devicesAfter = await cameraManager.getAllDevices();
-      expect(devicesAfter.find(d => d.id === deviceToRemove.id)).toBeUndefined();
+      expect(devicesAfter.length).toBe(0);
     });
 
     it('删除不存在的设备应该返回false', async () => {
-      vi.useFakeTimers();
-      const promise = cameraManager.removeDevice('non-existent-id');
-      vi.advanceTimersByTime(500);
-      const result = await promise;
-      vi.useRealTimers();
-      
+      const result = await cameraManager.removeDevice('non-existent-id');
       expect(result).toBe(false);
     });
   });
 
   describe('getCapability - 获取设备能力', () => {
     it('应该返回小米设备的能力', async () => {
-      vi.useFakeTimers();
-      const promise = cameraManager.getCapability('xiaomi');
-      vi.advanceTimersByTime(200);
-      const capability = await promise;
-      vi.useRealTimers();
+      const capability = await cameraManager.getCapability('xiaomi');
       
       expect(capability.brand).toBe('xiaomi');
       expect(capability.supports1080p).toBe(true);
@@ -158,22 +163,14 @@ describe('CameraService', () => {
     });
 
     it('应该返回华为设备的能力', async () => {
-      vi.useFakeTimers();
-      const promise = cameraManager.getCapability('huawei');
-      vi.advanceTimersByTime(200);
-      const capability = await promise;
-      vi.useRealTimers();
+      const capability = await cameraManager.getCapability('huawei');
       
       expect(capability.brand).toBe('huawei');
       expect(capability.maxResolution).toBe('2560x1440');
     });
 
-    it('未知品牌应该返回默认能力', async () => {
-      vi.useFakeTimers();
-      const promise = cameraManager.getCapability('unknown');
-      vi.advanceTimersByTime(200);
-      const capability = await promise;
-      vi.useRealTimers();
+    it('未知品牌应该返回小米默认能力', async () => {
+      const capability = await cameraManager.getCapability('unknown');
       
       expect(capability.brand).toBe('xiaomi');
     });
@@ -211,28 +208,25 @@ describe('CameraService', () => {
 
   describe('updateStream - 更新流配置', () => {
     it('应该更新设备的流配置', async () => {
-      const devices = await cameraManager.getAllDevices();
-      const device = devices[0];
-      
       vi.useFakeTimers();
-      const promise = cameraManager.updateStream(device.id, { 
+      const device = await cameraManager.connectXiaomi('TEST-UPDATE');
+      vi.useRealTimers();
+      
+      const result = await cameraManager.updateStream(device.id, { 
         resolution: '1080p',
         audioEnabled: true,
         nightVision: 'off' 
       });
-      vi.advanceTimersByTime(300);
-      const result = await promise;
-      vi.useRealTimers();
       
       expect(result).toBe(true);
     });
 
     it('不存在的设备应该返回false', async () => {
-      vi.useFakeTimers();
-      const promise = cameraManager.updateStream('non-existent', { resolution: '1080p', audioEnabled: false, nightVision: 'off' });
-      vi.advanceTimersByTime(300);
-      const result = await promise;
-      vi.useRealTimers();
+      const result = await cameraManager.updateStream('non-existent', { 
+        resolution: '1080p', 
+        audioEnabled: false, 
+        nightVision: 'off' 
+      });
       
       expect(result).toBe(false);
     });
@@ -240,18 +234,44 @@ describe('CameraService', () => {
 
   describe('onDeviceConnection - 设备连接回调', () => {
     it('应该注册并触发连接回调', async () => {
-      vi.useFakeTimers();
       const callback = vi.fn();
       cameraManager.onDeviceConnection(callback);
       
-      const promise = cameraManager.connectXiaomi('CALLBACK-TEST');
-      vi.advanceTimersByTime(800);
-      await promise;
+      vi.useFakeTimers();
+      await cameraManager.connectXiaomi('CALLBACK-TEST');
       vi.useRealTimers();
       
       expect(callback).toHaveBeenCalled();
       const connectedDevice = callback.mock.calls[0][0];
       expect(connectedDevice.model).toBe('CALLBACK-TEST');
+    });
+  });
+
+  describe('权限和媒体设备', () => {
+    it('应该能获取权限状态', () => {
+      const status = cameraManager.getPermissionStatus();
+      expect(['granted', 'denied', 'prompt', 'unknown']).toContain(status);
+    });
+
+    it('应该能枚举设备', async () => {
+      // 模拟navigator.mediaDevices
+      const mockDevices = [
+        { deviceId: '1', label: 'Camera 1', kind: 'videoinput', groupId: 'g1' },
+        { deviceId: '2', label: 'Mic 1', kind: 'audioinput', groupId: 'g2' }
+      ];
+      
+      Object.defineProperty(global.navigator, 'mediaDevices', {
+        value: {
+          enumerateDevices: vi.fn().mockResolvedValue(mockDevices),
+          getUserMedia: vi.fn().mockResolvedValue({
+            getTracks: () => [{ stop: vi.fn() }]
+          })
+        },
+        writable: true
+      });
+
+      const devices = await cameraManager.enumerateDevices();
+      expect(Array.isArray(devices)).toBe(true);
     });
   });
 });

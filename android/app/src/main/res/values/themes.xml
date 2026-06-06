@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.PawSync" parent="AppTheme" />
+    <style name="Theme.PawSync.NoActionBar" parent="AppTheme.NoActionBarLaunch" />
+    <style name="Theme.PawSync.Dark" parent="AppTheme.Dark" />
+</resources>

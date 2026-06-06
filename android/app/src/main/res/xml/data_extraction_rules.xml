@@ -1,32 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-  Android 12+ 数据提取规则
-  用于控制备份和数据传输行为
--->
 <data-extraction-rules>
-    <!-- 允许云端备份，但排除敏感数据 -->
     <cloud-backup>
-        <include domain="sharedpref" path="." />
-        <include domain="database" path="." />
-        <include domain="file" path="." />
-        <!-- 排除敏感文件 -->
-        <exclude domain="sharedpref" path="secure_prefs.xml" />
-        <exclude domain="sharedpref" path="auth_prefs.xml" />
-        <exclude domain="file" path="credentials/" />
-        <exclude domain="file" path="secrets/" />
-        <exclude domain="database" path="user_sensitive_data.db" />
+        <include domain="sharedpref" path="."/>
+        <include domain="database" path="."/>
+        <include domain="file" path="."/>
+        <exclude domain="sharedpref" path="device.xml"/>
     </cloud-backup>
-    
-    <!-- 设备间数据传输规则 -->
     <device-transfer>
-        <include domain="sharedpref" path="." />
-        <include domain="database" path="." />
-        <include domain="file" path="." />
-        <!-- 排除敏感数据传输 -->
-        <exclude domain="sharedpref" path="secure_prefs.xml" />
-        <exclude domain="sharedpref" path="auth_prefs.xml" />
-        <exclude domain="file" path="credentials/" />
-        <exclude domain="file" path="secrets/" />
-        <exclude domain="database" path="user_sensitive_data.db" />
+        <include domain="sharedpref" path="."/>
+        <include domain="database" path="."/>
+        <include domain="file" path="."/>
     </device-transfer>
 </data-extraction-rules>
