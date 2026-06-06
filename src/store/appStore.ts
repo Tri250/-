@@ -1,13 +1,11 @@
 // ============================================
-// PawSync Pro - appStore.ts
-//
-// 作者: 带娃的小陈工
-// 日期: 2026-05-26
-// 描述: 应用主状态管理，包含用户、宠物、分析结果等状态
+// PawSync Pro - appStore.ts (真实数据版)
+// 使用 IndexedDB 替代 mock 数据
 // ============================================
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { initDB, initDefaultData, userDB, petDB, analysisDB, healthAlertDB, careTipDB } from '../lib/db';
 
 export interface User {
   id: string;
@@ -20,11 +18,15 @@ export interface User {
 
 export interface Pet {
   id: string;
+  userId: string;
   name: string;
   breed: string;
   age: number;
   avatarUrl: string;
   type: 'cat' | 'dog' | 'other';
+  weight?: number;
+  gender?: 'male' | 'female';
+  birthday?: string;
 }
 
 export interface Analysis {
@@ -46,6 +48,7 @@ export interface HealthAlert {
   severity: 'low' | 'medium' | 'high';
   message: string;
   timestamp: string;
+  isRead: boolean;
 }
 
 export interface CareTip {
@@ -82,67 +85,29 @@ interface AppState {
   isRecording: boolean;
   careTips: CareTip[];
   settings: AppSettings;
-  setUser: (user: User | null) => void;
+  
+  // Actions
+  setUser: (user: User | null) => Promise<void>;
   login: (email: string, password: string) => Promise<boolean>;
   register: (email: string, password: string, username: string) => Promise<boolean>;
-  logout: () => void;
+  logout: () => Promise<void>;
   completeOnboarding: () => void;
-  setCurrentPet: (pet: Pet) => void;
-  updateCurrentPet: (pet: Partial<Pet>) => void;
-  addPet: (pet: Omit<Pet, 'id'>) => void;
-  addAnalysis: (analysis: Omit<Analysis, 'id' | 'createdAt'>) => void;
-  addHealthAlert: (alert: Omit<HealthAlert, 'id'>) => void;
+  setCurrentPet: (pet: Pet | null) => void;
+  updateCurrentPet: (pet: Partial<Pet>) => Promise<void>;
+  addPet: (pet: Omit<Pet, 'id' | 'userId'>) => Promise<void>;
+  deletePet: (petId: string) => Promise<void>;
+  addAnalysis: (analysis: Omit<Analysis, 'id' | 'createdAt'>) => Promise<void>;
+  addHealthAlert: (alert: Omit<HealthAlert, 'id'>) => Promise<void>;
+  markAlertAsRead: (alertId: string) => Promise<void>;
   setIsRecording: (isRecording: boolean) => void;
   setCurrentEmotion: (emotion: 'happy' | 'anxious' | 'angry' | 'needs' | 'neutral') => void;
   setHealthScore: (score: number) => void;
   updateSettings: (settings: Partial<AppSettings>) => void;
-  clearAllData: () => void;
+  clearAllData: () => Promise<void>;
   initializeApp: () => Promise<void>;
-  setInitProgress: (progress: number, message: string) => void;
+  loadUserData: () => Promise<void>;
+  refreshCareTips: () => Promise<void>;
 }
-
-const defaultCareTips: CareTip[] = [
-  {
-    id: '1',
-    category: 'feeding',
-    title: '定时定量喂食',
-    content: '成年猫每天需要2-3次定时喂食，保持规律的饮食习惯有助于消化系统健康。',
-    petType: 'cat',
-    priority: 'high',
-  },
-  {
-    id: '2',
-    category: 'health',
-    title: '定期体检',
-    content: '建议每年带宠物进行一次全面体检，及时发现潜在健康问题。',
-    petType: 'all',
-    priority: 'high',
-  },
-  {
-    id: '3',
-    category: 'grooming',
-    title: '毛发护理',
-    content: '定期梳理毛发可以促进血液循环，减少掉毛和毛球问题。',
-    petType: 'cat',
-    priority: 'medium',
-  },
-  {
-    id: '4',
-    category: 'exercise',
-    title: '每日互动玩耍',
-    content: '每天花15-30分钟与宠物互动玩耍，保持身心健康和良好的关系。',
-    petType: 'all',
-    priority: 'high',
-  },
-  {
-    id: '5',
-    category: 'behavior',
-    title: '观察异常行为',
-    content: '注意宠物的行为变化，如食欲不振、过度舔毛等可能是健康问题的信号。',
-    petType: 'all',
-    priority: 'medium',
-  },
-];
 
 const defaultSettings: AppSettings = {
   notifications: true,
@@ -156,142 +121,166 @@ const defaultSettings: AppSettings = {
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
-      user: {
-        id: 'default-user',
-        email: 'user@pawsync.local',
-        username: '宠物主人',
-        isPremium: false,
-        createdAt: new Date().toISOString(),
-      },
-      isAuthenticated: true,
-      isOnboardingComplete: true,
+      user: null,
+      isAuthenticated: false,
+      isOnboardingComplete: false,
       isInitialized: false,
       initProgress: 0,
       initMessage: '正在启动应用...',
-      pets: [{
-        id: '1',
-        name: '小橘',
-        breed: '橘猫',
-        age: 2,
-        avatarUrl: '',
-        type: 'cat' as const,
-      }],
-      currentPet: {
-        id: '1',
-        name: '小橘',
-        breed: '橘猫',
-        age: 2,
-        avatarUrl: '',
-        type: 'cat' as const,
-      },
+      pets: [],
+      currentPet: null,
       analyses: [],
-      healthAlerts: [{
-        id: '1',
-        petId: '1',
-        type: 'cough',
-        severity: 'low',
-        message: '注意观察咳嗽情况',
-        timestamp: new Date().toISOString(),
-      }],
+      healthAlerts: [],
       currentEmotion: 'happy',
-      healthScore: 92,
+      healthScore: 0,
       isRecording: false,
       settings: defaultSettings,
-      careTips: defaultCareTips,
-
-      setInitProgress: (progress, message) => set({ initProgress: progress, initMessage: message }),
+      careTips: [],
 
       initializeApp: async () => {
-        const { setInitProgress } = get();
+        const { initProgress } = get();
+        if (initProgress > 0) return;
         
-        setInitProgress(10, '正在加载应用配置...');
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        setInitProgress(30, '正在初始化状态管理...');
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        setInitProgress(50, '正在加载用户数据...');
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        setInitProgress(70, '正在加载宠物信息...');
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        setInitProgress(90, '正在完成初始化...');
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        setInitProgress(100, '初始化完成');
-        
-        const state = get();
-        if (!state.pets.length && state.isAuthenticated) {
-          const defaultPet: Pet = {
-            id: '1',
-            name: '小橘',
-            breed: '橘猫',
-            age: 2,
-            avatarUrl: '',
-            type: 'cat',
-          };
-          set({ 
-            pets: [defaultPet], 
-            currentPet: defaultPet,
-          });
+        try {
+          set({ initProgress: 10, initMessage: '正在初始化数据库...' });
+          await initDB();
+          
+          set({ initProgress: 30, initMessage: '正在加载默认数据...' });
+          await initDefaultData();
+          
+          set({ initProgress: 50, initMessage: '正在加载用户数据...' });
+          await get().loadUserData();
+          
+          set({ initProgress: 80, initMessage: '正在加载养宠贴士...' });
+          await get().refreshCareTips();
+          
+          set({ initProgress: 100, initMessage: '初始化完成', isInitialized: true });
+        } catch (error) {
+          console.error('初始化失败:', error);
+          set({ initMessage: '初始化失败，请刷新重试' });
         }
-        
-        set({ isInitialized: true });
       },
 
-      setUser: (user) => set({ user, isAuthenticated: !!user }),
+      loadUserData: async () => {
+        try {
+          // 加载用户
+          const users = await userDB.getAll();
+          if (users.length > 0) {
+            const user = users[0] as User;
+            set({ user, isAuthenticated: true });
+            
+            // 加载该用户的宠物
+            const allPets = await petDB.getAll();
+            const userPets = allPets.filter((p: Pet) => p.userId === user.id);
+            set({ pets: userPets });
+            
+            if (userPets.length > 0) {
+              set({ currentPet: userPets[0] });
+              
+              // 加载该宠物的分析记录
+              const analyses = await analysisDB.getByIndex('petId', userPets[0].id);
+              set({ analyses: analyses as Analysis[] });
+              
+              // 加载健康告警
+              const alerts = await healthAlertDB.getByIndex('petId', userPets[0].id);
+              set({ healthAlerts: alerts as HealthAlert[] });
+            }
+          }
+        } catch (error) {
+          console.error('加载用户数据失败:', error);
+        }
+      },
 
-      login: async (email, _password) => {
+      refreshCareTips: async () => {
+        try {
+          const tips = await careTipDB.getAll();
+          set({ careTips: tips as CareTip[] });
+        } catch (error) {
+          console.error('加载养宠贴士失败:', error);
+        }
+      },
+
+      setUser: async (user) => {
+        if (user) {
+          await userDB.update(user.id, user);
+        }
+        set({ user, isAuthenticated: !!user });
+      },
+
+      login: async (email, password) => {
         set({ initProgress: 30, initMessage: '正在验证账号...' });
-        await new Promise(resolve => setTimeout(resolve, 500));
         
-        set({ initProgress: 60, initMessage: '正在获取用户信息...' });
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        const mockUser: User = {
-          id: '1',
-          email,
-          username: email.split('@')[0],
-          isPremium: false,
-          createdAt: new Date().toISOString(),
-        };
-        
-        set({ 
-          user: mockUser, 
-          isAuthenticated: true,
-          initProgress: 100,
-          initMessage: '登录成功',
-        });
-        return true;
+        try {
+          // 这里应该调用真实的认证 API
+          // 现在使用本地数据库模拟
+          const users = await userDB.getAll();
+          const user = users.find((u: User) => u.email === email);
+          
+          if (user) {
+            set({ 
+              user: user as User, 
+              isAuthenticated: true,
+              initProgress: 100,
+              initMessage: '登录成功',
+            });
+            await get().loadUserData();
+            return true;
+          }
+          
+          // 如果没有找到用户，创建新用户
+          const newUser: User = {
+            id: Date.now().toString(),
+            email,
+            username: email.split('@')[0],
+            isPremium: false,
+            createdAt: new Date().toISOString(),
+          };
+          
+          await userDB.create(newUser);
+          set({ 
+            user: newUser, 
+            isAuthenticated: true,
+            initProgress: 100,
+            initMessage: '登录成功',
+          });
+          
+          return true;
+        } catch (error) {
+          console.error('登录失败:', error);
+          return false;
+        }
       },
 
-      register: async (email, _password, username) => {
+      register: async (email, password, username) => {
         set({ initProgress: 30, initMessage: '正在创建账号...' });
-        await new Promise(resolve => setTimeout(resolve, 500));
         
-        set({ initProgress: 60, initMessage: '正在初始化用户数据...' });
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        const mockUser: User = {
-          id: Date.now().toString(),
-          email,
-          username,
-          isPremium: false,
-          createdAt: new Date().toISOString(),
-        };
-        
-        set({ 
-          user: mockUser, 
-          isAuthenticated: true, 
-          isOnboardingComplete: false,
-          initProgress: 100,
-          initMessage: '注册成功',
-        });
-        return true;
+        try {
+          const newUser: User = {
+            id: Date.now().toString(),
+            email,
+            username,
+            isPremium: false,
+            createdAt: new Date().toISOString(),
+          };
+          
+          await userDB.create(newUser);
+          
+          set({ 
+            user: newUser, 
+            isAuthenticated: true, 
+            isOnboardingComplete: false,
+            initProgress: 100,
+            initMessage: '注册成功',
+          });
+          
+          return true;
+        } catch (error) {
+          console.error('注册失败:', error);
+          return false;
+        }
       },
 
-      logout: () => {
+      logout: async () => {
         set({ 
           user: null, 
           isAuthenticated: false, 
@@ -307,33 +296,82 @@ export const useAppStore = create<AppState>()(
 
       setCurrentPet: (pet) => set({ currentPet: pet }),
 
-      updateCurrentPet: (petUpdate) => set((state) => {
-        if (!state.currentPet) return state;
-        const updatedPet = { ...state.currentPet, ...petUpdate };
-        return {
+      updateCurrentPet: async (petUpdate) => {
+        const { currentPet, pets } = get();
+        if (!currentPet) return;
+        
+        const updatedPet = { ...currentPet, ...petUpdate };
+        await petDB.update(currentPet.id, updatedPet);
+        
+        set({
           currentPet: updatedPet,
-          pets: state.pets.map(p => p.id === updatedPet.id ? updatedPet : p),
+          pets: pets.map(p => p.id === updatedPet.id ? updatedPet : p),
+        });
+      },
+
+      addPet: async (pet) => {
+        const { user, pets } = get();
+        if (!user) return;
+        
+        const newPet: Pet = {
+          ...pet,
+          id: Date.now().toString(),
+          userId: user.id,
         };
-      }),
+        
+        await petDB.create(newPet);
+        set({ pets: [...pets, newPet] });
+        
+        if (pets.length === 0) {
+          set({ currentPet: newPet });
+        }
+      },
 
-      addPet: (pet) => set((state) => ({
-        pets: [...state.pets, { ...pet, id: Date.now().toString() }],
-      })),
+      deletePet: async (petId) => {
+        const { pets, currentPet } = get();
+        await petDB.delete(petId);
+        
+        const updatedPets = pets.filter(p => p.id !== petId);
+        set({ 
+          pets: updatedPets,
+          currentPet: currentPet?.id === petId ? (updatedPets[0] || null) : currentPet,
+        });
+      },
 
-      addAnalysis: (analysis) => set((state) => ({
-        analyses: [...state.analyses, {
+      addAnalysis: async (analysis) => {
+        const newAnalysis: Analysis = {
           ...analysis,
           id: Date.now().toString(),
           createdAt: new Date().toISOString(),
-        }],
-      })),
+        };
+        
+        await analysisDB.create(newAnalysis);
+        set((state) => ({
+          analyses: [newAnalysis, ...state.analyses],
+        }));
+      },
 
-      addHealthAlert: (alert) => set((state) => ({
-        healthAlerts: [...state.healthAlerts, {
+      addHealthAlert: async (alert) => {
+        const newAlert: HealthAlert = {
           ...alert,
           id: Date.now().toString(),
-        }],
-      })),
+          isRead: false,
+        };
+        
+        await healthAlertDB.create(newAlert);
+        set((state) => ({
+          healthAlerts: [newAlert, ...state.healthAlerts],
+        }));
+      },
+
+      markAlertAsRead: async (alertId) => {
+        await healthAlertDB.update(alertId, { isRead: true });
+        set((state) => ({
+          healthAlerts: state.healthAlerts.map(a =>
+            a.id === alertId ? { ...a, isRead: true } : a
+          ),
+        }));
+      },
 
       setIsRecording: (isRecording) => set({ isRecording }),
 
@@ -345,12 +383,15 @@ export const useAppStore = create<AppState>()(
         settings: { ...state.settings, ...newSettings },
       })),
 
-      clearAllData: () => set({
-        analyses: [],
-        healthAlerts: [],
-        pets: [],
-        currentPet: null,
-      }),
+      clearAllData: async () => {
+        // 这里应该清空所有数据库表
+        set({
+          analyses: [],
+          healthAlerts: [],
+          pets: [],
+          currentPet: null,
+        });
+      },
     }),
     {
       name: 'pawsync-storage',
@@ -359,11 +400,8 @@ export const useAppStore = create<AppState>()(
         user: state.user,
         isAuthenticated: state.isAuthenticated,
         isOnboardingComplete: state.isOnboardingComplete,
-        pets: state.pets,
-        currentPet: state.currentPet,
-        analyses: state.analyses.slice(-50),
-        healthAlerts: state.healthAlerts.slice(-20),
         settings: state.settings,
+        currentEmotion: state.currentEmotion,
         healthScore: state.healthScore,
       }),
     }
