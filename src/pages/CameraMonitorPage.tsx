@@ -278,17 +278,17 @@ export default function CameraMonitorPage({ onNavigate }: CameraMonitorPageProps
             </div>
           </GlassCard>
 
-          <div className="grid grid-cols-3 gap-3">
-            <GlassCard className="bg-neutral-900/50 border-neutral-800 text-center">
-              <div className="text-2xl font-bold text-primary-400">0</div>
+          <div className="grid grid-cols-3 gap-2 sm:gap-3">
+            <GlassCard className="bg-neutral-900/50 border-neutral-800 text-center p-2 sm:p-3">
+              <div className="text-lg sm:text-2xl font-bold text-primary-400">0</div>
               <div className="text-xs text-neutral-500 mt-1">今日事件</div>
             </GlassCard>
-            <GlassCard className="bg-neutral-900/50 border-neutral-800 text-center">
-              <div className="text-2xl font-bold text-success-400">0</div>
+            <GlassCard className="bg-neutral-900/50 border-neutral-800 text-center p-2 sm:p-3">
+              <div className="text-lg sm:text-2xl font-bold text-success-400">0</div>
               <div className="text-xs text-neutral-500 mt-1">宠物检测</div>
             </GlassCard>
-            <GlassCard className="bg-neutral-900/50 border-neutral-800 text-center">
-              <div className="text-2xl font-bold text-warning-400">0</div>
+            <GlassCard className="bg-neutral-900/50 border-neutral-800 text-center p-2 sm:p-3">
+              <div className="text-lg sm:text-2xl font-bold text-warning-400">0</div>
               <div className="text-xs text-neutral-500 mt-1">异常行为</div>
             </GlassCard>
           </div>
@@ -296,10 +296,10 @@ export default function CameraMonitorPage({ onNavigate }: CameraMonitorPageProps
       </main>
 
       <div className="fixed bottom-0 left-0 right-0 bg-neutral-900/95 backdrop-blur-xl border-t border-neutral-800 safe-area-bottom">
-        <div className="flex items-center justify-center gap-3 px-4 py-4">
+        <div className="flex items-center justify-center gap-2 sm:gap-3 px-2 sm:px-4 py-4">
           <button
             onClick={() => setIsMuted(!isMuted)}
-            className={`flex flex-col items-center gap-1.5 px-5 py-3 rounded-xl transition-all active:scale-95 ${
+            className={`flex flex-col items-center gap-1 px-3 sm:px-5 py-2 sm:py-3 rounded-xl transition-all active:scale-95 ${
               isMuted ? 'bg-neutral-800/80 hover:bg-neutral-700/80' : 'bg-primary-500/20 border border-primary-500/30 text-primary-400'
             }`}
             aria-label={isMuted ? '取消静音' : '静音'}
@@ -307,10 +307,10 @@ export default function CameraMonitorPage({ onNavigate }: CameraMonitorPageProps
             {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
             <span className="text-xs font-medium">{isMuted ? '静音' : '声音'}</span>
           </button>
-          
+
           <button
             onClick={() => setIsMicOn(!isMicOn)}
-            className={`flex flex-col items-center gap-1.5 px-5 py-3 rounded-xl transition-all active:scale-95 ${
+            className={`flex flex-col items-center gap-1 px-3 sm:px-5 py-2 sm:py-3 rounded-xl transition-all active:scale-95 ${
               isMicOn ? 'bg-danger-500 text-white shadow-lg shadow-danger-500/30' : 'bg-neutral-800/80 hover:bg-neutral-700/80'
             }`}
             aria-label={isMicOn ? '关闭麦克风' : '开启麦克风'}
@@ -321,7 +321,7 @@ export default function CameraMonitorPage({ onNavigate }: CameraMonitorPageProps
 
           <button
             onClick={handleRefresh}
-            className="flex flex-col items-center gap-1.5 px-5 py-3 rounded-xl bg-neutral-800/80 hover:bg-neutral-700/80 transition-all active:scale-95"
+            className="flex flex-col items-center gap-1 px-3 sm:px-5 py-2 sm:py-3 rounded-xl bg-neutral-800/80 hover:bg-neutral-700/80 transition-all active:scale-95"
             aria-label="刷新"
           >
             <RefreshCw className="w-5 h-5" />

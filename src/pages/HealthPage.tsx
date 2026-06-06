@@ -148,7 +148,7 @@ export default function HealthPage() {
             <Sparkles className="w-4 h-4 text-purple-500" />
             AI 智能分析
           </h2>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 sm:grid-cols-3 gap-2 sm:gap-3">
             {/* 健康评分入口 */}
             <Card
               variant="default"

@@ -183,7 +183,7 @@ export const Navigation: React.FC<NavigationProps> = memo(({ currentPage, onNavi
       role="navigation"
       aria-label="主导航"
     >
-      <div className="max-w-md mx-auto flex justify-around items-center">
+      <div className="max-w-md mx-auto flex justify-between sm:justify-around items-center px-2 sm:px-4">
         {navItems.map((item) => (
           <NavItem
             key={item.id}

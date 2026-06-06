@@ -1476,11 +1476,11 @@ export default function TranslatorPage({ onNavigate }: { onNavigate?: (page: str
                 </Button>
               </div>
 
-              <div className="flex justify-center gap-4 text-xs text-gray-400">
-                <button className="hover:text-orange-500 transition-colors">
+              <div className="flex justify-center gap-2 sm:gap-4 text-xs text-gray-400 flex-wrap">
+                <button className="hover:text-orange-500 transition-colors px-2 py-1">
                   💾 保存记录
                 </button>
-                <button className="hover:text-orange-500 transition-colors">
+                <button className="hover:text-orange-500 transition-colors px-2 py-1">
                   💬 社区讨论
                 </button>
               </div>
