@@ -1,7 +1,30 @@
-<?xml version='1.0' encoding='utf-8'?>
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">爪爪连心❤️</string>
     <string name="title_activity_main">爪爪连心❤️</string>
     <string name="package_name">com.pawsync.pro</string>
     <string name="custom_url_scheme">com.pawsync.pro</string>
+    
+    <!-- 权限说明 -->
+    <string name="permission_camera_title">相机权限</string>
+    <string name="permission_camera_description">用于拍摄宠物照片进行健康分析和表情识别，帮助您更好地了解宠物的健康状况。</string>
+    
+    <string name="permission_microphone_title">麦克风权限</string>
+    <string name="permission_microphone_description">用于录制宠物声音进行情绪翻译分析，解读宠物的情感状态。</string>
+    
+    <string name="permission_storage_title">存储权限</string>
+    <string name="permission_storage_description">用于保存宠物照片、健康记录等数据到本地，确保您的数据安全存储。</string>
+    
+    <string name="permission_notification_title">通知权限</string>
+    <string name="permission_notification_description">用于发送健康提醒、疫苗接种提醒等重要通知，帮助您及时关注宠物健康。</string>
+    
+    <!-- 功能说明 -->
+    <string name="feature_emotion_translation">AI情感翻译</string>
+    <string name="feature_emotion_translation_desc">通过分析宠物的声音和表情，解读其情感状态</string>
+    
+    <string name="feature_health_monitoring">健康监测</string>
+    <string name="feature_health_monitoring_desc">记录和追踪宠物的健康数据，生成健康报告</string>
+    
+    <string name="feature_smart_reminder">智能提醒</string>
+    <string name="feature_smart_reminder_desc">疫苗接种、驱虫、体检等提醒，不错过任何重要事项</string>
 </resources>
