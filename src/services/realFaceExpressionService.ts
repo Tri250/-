@@ -121,7 +121,7 @@ class RealFaceExpressionService {
       description: expressionConfig[expression.expression].description,
       imageUrl: imageData,
       processingTime: performance.now() - startTime,
-      features: {
+      imageFeatures: {
         brightness: features.brightness,
         contrast: features.contrast,
         colorVariance: features.colorVariance,
@@ -485,7 +485,7 @@ class RealFaceExpressionService {
     if (features.edgeDensity > 0.15) {
       // 高边缘密度可能表示毛发竖立（攻击性）或兴奋
       scores.aggressive += 15;
-      scores.excited += 10;
+      scores.happy += 10;
     }
 
     // 基于纹理粗糙度评分

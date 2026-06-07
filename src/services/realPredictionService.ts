@@ -151,7 +151,7 @@ class RealPredictionService {
       r.type === 'VACCINE' && !r.isCompleted
     );
     
-    if (vaccumeReminders.length > 0) {
+    if (vaccineReminders.length > 0) {
       const upcoming = vaccineReminders[0];
       const daysUntil = Math.floor(
         (new Date(upcoming.date).getTime() - now.getTime()) / (24 * 60 * 60 * 1000)

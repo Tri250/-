@@ -798,7 +798,7 @@ const AIConsultantPage: React.FC<AIConsultantPageProps> = ({ onNavigate }) => {
             />
           </div>
         </div>
-      )}</div>
+      )}
     </div>
   );
 };

@@ -122,11 +122,10 @@ export const FaceExpressionAnalyzer: React.FC<FaceExpressionAnalyzerProps> = ({
         details: {
           eyeOpenness: analysisResult.landmarks?.find(l => l.name?.includes('Eye')) ? 70 : 30,
           mouthOpenness: analysisResult.landmarks?.find(l => l.name?.includes('mouth')) ? 40 : 10,
-          earPosition: analysisResult.expression === 'aggressive' ? 'back' : 
+          earPosition: analysisResult.expression === 'aggressive' ? 'down' : 
                        analysisResult.expression === 'curious' ? 'up' : 'neutral',
         },
         interpretation: analysisResult.description || expressionConfig[mapExpression(analysisResult.expression)].description,
-        processingTime: analysisResult.processingTime,
       };
       
       setResult(mappedResult);

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { TranslatorPage } from '@/pages/TranslatorPage';
+import TranslatorPage from '@/pages/TranslatorPage';
 
 const mockNavigatorShare = vi.fn();
 const mockNavigatorClipboard = {

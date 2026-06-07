@@ -81,7 +81,7 @@ export const SmartPredictionCard: React.FC<SmartPredictionCardProps> = ({
           <Brain className="w-5 h-5 text-purple-500" />
           <h3 className="font-bold text-gray-800">智能预测</h3>
         </div>
-        <Badge variant="secondary" className="text-xs">
+        <Badge color="purple" size="small">
           AI驱动
         </Badge>
       </div>

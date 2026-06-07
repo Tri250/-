@@ -38,6 +38,14 @@ export interface FaceAnalysis {
   features: string[];
   description: string;
   imageUrl?: string;
+  processingTime?: number;
+  imageFeatures?: {
+    brightness: number;
+    contrast: number;
+    colorVariance: number;
+    edgeDensity: number;
+    symmetry: number;
+  };
 }
 
 // 面部特征分析

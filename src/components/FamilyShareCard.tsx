@@ -61,13 +61,13 @@ export const FamilyShareCard: React.FC<FamilyShareCardProps> = ({
         <div className="flex items-center gap-2">
           <Users className="w-5 h-5 text-orange-500" />
           <h3 className="font-bold text-gray-800">家庭共享</h3>
-          <Badge variant="secondary" className="text-xs">
+          <Badge color="orange" size="small">
             {members.length}人
           </Badge>
         </div>
         <Button
           variant="primary"
-          size="sm"
+          size="small"
           icon={<UserPlus className="w-4 h-4" />}
           onClick={onInvite}
         >

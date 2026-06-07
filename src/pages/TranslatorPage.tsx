@@ -111,61 +111,6 @@ function EmotionMeter({ confidence, guaranteed }: { confidence: number; guarante
           <span className="text-xs bg-green-500 text-white px-1 rounded-full">✓</span>
         </div>
       )}
-
-      {/* 情绪趋势分析弹窗 */}
-      {showTrendModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl p-6 mx-4 max-w-md w-full shadow-2xl animate-fadeIn max-h-[85vh] overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                <Activity className="w-5 h-5 text-orange-500" />
-                情绪趋势分析
-              </h3>
-              <button
-                onClick={() => setShowTrendModal(false)}
-                className="p-1 hover:bg-gray-100 rounded-full transition-colors"
-              >
-                <X className="w-5 h-5 text-gray-500" />
-              </button>
-            </div>
-            
-            <div className="flex-1 overflow-y-auto space-y-4">
-              {/* 导入情绪趋势组件 */}
-              <EmotionTrendChart 
-                data={[
-                  { date: '周一', happy: 60, anxious: 20, angry: 5, neutral: 10, needs: 5, overall: 75 },
-                  { date: '周二', happy: 70, anxious: 15, angry: 3, neutral: 8, needs: 4, overall: 82 },
-                  { date: '周三', happy: 55, anxious: 25, angry: 8, neutral: 7, needs: 5, overall: 68 },
-                  { date: '周四', happy: 80, anxious: 10, angry: 2, neutral: 5, needs: 3, overall: 88 },
-                  { date: '周五', happy: 75, anxious: 12, angry: 4, neutral: 6, needs: 3, overall: 85 },
-                  { date: '周六', happy: 85, anxious: 8, angry: 2, neutral: 3, needs: 2, overall: 92 },
-                  { date: '周日', happy: 78, anxious: 10, angry: 3, neutral: 5, needs: 4, overall: 87 },
-                ]}
-                period="week"
-              />
-              
-              {/* 本周总结 */}
-              <Card variant="default" padding="medium">
-                <h4 className="font-medium text-gray-800 mb-3">本周情绪总结</h4>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">最开心的一天</span>
-                    <span className="font-medium text-green-600">周六 (92分)</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">平均情绪指数</span>
-                    <span className="font-medium text-orange-600">82.4分</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">情绪波动</span>
-                    <span className="font-medium text-blue-600">中等</span>
-                  </div>
-                </div>
-              </Card>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -1642,6 +1587,55 @@ export default function TranslatorPage({ onNavigate }: { onNavigate?: (page: str
                 )}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* 情绪趋势分析弹窗 */}
+      {showTrendModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl p-6 mx-4 max-w-md w-full shadow-2xl animate-fadeIn max-h-[85vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                <Activity className="w-5 h-5 text-orange-500" />
+                情绪趋势分析
+              </h3>
+              <button
+                onClick={() => setShowTrendModal(false)}
+                className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto space-y-4">
+              <EmotionTrendChart 
+                data={[
+                  { date: '周一', happy: 60, anxious: 20, angry: 5, neutral: 10, needs: 5, overall: 75 },
+                  { date: '周二', happy: 70, anxious: 15, angry: 3, neutral: 8, needs: 4, overall: 82 },
+                  { date: '周三', happy: 55, anxious: 25, angry: 8, neutral: 7, needs: 5, overall: 68 },
+                  { date: '周四', happy: 80, anxious: 10, angry: 2, neutral: 5, needs: 3, overall: 88 },
+                  { date: '周五', happy: 75, anxious: 12, angry: 4, neutral: 6, needs: 3, overall: 85 },
+                  { date: '周六', happy: 85, anxious: 8, angry: 2, neutral: 3, needs: 2, overall: 92 },
+                  { date: '周日', happy: 78, anxious: 10, angry: 3, neutral: 5, needs: 4, overall: 87 },
+                ]}
+                period="week"
+              />
+              
+              <Card className="p-4 bg-gradient-to-br from-orange-50 to-yellow-50">
+                <h4 className="font-medium text-gray-800 mb-3">本周情绪总结</h4>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">平均情绪指数</span>
+                    <span className="font-medium text-orange-600">82.4分</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">情绪波动</span>
+                    <span className="font-medium text-blue-600">中等</span>
+                  </div>
+                </div>
+              </Card>
+            </div>
           </div>
         </div>
       )}

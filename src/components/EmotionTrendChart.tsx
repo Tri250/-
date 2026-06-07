@@ -155,9 +155,9 @@ export const EmotionTrendChart: React.FC<EmotionTrendChartProps> = ({
           {emotionStats.slice(0, 3).map((stat) => (
             <Badge 
               key={stat.key}
-              variant="secondary"
+              color="orange"
+              size="small"
               className="text-xs"
-              style={{ backgroundColor: `${stat.color}20`, color: stat.color, borderColor: `${stat.color}40` }}
             >
               {stat.label} {stat.value}%
             </Badge>
