@@ -8,6 +8,8 @@ import healthRecordRoutes from './routes/healthRecords';
 import reminderRoutes from './routes/reminders';
 import manualRoutes from './routes/manuals';
 import aiRoutes from './routes/ai';
+import translatorV2Routes from './routes/v2/translator';
+import feedbackRoutes from './routes/feedback';
 
 const app = express();
 
@@ -23,6 +25,8 @@ app.use('/api/health-records', healthRecordRoutes);
 app.use('/api/reminders', reminderRoutes);
 app.use('/api/manuals', manualRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/v2/translator', translatorV2Routes);
+app.use('/api/v2/translator', feedbackRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'PawSync Pro API 运行正常' });

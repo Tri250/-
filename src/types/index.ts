@@ -36,3 +36,4 @@ export * from './bond';
 export * from './push';
 export * from './cloud';
 export * from './rtc';
+export * from './feedback';
