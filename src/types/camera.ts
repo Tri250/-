@@ -13,6 +13,7 @@ export type CameraBrand =
   | 'honor' 
   | 'ezviz' 
   | 'tapo' 
+  | 'tplink'
   | 'hikvision' 
   | 'dahua' 
   | 'yi' 
@@ -43,6 +44,7 @@ export interface CameraDevice {
   status: 'online' | 'offline' | 'error' | 'updating';
   lastActive: string;
   lastOnline?: string;
+  addedAt?: string;
   thumbnail?: string;
   thumbnailUrl?: string;
   streamUrl?: string;
