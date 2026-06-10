@@ -76,6 +76,15 @@ export { ImageModelService, imageModelService } from './imageModelService';
 // 多模态融合服务
 export { MultimodalFusionService, multimodalFusionService } from './multimodalFusionService';
 
+// 声音情绪分析服务
+export { VoiceEmotionAnalyzer, voiceEmotionAnalyzer } from './voiceEmotionAnalyzer';
+
+// 意图识别服务
+export { IntentionRecognizer, intentionRecognizer } from './intentionRecognizer';
+
+// 精彩片段检测服务
+export { HighlightDetector, highlightDetector } from './highlightDetector';
+
 // ==================== 内部导入（用于便捷方法） ====================
 
 import { audioModelService } from './audioModelService';

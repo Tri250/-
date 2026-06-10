@@ -10,3 +10,5 @@ export { MemoryTimelineComponent } from './MemoryTimelineComponent';
 export { VoiceMemoryWallComponent } from './VoiceMemoryWallComponent';
 export { RemoteInteractionCenterComponent } from './RemoteInteractionCenterComponent';
 export { AddMemoryModal } from './AddMemoryModal';
+export { DeviceControlPanel } from './DeviceControlPanel';
+export { VoiceAnalysisResultCard, VoiceAnalysisResultCardCompact } from './VoiceAnalysisResultCard';

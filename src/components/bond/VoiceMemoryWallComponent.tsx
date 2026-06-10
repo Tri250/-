@@ -23,29 +23,29 @@ import {
   Waves,
   Share2,
   Edit3,
-  Save
+  Save,
+  AlertCircle,
+  Brain
 } from 'lucide-react';
 import { useAppStore } from '../../store/appStore';
-
-interface VoiceMemory {
-  id: string;
-  type: 'meow' | 'bark' | 'purr' | 'chirp' | 'growl' | 'whine' | 'other';
-  label?: string;
-  url: string;
-  blob?: Blob;
-  duration: number;
-  waveformData: number[];
-  transcription?: string;
-  translation?: string;
-  emotion?: 'happy' | 'angry' | 'anxious' | 'hungry' | 'affectionate' | 'curious';
-  timestamp: string;
-  isUsedAsNotification: boolean;
-}
+import { useVoices, IntentionResult, VoiceProfileAnalysis } from '../../hooks/useVoices';
+import type { VoiceMemory } from '../../types/bond';
 
 export function VoiceMemoryWallComponent() {
   const { currentPet } = useAppStore();
-  const [voices, setVoices] = useState<VoiceMemory[]>([]);
-  const [loading, setLoading] = useState(true);
+  
+  // 使用 useVoices Hook 管理声音数据
+  const {
+    voices,
+    loading,
+    error,
+    loadVoices,
+    uploadVoice,
+    analyzeVoice,
+    deleteVoice,
+    setAsNotification,
+  } = useVoices();
+  
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [playingId, setPlayingId] = useState<string | null>(null);
@@ -54,6 +54,14 @@ export function VoiceMemoryWallComponent() {
   const [notificationSound, setNotificationSound] = useState<string | null>(null);
   const [editingVoice, setEditingVoice] = useState<VoiceMemory | null>(null);
   const [editLabel, setEditLabel] = useState('');
+  
+  // 意图识别结果
+  const [lastIntentionResult, setLastIntentionResult] = useState<IntentionResult | null>(null);
+  const [showIntentionModal, setShowIntentionModal] = useState(false);
+  
+  // 声音画像分析
+  const [voiceProfile, setVoiceProfile] = useState<VoiceProfileAnalysis | null>(null);
+  const [showProfileModal, setShowProfileModal] = useState(false);
   
   // 录音相关
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -74,8 +82,11 @@ export function VoiceMemoryWallComponent() {
   const petId = currentPet?.id || '1';
   const petName = currentPet?.name || '毛孩子';
 
+  // 加载声音数据
   useEffect(() => {
-    loadData();
+    if (petId) {
+      loadVoices(petId);
+    }
     return () => {
       // 清理资源
       if (audioRef.current) {
@@ -84,7 +95,13 @@ export function VoiceMemoryWallComponent() {
       }
       stopRecording();
     };
-  }, [petId]);
+  }, [petId, loadVoices]);
+
+  // 设置通知音
+  useEffect(() => {
+    const notificationVoice = voices.find(v => v.isUsedAsNotification);
+    setNotificationSound(notificationVoice?.id || null);
+  }, [voices]);
 
   useEffect(() => {
     if (isRecording) {
@@ -103,62 +120,6 @@ export function VoiceMemoryWallComponent() {
       }
     };
   }, [isRecording]);
-
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      const mockVoices: VoiceMemory[] = [
-        {
-          id: 'voice-1',
-          type: 'meow',
-          label: '撒娇的叫声',
-          url: '/audio/meow1.mp3',
-          duration: 3.5,
-          waveformData: [0.3, 0.5, 0.7, 0.4, 0.6, 0.8, 0.5, 0.3, 0.6, 0.4, 0.7, 0.5, 0.8, 0.6, 0.4],
-          transcription: '喵~',
-          translation: '我想要抱抱',
-          emotion: 'affectionate',
-          timestamp: new Date(Date.now() - 3600000 * 2).toISOString(),
-          isUsedAsNotification: true
-        },
-        {
-          id: 'voice-2',
-          type: 'purr',
-          label: '呼噜声',
-          url: '/audio/purr1.mp3',
-          duration: 8.2,
-          waveformData: [0.2, 0.3, 0.4, 0.5, 0.4, 0.3, 0.4, 0.5, 0.6, 0.5, 0.4, 0.5, 0.4, 0.3, 0.2],
-          transcription: '呼噜呼噜',
-          translation: '我很舒服，很满足',
-          emotion: 'happy',
-          timestamp: new Date(Date.now() - 3600000 * 24).toISOString(),
-          isUsedAsNotification: false
-        },
-        {
-          id: 'voice-3',
-          type: 'meow',
-          label: '饿了的声音',
-          url: '/audio/meow2.mp3',
-          duration: 2.8,
-          waveformData: [0.5, 0.8, 0.6, 0.9, 0.7, 0.8, 0.5, 0.6, 0.7, 0.4, 0.5, 0.3],
-          transcription: '喵！喵！',
-          translation: '我饿了，快给我吃的！',
-          emotion: 'hungry',
-          timestamp: new Date(Date.now() - 3600000 * 48).toISOString(),
-          isUsedAsNotification: false
-        }
-      ];
-
-      setVoices(mockVoices);
-      setNotificationSound(mockVoices.find(v => v.isUsedAsNotification)?.id || null);
-    } catch (error) {
-      console.error('Failed to load voice memories:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const getTypeConfig = (type: string) => {
     const configs: Record<string, { emoji: string; label: string; color: string }> = {
@@ -262,30 +223,24 @@ export function VoiceMemoryWallComponent() {
     }, 50);
   }, []);
 
-  // 停止录音
+  // 停止录音并上传
   const stopRecording = useCallback(() => {
     return new Promise<void>((resolve) => {
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-        mediaRecorderRef.current.onstop = () => {
+        mediaRecorderRef.current.onstop = async () => {
           const audioBlob = new Blob(audioChunksRef.current, { 
             type: mediaRecorderRef.current?.mimeType || 'audio/webm' 
           });
-          const audioUrl = URL.createObjectURL(audioBlob);
           
-          // 创建新的语音记忆
-          const newVoice: VoiceMemory = {
-            id: `voice-${Date.now()}`,
-            type: 'other',
-            label: `录音 ${voices.length + 1}`,
-            url: audioUrl,
-            blob: audioBlob,
-            duration: recordingDuration,
-            waveformData: liveWaveform.length > 0 ? liveWaveform : generateRandomWaveform(),
-            timestamp: new Date().toISOString(),
-            isUsedAsNotification: false
-          };
-          
-          setVoices(prev => [newVoice, ...prev]);
+          // 上传到后端并获取意图识别结果
+          try {
+            const intentionResult = await uploadVoice(audioBlob, petId);
+            setLastIntentionResult(intentionResult);
+            setShowIntentionModal(true);
+          } catch (err) {
+            console.error('上传声音失败:', err);
+            alert('上传声音失败，请稍后重试');
+          }
           
           // 清理
           cleanupRecording();
@@ -298,7 +253,7 @@ export function VoiceMemoryWallComponent() {
         resolve();
       }
     });
-  }, [voices.length, recordingDuration, liveWaveform]);
+  }, [uploadVoice, petId]);
 
   const cleanupRecording = () => {
     setIsRecording(false);
@@ -363,28 +318,13 @@ export function VoiceMemoryWallComponent() {
       audio.onerror = () => {
         console.error('Failed to play audio');
         setPlayingId(null);
-        // 如果是模拟数据，显示提示
-        if (voice.url.startsWith('/audio/')) {
-          alert('演示音频不可用，请录制新的声音');
-        }
       };
     }
   }, [playingId]);
 
   // 下载音频
   const handleDownload = useCallback((voice: VoiceMemory) => {
-    if (voice.blob) {
-      // 如果有 blob，直接下载
-      const url = URL.createObjectURL(voice.blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${voice.label || '录音'}.webm`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } else if (voice.url && !voice.url.startsWith('/audio/')) {
-      // 如果有有效的 URL
+    if (voice.url && !voice.url.startsWith('/audio/')) {
       const a = document.createElement('a');
       a.href = voice.url;
       a.download = `${voice.label || '录音'}.mp3`;
@@ -392,8 +332,7 @@ export function VoiceMemoryWallComponent() {
       a.click();
       document.body.removeChild(a);
     } else {
-      // 演示数据，提示用户
-      alert('演示音频不可下载，请录制新的声音');
+      alert('音频不可下载');
     }
   }, []);
 
@@ -413,25 +352,41 @@ export function VoiceMemoryWallComponent() {
     }
   }, [petName]);
 
-  const handleSetAsNotification = (voiceId: string) => {
-    setVoices(prev => prev.map(v => ({
-      ...v,
-      isUsedAsNotification: v.id === voiceId
-    })));
-    setNotificationSound(voiceId);
+  // 设置为通知音
+  const handleSetAsNotification = async (voiceId: string) => {
+    try {
+      await setAsNotification(voiceId);
+    } catch (err) {
+      console.error('设置通知音失败:', err);
+    }
   };
 
-  const handleDelete = (voiceId: string) => {
+  // 删除声音
+  const handleDelete = async (voiceId: string) => {
     if (!confirm('确定要删除这条声音记忆吗？')) return;
     
-    const voice = voices.find(v => v.id === voiceId);
-    if (voice?.url.startsWith('blob:')) {
-      URL.revokeObjectURL(voice.url);
+    try {
+      await deleteVoice(voiceId);
+      if (notificationSound === voiceId) {
+        setNotificationSound(null);
+      }
+    } catch (err) {
+      console.error('删除声音失败:', err);
+      alert('删除失败，请稍后重试');
     }
-    
-    setVoices(prev => prev.filter(v => v.id !== voiceId));
-    if (notificationSound === voiceId) {
-      setNotificationSound(null);
+  };
+
+  // 分析声音（获取声音画像）
+  const handleAnalyze = async (voiceId: string) => {
+    try {
+      const result = await analyzeVoice(voiceId);
+      if (result.profile) {
+        setVoiceProfile(result.profile);
+        setShowProfileModal(true);
+      }
+    } catch (err) {
+      console.error('分析声音失败:', err);
+      alert('分析失败，请稍后重试');
     }
   };
 
@@ -442,10 +397,8 @@ export function VoiceMemoryWallComponent() {
   };
 
   const handleSaveEdit = () => {
+    // TODO: 调用 API 更新标签
     if (editingVoice) {
-      setVoices(prev => prev.map(v => 
-        v.id === editingVoice.id ? { ...v, label: editLabel } : v
-      ));
       setEditingVoice(null);
       setEditLabel('');
     }
@@ -536,6 +489,195 @@ export function VoiceMemoryWallComponent() {
     </motion.div>
   );
 
+  // 意图识别结果模态框
+  const IntentionModal = () => (
+    <AnimatePresence>
+      {showIntentionModal && lastIntentionResult && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={() => setShowIntentionModal(false)}
+        >
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.8, opacity: 0 }}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-3xl p-6 max-w-md w-full"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                <Brain className="w-5 h-5 text-purple-500" />
+                AI 意图识别结果
+              </h3>
+              <button
+                onClick={() => setShowIntentionModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-full"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            {/* 意图 */}
+            <div className="mb-4 p-4 bg-purple-50 rounded-xl">
+              <p className="text-sm text-gray-500 mb-1">识别意图</p>
+              <p className="text-lg text-purple-600 font-medium">
+                {lastIntentionResult.intention}
+              </p>
+            </div>
+
+            {/* 转录文本 */}
+            {lastIntentionResult.transcription && (
+              <div className="mb-4 p-4 bg-gray-50 rounded-xl">
+                <p className="text-sm text-gray-500 mb-1">转录文本</p>
+                <p className="text-lg text-gray-800 font-medium">
+                  "{lastIntentionResult.transcription}"
+                </p>
+              </div>
+            )}
+
+            {/* AI 建议 */}
+            <div className="mb-4 p-4 bg-gradient-to-r from-pink-50 to-purple-50 rounded-xl">
+              <p className="text-sm text-gray-500 mb-1">AI 建议</p>
+              <p className="text-lg text-pink-600 font-medium">
+                💬 {lastIntentionResult.suggestion}
+              </p>
+            </div>
+
+            {/* 情绪 */}
+            {getEmotionConfig(lastIntentionResult.emotion) && (
+              <div className="mb-4">
+                <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-full ${getEmotionConfig(lastIntentionResult.emotion)?.color}`}>
+                  <span>{getEmotionConfig(lastIntentionResult.emotion)?.emoji}</span>
+                  <span className="text-sm font-medium">{getEmotionConfig(lastIntentionResult.emotion)?.label}</span>
+                </span>
+              </div>
+            )}
+
+            {/* 置信度 */}
+            <div className="mb-4">
+              <p className="text-sm text-gray-500 mb-2">置信度</p>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div 
+                  className="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full"
+                  style={{ width: `${lastIntentionResult.confidence * 100}%` }}
+                />
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                {Math.round(lastIntentionResult.confidence * 100)}%
+              </p>
+            </div>
+
+            <button
+              onClick={() => setShowIntentionModal(false)}
+              className="w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-medium"
+            >
+              确定
+            </button>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+
+  // 声音画像模态框
+  const ProfileModal = () => (
+    <AnimatePresence>
+      {showProfileModal && voiceProfile && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={() => setShowProfileModal(false)}
+        >
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.8, opacity: 0 }}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-3xl p-6 max-w-md w-full max-h-[80vh] overflow-y-auto"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                <Brain className="w-5 h-5 text-purple-500" />
+                {petName}的声音画像
+              </h3>
+              <button
+                onClick={() => setShowProfileModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-full"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            {/* 声音类型 */}
+            <div className="mb-4 p-4 bg-purple-50 rounded-xl">
+              <p className="text-sm text-gray-500 mb-1">声音类型</p>
+              <p className="text-lg text-purple-600 font-medium">
+                {voiceProfile.voiceType}
+              </p>
+            </div>
+
+            {/* 频率范围 */}
+            <div className="mb-4 p-4 bg-blue-50 rounded-xl">
+              <p className="text-sm text-gray-500 mb-1">频率范围</p>
+              <p className="text-lg text-blue-600 font-medium">
+                {voiceProfile.frequencyRange}
+              </p>
+            </div>
+
+            {/* 常见情绪 */}
+            <div className="mb-4">
+              <p className="text-sm text-gray-500 mb-2">常见情绪</p>
+              <div className="flex flex-wrap gap-2">
+                {voiceProfile.typicalEmotions.map((emotion, idx) => (
+                  <span key={idx} className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-sm">
+                    {emotion}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* 沟通模式 */}
+            <div className="mb-4">
+              <p className="text-sm text-gray-500 mb-2">沟通模式</p>
+              <div className="flex flex-wrap gap-2">
+                {voiceProfile.communicationPatterns.map((pattern, idx) => (
+                  <span key={idx} className="px-3 py-1 bg-pink-100 text-pink-700 rounded-full text-sm">
+                    {pattern}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* 建议 */}
+            <div className="mb-4">
+              <p className="text-sm text-gray-500 mb-2">AI 建议</p>
+              <ul className="space-y-2">
+                {voiceProfile.recommendations.map((rec, idx) => (
+                  <li key={idx} className="flex items-start gap-2 text-sm text-gray-700">
+                    <span className="text-purple-500">•</span>
+                    {rec}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <button
+              onClick={() => setShowProfileModal(false)}
+              className="w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-medium"
+            >
+              确定
+            </button>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+
   // 播放详情模态框
   const PlayDetailModal = () => (
     <AnimatePresence>
@@ -580,9 +722,10 @@ export function VoiceMemoryWallComponent() {
               </div>
             </div>
 
+            {/* 真实意图识别结果 */}
             {selectedVoice.transcription && (
               <div className="mb-4 p-3 bg-purple-50 rounded-xl">
-                <p className="text-sm text-gray-500 mb-1">识别结果</p>
+                <p className="text-sm text-gray-500 mb-1">AI 识别结果</p>
                 <p className="text-lg text-purple-600 font-medium">
                   "{selectedVoice.transcription}"
                 </p>
@@ -635,6 +778,14 @@ export function VoiceMemoryWallComponent() {
               </button>
               
               <button
+                onClick={() => handleAnalyze(selectedVoice.id)}
+                className="py-3 bg-purple-100 text-purple-600 rounded-xl flex items-center justify-center gap-2 hover:bg-purple-200 transition-colors"
+              >
+                <Brain className="w-5 h-5" />
+                <span>分析画像</span>
+              </button>
+              
+              <button
                 onClick={() => handleShare(selectedVoice)}
                 className="py-3 bg-gray-100 text-gray-700 rounded-xl flex items-center justify-center gap-2 hover:bg-gray-200 transition-colors"
               >
@@ -647,7 +798,7 @@ export function VoiceMemoryWallComponent() {
                   setSelectedVoice(null);
                   handleDelete(selectedVoice.id);
                 }}
-                className="py-3 bg-red-50 text-red-600 rounded-xl flex items-center justify-center gap-2 hover:bg-red-100 transition-colors"
+                className="col-span-2 py-3 bg-red-50 text-red-600 rounded-xl flex items-center justify-center gap-2 hover:bg-red-100 transition-colors"
               >
                 <Trash2 className="w-5 h-5" />
                 <span>删除</span>
@@ -659,6 +810,7 @@ export function VoiceMemoryWallComponent() {
     </AnimatePresence>
   );
 
+  // 加载状态
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -667,6 +819,23 @@ export function VoiceMemoryWallComponent() {
           transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
           className="w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full"
         />
+      </div>
+    );
+  }
+
+  // 错误状态
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 text-center">
+        <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
+        <p className="text-red-600 mb-2">加载声音数据失败</p>
+        <p className="text-sm text-gray-500 mb-4">{error}</p>
+        <button
+          onClick={() => loadVoices(petId)}
+          className="px-4 py-2 bg-purple-500 text-white rounded-xl hover:bg-purple-600 transition-colors"
+        >
+          重新加载
+        </button>
       </div>
     );
   }
@@ -880,7 +1049,7 @@ export function VoiceMemoryWallComponent() {
                     />
                   </div>
 
-                  {/* 翻译和情感 */}
+                  {/* 真实意图识别结果 */}
                   <div className="flex items-center gap-2 mb-2">
                     {voice.transcription && (
                       <span className="text-sm text-purple-600 font-medium">
@@ -937,6 +1106,14 @@ export function VoiceMemoryWallComponent() {
                     </button>
 
                     <button
+                      onClick={() => handleAnalyze(voice.id)}
+                      className="p-2.5 bg-purple-100 text-purple-600 rounded-xl hover:bg-purple-200 transition-colors"
+                      title="分析声音画像"
+                    >
+                      <Brain className="w-4 h-4" />
+                    </button>
+
+                    <button
                       onClick={() => handleDownload(voice)}
                       className="p-2.5 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 transition-colors"
                       title="下载"
@@ -970,8 +1147,10 @@ export function VoiceMemoryWallComponent() {
         </div>
       )}
 
-      {/* 播放详情模态框 */}
+      {/* 模态框 */}
       <PlayDetailModal />
+      <IntentionModal />
+      <ProfileModal />
     </div>
   );
 }

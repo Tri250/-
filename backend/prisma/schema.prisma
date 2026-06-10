@@ -8,13 +8,14 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
+  id        String        @id @default(uuid())
+  email     String        @unique
   password  String
   name      String
   avatar    String?
   pets      Pet[]
   bookmarks ManualBookmark[]
+  devices   SmartDevice[]  // 智能设备
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -25,20 +26,22 @@ model Pet {
   user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   name           String
   avatar         String?
-  type           PetType
+  type           String           // PetType: DOG, CAT, OTHER
   breed          String?
-  gender         PetGender
+  gender         String           // PetGender: MALE, FEMALE
   birthday       DateTime?
   weight         Float?
   color          String?
   characteristics String?
-  healthStatus   HealthStatus     @default(GOOD)
+  healthStatus   String           @default("GOOD") // HealthStatus: EXCELLENT, GOOD, FAIR, CONCERN
   healthRecords  HealthRecord[]
   vaccines       PetVaccine[]
   checkups       PetCheckup[]
   growthRecords  PetGrowth[]
   reminders      Reminder[]
   conversations  AIConversation[]
+  memories       Memory[]         // 宠物回忆
+  voiceRecords   VoiceRecord[]    // 声音记录
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 }
@@ -47,11 +50,11 @@ model HealthRecord {
   id             String        @id @default(uuid())
   petId          String
   pet            Pet           @relation(fields: [petId], references: [id], onDelete: Cascade)
-  type           RecordType
+  type           String        // RecordType: TEXT, VOICE, PHOTO, VIDEO, FILE
   title          String
   content        String
-  tags           String[]
-  attachments    String[]
+  tags           String        // JSON 数组字符串
+  attachments    String        // JSON 数组字符串
   voiceDuration  Int?
   isImportant    Boolean       @default(false)
   createdAt      DateTime      @default(now())
@@ -78,7 +81,7 @@ model PetCheckup {
   weight      Float?
   vet         String?
   notes       String?
-  attachments String[]
+  attachments String   // JSON 数组字符串
   createdAt   DateTime @default(now())
 }
 
@@ -97,12 +100,12 @@ model Reminder {
   id          String       @id @default(uuid())
   petId       String
   pet         Pet          @relation(fields: [petId], references: [id], onDelete: Cascade)
-  type        ReminderType
+  type        String       // ReminderType: VACCINE, DEWORMING, CHECKUP, BATH, BRUSH_TEETH, MEDICINE, GROOMING, CUSTOM
   title       String
   notes       String?
   date        DateTime
   time        String
-  repeat      RepeatType
+  repeat      String       // RepeatType: ONCE, DAILY, WEEKLY, MONTHLY, YEARLY
   endDate     DateTime?
   isCompleted Boolean      @default(false)
   completedAt DateTime?
@@ -114,7 +117,7 @@ model AIConversation {
   petId     String
   pet       Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
   userId    String
-  messages  Json[]
+  messages  String   // JSON 数组字符串
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -123,9 +126,9 @@ model HealthManual {
   id          String           @id @default(uuid())
   title       String
   content     String
-  category    ManualCategory
-  petType     PetType?
-  tags        String[]
+  category    String           // ManualCategory: NUTRITION, CARE, BEHAVIOR, EMERGENCY, TRAINING
+  petType     String?          // PetType: DOG, CAT, OTHER
+  tags        String           // JSON 数组字符串
   author      String?
   viewCount   Int              @default(0)
   isOfficial  Boolean          @default(true)
@@ -143,55 +146,86 @@ model ManualBookmark {
   createdAt DateTime      @default(now())
 }
 
-enum PetType {
-  DOG
-  CAT
-  OTHER
+// ==================== 回忆模块 ====================
+
+/// 宠物回忆/相册模型
+model Memory {
+  id          String       @id @default(uuid())
+  petId       String
+  pet         Pet          @relation(fields: [petId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  type        String       @default("PHOTO") // MemoryType: PHOTO, VIDEO
+  mediaUrl    String       // 媒体文件URL（图片/视频）
+  thumbnailUrl String?     // 缩略图URL
+  location    String?      // 拍摄地点
+  tags        String       // JSON 数组字符串
+  isFavorite  Boolean      @default(false)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  
+  @@index([petId])
+  @@index([createdAt])
 }
 
-enum PetGender {
-  MALE
-  FEMALE
+// ==================== 声音记录模块 ====================
+
+/// 声音记录模型
+model VoiceRecord {
+  id              String         @id @default(uuid())
+  petId           String
+  pet             Pet            @relation(fields: [petId], references: [id], onDelete: Cascade)
+  audioUrl        String         // 音频文件URL
+  duration        Int            // 时长（秒）
+  emotion         String?        // EmotionType: HAPPY, SAD, ANGRY, FEARFUL, ANXIOUS, EXCITED, CALM, CONFUSED, PLAYFUL, AFFECTIONATE
+  confidence      Float?         // 分析置信度
+  translation     String?        // 翻译结果
+  suggestion      String?        // 建议
+  analysisDetails String?        // JSON 字符串
+  isAnalyzed      Boolean        @default(false)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  
+  @@index([petId])
+  @@index([createdAt])
 }
 
-enum HealthStatus {
-  EXCELLENT
-  GOOD
-  FAIR
-  CONCERN
+// ==================== 智能设备模块 ====================
+
+/// 智能设备模型
+model SmartDevice {
+  id            String         @id @default(uuid())
+  userId        String
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name          String         // 设备名称
+  deviceType    String         // DeviceType: FEEDER, WATER_DISPENSER, CAMERA, TOY, TRACKER, LITTER_BOX, DOOR, OTHER
+  deviceId      String         @unique // 设备唯一标识
+  status        String         @default("OFFLINE") // DeviceStatus: ONLINE, OFFLINE, MAINTENANCE, ERROR
+  lastOnline    DateTime?      // 最后在线时间
+  config        String?        // JSON 字符串
+  batteryLevel  Int?           // 电池电量
+  firmwareVersion String?      // 固件版本
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  
+  commands      DeviceCommand[] // 设备指令记录
+  
+  @@index([userId])
+  @@index([deviceType])
 }
 
-enum RecordType {
-  TEXT
-  VOICE
-  PHOTO
-  VIDEO
-  FILE
-}
-
-enum ReminderType {
-  VACCINE
-  DEWORMING
-  CHECKUP
-  BATH
-  BRUSH_TEETH
-  MEDICINE
-  GROOMING
-  CUSTOM
-}
-
-enum RepeatType {
-  ONCE
-  DAILY
-  WEEKLY
-  MONTHLY
-  YEARLY
-}
-
-enum ManualCategory {
-  NUTRITION
-  CARE
-  BEHAVIOR
-  EMERGENCY
-  TRAINING
+/// 设备指令模型
+model DeviceCommand {
+  id          String         @id @default(uuid())
+  deviceId    String
+  device      SmartDevice    @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  command     String         // 指令类型
+  params      String?        // JSON 字符串
+  status      String         @default("PENDING") // CommandStatus: PENDING, EXECUTING, SUCCESS, FAILED, TIMEOUT
+  result      String?        // JSON 字符串
+  executedAt  DateTime?      // 执行时间
+  createdAt   DateTime       @default(now())
+  
+  @@index([deviceId])
+  @@index([status])
 }

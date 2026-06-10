@@ -32,30 +32,12 @@ import {
   Edit3,
   Mic,
   Square,
-  Save
+  Save,
+  AlertCircle
 } from 'lucide-react';
 import { useAppStore } from '../../store/appStore';
-
-interface SmartDevice {
-  id: string;
-  type: 'laser' | 'feeder' | 'waterer' | 'camera';
-  brand: 'xiaopet' | 'huoman' | 'eufy' | 'other';
-  name: string;
-  status: 'online' | 'offline' | 'busy';
-  lastActive: string;
-  capabilities: string[];
-  icon: string;
-  settings: Record<string, unknown>;
-}
-
-interface InteractionLog {
-  id: string;
-  deviceId: string;
-  deviceName: string;
-  type: 'play' | 'feed' | 'call';
-  action: string;
-  timestamp: string;
-}
+import { useDevices } from '../../hooks/useDevices';
+import type { SmartDevice, InteractionLog } from '../../types/bond';
 
 interface ComingHomeReminder {
   enabled: boolean;
@@ -68,9 +50,22 @@ interface ComingHomeReminder {
 
 export function RemoteInteractionCenterComponent() {
   const { currentPet } = useAppStore();
-  const [devices, setDevices] = useState<SmartDevice[]>([]);
-  const [interactionLogs, setInteractionLogs] = useState<InteractionLog[]>([]);
-  const [loading, setLoading] = useState(true);
+  
+  // 使用 useDevices Hook 管理设备数据
+  const {
+    devices,
+    interactionLogs,
+    loading,
+    error,
+    wsStatus,
+    loadDevices,
+    sendCommand,
+    getDeviceStatus,
+    addDevice,
+    deleteDevice,
+    updateDevice,
+  } = useDevices();
+  
   const [activeDevice, setActiveDevice] = useState<string | null>(null);
   const [showLaserControl, setShowLaserControl] = useState(false);
   const [laserPattern, setLaserPattern] = useState<'auto' | 'manual'>('auto');
@@ -90,97 +85,12 @@ export function RemoteInteractionCenterComponent() {
   const petId = currentPet?.id || '1';
   const petName = currentPet?.name || '毛孩子';
 
+  // 加载设备数据
   useEffect(() => {
-    loadData();
-  }, [petId]);
-
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      await new Promise(resolve => setTimeout(resolve, 800));
-
-      const mockDevices: SmartDevice[] = [
-        {
-          id: 'device-1',
-          type: 'laser',
-          brand: 'xiaopet',
-          name: '智能激光逗宠器',
-          status: 'online',
-          lastActive: new Date(Date.now() - 1800000).toISOString(),
-          capabilities: ['自动模式', '手动控制', '定时逗宠'],
-          icon: '🔴',
-          settings: { pattern: 'auto', speed: 5, duration: 15 }
-        },
-        {
-          id: 'device-2',
-          type: 'feeder',
-          brand: 'huoman',
-          name: '智能喂食器 Pro',
-          status: 'online',
-          lastActive: new Date(Date.now() - 3600000).toISOString(),
-          capabilities: ['远程投喂', '定时喂食', '份量控制'],
-          icon: '🍖',
-          settings: { portionSize: 50, dailyMeals: 3 }
-        },
-        {
-          id: 'device-3',
-          type: 'waterer',
-          brand: 'eufy',
-          name: '宠物饮水机',
-          status: 'online',
-          lastActive: new Date(Date.now() - 7200000).toISOString(),
-          capabilities: ['水质监测', '换水提醒', '饮水量统计'],
-          icon: '💧',
-          settings: { filterType: '活性炭', lastChange: '2026-05-01' }
-        },
-        {
-          id: 'device-4',
-          type: 'camera',
-          brand: 'xiaopet',
-          name: '智能摄像头',
-          status: 'busy',
-          lastActive: new Date().toISOString(),
-          capabilities: ['实时画面', '双向语音', '录像回放'],
-          icon: '📹',
-          settings: { resolution: '1080p', nightVision: true }
-        }
-      ];
-
-      const mockLogs: InteractionLog[] = [
-        {
-          id: 'log-1',
-          deviceId: 'device-1',
-          deviceName: '智能激光逗宠器',
-          type: 'play',
-          action: '自动逗宠模式运行15分钟',
-          timestamp: new Date(Date.now() - 1800000).toISOString()
-        },
-        {
-          id: 'log-2',
-          deviceId: 'device-2',
-          deviceName: '智能喂食器 Pro',
-          type: 'feed',
-          action: '远程投喂 50g',
-          timestamp: new Date(Date.now() - 3600000).toISOString()
-        },
-        {
-          id: 'log-3',
-          deviceId: 'device-4',
-          deviceName: '智能摄像头',
-          type: 'call',
-          action: '播放主人录音',
-          timestamp: new Date(Date.now() - 7200000).toISOString()
-        }
-      ];
-
-      setDevices(mockDevices);
-      setInteractionLogs(mockLogs);
-    } catch (error) {
-      console.error('Failed to load devices:', error);
-    } finally {
-      setLoading(false);
+    if (petId) {
+      loadDevices(petId);
     }
-  };
+  }, [petId, loadDevices]);
 
   const getTypeConfig = (type: string) => {
     const configs: Record<string, { icon: React.ElementType; label: string; color: string }> = {
@@ -214,48 +124,62 @@ export function RemoteInteractionCenterComponent() {
     return date.toLocaleDateString();
   };
 
+  // 发送设备指令（真实 API）
   const handleDeviceAction = async (deviceId: string, action: string) => {
     setActiveDevice(deviceId);
     
-    const device = devices.find(d => d.id === deviceId);
-    if (!device) return;
-
-    // 模拟操作
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    const newLog: InteractionLog = {
-      id: `log-${Date.now()}`,
-      deviceId: device.id,
-      deviceName: device.name,
-      type: device.type === 'laser' ? 'play' : device.type === 'feeder' ? 'feed' : 'call',
-      action: action,
-      timestamp: new Date().toISOString()
-    };
-
-    setInteractionLogs(prev => [newLog, ...prev]);
-    setActiveDevice(null);
+    try {
+      // 调用真实 API 发送指令
+      await sendCommand(deviceId, action);
+    } catch (err) {
+      console.error('发送指令失败:', err);
+      alert('操作失败，请稍后重试');
+    } finally {
+      setActiveDevice(null);
+    }
   };
 
-  const handleLaserControl = (mode: 'auto' | 'manual') => {
+  // 获取设备实时状态
+  const handleRefreshStatus = async (deviceId: string) => {
+    try {
+      await getDeviceStatus(deviceId);
+    } catch (err) {
+      console.error('获取设备状态失败:', err);
+    }
+  };
+
+  const handleLaserControl = async (mode: 'auto' | 'manual') => {
     setLaserPattern(mode);
-    handleDeviceAction('device-1', mode === 'auto' ? '启动自动逗宠模式' : '切换手动控制');
+    // 找到激光设备
+    const laserDevice = devices.find(d => d.type === 'laser');
+    if (laserDevice) {
+      await handleDeviceAction(laserDevice.id, mode === 'auto' ? '启动自动逗宠模式' : '切换手动控制');
+    }
     setShowLaserControl(false);
   };
 
-  const handleFeed = (portion: number) => {
-    handleDeviceAction('device-2', `远程投喂 ${portion}g`);
+  const handleFeed = async (portion: number) => {
+    // 找到喂食器设备
+    const feederDevice = devices.find(d => d.type === 'feeder');
+    if (feederDevice) {
+      await handleDeviceAction(feederDevice.id, `远程投喂 ${portion}g`);
+    }
   };
 
-  const handlePlayRecording = () => {
-    handleDeviceAction('device-4', '播放主人录音');
+  const handlePlayRecording = async () => {
+    // 找到摄像头设备
+    const cameraDevice = devices.find(d => d.type === 'camera');
+    if (cameraDevice) {
+      await handleDeviceAction(cameraDevice.id, '播放主人录音');
+    }
   };
 
   const handleToggleReminder = () => {
     setComingHomeReminder(prev => ({ ...prev, enabled: !prev.enabled }));
   };
 
-  // 添加新设备
-  const handleAddDevice = (type: 'laser' | 'feeder' | 'waterer' | 'camera') => {
+  // 添加新设备（真实 API）
+  const handleAddDevice = async (type: 'laser' | 'feeder' | 'waterer' | 'camera') => {
     const typeNames = {
       laser: '智能激光逗宠器',
       feeder: '智能喂食器',
@@ -270,27 +194,48 @@ export function RemoteInteractionCenterComponent() {
       camera: '📹'
     };
     
-    const newDevice: SmartDevice = {
-      id: `device-${Date.now()}`,
-      type,
-      brand: 'other',
-      name: typeNames[type],
-      status: 'online',
-      lastActive: new Date().toISOString(),
-      capabilities: [],
-      icon: icons[type],
-      settings: {}
-    };
-    
-    setDevices(prev => [...prev, newDevice]);
-    setShowAddDevice(false);
+    try {
+      await addDevice({
+        petId,
+        type,
+        brand: 'other',
+        name: typeNames[type],
+        status: 'online',
+        lastActive: new Date().toISOString(),
+        capabilities: [],
+        settings: {},
+      });
+      setShowAddDevice(false);
+    } catch (err) {
+      console.error('添加设备失败:', err);
+      alert('添加设备失败，请稍后重试');
+    }
   };
 
-  // 删除设备
-  const handleDeleteDevice = (deviceId: string) => {
+  // 删除设备（真实 API）
+  const handleDeleteDevice = async (deviceId: string) => {
     if (!confirm('确定要删除这个设备吗？')) return;
-    setDevices(prev => prev.filter(d => d.id !== deviceId));
-    setShowDeviceSettings(null);
+    
+    try {
+      await deleteDevice(deviceId);
+      setShowDeviceSettings(null);
+    } catch (err) {
+      console.error('删除设备失败:', err);
+      alert('删除设备失败，请稍后重试');
+    }
+  };
+
+  // 更新设备信息（真实 API）
+  const handleUpdateDevice = async () => {
+    if (!editingDevice) return;
+    
+    try {
+      await updateDevice(editingDevice.id, { name: editingDevice.name });
+      setEditingDevice(null);
+    } catch (err) {
+      console.error('更新设备失败:', err);
+      alert('更新设备失败，请稍后重试');
+    }
   };
 
   // 录制提醒音频
@@ -328,6 +273,31 @@ export function RemoteInteractionCenterComponent() {
       console.error('Failed to record:', error);
       alert('无法访问麦克风');
     }
+  };
+
+  // WebSocket 连接状态指示器
+  const ConnectionIndicator = () => {
+    const statusConfig = {
+      connecting: { color: 'text-yellow-500', label: '连接中...' },
+      connected: { color: 'text-green-500', label: '已连接' },
+      disconnected: { color: 'text-gray-500', label: '未连接' },
+      error: { color: 'text-red-500', label: '连接错误' }
+    };
+    
+    const config = statusConfig[wsStatus];
+    
+    return (
+      <div className={`flex items-center gap-2 px-3 py-1 rounded-full bg-gray-100 ${config.color}`}>
+        {wsStatus === 'connected' ? (
+          <Wifi className="w-4 h-4" />
+        ) : wsStatus === 'error' ? (
+          <WifiOff className="w-4 h-4" />
+        ) : (
+          <RefreshCw className="w-4 h-4 animate-spin" />
+        )}
+        <span className="text-xs">{config.label}</span>
+      </div>
+    );
   };
 
   // 激光控制面板
@@ -649,7 +619,7 @@ export function RemoteInteractionCenterComponent() {
             >
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                  <span className="text-2xl">{device.icon}</span>
+                  <span className="text-2xl">{device.icon || '📹'}</span>
                   {editingDevice ? '编辑设备' : device.name}
                 </h3>
                 <button
@@ -673,10 +643,7 @@ export function RemoteInteractionCenterComponent() {
                   </div>
                   <div className="flex gap-3">
                     <button
-                      onClick={() => {
-                        setDevices(prev => prev.map(d => d.id === editingDevice.id ? editingDevice : d));
-                        setEditingDevice(null);
-                      }}
+                      onClick={handleUpdateDevice}
                       className="flex-1 py-3 bg-purple-500 text-white rounded-xl font-medium"
                     >
                       保存
@@ -724,6 +691,13 @@ export function RemoteInteractionCenterComponent() {
                   {/* 操作按钮 */}
                   <div className="space-y-2">
                     <button
+                      onClick={() => handleRefreshStatus(device.id)}
+                      className="w-full py-3 bg-gray-100 text-gray-700 rounded-xl flex items-center justify-center gap-2 hover:bg-gray-200 transition-colors"
+                    >
+                      <RefreshCw className="w-5 h-5" />
+                      刷新状态
+                    </button>
+                    <button
                       onClick={() => setEditingDevice(device)}
                       className="w-full py-3 bg-gray-100 text-gray-700 rounded-xl flex items-center justify-center gap-2 hover:bg-gray-200 transition-colors"
                     >
@@ -747,6 +721,7 @@ export function RemoteInteractionCenterComponent() {
     );
   };
 
+  // 加载状态
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -755,6 +730,23 @@ export function RemoteInteractionCenterComponent() {
           transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
           className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full"
         />
+      </div>
+    );
+  }
+
+  // 错误状态
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 text-center">
+        <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
+        <p className="text-red-600 mb-2">加载设备数据失败</p>
+        <p className="text-sm text-gray-500 mb-4">{error}</p>
+        <button
+          onClick={() => loadDevices(petId)}
+          className="px-4 py-2 bg-orange-500 text-white rounded-xl hover:bg-orange-600 transition-colors"
+        >
+          重新加载
+        </button>
       </div>
     );
   }
@@ -772,14 +764,19 @@ export function RemoteInteractionCenterComponent() {
           </p>
         </div>
         
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() => setShowAddDevice(true)}
-          className="p-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl shadow-lg"
-        >
-          <Plus className="w-5 h-5" />
-        </motion.button>
+        <div className="flex items-center gap-3">
+          {/* WebSocket 连接状态 */}
+          <ConnectionIndicator />
+          
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setShowAddDevice(true)}
+            className="p-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl shadow-lg"
+          >
+            <Plus className="w-5 h-5" />
+          </motion.button>
+        </div>
       </div>
 
       {/* "我回来了"提醒 */}
@@ -833,10 +830,10 @@ export function RemoteInteractionCenterComponent() {
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={handlePlayRecording}
-          disabled={activeDevice === 'device-4'}
+          disabled={activeDevice !== null}
           className="mt-3 w-full py-3 bg-white rounded-xl flex items-center justify-center gap-2 text-purple-600 hover:bg-purple-50 transition-colors shadow-sm disabled:opacity-50"
         >
-          {activeDevice === 'device-4' ? (
+          {activeDevice ? (
             <RefreshCw className="w-5 h-5 animate-spin" />
           ) : (
             <Volume2 className="w-5 h-5" />
@@ -869,7 +866,7 @@ export function RemoteInteractionCenterComponent() {
                 >
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-3">
-                      <div className="text-3xl">{device.icon}</div>
+                      <div className="text-3xl">{device.icon || '📹'}</div>
                       <div>
                         <h3 className="font-medium text-gray-800">{device.name}</h3>
                         <div className="flex items-center gap-2 mt-1">
@@ -1078,18 +1075,20 @@ export function RemoteInteractionCenterComponent() {
               >
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
                   log.type === 'play' ? 'bg-red-100 text-red-600' :
-                  log.type === 'feed' ? 'bg-orange-100 text-orange-600' :
+                  log.type === 'feed' || log.type === 'treat' ? 'bg-orange-100 text-orange-600' :
                   'bg-purple-100 text-purple-600'
                 }`}>
                   {log.type === 'play' ? <Zap className="w-5 h-5" /> :
-                   log.type === 'feed' ? <Cookie className="w-5 h-5" /> :
+                   log.type === 'feed' || log.type === 'treat' ? <Cookie className="w-5 h-5" /> :
                    <Volume2 className="w-5 h-5" />}
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-800">{log.deviceName}</p>
-                  <p className="text-xs text-gray-500">{log.action}</p>
+                  <p className="text-sm font-medium text-gray-800">{log.action}</p>
+                  <p className="text-xs text-gray-500">{formatTime(log.timestamp)}</p>
                 </div>
-                <span className="text-xs text-gray-400">{formatTime(log.timestamp)}</span>
+                {log.autoLogged && (
+                  <span className="text-xs text-gray-400">自动记录</span>
+                )}
               </motion.div>
             ))}
           </div>

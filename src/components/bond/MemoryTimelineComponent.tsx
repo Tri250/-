@@ -21,24 +21,13 @@ import {
   Share2,
   Image,
   X,
-  Sparkles
+  Sparkles,
+  AlertCircle
 } from 'lucide-react';
 import { useAppStore } from '../../store/appStore';
-import type { Milestone } from '../../types/bond';
+import type { Milestone, MemoryItem } from '../../types/bond';
 import { AddMemoryModal } from './AddMemoryModal';
-
-interface MemoryItem {
-  id: string;
-  type: 'photo' | 'video' | 'voice' | 'milestone';
-  title: string;
-  url: string;
-  thumbnail?: string;
-  timestamp: string;
-  location?: string;
-  tags: string[];
-  isFavorite: boolean;
-  isHighlight: boolean;
-}
+import { useMemories } from '../../hooks/useMemories';
 
 interface MemoryTimelineComponentProps {
   externalShowUploadModal?: boolean;
@@ -50,9 +39,18 @@ export function MemoryTimelineComponent({
   onExternalShowUploadModalChange 
 }: MemoryTimelineComponentProps) {
   const { currentPet } = useAppStore();
-  const [memories, setMemories] = useState<MemoryItem[]>([]);
-  const [milestones, setMilestones] = useState<Milestone[]>([]);
-  const [loading, setLoading] = useState(true);
+  
+  // 使用 useMemories Hook 管理回忆数据
+  const {
+    memories,
+    milestones,
+    loading,
+    error,
+    loadMemories,
+    deleteMemory,
+    toggleFavorite,
+  } = useMemories();
+  
   const [selectedItem, setSelectedItem] = useState<MemoryItem | null>(null);
   const [_selectedYear, _setSelectedYear] = useState<number>(new Date().getFullYear());
   const [internalShowUploadModal, setInternalShowUploadModal] = useState(false);
@@ -68,120 +66,12 @@ export function MemoryTimelineComponent({
   const petId = currentPet?.id || '1';
   const petName = currentPet?.name || '毛孩子';
 
+  // 加载回忆数据
   useEffect(() => {
-    loadData();
-  }, [petId]);
-
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const mockMemories: MemoryItem[] = [
-        {
-          id: 'mem-1',
-          type: 'photo',
-          title: '慵懒的午后',
-          url: 'https://picsum.photos/seed/cat1/800/600',
-          thumbnail: 'https://picsum.photos/seed/cat1/400/300',
-          timestamp: new Date(Date.now() - 86400000 * 2).toISOString(),
-          location: '客厅',
-          tags: ['萌宠', '治愈', '日常'],
-          isFavorite: true,
-          isHighlight: true
-        },
-        {
-          id: 'mem-2',
-          type: 'video',
-          title: '第一次玩逗猫棒',
-          url: 'https://example.com/video1.mp4',
-          thumbnail: 'https://picsum.photos/seed/cat2/400/300',
-          timestamp: new Date(Date.now() - 86400000 * 5).toISOString(),
-          tags: ['玩耍', '成长记录'],
-          isFavorite: true,
-          isHighlight: false
-        },
-        {
-          id: 'mem-3',
-          type: 'milestone',
-          title: '1岁生日',
-          url: 'https://picsum.photos/seed/cake/800/600',
-          thumbnail: 'https://picsum.photos/seed/cake/400/300',
-          timestamp: new Date(Date.now() - 86400000 * 30).toISOString(),
-          tags: ['生日', '里程碑'],
-          isFavorite: true,
-          isHighlight: true
-        },
-        {
-          id: 'mem-4',
-          type: 'photo',
-          title: '窗边发呆',
-          url: 'https://picsum.photos/seed/window/800/600',
-          thumbnail: 'https://picsum.photos/seed/window/400/300',
-          timestamp: new Date(Date.now() - 86400000 * 7).toISOString(),
-          location: '卧室',
-          tags: ['日常', '可爱'],
-          isFavorite: false,
-          isHighlight: false
-        },
-        {
-          id: 'mem-5',
-          type: 'voice',
-          title: '呼噜声',
-          url: 'https://example.com/purr.mp3',
-          timestamp: new Date(Date.now() - 86400000 * 3).toISOString(),
-          tags: ['声音'],
-          isFavorite: true,
-          isHighlight: false
-        }
-      ];
-
-      const mockMilestones: Milestone[] = [
-        {
-          id: 'ms-1',
-          petId,
-          type: 'birthday',
-          title: '🎂 2岁生日',
-          description: `${petName}的2岁生日派对`,
-          date: '2026-04-15',
-          photos: [
-            'https://picsum.photos/seed/bday1/400/300',
-            'https://picsum.photos/seed/bday2/400/300'
-          ],
-          celebrationCount: 5
-        },
-        {
-          id: 'ms-2',
-          petId,
-          type: 'adoption',
-          title: '🏠 领养纪念日',
-          description: `${petName}成为我们家庭成员的日子`,
-          date: '2025-05-20',
-          photos: [
-            'https://picsum.photos/seed/adopt1/400/300'
-          ],
-          celebrationCount: 3
-        },
-        {
-          id: 'ms-3',
-          petId,
-          type: 'first_time',
-          title: '✨ 第一次外出',
-          description: `${petName}第一次去公园`,
-          date: '2025-08-10',
-          photos: [],
-          celebrationCount: 2
-        }
-      ];
-
-      setMemories(mockMemories);
-      setMilestones(mockMilestones);
-    } catch (error) {
-      console.error('Failed to load memories:', error);
-    } finally {
-      setLoading(false);
+    if (petId) {
+      loadMemories(petId);
     }
-  };
+  }, [petId, loadMemories]);
 
   const getTypeIcon = (type: string) => {
     switch (type) {
@@ -233,21 +123,33 @@ export function MemoryTimelineComponent({
   const groupedMemories = groupByMonth(memories);
   const sortedMonths = Object.keys(groupedMemories).sort((a, b) => b.localeCompare(a));
 
-  const handleToggleFavorite = (id: string) => {
-    setMemories(prev => prev.map(m => 
-      m.id === id ? { ...m, isFavorite: !m.isFavorite } : m
-    ));
+  // 切换收藏状态
+  const handleToggleFavorite = async (id: string) => {
+    try {
+      await toggleFavorite(id);
+    } catch (err) {
+      console.error('切换收藏失败:', err);
+    }
   };
 
-  const handleDelete = (id: string) => {
+  // 删除回忆
+  const handleDelete = async (id: string) => {
     if (!confirm('确定要删除这个回忆吗？')) return;
-    setMemories(prev => prev.filter(m => m.id !== id));
+    
+    try {
+      await deleteMemory(id);
+      setSelectedItem(null);
+    } catch (err) {
+      console.error('删除回忆失败:', err);
+      alert('删除失败，请稍后重试');
+    }
   };
 
   // 处理添加新回忆
   const handleAddMemory = (memory: unknown) => {
     const newMemory = memory as MemoryItem;
-    setMemories(prev => [newMemory, ...prev]);
+    // 添加成功后，loadMemories 会自动更新列表
+    loadMemories(petId);
   };
 
   const renderMilestoneCard = (milestone: Milestone) => {
@@ -281,7 +183,7 @@ export function MemoryTimelineComponent({
             )}
           </div>
 
-          {milestone.photos.length > 0 && (
+          {milestone.photos && milestone.photos.length > 0 && (
             <div className="flex gap-2 mb-3">
               {milestone.photos.slice(0, 3).map((photo, idx) => (
                 <img
@@ -328,7 +230,7 @@ export function MemoryTimelineComponent({
           {memory.type === 'photo' || memory.type === 'milestone' ? (
             <img
               src={memory.thumbnail || memory.url}
-              alt={memory.title}
+              alt={memory.title || '回忆'}
               className="w-full h-full object-cover"
             />
           ) : memory.type === 'video' ? (
@@ -347,12 +249,12 @@ export function MemoryTimelineComponent({
             <span>{memory.type === 'photo' ? '照片' : memory.type === 'video' ? '视频' : memory.type === 'voice' ? '声音' : '里程碑'}</span>
           </div>
 
-          {/* 高亮标识 */}
+          {/* 高亮标识 - AI 自动标记 */}
           {memory.isHighlight && (
             <div className="absolute top-2 right-2">
               <span className="px-2 py-1 bg-gradient-to-r from-pink-500 to-red-500 text-white rounded-full text-xs flex items-center gap-1">
                 <Sparkles className="w-3 h-3" />
-                精选
+                AI精选
               </span>
             </div>
           )}
@@ -386,7 +288,7 @@ export function MemoryTimelineComponent({
 
         {/* 信息区域 */}
         <div className="p-3">
-          <h3 className="font-medium text-gray-800 mb-1 line-clamp-1">{memory.title}</h3>
+          <h3 className="font-medium text-gray-800 mb-1 line-clamp-1">{memory.title || '回忆'}</h3>
           <div className="flex items-center justify-between text-xs text-gray-500">
             <span>{formatDate(memory.timestamp)}</span>
             {memory.location && (
@@ -432,7 +334,7 @@ export function MemoryTimelineComponent({
               {(selectedItem.type === 'photo' || selectedItem.type === 'milestone') ? (
                 <img
                   src={selectedItem.url}
-                  alt={selectedItem.title}
+                  alt={selectedItem.title || '回忆'}
                   className="w-full max-h-[70vh] object-contain"
                 />
               ) : selectedItem.type === 'video' ? (
@@ -448,7 +350,15 @@ export function MemoryTimelineComponent({
 
             {/* 详情信息 */}
             <div className="bg-white rounded-b-2xl p-6">
-              <h2 className="text-xl font-bold text-gray-800 mb-2">{selectedItem.title}</h2>
+              <h2 className="text-xl font-bold text-gray-800 mb-2">{selectedItem.title || '回忆'}</h2>
+              
+              {/* AI 自动标记显示 */}
+              {selectedItem.isHighlight && (
+                <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-gradient-to-r from-pink-50 to-red-50 rounded-lg">
+                  <Sparkles className="w-4 h-4 text-pink-500" />
+                  <span className="text-sm text-pink-600">AI 自动精选回忆</span>
+                </div>
+              )}
               
               <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
                 <span>{formatDate(selectedItem.timestamp)}</span>
@@ -503,6 +413,7 @@ export function MemoryTimelineComponent({
     </AnimatePresence>
   );
 
+  // 加载状态
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -511,6 +422,23 @@ export function MemoryTimelineComponent({
           transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
           className="w-8 h-8 border-4 border-pink-500 border-t-transparent rounded-full"
         />
+      </div>
+    );
+  }
+
+  // 错误状态
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 text-center">
+        <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
+        <p className="text-red-600 mb-2">加载回忆数据失败</p>
+        <p className="text-sm text-gray-500 mb-4">{error}</p>
+        <button
+          onClick={() => loadMemories(petId)}
+          className="px-4 py-2 bg-pink-500 text-white rounded-xl hover:bg-pink-600 transition-colors"
+        >
+          重新加载
+        </button>
       </div>
     );
   }

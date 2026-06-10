@@ -13,6 +13,9 @@ import feedbackRoutes from './routes/feedback';
 import streamingV2Routes from './routes/v2/streaming';
 import detectionV2Routes from './routes/v2/detection';
 import recordingV2Routes from './routes/v2/recording';
+import memoriesRoutes from './routes/memories';
+import voicesRoutes from './routes/voices';
+import devicesRoutes from './routes/devices';
 
 const app = express();
 
@@ -33,6 +36,9 @@ app.use('/api/v2/translator', feedbackRoutes);
 app.use('/api/v2/streaming', streamingV2Routes);
 app.use('/api/v2/detection', detectionV2Routes);
 app.use('/api/v2/recording', recordingV2Routes);
+app.use('/api/memories', memoriesRoutes);
+app.use('/api/voices', voicesRoutes);
+app.use('/api/devices', devicesRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'PawSync Pro API 运行正常' });
