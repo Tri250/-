@@ -129,18 +129,50 @@ export function useVoiceRecorder(): UseVoiceRecorderReturn {
       });
     }, 1000);
 
-    // 模拟音频捕获动画
+    // 模拟音频捕获动画 - 同时生成模拟音频数据
     const mockCapture = () => {
       if (!isRecordingRef.current) return;
 
       const mockLevel = Math.random() * 40 + 10;
       setAudioLevel(mockLevel);
 
+      // 生成模拟音频数据（模拟宠物叫声波形）
+      const mockAudioChunk = generateMockAudioData(mockLevel);
+      audioChunksRef.current.push(mockAudioChunk);
+
       animationRef.current = requestAnimationFrame(mockCapture);
     };
     mockCapture();
 
     console.log('模拟录音已开始（Web预览模式）');
+  }, []);
+
+  // 生成模拟音频数据（模拟宠物叫声）
+  const generateMockAudioData = useCallback((level: number): Float32Array => {
+    const sampleRate = 44100;
+    const duration = 0.05; // 50ms
+    const samples = Math.floor(sampleRate * duration);
+    const data = new Float32Array(samples);
+    
+    // 模拟宠物叫声特征：混合频率波形
+    const baseFreq = 400 + Math.random() * 200; // 基频 400-600Hz
+    const harmonic1 = baseFreq * 2; // 二次谐波
+    const harmonic2 = baseFreq * 3; // 三次谐波
+    
+    const amplitude = level / 100 * 0.3; // 根据音量级别调整振幅
+    
+    for (let i = 0; i < samples; i++) {
+      const t = i / sampleRate;
+      // 混合多个频率成分，模拟宠物叫声
+      const wave1 = Math.sin(2 * Math.PI * baseFreq * t) * amplitude;
+      const wave2 = Math.sin(2 * Math.PI * harmonic1 * t) * amplitude * 0.3;
+      const wave3 = Math.sin(2 * Math.PI * harmonic2 * t) * amplitude * 0.1;
+      // 添加一些随机噪声模拟真实录音
+      const noise = (Math.random() - 0.5) * amplitude * 0.2;
+      data[i] = wave1 + wave2 + wave3 + noise;
+    }
+    
+    return data;
   }, []);
 
   // 真实录音
@@ -289,7 +321,11 @@ export function useVoiceRecorder(): UseVoiceRecorderReturn {
         return;
       }
 
-      if (!hasValidAudio && maxAudioLevelReached < 3) {
+      // 模拟模式下跳过音量检测（因为已经生成了有效音频数据）
+      const isWebPreview = window.location.hostname === 'localhost' ||
+        window.location.hostname.includes('10.25');
+      
+      if (!isWebPreview && !hasValidAudio && maxAudioLevelReached < 3) {
         setErrorMessage('未检测到有效声音，请确保麦克风正常工作并对准宠物发声。');
         return;
       }
@@ -300,6 +336,8 @@ export function useVoiceRecorder(): UseVoiceRecorderReturn {
         setErrorMessage(validation.error || '音频数据无效');
         return;
       }
+      
+      console.log('录音完成，音频数据长度:', mergedData.length);
     } else {
       setErrorMessage('未捕获到音频数据，请检查麦克风设置后重试。');
     }
