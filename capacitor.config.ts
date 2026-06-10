@@ -5,7 +5,10 @@ const config: CapacitorConfig = {
   appName: '爪爪连心❤️',
   webDir: 'dist',
   server: {
-    androidScheme: 'https'
+    androidScheme: 'https',
+    // 开发环境可配置本地服务器
+    // url: 'http://localhost:5173',
+    // cleartext: true
   },
   android: {
     allowMixedContent: false,
@@ -50,7 +53,44 @@ const config: CapacitorConfig = {
     LocalNotifications: {
       smallIcon: 'ic_stat_icon_config_sample',
       iconColor: '#f97316',
-      requestPermissionsOnLaunch: true
+      requestPermissionsOnLaunch: true,
+      // 新增通知渠道配置
+      channels: [
+        {
+          id: 'health',
+          name: '健康提醒',
+          description: '宠物健康相关通知',
+          importance: 4,
+          visibility: 1,
+          vibration: true,
+          sound: 'health_alert.wav'
+        },
+        {
+          id: 'reminder',
+          name: '日程提醒',
+          description: '喂食、用药等日程提醒',
+          importance: 4,
+          visibility: 1,
+          vibration: true
+        },
+        {
+          id: 'monitor',
+          name: '监控警报',
+          description: '实时监控异常警报',
+          importance: 5,
+          visibility: 1,
+          vibration: true,
+          sound: 'alert.wav'
+        },
+        {
+          id: 'geofence',
+          name: '地理围栏',
+          description: '我回来了智能提醒',
+          importance: 3,
+          visibility: 1,
+          vibration: true
+        }
+      ]
     },
     PushNotifications: {
       presentationOptions: ['badge', 'sound', 'alert'],
@@ -61,7 +101,24 @@ const config: CapacitorConfig = {
     },
     Share: {
       dialogTitle: '分享爪爪连心'
+    },
+    Camera: {
+      promptLabelHeader: '使用相机',
+      promptLabelCancel: '取消',
+      promptLabelPhoto: '从相册选择',
+      promptLabelPicture: '拍照'
+    },
+    Geolocation: {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 0
     }
+  },
+  // 新增：iOS 配置
+  ios: {
+    contentInset: 'automatic',
+    allowsLinkPreview: false,
+    scrollEnabled: true
   }
 };
 
