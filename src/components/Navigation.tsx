@@ -1,4 +1,4 @@
-import React, { memo, useMemo, useCallback, useRef, useEffect, useState } from 'react';
+import React, { memo, useMemo, useCallback, useRef } from 'react';
 import { Home, Shield, Sparkles, Camera, User } from 'lucide-react';
 
 const debounce = <T extends (...args: unknown[]) => unknown>(
@@ -16,65 +16,6 @@ const debounce = <T extends (...args: unknown[]) => unknown>(
       timeoutId = null;
     }, wait);
   };
-};
-
-const throttle = <T extends (...args: unknown[]) => unknown>(
-  func: T,
-  limit: number
-): ((...args: Parameters<T>) => void) => {
-  let inThrottle = false;
-  let lastArgs: Parameters<T> | null = null;
-  
-  return (...args: Parameters<T>) => {
-    if (!inThrottle) {
-      func(...args);
-      inThrottle = true;
-      setTimeout(() => {
-        inThrottle = false;
-        if (lastArgs) {
-          func(...lastArgs);
-          lastArgs = null;
-        }
-      }, limit);
-    } else {
-      lastArgs = args;
-    }
-  };
-};
-
-const useVisibilityChange = (
-  onVisible?: () => void,
-  onHidden?: () => void
-): boolean => {
-  const [isVisible, setIsVisible] = useState(!document.hidden);
-  const onVisibleRef = useRef(onVisible);
-  const onHiddenRef = useRef(onHidden);
-
-  useEffect(() => {
-    onVisibleRef.current = onVisible;
-    onHiddenRef.current = onHidden;
-  }, [onVisible, onHidden]);
-
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      const visible = !document.hidden;
-      setIsVisible(visible);
-      
-      if (visible) {
-        onVisibleRef.current?.();
-      } else {
-        onHiddenRef.current?.();
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, []);
-
-  return isVisible;
 };
 
 interface NavigationProps {
@@ -133,8 +74,7 @@ const navItems = [
 ];
 
 export const Navigation: React.FC<NavigationProps> = memo(({ currentPage, onNavigate }) => {
-  const [isVisible, setIsVisible] = useState(true);
-  const lastScrollY = useRef(0);
+  // 始终保持导航栏可见，移除滚动隐藏逻辑
   const navRef = useRef<HTMLElement>(null);
 
   const debouncedNavigate = useMemo(
@@ -146,42 +86,15 @@ export const Navigation: React.FC<NavigationProps> = memo(({ currentPage, onNavi
     [onNavigate]
   );
 
-  const handleScroll = useMemo(
-    () => throttle(() => {
-      const currentScrollY = window.scrollY;
-      const diff = currentScrollY - lastScrollY.current;
-      
-      if (diff > 50 && currentScrollY > 100) {
-        setIsVisible(false);
-      } else if (diff < -10 || currentScrollY < 100) {
-        setIsVisible(true);
-      }
-      
-      lastScrollY.current = currentScrollY;
-    }, 100),
-    []
-  );
-
-  useEffect(() => {
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-    };
-  }, [handleScroll]);
-
-  useVisibilityChange(
-    () => setIsVisible(true),
-    () => setIsVisible(false)
-  );
-
   return (
     <nav 
       ref={navRef}
-      className={`fixed bottom-0 left-0 right-0 bg-white border-t border-neutral-200 px-4 py-3 z-40 transition-transform duration-300 ${
-        isVisible ? 'translate-y-0' : 'translate-y-full'
-      }`}
+      className="fixed bottom-0 left-0 right-0 bg-white border-t border-neutral-200 px-4 py-3 z-40 safe-area-bottom"
       role="navigation"
       aria-label="主导航"
+      style={{ 
+        paddingBottom: 'max(16px, env(safe-area-inset-bottom))',
+      }}
     >
       <div className="max-w-md mx-auto flex justify-between sm:justify-around items-center px-2 sm:px-4">
         {navItems.map((item) => (
