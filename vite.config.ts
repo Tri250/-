@@ -23,6 +23,9 @@ export default defineConfig(({ mode }) => {
       chunkSizeWarningLimit: 500,
     },
     server: {
+      host: '0.0.0.0',
+      port: 5173,
+      allowedHosts: true,
       watch: {
         ignored: ['**/android-sdk/**', '**/node_modules/**', '**/coverage/**'],
       },
