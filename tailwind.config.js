@@ -15,18 +15,29 @@ export default {
     },
     extend: {
       colors: {
+        // 奶油色/米色背景色系 (主背景)
+        cream: {
+          50: '#FFFBF5',
+          100: '#FAF3E7',
+          200: '#FFE9D6',
+          300: '#F5DEB8',
+          400: '#E8C99A',
+          500: '#D4B07C',
+          600: '#B08D5A',
+          700: '#8A6B43',
+        },
+        // 主橙色系（品牌色） - 偏暖橙
         primary: {
-          50: '#EFF6FF',
-          100: '#DBEAFE',
-          200: '#BFDBFE',
-          300: '#93C5FD',
-          400: '#60A5FA',
-          500: '#4A90D9',
-          600: '#3B82F6',
-          700: '#2563EB',
-          800: '#1D4ED8',
-          900: '#1E40AF',
-          950: '#1E3A8A',
+          50: '#FFF4E5',
+          100: '#FFE4C8',
+          200: '#FFCFA0',
+          300: '#FFB778',
+          400: '#FF9A4D',
+          500: '#FF8A3D',  // 主品牌色
+          600: '#F5722A',
+          700: '#D85A1E',
+          800: '#B14416',
+          900: '#8A3412',
         },
         secondary: {
           50: '#F5F3FF',
@@ -134,18 +145,26 @@ export default {
       borderRadius: {
         sm: '12px',
         DEFAULT: '16px',
+        md: '20px',
         lg: '24px',
-        xl: '32px',
+        xl: '28px',
+        '2xl': '32px',
+        '3xl': '40px',
         full: '9999px',
       },
       boxShadow: {
-        soft: '0 2px 8px rgba(0, 0, 0, 0.06)',
-        card: '0 4px 12px rgba(0, 0, 0, 0.08)',
-        elevated: '0 8px 24px rgba(0, 0, 0, 0.12)',
-        dropdown: '0 10px 40px rgba(0, 0, 0, 0.15)',
-        glow: '0 0 20px rgba(74, 144, 217, 0.3)',
-        'glow-purple': '0 0 20px rgba(108, 92, 231, 0.3)',
-        'glow-success': '0 0 20px rgba(0, 184, 148, 0.3)',
+        // 柔和阴影
+        soft: '0 2px 8px rgba(122, 90, 56, 0.06)',
+        card: '0 4px 16px rgba(122, 90, 56, 0.08)',
+        elevated: '0 8px 24px rgba(122, 90, 56, 0.10)',
+        dropdown: '0 10px 40px rgba(122, 90, 56, 0.12)',
+        // 暖橙发光
+        glow: '0 0 20px rgba(255, 138, 61, 0.30)',
+        'glow-purple': '0 0 20px rgba(108, 92, 231, 0.30)',
+        'glow-success': '0 0 20px rgba(0, 184, 148, 0.30)',
+        'glow-cream': '0 6px 24px rgba(255, 184, 120, 0.25)',
+        'glass-cream': '0 4px 30px rgba(122, 90, 56, 0.08)',
+        // 兼容旧键
         glass: '0 4px 30px rgba(0, 0, 0, 0.1)',
       },
       backdropBlur: {
@@ -156,7 +175,14 @@ export default {
         lg: '60px',
       },
       backgroundImage: {
-        'gradient-primary': 'linear-gradient(135deg, #4A90D9 0%, #60A5FA 100%)',
+        // 奶油色/米色主背景渐变
+        'gradient-cream': 'linear-gradient(135deg, #FAF3E7 0%, #FFE9D6 100%)',
+        'gradient-cream-soft': 'linear-gradient(180deg, #FFFBF5 0%, #FAF3E7 100%)',
+        // 暖色资料卡渐变
+        'gradient-warm': 'linear-gradient(135deg, #FFB778 0%, #FF8A3D 100%)',
+        'gradient-warm-soft': 'linear-gradient(135deg, #FFE4C8 0%, #FFCFA0 100%)',
+        // 保留原始渐变
+        'gradient-primary': 'linear-gradient(135deg, #FF8A3D 0%, #FF9A4D 100%)',
         'gradient-secondary': 'linear-gradient(135deg, #6C5CE7 0%, #A78BFA 100%)',
         'gradient-success': 'linear-gradient(135deg, #00B894 0%, #3DD87C 100%)',
         'gradient-warning': 'linear-gradient(135deg, #F59E0B 0%, #FBBF24 100%)',

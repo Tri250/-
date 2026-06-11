@@ -1,12 +1,32 @@
+// ============================================
+// PawSync Pro - Navigation.tsx
+//
+// 描述: 底部Tab栏 - 5个Tab + 中间圆形凸起"+"号FAB
+// 奶油色/米色风格
+// ============================================
+
 import React, { memo, useMemo, useCallback, useRef, useEffect, useState } from 'react';
-import { Home, Shield, Sparkles, Camera, User } from 'lucide-react';
+import {
+  Home,
+  Smartphone,
+  ClipboardList,
+  Heart,
+  User,
+  Plus,
+} from 'lucide-react';
+import { cn } from '../lib/utils';
+
+interface NavigationProps {
+  currentPage: string;
+  onNavigate: (page: string) => void;
+}
 
 const debounce = <T extends (...args: unknown[]) => unknown>(
   func: T,
   wait: number
 ): ((...args: Parameters<T>) => void) => {
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
-  
+
   return (...args: Parameters<T>) => {
     if (timeoutId) {
       clearTimeout(timeoutId);
@@ -18,79 +38,15 @@ const debounce = <T extends (...args: unknown[]) => unknown>(
   };
 };
 
-const throttle = <T extends (...args: unknown[]) => unknown>(
-  func: T,
-  limit: number
-): ((...args: Parameters<T>) => void) => {
-  let inThrottle = false;
-  let lastArgs: Parameters<T> | null = null;
-  
-  return (...args: Parameters<T>) => {
-    if (!inThrottle) {
-      func(...args);
-      inThrottle = true;
-      setTimeout(() => {
-        inThrottle = false;
-        if (lastArgs) {
-          func(...lastArgs);
-          lastArgs = null;
-        }
-      }, limit);
-    } else {
-      lastArgs = args;
-    }
-  };
-};
-
-const useVisibilityChange = (
-  onVisible?: () => void,
-  onHidden?: () => void
-): boolean => {
-  const [isVisible, setIsVisible] = useState(!document.hidden);
-  const onVisibleRef = useRef(onVisible);
-  const onHiddenRef = useRef(onHidden);
-
-  useEffect(() => {
-    onVisibleRef.current = onVisible;
-    onHiddenRef.current = onHidden;
-  }, [onVisible, onHidden]);
-
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      const visible = !document.hidden;
-      setIsVisible(visible);
-      
-      if (visible) {
-        onVisibleRef.current?.();
-      } else {
-        onHiddenRef.current?.();
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, []);
-
-  return isVisible;
-};
-
-interface NavigationProps {
-  currentPage: string;
-  onNavigate: (page: string) => void;
-}
-
-const NavItem = memo(({ 
-  label, 
-  icon: Icon, 
-  isActive, 
-  onClick 
-}: { 
-  label: string; 
-  icon: React.ElementType; 
-  isActive: boolean; 
+const NavItem = memo(({
+  label,
+  icon: Icon,
+  isActive,
+  onClick,
+}: {
+  label: string;
+  icon: React.ElementType;
+  isActive: boolean;
   onClick: () => void;
 }) => {
   const handleClick = useCallback(() => {
@@ -100,22 +56,30 @@ const NavItem = memo(({
   return (
     <button
       onClick={handleClick}
-      className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-all ${
-        isActive
-          ? 'text-primary-600 bg-primary-50'
-          : 'text-neutral-400 hover:text-neutral-600 hover:bg-neutral-50'
-      }`}
+      className={cn(
+        'flex flex-col items-center justify-center gap-0.5 flex-1 h-full py-2 transition-all',
+        'active-scale'
+      )}
       aria-label={label}
       aria-current={isActive ? 'page' : undefined}
     >
-      <Icon 
-        className={`w-6 h-6 transition-transform duration-300 ${
-          isActive ? 'scale-110' : ''
-        }`}
+      <Icon
+        className={cn(
+          'w-6 h-6 transition-all duration-300',
+          isActive
+            ? 'text-primary-500 scale-110'
+            : 'text-neutral-400'
+        )}
+        strokeWidth={isActive ? 2.5 : 2}
       />
-      <span className={`text-xs font-medium transition-all ${
-        isActive ? 'font-semibold' : ''
-      }`}>
+      <span
+        className={cn(
+          'text-[10px] transition-all leading-none',
+          isActive
+            ? 'text-primary-500 font-semibold'
+            : 'text-neutral-400 font-medium'
+        )}
+      >
         {label}
       </span>
     </button>
@@ -126,9 +90,8 @@ NavItem.displayName = 'NavItem';
 
 const navItems = [
   { id: 'home', label: '首页', icon: Home },
-  { id: 'advanced-health', label: '健康', icon: Shield },
-  { id: 'bond-emotion', label: '情感', icon: Sparkles },
-  { id: 'camera-monitor', label: '监控', icon: Camera },
+  { id: 'health-records', label: '记录', icon: ClipboardList },
+  { id: 'health', label: '健康', icon: Heart },
   { id: 'profile', label: '我的', icon: User },
 ];
 
@@ -138,27 +101,29 @@ export const Navigation: React.FC<NavigationProps> = memo(({ currentPage, onNavi
   const navRef = useRef<HTMLElement>(null);
 
   const debouncedNavigate = useMemo(
-    () => debounce((page: string) => {
-      requestAnimationFrame(() => {
-        onNavigate(page);
-      });
-    }, 50),
+    () =>
+      debounce((page: string) => {
+        requestAnimationFrame(() => {
+          onNavigate(page);
+        });
+      }, 50),
     [onNavigate]
   );
 
   const handleScroll = useMemo(
-    () => throttle(() => {
-      const currentScrollY = window.scrollY;
-      const diff = currentScrollY - lastScrollY.current;
-      
-      if (diff > 50 && currentScrollY > 100) {
-        setIsVisible(false);
-      } else if (diff < -10 || currentScrollY < 100) {
-        setIsVisible(true);
-      }
-      
-      lastScrollY.current = currentScrollY;
-    }, 100),
+    () =>
+      debounce(() => {
+        const currentScrollY = window.scrollY;
+        const diff = currentScrollY - lastScrollY.current;
+
+        if (diff > 50 && currentScrollY > 100) {
+          setIsVisible(false);
+        } else if (diff < -10 || currentScrollY < 100) {
+          setIsVisible(true);
+        }
+
+        lastScrollY.current = currentScrollY;
+      }, 100),
     []
   );
 
@@ -169,30 +134,75 @@ export const Navigation: React.FC<NavigationProps> = memo(({ currentPage, onNavi
     };
   }, [handleScroll]);
 
-  useVisibilityChange(
-    () => setIsVisible(true),
-    () => setIsVisible(false)
-  );
+  // 中间FAB点击 - 跳转到记录页
+  const handleFabClick = useCallback(() => {
+    onNavigate('health-records');
+  }, [onNavigate]);
 
   return (
-    <nav 
+    <nav
       ref={navRef}
-      className={`fixed bottom-0 left-0 right-0 bg-white border-t border-neutral-200 px-4 py-3 z-40 transition-transform duration-300 ${
+      className={cn(
+        'fixed bottom-0 left-0 right-0 z-40 transition-transform duration-300',
         isVisible ? 'translate-y-0' : 'translate-y-full'
-      }`}
+      )}
       role="navigation"
       aria-label="主导航"
     >
-      <div className="max-w-md mx-auto flex justify-between sm:justify-around items-center px-2 sm:px-4">
-        {navItems.map((item) => (
-          <NavItem
-            key={item.id}
-            label={item.label}
-            icon={item.icon}
-            isActive={currentPage === item.id}
-            onClick={() => debouncedNavigate(item.id)}
-          />
-        ))}
+      <div className="relative max-w-md mx-auto h-20 px-2">
+        {/* 背景栏 */}
+        <div
+          className="absolute inset-x-0 bottom-0 h-16 bg-white/95 backdrop-blur-xl border-t border-cream-200 shadow-[0_-4px_20px_rgba(122,90,56,0.08)]"
+          style={{
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
+            paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+          }}
+        />
+
+        {/* FAB 中间圆形凸起按钮 */}
+        <button
+          onClick={handleFabClick}
+          className={cn(
+            'absolute left-1/2 -translate-x-1/2 -top-5 z-10',
+            'w-16 h-16 rounded-full',
+            'bg-gradient-to-br from-primary-400 via-primary-500 to-primary-600',
+            'text-white shadow-glow-cream',
+            'flex items-center justify-center',
+            'active-scale transition-transform hover:scale-105'
+          )}
+          aria-label="添加记录"
+        >
+          {/* 内部光晕 */}
+          <div className="absolute inset-1 rounded-full bg-gradient-to-br from-white/30 to-transparent opacity-60" />
+          <Plus className="w-8 h-8 relative z-10" strokeWidth={2.5} />
+        </button>
+
+        {/* 4个Tab */}
+        <div className="relative h-16 flex items-center justify-around">
+          {navItems.slice(0, 2).map((item) => (
+            <NavItem
+              key={item.id}
+              label={item.label}
+              icon={item.icon}
+              isActive={currentPage === item.id}
+              onClick={() => debouncedNavigate(item.id)}
+            />
+          ))}
+
+          {/* 中间FAB占位 */}
+          <div className="flex-1 h-full" />
+
+          {navItems.slice(2).map((item) => (
+            <NavItem
+              key={item.id}
+              label={item.label}
+              icon={item.icon}
+              isActive={currentPage === item.id}
+              onClick={() => debouncedNavigate(item.id)}
+            />
+          ))}
+        </div>
       </div>
     </nav>
   );

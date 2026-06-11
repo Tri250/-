@@ -12,7 +12,6 @@ import { HomePage } from './pages/HomePage';
 import { useAppStore } from './store/appStore';
 import { PawPrint } from 'lucide-react';
 import { useDeviceCapabilities, applyPerformanceClass } from './utils/performanceDetection';
-import { FloatingActionButton } from './components/FloatingActionButton';
 
 // 懒加载其他页面（性能优化）
 const TranslatorPage = lazy(() => import('./pages/TranslatorPage'));
@@ -172,12 +171,11 @@ export default function App() {
   };
 
   return (
-    <div className={`min-h-screen ${settings.darkMode ? 'bg-gray-900' : 'bg-neutral-50'}`}>
+    <div className={`min-h-screen ${settings.darkMode ? 'bg-gray-900' : 'bg-cream-100'}`}>
       <Suspense fallback={<PageLoader />}>
         {renderPage()}
       </Suspense>
       <Navigation currentPage={currentPage} onNavigate={setCurrentPage} />
-      <FloatingActionButton onNavigate={setCurrentPage} />
     </div>
   );
 }
