@@ -1,7 +1,18 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 
 buildscript {
-    // 仓库已在settings.gradle中配置，这里不需要重复
+    repositories {
+        // 阿里云镜像
+        maven { url 'https://maven.aliyun.com/repository/google' }
+        maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
+        // 腾讯云镜像
+        maven { url 'https://mirrors.cloud.tencent.com/nexus/repository/maven-public/' }
+        // 华为云镜像
+        maven { url 'https://repo.huaweicloud.com/repository/maven/' }
+        // 官方源
+        google()
+        mavenCentral()
+    }
     dependencies {
         classpath 'com.android.tools.build:gradle:8.13.0'
 
@@ -12,7 +23,20 @@ buildscript {
 
 apply from: "variables.gradle"
 
-// allprojects仓库已在settings.gradle的dependencyResolutionManagement中配置
+allprojects {
+    repositories {
+        // 阿里云镜像
+        maven { url 'https://maven.aliyun.com/repository/google' }
+        maven { url 'https://maven.aliyun.com/repository/public' }
+        // 腾讯云镜像
+        maven { url 'https://mirrors.cloud.tencent.com/nexus/repository/maven-public/' }
+        // 华为云镜像
+        maven { url 'https://repo.huaweicloud.com/repository/maven/' }
+        // 官方源
+        google()
+        mavenCentral()
+    }
+}
 
 task clean(type: Delete) {
     delete rootProject.buildDir
