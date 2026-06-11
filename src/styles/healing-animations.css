@@ -1,0 +1,514 @@
+/* ============================================================================
+   治愈系动画效果 - Healing Animations
+   柔和、温暖、舒缓的动画效果
+   ============================================================================ */
+
+/* 基础缓动函数 */
+:root {
+  --healing-ease: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --healing-soft: cubic-bezier(0.4, 0, 0.2, 1);
+  --healing-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+/* ============================================================================
+   呼吸动画 - 模拟宠物呼吸的柔和节奏
+   ============================================================================ */
+
+@keyframes healingBreathe {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scale(1.02);
+    opacity: 1;
+  }
+}
+
+.animate-healing-breathe {
+  animation: healingBreathe 4s ease-in-out infinite;
+}
+
+/* 缓慢呼吸 - 用于背景元素 */
+@keyframes healingBreatheSlow {
+  0%, 100% {
+    transform: scale(1) translateY(0);
+  }
+  50% {
+    transform: scale(1.01) translateY(-2px);
+  }
+}
+
+.animate-healing-breathe-slow {
+  animation: healingBreatheSlow 6s ease-in-out infinite;
+}
+
+/* ============================================================================
+   温暖浮动动画 - 像云朵一样轻柔飘动
+   ============================================================================ */
+
+@keyframes healingFloat {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-6px) rotate(0.5deg);
+  }
+  50% {
+    transform: translateY(-3px) rotate(0deg);
+  }
+  75% {
+    transform: translateY(-8px) rotate(-0.5deg);
+  }
+}
+
+.animate-healing-float {
+  animation: healingFloat 5s ease-in-out infinite;
+}
+
+/* 延迟浮动 - 创造层次感 */
+.animate-healing-float-delay-1 { animation-delay: 0.5s; }
+.animate-healing-float-delay-2 { animation-delay: 1s; }
+.animate-healing-float-delay-3 { animation-delay: 1.5s; }
+
+/* ============================================================================
+   心跳动画 - 温柔的心跳效果
+   ============================================================================ */
+
+@keyframes healingHeartbeat {
+  0%, 100% {
+    transform: scale(1);
+  }
+  10% {
+    transform: scale(1.05);
+  }
+  20% {
+    transform: scale(1);
+  }
+  30% {
+    transform: scale(1.05);
+  }
+  40%, 100% {
+    transform: scale(1);
+  }
+}
+
+.animate-healing-heartbeat {
+  animation: healingHeartbeat 2s ease-in-out infinite;
+}
+
+/* ============================================================================
+   柔和脉冲 - 像温暖的光晕扩散
+   ============================================================================ */
+
+@keyframes healingPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 12px rgba(251, 191, 36, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(251, 191, 36, 0);
+  }
+}
+
+.animate-healing-pulse {
+  animation: healingPulse 2s ease-out infinite;
+}
+
+/* 粉色光晕脉冲 */
+@keyframes healingPulseRose {
+  0% {
+    box-shadow: 0 0 0 0 rgba(251, 113, 133, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 12px rgba(251, 113, 133, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(251, 113, 133, 0);
+  }
+}
+
+.animate-healing-pulse-rose {
+  animation: healingPulseRose 2s ease-out infinite;
+}
+
+/* ============================================================================
+   温暖渐变流动 - 像夕阳下的光影
+   ============================================================================ */
+
+@keyframes healingGradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.animate-healing-gradient {
+  background-size: 200% 200%;
+  animation: healingGradient 8s ease infinite;
+}
+
+/* ============================================================================
+   卡片进入动画 - 像花瓣轻轻飘落
+   ============================================================================ */
+
+@keyframes healingCardEnter {
+  0% {
+    opacity: 0;
+    transform: translateY(20px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-healing-enter {
+  animation: healingCardEnter 0.6s var(--healing-ease) forwards;
+  opacity: 0;
+}
+
+/* 交错进入 */
+.healing-enter-1 { animation-delay: 0.05s; }
+.healing-enter-2 { animation-delay: 0.1s; }
+.healing-enter-3 { animation-delay: 0.15s; }
+.healing-enter-4 { animation-delay: 0.2s; }
+.healing-enter-5 { animation-delay: 0.25s; }
+.healing-enter-6 { animation-delay: 0.3s; }
+
+/* ============================================================================
+   摇晃动画 - 像宠物撒娇时的摇摆
+   ============================================================================ */
+
+@keyframes healingWiggle {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  10% {
+    transform: rotate(-3deg);
+  }
+  20% {
+    transform: rotate(3deg);
+  }
+  30% {
+    transform: rotate(-2deg);
+  }
+  40% {
+    transform: rotate(2deg);
+  }
+  50% {
+    transform: rotate(0deg);
+  }
+}
+
+.animate-healing-wiggle {
+  animation: healingWiggle 1s ease-in-out;
+}
+
+/* ============================================================================
+   闪烁动画 - 像星星温柔闪烁
+   ============================================================================ */
+
+@keyframes healingTwinkle {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(0.95);
+  }
+}
+
+.animate-healing-twinkle {
+  animation: healingTwinkle 3s ease-in-out infinite;
+}
+
+/* ============================================================================
+   摇摆进入 - 像秋千轻轻荡入
+   ============================================================================ */
+
+@keyframes healingSwingIn {
+  0% {
+    opacity: 0;
+    transform: rotateX(-30deg) translateY(-20px);
+  }
+  100% {
+    opacity: 1;
+    transform: rotateX(0) translateY(0);
+  }
+}
+
+.animate-healing-swing {
+  animation: healingSwingIn 0.7s var(--healing-ease) forwards;
+}
+
+/* ============================================================================
+   弹跳进入 - 像小球轻轻弹跳
+   ============================================================================ */
+
+@keyframes healingBounceIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.3) translateY(30px);
+  }
+  40% {
+    transform: scale(1.05) translateY(-10px);
+  }
+  60% {
+    transform: scale(0.95) translateY(5px);
+  }
+  80% {
+    transform: scale(1.02) translateY(-2px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-healing-bounce-in {
+  animation: healingBounceIn 0.8s var(--healing-bounce) forwards;
+}
+
+/* ============================================================================
+   治愈系悬停效果
+   ============================================================================ */
+
+.healing-hover {
+  transition: all 0.4s var(--healing-ease);
+}
+
+.healing-hover:hover {
+  transform: translateY(-6px) scale(1.02);
+  box-shadow: 
+    0 20px 40px -10px rgba(251, 191, 36, 0.15),
+    0 10px 20px -5px rgba(251, 191, 36, 0.1);
+}
+
+.healing-hover:active {
+  transform: translateY(-2px) scale(0.98);
+  transition-duration: 0.15s;
+}
+
+/* 柔和按压效果 */
+.healing-press {
+  transition: all 0.3s var(--healing-soft);
+}
+
+.healing-press:active {
+  transform: scale(0.96);
+}
+
+/* ============================================================================
+   治愈系光泽效果
+   ============================================================================ */
+
+.healing-shine {
+  position: relative;
+  overflow: hidden;
+}
+
+.healing-shine::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.3),
+    transparent
+  );
+  transition: left 0.6s ease;
+}
+
+.healing-shine:hover::before {
+  left: 100%;
+}
+
+/* ============================================================================
+   治愈系涟漪效果 - 像水滴落入平静水面
+   ============================================================================ */
+
+@keyframes healingRipple {
+  0% {
+    transform: scale(0);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(2.5);
+    opacity: 0;
+  }
+}
+
+.healing-ripple {
+  position: relative;
+  overflow: hidden;
+}
+
+.healing-ripple::after {
+  content: '';
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.4) 0%,
+    rgba(255, 255, 255, 0.2) 50%,
+    transparent 100%
+  );
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.healing-ripple:active::after {
+  animation: healingRipple 0.6s ease-out;
+}
+
+/* ============================================================================
+   治愈系边框发光
+   ============================================================================ */
+
+@keyframes healingBorderGlow {
+  0%, 100% {
+    box-shadow: 
+      0 0 0 0 rgba(251, 191, 36, 0),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+  }
+  50% {
+    box-shadow: 
+      0 0 20px 4px rgba(251, 191, 36, 0.2),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.7);
+  }
+}
+
+.animate-healing-border-glow {
+  animation: healingBorderGlow 3s ease-in-out infinite;
+}
+
+/* ============================================================================
+   治愈系阴影呼吸
+   ============================================================================ */
+
+@keyframes healingShadowBreathe {
+  0%, 100% {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  }
+  50% {
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+  }
+}
+
+.animate-healing-shadow {
+  animation: healingShadowBreathe 4s ease-in-out infinite;
+}
+
+/* ============================================================================
+   治愈系文字渐入
+   ============================================================================ */
+
+@keyframes healingTextFade {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+    filter: blur(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+.animate-healing-text {
+  animation: healingTextFade 0.8s var(--healing-soft) forwards;
+}
+
+/* ============================================================================
+   治愈系图标摇摆 - 像宠物摇尾巴
+   ============================================================================ */
+
+@keyframes healingTailWag {
+  0%, 100% {
+    transform: rotate(-5deg);
+  }
+  50% {
+    transform: rotate(5deg);
+  }
+}
+
+.animate-healing-wag {
+  animation: healingTailWag 0.5s ease-in-out infinite;
+  transform-origin: bottom center;
+}
+
+/* ============================================================================
+   治愈系加载动画 - 像宠物在玩耍
+   ============================================================================ */
+
+@keyframes healingLoading {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+  25% {
+    transform: translateY(-10px) rotate(5deg);
+  }
+  50% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 0.7;
+  }
+  75% {
+    transform: translateY(-5px) rotate(-5deg);
+  }
+}
+
+.animate-healing-loading {
+  animation: healingLoading 1.5s ease-in-out infinite;
+}
+
+/* 交错加载 */
+.healing-loading-1 { animation-delay: 0s; }
+.healing-loading-2 { animation-delay: 0.15s; }
+.healing-loading-3 { animation-delay: 0.3s; }
+
+/* ============================================================================
+   无障碍支持
+   ============================================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-healing-breathe,
+  .animate-healing-breathe-slow,
+  .animate-healing-float,
+  .animate-healing-heartbeat,
+  .animate-healing-pulse,
+  .animate-healing-pulse-rose,
+  .animate-healing-gradient,
+  .animate-healing-enter,
+  .animate-healing-wiggle,
+  .animate-healing-twinkle,
+  .animate-healing-swing,
+  .animate-healing-bounce-in,
+  .animate-healing-border-glow,
+  .animate-healing-shadow,
+  .animate-healing-text,
+  .animate-healing-wag,
+  .animate-healing-loading {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
