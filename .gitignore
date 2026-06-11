@@ -37,6 +37,9 @@ Thumbs.db
 *.keystore
 *.jks
 
+# Android signing config (contains secrets)
+android/keystore.properties
+
 # Zip files
 *.zip
 

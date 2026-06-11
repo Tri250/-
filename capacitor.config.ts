@@ -54,10 +54,12 @@ const config: CapacitorConfig = {
     },
     PushNotifications: {
       presentationOptions: ['badge', 'sound', 'alert'],
-      fcm: true,
-      android: {
-        senderId: 'YOUR_SENDER_ID'
-      }
+      // 注意：FCM需要在生产环境中配置真实的senderId
+      // 可通过环境变量或构建时注入
+      // fcm: true,
+      // android: {
+      //   senderId: process.env.FCM_SENDER_ID
+      // }
     },
     Share: {
       dialogTitle: '分享爪爪连心'
