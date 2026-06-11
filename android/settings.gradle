@@ -1,3 +1,36 @@
+// 配置插件管理镜像源（Gradle 7.0+）
+pluginManagement {
+    repositories {
+        // 阿里云镜像（优先）
+        maven { url 'https://maven.aliyun.com/repository/google' }
+        maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
+        // 腾讯云镜像
+        maven { url 'https://mirrors.cloud.tencent.com/nexus/repository/maven-public/' }
+        // 华为云镜像
+        maven { url 'https://repo.huaweicloud.com/repository/maven/' }
+        // 官方源（最后备选）
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+// 依赖解析管理
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
+    repositories {
+        // 阿里云镜像（优先）
+        maven { url 'https://maven.aliyun.com/repository/google' }
+        // 腾讯云镜像
+        maven { url 'https://mirrors.cloud.tencent.com/nexus/repository/maven-public/' }
+        // 华为云镜像
+        maven { url 'https://repo.huaweicloud.com/repository/maven/' }
+        // 官方源（最后备选）
+        google()
+        mavenCentral()
+    }
+}
+
 include ':app'
 include ':capacitor-cordova-android-plugins'
 project(':capacitor-cordova-android-plugins').projectDir = new File('./capacitor-cordova-android-plugins/')

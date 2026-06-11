@@ -1,11 +1,7 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 
 buildscript {
-
-    repositories {
-        google()
-        mavenCentral()
-    }
+    // 仓库已在settings.gradle中配置，这里不需要重复
     dependencies {
         classpath 'com.android.tools.build:gradle:8.13.0'
 
@@ -16,12 +12,7 @@ buildscript {
 
 apply from: "variables.gradle"
 
-allprojects {
-    repositories {
-        google()
-        mavenCentral()
-    }
-}
+// allprojects仓库已在settings.gradle的dependencyResolutionManagement中配置
 
 task clean(type: Delete) {
     delete rootProject.buildDir
