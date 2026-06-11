@@ -99,8 +99,6 @@
 
 # Optimize aggressively
 -optimizationpasses 5
--dontusemixedclassclassnames
--dontskipnonpubliclibraryclasses
 -verbose
 
 # Optimization settings
