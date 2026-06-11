@@ -1,12 +1,13 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
+// 验证结果（2026-06-11）：aliyun/gradle-plugin 路径 404 不可用，已移除
 
 buildscript {
     repositories {
+        // 腾讯云镜像（优先，最全）
+        maven { url 'https://mirrors.cloud.tencent.com/nexus/repository/maven-public/' }
         // 阿里云镜像
         maven { url 'https://maven.aliyun.com/repository/google' }
-        maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
-        // 腾讯云镜像
-        maven { url 'https://mirrors.cloud.tencent.com/nexus/repository/maven-public/' }
+        maven { url 'https://maven.aliyun.com/repository/public' }
         // 华为云镜像
         maven { url 'https://repo.huaweicloud.com/repository/maven/' }
         // 官方源
@@ -25,11 +26,11 @@ apply from: "variables.gradle"
 
 allprojects {
     repositories {
+        // 腾讯云镜像（优先）
+        maven { url 'https://mirrors.cloud.tencent.com/nexus/repository/maven-public/' }
         // 阿里云镜像
         maven { url 'https://maven.aliyun.com/repository/google' }
         maven { url 'https://maven.aliyun.com/repository/public' }
-        // 腾讯云镜像
-        maven { url 'https://mirrors.cloud.tencent.com/nexus/repository/maven-public/' }
         // 华为云镜像
         maven { url 'https://repo.huaweicloud.com/repository/maven/' }
         // 官方源
