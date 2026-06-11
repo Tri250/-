@@ -2,11 +2,7 @@ package com.pawsync.pro;
 
 import android.app.Application;
 import android.content.Context;
-import android.webkit.WebView;
 import android.os.Build;
-
-import androidx.webkit.WebViewCompat;
-import androidx.webkit.ProcessGlobalConfig;
 
 public class PawSyncApplication extends Application {
 
@@ -20,9 +16,6 @@ public class PawSyncApplication extends Application {
         // 初始化WebView数据目录（Android 9+）
         initWebViewDataDirectory();
 
-        // 配置WebView进程全局设置
-        configureWebViewGlobal();
-
         // 内存优化配置
         configureMemoryOptimization();
     }
@@ -30,29 +23,12 @@ public class PawSyncApplication extends Application {
     private void initWebViewDataDirectory() {
         // Android 9+ 需要设置WebView数据目录
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            String dataDir = getDir("webview_data", Context.MODE_PRIVATE).getAbsolutePath();
-            String cacheDir = getDir("webview_cache", Context.MODE_PRIVATE).getAbsolutePath();
-
             try {
-                ProcessGlobalConfig config = new ProcessGlobalConfig.Builder()
-                    .setDataDirectorySuffix(dataDir)
-                    .build();
-                WebViewCompat.configureProcessGlobalConfig(config);
+                // 使用Android内置API设置WebView数据目录后缀
+                android.webkit.WebView.setDataDirectorySuffix("pawsync_webview");
             } catch (Exception e) {
                 // 忽略配置错误
             }
-        }
-    }
-
-    private void configureWebViewGlobal() {
-        // WebView全局优化配置
-        try {
-            // 设置WebView数据目录（多进程支持）
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                WebView.setDataDirectorySuffix("pawsync_webview");
-            }
-        } catch (Exception e) {
-            // 忽略错误
         }
     }
 

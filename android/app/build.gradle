@@ -79,8 +79,6 @@ android {
 
     // 资源压缩配置
     androidResources {
-        // 启用资源压缩
-        shrinkResourcesMode = 'strict'
         // 忽略未使用的资源
         ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~:!*.txt:!*.md'
     }

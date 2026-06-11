@@ -61,10 +61,10 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
-    protected void onWindowVisibilityChanged(int visibility) {
-        super.onWindowVisibilityChanged(visibility);
-        if (visibility == View.VISIBLE) {
-            // 窗口可见时的优化
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) {
+            // 窗口获焦时的优化
             optimizeWebView();
         }
     }
@@ -79,7 +79,6 @@ public class MainActivity extends BridgeActivity {
             webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
 
             // 性能优化设置
-            settings.setRenderPriority(WebSettings.RenderPriority.HIGH);
             settings.setEnableSmoothTransition(true);
             settings.setLoadsImagesAutomatically(true);
             settings.setBlockNetworkImage(false);

@@ -99,7 +99,6 @@
 
 # Optimize aggressively
 -optimizationpasses 5
--dontusemixedclassclassnames
 -dontskipnonpubliclibraryclasses
 -verbose
 
@@ -115,9 +114,6 @@
 
 # 合并接口
 -mergeinterfacesaggressively
-
-# 移除未使用的资源
--shrink
 
 # 优化字符串操作
 -optimizations code/simplification/string

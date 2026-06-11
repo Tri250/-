@@ -16,10 +16,7 @@ pluginManagement {
         maven { url 'https://maven.aliyun.com/repository/google' }
         // 华为云镜像
         maven { url 'https://repo.huaweicloud.com/repository/maven/' }
-        // 官方源（兜底）
-        google()
-        mavenCentral()
-        gradlePluginPortal()
+        // 不再引用官方源（dl.google.com / repo1.maven.org 沙箱不可达）
     }
 }
 
@@ -34,9 +31,7 @@ dependencyResolutionManagement {
         maven { url 'https://maven.aliyun.com/repository/google' }
         // 华为云镜像
         maven { url 'https://repo.huaweicloud.com/repository/maven/' }
-        // 官方源（兜底）
-        google()
-        mavenCentral()
+        // 不再引用官方源
     }
 }
 
