@@ -3,6 +3,8 @@
 buildscript {
 
     repositories {
+        maven { url 'https://mirrors.cloud.tencent.com/maven/' }
+        maven { url 'https://repo.huaweicloud.com/repository/maven/' }
         google()
         mavenCentral()
     }
@@ -18,6 +20,8 @@ apply from: "variables.gradle"
 
 allprojects {
     repositories {
+        maven { url 'https://mirrors.cloud.tencent.com/maven/' }
+        maven { url 'https://repo.huaweicloud.com/repository/maven/' }
         google()
         mavenCentral()
     }
