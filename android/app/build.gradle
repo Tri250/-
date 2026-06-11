@@ -40,6 +40,15 @@ android {
         versionCode 1
         versionName "1.0.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+
+        // 资源优化：只保留必要语言
+        resConfigs 'zh', 'en'
+
+        // 矢量图优化
+        vectorDrawables {
+            useSupportLibrary = true
+        }
+
         aaptOptions {
              ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
@@ -58,7 +67,22 @@ android {
     packagingOptions {
         resources {
             excludes += '/META-INF/{AL2.0,LGPL2.1}'
+            // 排除不必要的文件以减小APK大小
+            excludes += '/META-INF/DEPENDENCIES'
+            excludes += '/META-INF/LICENSE'
+            excludes += '/META-INF/LICENSE.txt'
+            excludes += '/META-INF/NOTICE'
+            excludes += '/META-INF/NOTICE.txt'
+            excludes += '/META-INF/*.kotlin_module'
         }
+    }
+
+    // 资源压缩配置
+    androidResources {
+        // 启用资源压缩
+        shrinkResourcesMode = 'strict'
+        // 忽略未使用的资源
+        ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~:!*.txt:!*.md'
     }
     
     buildTypes {
@@ -67,6 +91,8 @@ android {
             minifyEnabled false
             testCoverageEnabled true
             signingConfig signingConfigs.debug
+            // Debug优化
+            renderscriptOptimLevel 3
         }
         release {
             debuggable false
@@ -74,6 +100,14 @@ android {
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
             signingConfig signingConfigs.release
+            // Release优化
+            renderscriptOptimLevel 3
+            // 启用压缩对齐
+            zipAlignEnabled true
+            // 禁用调试信息
+            ndk {
+                debugSymbolLevel 'none'
+            }
         }
     }
 }

@@ -5,20 +5,27 @@ const config: CapacitorConfig = {
   appName: '爪爪连心❤️',
   webDir: 'dist',
   server: {
-    androidScheme: 'https'
+    androidScheme: 'https',
+    // 性能优化：预连接
+    cleartext: false
   },
   android: {
     allowMixedContent: false,
     captureInput: true,
-    webContentsDebuggingEnabled: false
+    webContentsDebuggingEnabled: false,
+    // WebView性能优化
+    backgroundColor: '#f8fafc'
   },
   plugins: {
     SplashScreen: {
-      launchShowDuration: 2000,
+      // 启动优化：减少显示时间
+      launchShowDuration: 1500,
       backgroundColor: '#f8fafc',
       androidSplashResourceName: 'splash',
       androidScaleType: 'CENTER_CROP',
-      showSpinner: false
+      showSpinner: false,
+      // 平滑过渡
+      fadeOutDuration: 300
     },
     StatusBar: {
       style: 'LIGHT',

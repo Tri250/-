@@ -105,3 +105,57 @@
 
 # Optimization settings
 -optimizations !code/simplification/arithmetic,!field/*,!class/merging/*,!code/algebra/field/*
+
+# ============================================
+# Performance Optimizations
+# ============================================
+
+# 内联短方法
+-allowaccessmodification
+
+# 合并接口
+-mergeinterfacesaggressively
+
+# 移除未使用的资源
+-shrink
+
+# 优化字符串操作
+-optimizations code/simplification/string
+
+# 预验证（Android不需要）
+-dontpreverify
+
+# 允许访问修改（优化内联）
+-allowaccessmodification
+
+# WebView性能优化
+-keepclassmembers class * extends android.webkit.WebViewClient {
+    public void *(android.webkit.WebView, java.lang.String);
+    public void *(android.webkit.WebView, java.lang.String, android.graphics.Bitmap);
+    public boolean *(android.webkit.WebView, java.lang.String);
+}
+-keepclassmembers class * extends android.webkit.WebChromeClient {
+    public void *(android.webkit.WebView, java.lang.String);
+}
+
+# 移除System.out调用（性能优化）
+-assumenosideeffects class java.io.PrintStream {
+    public void println(...);
+    public void print(...);
+}
+
+# 优化集合操作
+-keepclassmembers class * extends java.util.Collection {
+    public boolean add(...);
+    public boolean remove(...);
+    public boolean contains(...);
+    public int size();
+}
+
+# 线程优化
+-keepclassmembers class * implements java.lang.Runnable {
+    public void run();
+}
+-keepclassmembers class * extends java.lang.Thread {
+    public void run();
+}
