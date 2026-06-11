@@ -575,6 +575,18 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
                   </div>
                 </div>
               </div>
+
+              {/* 治愈系 UI 演示入口 */}
+              <button
+                onClick={() => onNavigate('healing-demo')}
+                className="w-full py-4 rounded-2xl bg-gradient-to-r from-amber-100/80 via-orange-100/80 to-peach-100/80 dark:from-amber-900/20 dark:via-orange-900/20 dark:to-peach-900/20 backdrop-blur-sm border border-amber-200/50 dark:border-amber-700/30 hover:shadow-lg transition-all active-scale group mb-4"
+              >
+                <div className="flex items-center justify-center gap-2">
+                  <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400 group-hover:rotate-12 transition-transform" />
+                  <span className="font-semibold text-sm text-amber-800 dark:text-amber-200">治愈系 UI 演示</span>
+                  <ChevronRight className="w-4 h-4 text-amber-600 dark:text-amber-400 group-hover:translate-x-0.5 transition-transform" />
+                </div>
+              </button>
             </>
           )}
         </main>

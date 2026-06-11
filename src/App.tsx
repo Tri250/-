@@ -37,6 +37,7 @@ const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const FavoritesPage = lazy(() => import('./pages/FavoritesPage'));
 const HelpFeedbackPage = lazy(() => import('./pages/HelpFeedbackPage'));
 const DeveloperInfoPage = lazy(() => import('./pages/DeveloperInfoPage'));
+const HealingUIDemo = lazy(() => import('./components/HealingUIDemo'));
 
 // 页面加载占位符
 const PageLoader = () => (
@@ -161,6 +162,8 @@ export default function App() {
         return <HelpFeedbackPage onNavigate={setCurrentPage} />;
       case 'developer-info':
         return <DeveloperInfoPage onNavigate={setCurrentPage} />;
+      case 'healing-demo':
+        return <HealingUIDemo />;
       case 'history':
         return <TranslatorPage />;
       default:
