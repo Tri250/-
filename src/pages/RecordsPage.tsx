@@ -1,5 +1,6 @@
 /**
- * RecordsPage V2 - 奶油极简风
+ * RecordsPage V3 - 奶油极简风统一版
+ * 使用统一设计系统 constants.ts
  */
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -8,19 +9,15 @@ import {
   Signal, Wifi, BatteryFull,
 } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
-
-const colors = {
-  bg: '#FDF8F3', card: '#FFFFFF', brand: '#F97316',
-  orange: '#FB923C', blue: '#60A5FA', green: '#34D399', purple: '#A78BFA', yellow: '#FBBF24',
-};
+import { COLORS, SHADOWS, RADIUS, FONT, ANIMATION, PET_IMAGE } from '../styles/constants';
 
 const typeConfig = {
-  all: { icon: Sparkles, label: '全部', color: colors.brand },
-  feed: { icon: Apple, label: '喂食', color: colors.orange },
-  water: { icon: Droplet, label: '饮水', color: colors.blue },
-  activity: { icon: Footprints, label: '活动', color: colors.green },
-  health: { icon: Activity, label: '健康', color: colors.purple },
-  other: { icon: FileText, label: '其他', color: colors.yellow },
+  all: { icon: Sparkles, label: '全部', color: COLORS.brand },
+  feed: { icon: Apple, label: '喂食', color: COLORS.orange },
+  water: { icon: Droplet, label: '饮水', color: COLORS.blue },
+  activity: { icon: Footprints, label: '活动', color: COLORS.green },
+  health: { icon: Activity, label: '健康', color: COLORS.purple },
+  other: { icon: FileText, label: '其他', color: COLORS.yellow },
 };
 
 export const RecordsPage: React.FC<{ onNavigate: (page: string) => void }> = () => {
@@ -36,82 +33,118 @@ export const RecordsPage: React.FC<{ onNavigate: (page: string) => void }> = () 
   ];
 
   return (
-    <div className="min-h-screen pb-24" style={{ background: colors.bg }}>
+    <div className="min-h-screen pb-24" style={{ background: COLORS.bg }}>
       {/* 状态栏 */}
       <div className="flex items-center justify-between px-6 pt-3 pb-1">
-        <span className="text-[15px] font-semibold text-gray-900">9:41</span>
+        <span style={{ fontSize: FONT.size.lg, fontWeight: FONT.weight.semibold, color: COLORS.textPrimary }}>9:41</span>
         <div className="flex items-center gap-1">
-          <Signal className="w-4 h-4 text-gray-900" strokeWidth={2.5} />
-          <Wifi className="w-4 h-4 text-gray-900" strokeWidth={2.5} />
-          <BatteryFull className="w-5 h-5 text-gray-900" strokeWidth={2} />
+          <Signal className="w-4 h-4" style={{ color: COLORS.textPrimary, strokeWidth: 2.5 }} />
+          <Wifi className="w-4 h-4" style={{ color: COLORS.textPrimary, strokeWidth: 2.5 }} />
+          <BatteryFull className="w-5 h-5" style={{ color: COLORS.textPrimary, strokeWidth: 2 }} />
         </div>
       </div>
 
       <main className="px-4 pt-4 space-y-4">
         {/* 标题 */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-          <h1 className="text-[24px] font-light text-gray-900">记录</h1>
-          <p className="text-[13px] text-gray-500 mt-1">记录每一次陪伴，见证每一点成长</p>
+        <motion.div initial={ANIMATION.fadeInUp.initial} animate={ANIMATION.fadeInUp.animate}>
+          <h1 style={{ fontSize: FONT.size['4xl'], fontWeight: FONT.weight.light, color: COLORS.textPrimary }}>记录</h1>
+          <p style={{ fontSize: FONT.size.md, color: COLORS.textSecondary, marginTop: '4px' }}>记录每一次陪伴，见证每一点成长</p>
         </motion.div>
 
         {/* 宠物图 */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
-          className="h-32 rounded-3xl overflow-hidden"
+        <motion.div 
+          initial={ANIMATION.fadeInUp.initial} 
+          animate={ANIMATION.fadeInUp.animate} 
+          transition={{ delay: 0.05 }}
+          whileHover={{ scale: 1.01 }}
+          className="h-32 rounded-3xl overflow-hidden cursor-pointer"
+          style={{ boxShadow: SHADOWS.DEFAULT }}
         >
-          <img src="https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=800&h=400&fit=crop&auto=format" alt="" className="w-full h-full object-cover" />
+          <img src={PET_IMAGE.card} alt="" className="w-full h-full object-cover" />
         </motion.div>
 
         {/* 分类标签 */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-          className="p-3 flex justify-between" style={{ background: colors.card, borderRadius: '20px', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
+        <motion.div 
+          initial={ANIMATION.fadeInUp.initial} 
+          animate={ANIMATION.fadeInUp.animate} 
+          transition={{ delay: 0.1 }}
+          className="p-3 flex justify-between"
+          style={{ background: COLORS.card, borderRadius: RADIUS.cardSm, boxShadow: SHADOWS.sm }}
         >
           {Object.entries(typeConfig).map(([key, config]) => {
             const Icon = config.icon;
             const isActive = activeTab === key;
             return (
-              <button key={key} onClick={() => setActiveTab(key as any)} className="flex flex-col items-center gap-1">
-                <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: isActive ? `${config.color}15` : 'transparent' }}>
-                  <Icon className="w-5 h-5" style={{ color: isActive ? config.color : '#9CA3AF' }} strokeWidth={2} />
-                </div>
-                <span className="text-[10px]" style={{ color: isActive ? config.color : '#9CA3AF', fontWeight: isActive ? 600 : 400 }}>{config.label}</span>
-              </button>
+              <motion.button
+                key={key}
+                onClick={() => setActiveTab(key as any)}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="flex flex-col items-center gap-1"
+              >
+                <motion.div
+                  className="w-10 h-10 rounded-2xl flex items-center justify-center"
+                  style={{ background: isActive ? `${config.color}15` : 'transparent' }}
+                  whileHover={{ scale: 1.1 }}
+                >
+                  <Icon className="w-5 h-5" style={{ color: isActive ? config.color : COLORS.textTertiary }} strokeWidth={2} />
+                </motion.div>
+                <span style={{ fontSize: FONT.size.xs, color: isActive ? config.color : COLORS.textTertiary, fontWeight: isActive ? FONT.weight.semibold : FONT.weight.regular }}>{config.label}</span>
+              </motion.button>
             );
           })}
         </motion.div>
 
         {/* 日期 */}
         <div className="flex items-center justify-between px-1">
-          <h3 className="text-[16px] font-medium text-gray-900">2024年5月20日</h3>
-          <button className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium" style={{ background: `${colors.brand}15`, color: colors.brand }}>
-            <Calendar className="w-3 h-3" />选择日期<ChevronDown className="w-3 h-3" />
-          </button>
+          <h3 style={{ fontSize: FONT.size.xl, fontWeight: FONT.weight.medium, color: COLORS.textPrimary }}>2024年5月20日</h3>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-full"
+            style={{ background: `${COLORS.brand}15`, color: COLORS.brand, fontSize: FONT.size.sm, fontWeight: FONT.weight.medium }}
+          >
+            <Calendar className="w-3 h-3" />
+            选择日期
+            <ChevronDown className="w-3 h-3" />
+          </motion.button>
         </div>
 
         {/* 时间线 */}
         <div className="relative pl-3">
-          <div className="absolute left-[18px] top-4 bottom-4 w-px" style={{ background: `linear-gradient(180deg, ${colors.orange}, ${colors.blue}, ${colors.green})`, opacity: 0.3 }} />
+          <div className="absolute left-[18px] top-4 bottom-4 w-px" style={{ background: `linear-gradient(180deg, ${COLORS.orange}, ${COLORS.blue}, ${COLORS.green})`, opacity: 0.3 }} />
           <div className="space-y-3">
             {records.map((r, i) => {
               const config = typeConfig[r.type as keyof typeof typeConfig];
               const Icon = config.icon;
               return (
-                <motion.div key={i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.15 + i * 0.05 }}
-                  className="relative flex items-center gap-3 p-3" style={{ background: colors.card, borderRadius: '16px', boxShadow: '0 1px 8px rgba(0,0,0,0.03)' }}
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.15 + i * 0.05 }}
+                  whileHover={{ scale: 1.01, x: 2 }}
+                  className="relative flex items-center gap-3 p-3 cursor-pointer"
+                  style={{ background: COLORS.card, borderRadius: RADIUS.sm, boxShadow: SHADOWS.xs }}
                 >
-                  <div className="absolute -left-[5px] w-3 h-3 rounded-full z-10" style={{ background: config.color, boxShadow: `0 0 0 3px ${colors.bg}` }} />
+                  <div className="absolute -left-[5px] w-3 h-3 rounded-full z-10" style={{ background: config.color, boxShadow: `0 0 0 3px ${COLORS.bg}` }} />
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center ml-3" style={{ background: `${config.color}15` }}>
                     <Icon className="w-5 h-5" style={{ color: config.color }} strokeWidth={2} />
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="text-[14px] font-medium text-gray-900">{r.title}</span>
-                      {r.tag && <span className="text-[9px] px-1.5 py-0 rounded" style={{ background: `${colors.orange}15`, color: colors.orange }}>{r.tag}</span>}
+                      <span style={{ fontSize: FONT.size.lg, fontWeight: FONT.weight.medium, color: COLORS.textPrimary }}>{r.title}</span>
+                      {r.tag && <span className="px-1.5 py-0 rounded" style={{ background: `${COLORS.orange}15`, fontSize: '9px', color: COLORS.orange }}>{r.tag}</span>}
                     </div>
-                    <p className="text-[12px] text-gray-500">{r.sub}</p>
+                    <p style={{ fontSize: FONT.size.base, color: COLORS.textSecondary }}>{r.sub}</p>
                   </div>
-                  {r.hasImg && <div className="w-12 h-12 rounded-lg overflow-hidden"><img src="https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=100&h=100&fit=crop&auto=format" alt="" className="w-full h-full object-cover" /></div>}
-                  <span className="text-[11px] text-gray-400">{r.time}</span>
-                  <ChevronRight className="w-4 h-4 text-gray-300" />
+                  {r.hasImg && (
+                    <div className="w-12 h-12 rounded-lg overflow-hidden">
+                      <img src={PET_IMAGE.thumb} alt="" className="w-full h-full object-cover" />
+                    </div>
+                  )}
+                  <span style={{ fontSize: FONT.size.sm, color: COLORS.textTertiary }}>{r.time}</span>
+                  <ChevronRight className="w-4 h-4" style={{ color: COLORS.textQuaternary }} />
                 </motion.div>
               );
             })}
@@ -120,28 +153,39 @@ export const RecordsPage: React.FC<{ onNavigate: (page: string) => void }> = () 
 
         {/* 折叠日期 */}
         <div>
-          <button onClick={() => setExpanded(!expanded)} className="flex items-center justify-between w-full mb-3 px-1">
-            <h3 className="text-[16px] font-medium text-gray-900">2024年5月19日</h3>
-            <motion.div animate={{ rotate: expanded ? 180 : 0 }}><ChevronDown className="w-4 h-4 text-gray-400" /></motion.div>
-          </button>
+          <motion.button
+            onClick={() => setExpanded(!expanded)}
+            whileHover={{ scale: 1.01 }}
+            className="flex items-center justify-between w-full mb-3 px-1"
+          >
+            <h3 style={{ fontSize: FONT.size.xl, fontWeight: FONT.weight.medium, color: COLORS.textPrimary }}>2024年5月19日</h3>
+            <motion.div animate={{ rotate: expanded ? 180 : 0 }}>
+              <ChevronDown className="w-4 h-4" style={{ color: COLORS.textTertiary }} />
+            </motion.div>
+          </motion.button>
           <AnimatePresence>
             {expanded && (
-              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                <div className="p-3 flex justify-around" style={{ background: colors.card, borderRadius: '16px', boxShadow: '0 1px 8px rgba(0,0,0,0.03)' }}>
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="overflow-hidden"
+              >
+                <div className="p-3 flex justify-around" style={{ background: COLORS.card, borderRadius: RADIUS.sm, boxShadow: SHADOWS.xs }}>
                   {[
-                    { icon: Apple, count: 2, color: colors.orange },
-                    { icon: Droplet, count: 3, color: colors.blue },
-                    { icon: Footprints, count: 1, color: colors.green },
-                    { icon: Activity, count: 1, color: colors.purple },
-                    { icon: FileText, count: 1, color: colors.yellow },
-                  ].map((s, i) => {
+                    { icon: Apple, count: 2, color: COLORS.orange },
+                    { icon: Droplet, count: 3, color: COLORS.blue },
+                    { icon: Footprints, count: 1, color: COLORS.green },
+                    { icon: Activity, count: 1, color: COLORS.purple },
+                    { icon: FileText, count: 1, color: COLORS.yellow },
+                  ].map((s) => {
                     const Icon = s.icon;
                     return (
-                      <div key={i} className="flex items-center gap-1">
+                      <div key={s.color} className="flex items-center gap-1">
                         <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ background: `${s.color}15` }}>
                           <Icon className="w-3 h-3" style={{ color: s.color }} />
                         </div>
-                        <span className="text-[11px] text-gray-500">{s.count}次</span>
+                        <span style={{ fontSize: FONT.size.sm, color: COLORS.textSecondary }}>{s.count}次</span>
                       </div>
                     );
                   })}
