@@ -55,4 +55,5 @@ export interface InsuranceStore {
   selectPlan: (plan: InsurancePlan) => void;
   purchasePolicy: (planId: string, petId: string) => Promise<boolean>;
   submitClaim: (claim: Omit<Claim, 'id' | 'status'>) => Promise<boolean>;
+  initialize: () => Promise<void>;
 }

@@ -55,4 +55,5 @@ export interface MedicalStore {
   startAIConsultation: (symptoms: string[]) => Promise<MedicalConsultation>;
   bookAppointment: (appointment: Omit<VetAppointment, 'id' | 'status'>) => Promise<boolean>;
   addMedicalRecord: (record: Omit<MedicalRecord, 'id'>) => void;
+  initialize: () => Promise<void>;
 }

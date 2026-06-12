@@ -46,6 +46,7 @@ interface ReminderStore {
   getUpcomingReminders: (petId: string, limit: number) => Reminder[];
   getSmartRecommendations: (petId: string, petBirthday?: string, lastVaccineDate?: string, lastDewormingDate?: string) => Array<{ type: ReminderType; suggestedDate: string; suggestedTime: string; reason: string; priority: 'high' | 'medium' | 'low' }>;
   sendNotification: (reminder: Reminder, channels: NotificationChannel[]) => Promise<boolean>;
+  initialize: () => Promise<void>;
 }
 
 // 示例数据
@@ -324,6 +325,10 @@ export const useReminderStore = create<ReminderStore>()(
           console.error('发送通知失败:', error);
           return false;
         }
+      },
+
+      initialize: async () => {
+        console.log('[ReminderStore] Initialized');
       },
     }),
     {

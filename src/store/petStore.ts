@@ -52,6 +52,7 @@ interface PetStore {
   
   importPetsFromCSV: (data: string) => { success: number; duplicates: number; errors: string[] };
   importPetsFromJSON: (data: Pet[]) => { success: number; duplicates: number; errors: string[] };
+  initialize: () => Promise<void>;
 }
 
 const INITIAL_PETS: Pet[] = [
@@ -313,6 +314,11 @@ export const usePetStore = create<PetStore>()(
         });
         
         return result;
+      },
+
+      initialize: async () => {
+        // 初始化逻辑 - 如果有需要可以在这里加载初始数据
+        console.log('[PetStore] Initialized');
       },
     }),
     {

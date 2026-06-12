@@ -113,5 +113,9 @@ export const useTrainingStore = create<TrainingStore>((set, get) => ({
         ? { ...course, completedSteps, progress: Math.round((completedSteps / course.totalSteps) * 100) }
         : course
     )
-  }))
+  })),
+
+  initialize: async () => {
+    console.log('[TrainingStore] Initialized');
+  }
 }));

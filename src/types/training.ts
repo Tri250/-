@@ -57,4 +57,5 @@ export interface TrainingStore {
   endSession: (notes?: string) => void;
   addTrainingRecord: (record: TrainingRecord) => void;
   updateCourseProgress: (courseId: string, completedSteps: number) => void;
+  initialize: () => Promise<void>;
 }

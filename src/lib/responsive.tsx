@@ -329,12 +329,15 @@ export const ResponsiveWrapper: React.FC<{
   style?: React.CSSProperties;
 }> = ({ children, className = '', style = {} }) => {
   const { size, safeAreaPadding } = useResponsiveStyle();
-  
+
   return (
     <div
       className={`responsive-wrapper ${responsiveClasses.container(size)} ${className}`}
       style={{
-        ...safeAreaPadding,
+        paddingTop: safeAreaPadding.paddingTop,
+        paddingBottom: safeAreaPadding.paddingBottom,
+        paddingLeft: safeAreaPadding.paddingLeft,
+        paddingRight: safeAreaPadding.paddingRight,
         ...style,
       }}
     >
