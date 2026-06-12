@@ -61,15 +61,15 @@ export const PetProfilePage: React.FC<PetProfilePageProps> = ({ onNavigate }) =>
   const healthData = [
     { 
       label: '健康评分', 
-      value: healthScoreData.overall.toString(), 
+      value: (healthScoreData?.overall || 0).toString(), 
       unit: '分', 
       icon: Heart, 
       color: '#EF4444',
-      trend: healthScoreData.physical > 80 ? 'up' : 'stable'
+      trend: (healthScoreData?.physical || 0) > 80 ? 'up' : 'stable'
     },
     { 
       label: '体重', 
-      value: pet?.weight?.toString() || healthMetrics.find(m => m.type === 'weight')?.value?.toString() || '12.5', 
+      value: pet?.weight?.toString() || healthMetrics.find(m => m?.type === 'weight')?.value?.toString() || '12.5', 
       unit: 'kg', 
       icon: Weight, 
       color: '#3B82F6',
@@ -77,7 +77,7 @@ export const PetProfilePage: React.FC<PetProfilePageProps> = ({ onNavigate }) =>
     },
     { 
       label: '体温', 
-      value: healthMetrics.find(m => m.type === 'temperature')?.value?.toFixed(1) || '38.5', 
+      value: healthMetrics.find(m => m?.type === 'temperature')?.value?.toFixed(1) || '38.5', 
       unit: '°C', 
       icon: Activity, 
       color: '#F59E0B',
