@@ -1,6 +1,52 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="colorPrimary">#f97316</color>
-    <color name="colorPrimaryDark">#ea580c</color>
-    <color name="colorAccent">#f97316</color>
+    <!-- 奶油极简风配色 -->
+    <color name="bg_primary">#FDF8F3</color>
+    <color name="bg_secondary">#FAF5EE</color>
+    <color name="bg_card">#FFFFFF</color>
+
+    <!-- 文字颜色 -->
+    <color name="text_primary">#1A1A1A</color>
+    <color name="text_secondary">#666666</color>
+    <color name="text_tertiary">#999999</color>
+    <color name="text_quaternary">#CCCCCC</color>
+
+    <!-- 品牌色 -->
+    <color name="brand_primary">#F97316</color>
+    <color name="brand_light">#FFF7ED</color>
+
+    <!-- 功能色 -->
+    <color name="color_blue">#60A5FA</color>
+    <color name="color_blue_light">#EFF6FF</color>
+    <color name="color_green">#34D399</color>
+    <color name="color_green_light">#ECFDF5</color>
+    <color name="color_orange">#FB923C</color>
+    <color name="color_orange_light">#FFF7ED</color>
+    <color name="color_purple">#A78BFA</color>
+    <color name="color_purple_light">#F5F3FF</color>
+    <color name="color_red">#F87171</color>
+    <color name="color_red_light">#FEF2F2</color>
+    <color name="color_cyan">#22D3EE</color>
+    <color name="color_cyan_light">#ECFEFF</color>
+
+    <!-- 状态色 -->
+    <color name="status_online">#10B981</color>
+    <color name="status_online_bg">#D1FAE5</color>
+    <color name="status_offline">#9CA3AF</color>
+    <color name="status_warning">#F59E0B</color>
+    <color name="status_warning_bg">#FEF3C7</color>
+    <color name="status_error">#EF4444</color>
+    <color name="status_error_bg">#FEE2E2</color>
+
+    <!-- 记录类型色 -->
+    <color name="type_feed">#FB923C</color>
+    <color name="type_water">#60A5FA</color>
+    <color name="type_activity">#34D399</color>
+    <color name="type_health">#A78BFA</color>
+    <color name="type_other">#FBBF24</color>
+
+    <!-- 底部导航 -->
+    <color name="nav_active">#F97316</color>
+    <color name="nav_inactive">#9CA3AF</color>
+    <color name="nav_bg">#FFFFFF</color>
 </resources>

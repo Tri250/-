@@ -1,30 +1,85 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">爪爪连心❤️</string>
-    <string name="title_activity_main">爪爪连心❤️</string>
-    <string name="package_name">com.pawsync.pro</string>
-    <string name="custom_url_scheme">com.pawsync.pro</string>
-    
-    <!-- 权限说明 -->
-    <string name="permission_camera_title">相机权限</string>
-    <string name="permission_camera_description">用于拍摄宠物照片进行健康分析和表情识别，帮助您更好地了解宠物的健康状况。</string>
-    
-    <string name="permission_microphone_title">麦克风权限</string>
-    <string name="permission_microphone_description">用于录制宠物声音进行情绪翻译分析，解读宠物的情感状态。</string>
-    
-    <string name="permission_storage_title">存储权限</string>
-    <string name="permission_storage_description">用于保存宠物照片、健康记录等数据到本地，确保您的数据安全存储。</string>
-    
-    <string name="permission_notification_title">通知权限</string>
-    <string name="permission_notification_description">用于发送健康提醒、疫苗接种提醒等重要通知，帮助您及时关注宠物健康。</string>
-    
-    <!-- 功能说明 -->
-    <string name="feature_emotion_translation">AI情感翻译</string>
-    <string name="feature_emotion_translation_desc">通过分析宠物的声音和表情，解读其情感状态</string>
-    
-    <string name="feature_health_monitoring">健康监测</string>
-    <string name="feature_health_monitoring_desc">记录和追踪宠物的健康数据，生成健康报告</string>
-    
-    <string name="feature_smart_reminder">智能提醒</string>
-    <string name="feature_smart_reminder_desc">疫苗接种、驱虫、体检等提醒，不错过任何重要事项</string>
+    <string name="app_name">爪爪连心</string>
+    <string name="title_home">首页</string>
+    <string name="title_devices">设备</string>
+    <string name="title_records">记录</string>
+    <string name="title_profile">我的</string>
+
+    <!-- 首页 -->
+    <string name="quick_actions">快捷功能</string>
+    <string name="ai_consult">AI问诊</string>
+    <string name="health_report">健康报告</string>
+    <string name="diet_advice">饮食建议</string>
+    <string name="pet_archive">宠物档案</string>
+
+    <string name="services">服务大厅</string>
+    <string name="training">训练课程</string>
+    <string name="insurance">宠物保险</string>
+    <string name="medical">医疗服务</string>
+    <string name="service_mall">服务商城</string>
+
+    <string name="my_devices">我的设备</string>
+    <string name="add_device">添加设备</string>
+    <string name="device_online">在线</string>
+    <string name="device_offline">离线</string>
+
+    <string name="diet_data">今日饮食数据</string>
+    <string name="feed_count">进食次数</string>
+    <string name="feed_amount">进食总量</string>
+    <string name="calories">消耗卡路里</string>
+    <string name="feed_duration">进食时长</string>
+
+    <!-- 设备页 -->
+    <string name="all_devices">全部设备</string>
+    <string name="feed_devices">喂食设备</string>
+    <string name="wear_devices">穿戴设备</string>
+    <string name="device_manage">设备管理</string>
+    <string name="device_battery">剩余电量</string>
+    <string name="today_data">今日数据</string>
+
+    <!-- 记录页 -->
+    <string name="all_records">全部</string>
+    <string name="feed_records">喂食</string>
+    <string name="water_records">饮水</string>
+    <string name="activity_records">活动</string>
+    <string name="health_records">健康</string>
+    <string name="other_records">其他</string>
+    <string name="select_date">选择日期</string>
+
+    <!-- 我的页 -->
+    <string name="growth_value">成长值</string>
+    <string name="medals">勋章</string>
+    <string name="following">关注</string>
+    <string name="messages">互动消息</string>
+    <string name="complete_profile">完善宠物资料</string>
+    <string name="my_services">我的服务</string>
+    <string name="service_orders">服务订单</string>
+    <string name="appointments">预约记录</string>
+    <string name="favorites">收藏夹</string>
+    <string name="coupons">优惠券</string>
+    <string name="pet_management">宠物管理</string>
+    <string name="my_family">我的家庭</string>
+    <string name="privacy_settings">隐私设置</string>
+    <string name="help_feedback">帮助与反馈</string>
+    <string name="about_us">关于我们</string>
+
+    <!-- 状态 -->
+    <string name="status_excellent">活力充沛</string>
+    <string name="status_good">健康良好</string>
+    <string name="status_warning">需要关注</string>
+    <string name="status_normal">正常</string>
+
+    <!-- 操作 -->
+    <string name="view_all">查看全部</string>
+    <string name="more_data">更多数据</string>
+    <string name="edit_profile">编辑资料</string>
+    <string name="settings">设置</string>
+    <string name="notifications">通知</string>
+    <string name="add">添加</string>
+    <string name="delete">删除</string>
+    <string name="edit">编辑</string>
+    <string name="save">保存</string>
+    <string name="cancel">取消</string>
+    <string name="confirm">确认</string>
 </resources>
