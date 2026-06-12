@@ -11,6 +11,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.pawsync.pro.R;
 import com.pawsync.pro.data.DataRepository;
 import com.pawsync.pro.model.Pet;
+import com.pawsync.pro.ui.dialog.AddRecordDialog;
 
 /**
  * 我的页Activity - 个人中心
@@ -146,19 +147,7 @@ public class ProfileActivity extends AppCompatActivity {
 
     private void showAddRecordDialog() {
         AddRecordDialog dialog = new AddRecordDialog(this);
-        dialog.setOnRecordAddedListener((type, content) -> {
-            com.pawsync.pro.model.HealthRecord record = new com.pawsync.pro.model.HealthRecord();
-            record.setPetId(currentPet != null ? currentPet.getId() : "1");
-            record.setType(type);
-            record.setTitle(getRecordTitle(type));
-            record.setContent(content);
-            dataRepository.addHealthRecord(record);
-        });
         dialog.show();
-    }
-
-    private String getRecordTitle(String type) {
-        switch (type) { case "feed": return "喂食"; case "water": return "饮水"; case "activity": return "活动"; case "health": return "健康"; default: return "其他"; }
     }
 
     @Override

@@ -1,18 +1,23 @@
 ext {
     minSdkVersion = 24
-    compileSdkVersion = 30
-    targetSdkVersion = 30
-    androidxAppCompatVersion = '1.7.0'
-    androidxCoreVersion = '1.15.0'
+    compileSdkVersion = 34
+    targetSdkVersion = 34
+    androidxAppCompatVersion = '1.6.1'
+    androidxCoreVersion = '1.12.0'
     androidxCoreSplashScreenVersion = '1.0.1'
-    androidxMaterialVersion = '1.12.0'
-    androidxBrowserVersion = '1.8.0'
+    androidxMaterialVersion = '1.11.0'
+    androidxBrowserVersion = '1.7.0'
     androidxLocalBroadcastManagerVersion = '1.1.0'
     androidxCoordinatorLayoutVersion = '1.2.0'
     firebaseMessagingVersion = '24.1.0'
     playServicesLocationVersion = '21.3.0'
     junitVersion = '4.13.2'
-    androidxJunitVersion = '1.2.1'
-    androidxEspressoCoreVersion = '3.6.1'
+    androidxJunitVersion = '1.1.5'
+    androidxEspressoCoreVersion = '3.5.1'
     cordovaAndroidVersion = '10.1.1'
+    
+    // Capacitor 依赖版本覆盖（兼容 compileSdk 34）
+    androidxActivityVersion = '1.8.0'
+    androidxFragmentVersion = '1.6.2'
+    androidxWebkitVersion = '1.8.0'
 }

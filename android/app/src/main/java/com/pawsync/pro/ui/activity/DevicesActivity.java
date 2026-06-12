@@ -16,6 +16,7 @@ import com.pawsync.pro.R;
 import com.pawsync.pro.data.DataRepository;
 import com.pawsync.pro.model.Device;
 import com.pawsync.pro.ui.adapter.DeviceAdapter;
+import com.pawsync.pro.ui.dialog.AddRecordDialog;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -189,31 +190,13 @@ public class DevicesActivity extends AppCompatActivity implements DeviceAdapter.
 
         for (int i = 0; i < 4; i++) {
             icons[i].setColorFilter(i == selected ? activeColor : inactiveColor);
-            texts[i]..setTextColor(i == selected ? activeColor : inactiveColor);
+            texts[i].setTextColor(i == selected ? activeColor : inactiveColor);
         }
     }
 
     private void showAddRecordDialog() {
         AddRecordDialog dialog = new AddRecordDialog(this);
-        dialog.setOnRecordAddedListener((type, content) -> {
-            com.pawsync.pro.model.HealthRecord record = new com.pawsync.pro.model.HealthRecord();
-            record.setPetId(dataRepository.getCurrentPet() != null ? dataRepository.getCurrentPet().getId() : "1");
-            record.setType(type);
-            record.setTitle(getRecordTitle(type));
-            record.setContent(content);
-            dataRepository.addHealthRecord(record);
-        });
         dialog.show();
-    }
-
-    private String getRecordTitle(String type) {
-        switch (type) {
-            case "feed": return "喂食";
-            case "water": return "饮水";
-            case "activity": return "活动";
-            case "health": return "健康";
-            default: return "其他";
-        }
     }
 
     @Override

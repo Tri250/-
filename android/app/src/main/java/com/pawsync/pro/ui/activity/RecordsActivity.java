@@ -14,6 +14,7 @@ import com.pawsync.pro.R;
 import com.pawsync.pro.data.DataRepository;
 import com.pawsync.pro.model.HealthRecord;
 import com.pawsync.pro.ui.adapter.HealthRecordAdapter;
+import com.pawsync.pro.ui.dialog.AddRecordDialog;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -131,21 +132,7 @@ public class RecordsActivity extends AppCompatActivity implements HealthRecordAd
 
     private void showAddRecordDialog() {
         AddRecordDialog dialog = new AddRecordDialog(this);
-        dialog.setOnRecordAddedListener((type, content) -> {
-            HealthRecord record = new HealthRecord();
-            record.setPetId(dataRepository.getCurrentPet() != null ? dataRepository.getCurrentPet().getId() : "1");
-            record.setType(type);
-            record.setTitle(getRecordTitle(type));
-            record.setContent(content);
-            dataRepository.addHealthRecord(record);
-            records = dataRepository.getHealthRecordsByPetId(record.getPetId());
-            adapter.updateData(getFilteredRecords());
-        });
         dialog.show();
-    }
-
-    private String getRecordTitle(String type) {
-        switch (type) { case "feed": return "喂食"; case "water": return "饮水"; case "activity": return "活动"; case "health": return "健康"; default: return "其他"; }
     }
 
     @Override
