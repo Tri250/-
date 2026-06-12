@@ -14,6 +14,8 @@ import { PawPrint } from 'lucide-react';
 import { useDeviceCapabilities, applyPerformanceClass } from './utils/performanceDetection';
 import { FloatingActionButton } from './components/FloatingActionButton';
 import { initializeAndroidPerformance } from './config/androidPerformance';
+// 引入 Apple 风格全局样式
+import './styles/apple-style.css';
 
 // 懒加载其他页面（性能优化）
 const TranslatorPage = lazy(() => import('./pages/TranslatorPage'));

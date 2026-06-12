@@ -1,0 +1,761 @@
+/**
+ * Apple Style Global CSS - Apple风格全局样式
+ *
+ * 达到Apple级别的UI/UX体验
+ * 包括：字体系统、动画、响应式设计、多端适配
+ */
+
+/* ============================================
+   1. 字体系统 - SF Pro 风格
+   ============================================ */
+
+/* 导入字体 */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap');
+
+/* 字体变量 */
+:root {
+  /* 主字体 - 类似 SF Pro Display */
+  --font-display: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  
+  /* UI字体 - 类似 SF Pro Text */
+  --font-text: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  
+  /* 数字字体 - 类似 SF Mono */
+  --font-mono: 'SF Mono', 'Fira Code', 'Roboto Mono', monospace;
+  
+  /* 字重 */
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  
+  /* 字号系统 - Apple Dynamic Type */
+  --font-size-xs: 11px;      /* 辅助文字 */
+  --font-size-sm: 13px;      /* 小标题 */
+  --font-size-base: 15px;    /* 正文 */
+  --font-size-lg: 17px;      /* 大正文 */
+  --font-size-xl: 20px;      /* 标题 */
+  --font-size-2xl: 24px;     /* 大标题 */
+  --font-size-3xl: 28px;     /* 特大标题 */
+  --font-size-4xl: 34px;     /* 超大标题 */
+  --font-size-5xl: 48px;     /* 巨大标题 */
+  
+  /* 行高 */
+  --line-height-tight: 1.2;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.75;
+  
+  /* 字间距 */
+  --letter-spacing-tight: -0.02em;
+  --letter-spacing-normal: 0;
+  --letter-spacing-wide: 0.02em;
+}
+
+/* 全局字体应用 */
+html {
+  font-family: var(--font-text);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-normal);
+  letter-spacing: var(--letter-spacing-normal);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* 标题字体 */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+  letter-spacing: var(--letter-spacing-tight);
+}
+
+/* 数字字体 */
+.font-mono, .text-number {
+  font-family: var(--font-mono);
+  font-feature-settings: 'tnum' on, 'lnum' on;
+}
+
+/* ============================================
+   2. 颜色系统 - PawSync Pro 主题色
+   ============================================ */
+
+:root {
+  /* 主色调 - 温暖橙色 */
+  --color-primary: #F5A623;
+  --color-primary-light: #FFB84D;
+  --color-primary-dark: #E09000;
+  --color-primary-50: rgba(245, 166, 35, 0.05);
+  --color-primary-100: rgba(245, 166, 35, 0.1);
+  --color-primary-200: rgba(245, 166, 35, 0.2);
+  --color-primary-300: rgba(245, 166, 35, 0.3);
+  
+  /* 背景色 - 暖米色系 */
+  --color-bg-primary: #FAF7F2;
+  --color-bg-secondary: #FFFFFF;
+  --color-bg-tertiary: #F5F0E8;
+  --color-bg-card: #FFFFFF;
+  --color-bg-elevated: #FFFFFF;
+  
+  /* 文字色 */
+  --color-text-primary: #1D1D1F;
+  --color-text-secondary: #86868B;
+  --color-text-tertiary: #AEAEB2;
+  --color-text-quaternary: #C7C7CC;
+  --color-text-white: #FFFFFF;
+  
+  /* 功能色 */
+  --color-success: #34C759;
+  --color-success-bg: #E8F5E9;
+  --color-warning: #FF9500;
+  --color-warning-bg: #FFF4E5;
+  --color-error: #FF3B30;
+  --color-error-bg: #FFE5E5;
+  --color-info: #007AFF;
+  --color-info-bg: #E5F3FF;
+  
+  /* 设备状态色 */
+  --color-online: #34C759;
+  --color-offline: #8E8E93;
+  --color-warning-status: #FF9500;
+  
+  /* 分隔线 */
+  --color-separator: rgba(60, 60, 67, 0.12);
+  --color-separator-heavy: rgba(60, 60, 67, 0.29);
+  
+  /* 阴影色 */
+  --color-shadow: rgba(0, 0, 0, 0.04);
+  --color-shadow-medium: rgba(0, 0, 0, 0.08);
+  --color-shadow-heavy: rgba(0, 0, 0, 0.12);
+}
+
+/* 暗黑模式 */
+.dark {
+  --color-bg-primary: #000000;
+  --color-bg-secondary: #1C1C1E;
+  --color-bg-tertiary: #2C2C2E;
+  --color-bg-card: #1C1C1E;
+  --color-bg-elevated: #2C2C2E;
+  
+  --color-text-primary: #FFFFFF;
+  --color-text-secondary: #98989D;
+  --color-text-tertiary: #636366;
+  --color-text-quaternary: #48484A;
+  
+  --color-separator: rgba(84, 84, 88, 0.65);
+  --color-separator-heavy: rgba(84, 84, 88, 0.36);
+  
+  --color-shadow: rgba(255, 255, 255, 0.04);
+  --color-shadow-medium: rgba(255, 255, 255, 0.08);
+}
+
+/* ============================================
+   3. 间距系统 - Apple 8pt Grid
+   ============================================ */
+
+:root {
+  /* 基础单位 - 8pt */
+  --spacing-unit: 8px;
+  
+  /* 间距 */
+  --spacing-0: 0;
+  --spacing-1: 4px;      /* 0.5 unit */
+  --spacing-2: 8px;      /* 1 unit */
+  --spacing-3: 12px;     /* 1.5 unit */
+  --spacing-4: 16px;     /* 2 unit */
+  --spacing-5: 20px;     /* 2.5 unit */
+  --spacing-6: 24px;     /* 3 unit */
+  --spacing-7: 28px;     /* 3.5 unit */
+  --spacing-8: 32px;     /* 4 unit */
+  --spacing-9: 36px;     /* 4.5 unit */
+  --spacing-10: 40px;    /* 5 unit */
+  --spacing-12: 48px;    /* 6 unit */
+  --spacing-14: 56px;    /* 7 unit */
+  --spacing-16: 64px;    /* 8 unit */
+  --spacing-20: 80px;    /* 10 unit */
+  --spacing-24: 96px;    /* 12 unit */
+  
+  /* 安全区域 */
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-left: env(safe-area-inset-left, 0px);
+  --safe-area-right: env(safe-area-inset-right, 0px);
+}
+
+/* ============================================
+   4. 圆角系统 - Apple 风格
+   ============================================ */
+
+:root {
+  /* 圆角 */
+  --radius-none: 0;
+  --radius-sm: 8px;      /* 小组件 */
+  --radius-md: 12px;     /* 卡片 */
+  --radius-lg: 16px;     /* 大卡片 */
+  --radius-xl: 20px;     /* 模态框 */
+  --radius-2xl: 24px;    /* 特大组件 */
+  --radius-3xl: 28px;    /* 超大组件 */
+  --radius-full: 9999px; /* 圆形 */
+  
+  /* 按钮圆角 */
+  --radius-button-sm: 8px;
+  --radius-button-md: 10px;
+  --radius-button-lg: 12px;
+}
+
+/* ============================================
+   5. 阴影系统 - Apple 风格
+   ============================================ */
+
+:root {
+  /* 阴影层级 */
+  --shadow-none: none;
+  --shadow-sm: 0 1px 2px var(--color-shadow);
+  --shadow-md: 0 4px 8px var(--color-shadow-medium);
+  --shadow-lg: 0 8px 16px var(--color-shadow-medium);
+  --shadow-xl: 0 16px 32px var(--color-shadow-heavy);
+  --shadow-2xl: 0 24px 48px var(--color-shadow-heavy);
+  
+  /* 特殊阴影 */
+  --shadow-card: 0 2px 8px var(--color-shadow), 0 1px 2px var(--color-shadow);
+  --shadow-button: 0 1px 4px var(--color-shadow);
+  --shadow-fab: 0 4px 12px rgba(245, 166, 35, 0.4);
+  --shadow-modal: 0 24px 48px rgba(0, 0, 0, 0.2);
+  --shadow-nav: 0 -2px 8px var(--color-shadow);
+}
+
+/* ============================================
+   6. 动画系统 - Apple 级别流畅动画
+   ============================================ */
+
+:root {
+  /* 动画时长 */
+  --duration-instant: 0ms;
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --duration-slow: 350ms;
+  --duration-slower: 500ms;
+  --duration-slowest: 700ms;
+  
+  /* 动画曲线 - Apple 风格 */
+  --ease-linear: linear;
+  --ease-in: cubic-bezier(0.42, 0, 1, 1);
+  --ease-out: cubic-bezier(0, 0, 0.58, 1);
+  --ease-in-out: cubic-bezier(0.42, 0, 0.58, 1);
+  
+  /* Apple 特殊曲线 */
+  --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  --ease-smooth: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --ease-ios: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-ios-modal: cubic-bezier(0.4, 0, 0.2, 1);
+  
+  /* 动画延迟 */
+  --delay-none: 0ms;
+  --delay-fast: 50ms;
+  --delay-normal: 100ms;
+  --delay-slow: 200ms;
+}
+
+/* 全局动画基础 */
+*, *::before, *::after {
+  transition-timing-function: var(--ease-ios);
+}
+
+/* ============================================
+   7. 响应式设计 - 多端适配
+   ============================================ */
+
+:root {
+  /* 屏幕尺寸断点 */
+  --screen-xs: 320px;    /* iPhone SE */
+  --screen-sm: 375px;    /* iPhone 标准 */
+  --screen-md: 414px;    /* iPhone Plus */
+  --screen-lg: 768px;    /* iPad */
+  --screen-xl: 1024px;   /* iPad Pro */
+  --screen-2xl: 1280px;  /* iPad Pro 12.9 */
+  
+  /* 容器最大宽度 */
+  --container-sm: 375px;
+  --container-md: 414px;
+  --container-lg: 768px;
+  --container-xl: 1024px;
+  
+  /* 内容边距 */
+  --content-padding-sm: 16px;
+  --content-padding-md: 20px;
+  --content-padding-lg: 24px;
+}
+
+/* 响应式媒体查询 */
+@media screen and (max-width: 320px) {
+  :root {
+    --font-size-base: 14px;
+    --spacing-4: 12px;
+    --spacing-6: 18px;
+  }
+}
+
+@media screen and (min-width: 375px) and (max-width: 414px) {
+  :root {
+    --font-size-base: 15px;
+  }
+}
+
+@media screen and (min-width: 414px) and (max-width: 768px) {
+  :root {
+    --font-size-base: 16px;
+    --spacing-4: 18px;
+  }
+}
+
+@media screen and (min-width: 768px) {
+  :root {
+    --font-size-base: 17px;
+    --radius-md: 14px;
+    --radius-lg: 18px;
+  }
+}
+
+@media screen and (min-width: 1024px) {
+  :root {
+    --font-size-base: 18px;
+    --radius-md: 16px;
+    --radius-lg: 20px;
+  }
+}
+
+/* ============================================
+   8. 全局样式类
+   ============================================ */
+
+/* 基础容器 */
+.app-container {
+  width: 100%;
+  max-width: var(--container-md);
+  margin: 0 auto;
+  padding-left: var(--content-padding-sm);
+  padding-right: var(--content-padding-sm);
+}
+
+/* 卡片样式 - Apple 风格 */
+.card {
+  background: var(--color-bg-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+
+.card-elevated {
+  background: var(--color-bg-elevated);
+  box-shadow: var(--shadow-lg);
+}
+
+/* 按钮样式 - Apple 风格 */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-2);
+  font-family: var(--font-text);
+  font-weight: var(--font-weight-medium);
+  border-radius: var(--radius-button-md);
+  transition: all var(--duration-fast) var(--ease-ios);
+  cursor: pointer;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+.btn-primary {
+  background: var(--color-primary);
+  color: var(--color-text-white);
+  box-shadow: var(--shadow-button);
+}
+
+.btn-primary:hover {
+  background: var(--color-primary-light);
+  transform: scale(1.02);
+}
+
+.btn-primary:active {
+  background: var(--color-primary-dark);
+  transform: scale(0.98);
+}
+
+.btn-secondary {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+}
+
+.btn-secondary:hover {
+  background: var(--color-separator);
+}
+
+/* 文字样式 */
+.text-display {
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-tight);
+}
+
+.text-body {
+  font-family: var(--font-text);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-normal);
+}
+
+.text-caption {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+/* 分隔线 */
+.separator {
+  height: 1px;
+  background: var(--color-separator);
+  margin: var(--spacing-4) 0;
+}
+
+.separator-heavy {
+  height: 1px;
+  background: var(--color-separator-heavy);
+}
+
+/* ============================================
+   9. 动画预设类
+   ============================================ */
+
+/* 淡入淡出 */
+.animate-fade-in {
+  animation: fadeIn var(--duration-normal) var(--ease-ios) forwards;
+}
+
+.animate-fade-out {
+  animation: fadeOut var(--duration-normal) var(--ease-ios) forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+/* 滑入滑出 - iOS 风格 */
+.animate-slide-up {
+  animation: slideUp var(--duration-slow) var(--ease-ios-modal) forwards;
+}
+
+.animate-slide-down {
+  animation: slideDown var(--duration-slow) var(--ease-ios-modal) forwards;
+}
+
+.animate-slide-left {
+  animation: slideLeft var(--duration-slow) var(--ease-ios) forwards;
+}
+
+.animate-slide-right {
+  animation: slideRight var(--duration-slow) var(--ease-ios) forwards;
+}
+
+@keyframes slideUp {
+  from { 
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  to { 
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideDown {
+  from { 
+    opacity: 0;
+    transform: translateY(-100%);
+  }
+  to { 
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideLeft {
+  from { 
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to { 
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideRight {
+  from { 
+    opacity: 0;
+    transform: translateX(-100%);
+  }
+  to { 
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* 弹性缩放 - iOS 风格 */
+.animate-scale-in {
+  animation: scaleIn var(--duration-normal) var(--ease-spring) forwards;
+}
+
+.animate-scale-out {
+  animation: scaleOut var(--duration-fast) var(--ease-out) forwards;
+}
+
+@keyframes scaleIn {
+  from { 
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to { 
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes scaleOut {
+  from { 
+    opacity: 1;
+    transform: scale(1);
+  }
+  to { 
+    opacity: 0;
+    transform: scale(0.9);
+  }
+}
+
+/* 弹跳效果 */
+.animate-bounce {
+  animation: bounce var(--duration-slow) var(--ease-bounce) forwards;
+}
+
+@keyframes bounce {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+/* 脉冲效果 */
+.animate-pulse {
+  animation: pulse var(--duration-slower) var(--ease-in-out) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* 旋转加载 */
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* 骨架屏加载 */
+.animate-skeleton {
+  animation: skeleton var(--duration-slower) var(--ease-in-out) infinite;
+}
+
+@keyframes skeleton {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ============================================
+   10. 触摸反馈 - iOS 风格
+   ============================================ */
+
+/* 触摸高亮 */
+.touch-highlight {
+  position: relative;
+  overflow: hidden;
+}
+
+.touch-highlight::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--color-separator);
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-ios);
+}
+
+.touch-highlight:active::after {
+  opacity: 1;
+}
+
+/* 触摸缩放 */
+.touch-scale {
+  transition: transform var(--duration-fast) var(--ease-ios);
+}
+
+.touch-scale:active {
+  transform: scale(0.97);
+}
+
+/* 触摸涟漪 */
+.touch-ripple {
+  position: relative;
+  overflow: hidden;
+}
+
+/* ============================================
+   11. 滚动优化
+   ============================================ */
+
+/* iOS 风格滚动 */
+.scroll-ios {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+  overscroll-behavior: contain;
+}
+
+/* 隐藏滚动条 */
+.scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* 自定义滚动条 */
+.scrollbar-custom::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+.scrollbar-custom::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-custom::-webkit-scrollbar-thumb {
+  background: var(--color-separator-heavy);
+  border-radius: var(--radius-full);
+}
+
+/* ============================================
+   12. 安全区域适配
+   ============================================ */
+
+/* 顶部安全区域 */
+.safe-area-top {
+  padding-top: var(--safe-area-top);
+}
+
+/* 底部安全区域 */
+.safe-area-bottom {
+  padding-bottom: var(--safe-area-bottom);
+}
+
+/* 全安全区域 */
+.safe-area-all {
+  padding-top: var(--safe-area-top);
+  padding-bottom: var(--safe-area-bottom);
+  padding-left: var(--safe-area-left);
+  padding-right: var(--safe-area-right);
+}
+
+/* ============================================
+   13. 图片适配 - 防止变形
+   ============================================ */
+
+/* 图片保持比例 */
+.img-cover {
+  object-fit: cover;
+  object-position: center;
+}
+
+.img-contain {
+  object-fit: contain;
+  object-position: center;
+}
+
+.img-fill {
+  object-fit: fill;
+}
+
+/* 图片懒加载占位 */
+.img-placeholder {
+  background: linear-gradient(
+    90deg,
+    var(--color-bg-tertiary) 25%,
+    var(--color-bg-secondary) 50%,
+    var(--color-bg-tertiary) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton var(--duration-slower) var(--ease-in-out) infinite;
+}
+
+/* ============================================
+   14. 禁用状态
+   ============================================ */
+
+.disabled, [disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ============================================
+   15. 聚焦状态 - iOS 风格
+   ============================================ */
+
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* ============================================
+   16. 减少动画模式
+   ============================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ============================================
+   17. 高对比度模式
+   ============================================ */
+
+@media (prefers-contrast: high) {
+  :root {
+    --color-separator: rgba(0, 0, 0, 0.3);
+    --color-text-secondary: #5C5C61;
+  }
+}
+
+/* ============================================
+   18. 打印样式
+   ============================================ */
+
+@media print {
+  * {
+    background: transparent !important;
+    color: black !important;
+    box-shadow: none !important;
+  }
+}
