@@ -1,19 +1,17 @@
 /**
- * BottomNav 2026 - 顶级毛玻璃底部导航
+ * BottomNav V2 - 奶油极简风
  *
  * 特性：
- * - 液态玻璃背景（backdrop-filter: blur 24px + 饱和度）
- * - 超细顶部分割线
- * - 居中FAB带光晕阴影
- * - 微弹性按下动画
- * - 选中态：图标缩放+底部指示器
- * - 安全区域适配
+ * - 奶油色背景 + 极淡顶部分割线
+ * - 线框图标（未选中）/ 填充图标（选中）
+ * - 选中态颜色变化 + 微上浮
+ * - 居中FAB带柔和阴影
+ * - 底部安全区域适配
  */
 
-import React, { memo, useCallback, useState } from 'react';
+import React, { memo, useCallback } from 'react';
 import { Home, Camera, Activity, User, Plus } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { springs, shadows } from '../styles/design-system';
 
 interface BottomNavProps {
   currentPage: string;
@@ -21,74 +19,43 @@ interface BottomNavProps {
   onAdd?: () => void;
 }
 
-const NavItem = memo(({
-  label,
+// 线框图标组件
+const NavIcon = memo(({
   icon: Icon,
   isActive,
-  onClick,
   activeColor,
 }: {
-  label: string;
   icon: React.ElementType;
   isActive: boolean;
-  onClick: () => void;
   activeColor: string;
 }) => {
   return (
-    <motion.button
-      onClick={onClick}
-      className="relative flex flex-col items-center justify-center gap-0.5 flex-1 h-14 active:opacity-70"
-      aria-label={label}
-      aria-current={isActive ? 'page' : undefined}
-      whileTap={{ scale: 0.92 }}
-      transition={springs.tap}
+    <motion.div
+      animate={{
+        y: isActive ? -2 : 0,
+        scale: isActive ? 1.05 : 1,
+      }}
+      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
     >
-      {/* 选中态顶部指示器 */}
-      {isActive && (
-        <motion.div
-          layoutId="nav-indicator"
-          className="absolute -top-px left-1/2 -translate-x-1/2 w-8 h-[3px] rounded-full"
-          style={{ background: activeColor }}
-          transition={springs.smooth}
-        />
-      )}
-
-      <motion.div
-        animate={{
-          scale: isActive ? 1.1 : 1,
-          y: isActive ? -1 : 0,
-        }}
-        transition={springs.smooth}
-      >
-        <Icon
-          className="w-[22px] h-[22px] transition-colors duration-200"
-          style={{
-            color: isActive ? activeColor : '#9ca3af',
-            strokeWidth: isActive ? 2.5 : 1.8,
-          }}
-        />
-      </motion.div>
-
-      <span
-        className="text-[10px] font-medium tracking-tight transition-all duration-200"
+      <Icon
+        className="w-6 h-6 transition-all duration-200"
         style={{
-          color: isActive ? activeColor : '#9ca3af',
-          fontWeight: isActive ? 600 : 500,
+          color: isActive ? activeColor : '#9CA3AF',
+          strokeWidth: isActive ? 2.2 : 1.6,
+          fill: isActive ? 'currentColor' : 'none',
         }}
-      >
-        {label}
-      </span>
-    </motion.button>
+      />
+    </motion.div>
   );
 });
-NavItem.displayName = 'NavItem';
+NavIcon.displayName = 'NavIcon';
 
 const navItems = [
-  { id: 'home', label: '首页', icon: Home, color: '#f97316' },
-  { id: 'devices', label: '设备', icon: Camera, color: '#f59e0b' },
-  { id: 'add', label: '', icon: Plus, color: '#ffffff' },
-  { id: 'records', label: '记录', icon: Activity, color: '#f97316' },
-  { id: 'profile', label: '我的', icon: User, color: '#f97316' },
+  { id: 'home', label: '首页', icon: Home, color: '#F97316' },
+  { id: 'devices', label: '设备', icon: Camera, color: '#F59E0B' },
+  { id: 'add', label: '', icon: Plus, color: '#FFFFFF' },
+  { id: 'records', label: '记录', icon: Activity, color: '#F97316' },
+  { id: 'profile', label: '我的', icon: User, color: '#F97316' },
 ];
 
 export const BottomNav: React.FC<BottomNavProps> = memo(({ currentPage, onNavigate, onAdd }) => {
@@ -102,76 +69,81 @@ export const BottomNav: React.FC<BottomNavProps> = memo(({ currentPage, onNaviga
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-40"
+      className="fixed bottom-0 left-0 right-0 z-50"
       style={{
+        background: 'rgba(253, 248, 243, 0.95)',
+        backdropFilter: 'blur(20px) saturate(180%)',
+        borderTop: '0.5px solid rgba(0, 0, 0, 0.04)',
         paddingBottom: 'env(safe-area-inset-bottom)',
       }}
       role="navigation"
       aria-label="主导航"
     >
-      {/* 液态玻璃背景 */}
-      <div
-        className="absolute inset-0"
-        style={{
-          background: 'rgba(255, 255, 255, 0.72)',
-          backdropFilter: 'blur(28px) saturate(180%)',
-          WebkitBackdropFilter: 'blur(28px) saturate(180%)',
-          borderTop: '0.5px solid rgba(0, 0, 0, 0.06)',
-        }}
-      />
-
-      <div className="relative max-w-md mx-auto flex items-center justify-between px-1">
+      <div className="max-w-md mx-auto flex items-center justify-between px-2 h-[64px]">
         {navItems.slice(0, 2).map((item) => (
-          <NavItem
+          <button
             key={item.id}
-            label={item.label}
-            icon={item.icon}
-            isActive={currentPage === item.id}
             onClick={() => handleClick(item.id)}
-            activeColor={item.color}
-          />
+            className="flex flex-col items-center justify-center gap-0.5 flex-1 h-full active:opacity-60"
+            aria-label={item.label}
+            aria-current={currentPage === item.id ? 'page' : undefined}
+          >
+            <NavIcon
+              icon={item.icon}
+              isActive={currentPage === item.id}
+              activeColor={item.color}
+            />
+            <span
+              className="text-[10px] transition-all duration-200"
+              style={{
+                color: currentPage === item.id ? item.color : '#9CA3AF',
+                fontWeight: currentPage === item.id ? 600 : 400,
+              }}
+            >
+              {item.label}
+            </span>
+          </button>
         ))}
 
         {/* 居中FAB */}
         <div className="flex-1 flex justify-center">
           <motion.button
             onClick={() => handleClick('add')}
-            className="relative w-[60px] h-[60px] -mt-6 rounded-full flex items-center justify-center"
-            aria-label="添加记录"
             whileTap={{ scale: 0.9 }}
-            whileHover={{ scale: 1.05 }}
-            transition={springs.tap}
+            className="w-14 h-14 -mt-3 rounded-full flex items-center justify-center relative"
+            style={{
+              background: 'linear-gradient(135deg, #60A5FA 0%, #3B82F6 100%)',
+              boxShadow: '0 4px 16px rgba(59, 130, 246, 0.35)',
+            }}
+            aria-label="添加记录"
           >
-            {/* 外层光晕 */}
-            <div
-              className="absolute inset-0 rounded-full opacity-50"
-              style={{
-                background: 'radial-gradient(circle, rgba(96,165,250,0.4) 0%, transparent 70%)',
-                filter: 'blur(8px)',
-              }}
-            />
-            {/* 主圆形 */}
-            <div
-              className="relative w-[52px] h-[52px] rounded-full flex items-center justify-center"
-              style={{
-                background: 'linear-gradient(135deg, #60A5FA 0%, #3B82F6 100%)',
-                boxShadow: shadows.blue,
-              }}
-            >
-              <Plus className="w-6 h-6 text-white" strokeWidth={2.5} />
-            </div>
+            <Plus className="w-7 h-7 text-white" strokeWidth={2.5} />
           </motion.button>
         </div>
 
         {navItems.slice(3).map((item) => (
-          <NavItem
+          <button
             key={item.id}
-            label={item.label}
-            icon={item.icon}
-            isActive={currentPage === item.id}
             onClick={() => handleClick(item.id)}
-            activeColor={item.color}
-          />
+            className="flex flex-col items-center justify-center gap-0.5 flex-1 h-full active:opacity-60"
+            aria-label={item.label}
+            aria-current={currentPage === item.id ? 'page' : undefined}
+          >
+            <NavIcon
+              icon={item.icon}
+              isActive={currentPage === item.id}
+              activeColor={item.color}
+            />
+            <span
+              className="text-[10px] transition-all duration-200"
+              style={{
+                color: currentPage === item.id ? item.color : '#9CA3AF',
+                fontWeight: currentPage === item.id ? 600 : 400,
+              }}
+            >
+              {item.label}
+            </span>
+          </button>
         ))}
       </div>
     </nav>
