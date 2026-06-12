@@ -1,429 +1,390 @@
-// ============================================
-// PawSync Pro - HealthPage.tsx
-//
-// 作者: 带娃的小陈工
-// 日期: 2026-05-26
-// 描述: 宠物健康监测和护理指导页面
-// ============================================
+/**
+ * HealthPage - 健康页面（温情科技风格）
+ *
+ * 设计参考：
+ * - 顶部米色背景，宠物头像+健康档案
+ * - 4列健康指标（体重/体温/心率/呼吸频率）
+ * - 健康趋势图表（7天/30天/90天）
+ * - 疫苗与驱虫 + 健康提醒
+ * - AI健康评估
+ */
 
-import { useState } from 'react';
-import { Activity, AlertTriangle, Bell, Heart, Moon, Sun, Thermometer, ChevronRight, Shield, Utensils, Scissors, Zap, BookOpen, Star, X, Sparkles, Camera, Brain } from 'lucide-react';
+import React, { useState } from 'react';
+import {
+  ChevronRight,
+  Calendar,
+  Edit3,
+  Scale,
+  Thermometer,
+  Heart,
+  Wind,
+  CheckCircle2,
+  AlertCircle,
+  Syringe,
+  Bug,
+  Sparkles,
+  Play,
+  Dog,
+} from 'lucide-react';
+import { WarmContainer, WarmCard, SectionTitle } from '../components/WarmContainer';
 import { useAppStore } from '../store/appStore';
-import { Card } from '../components/ui/Card';
-import { HealthScoreCard } from '../components/HealthScoreCard';
-import { FaceExpressionAnalyzer } from '../components/FaceExpressionAnalyzer';
-import { SmartPredictionCard } from '../components/SmartPredictionCard';
-
-const alertTypeConfig = {
-  cough: { icon: Activity, label: '咳嗽', color: 'text-yellow-500', bgColor: 'bg-yellow-50' },
-  vomit: { icon: AlertTriangle, label: '呕吐', color: 'text-red-500', bgColor: 'bg-red-50' },
-  pain: { icon: Heart, label: '疼痛', color: 'text-purple-500', bgColor: 'bg-purple-50' },
-  abnormal: { icon: Bell, label: '异常', color: 'text-orange-500', bgColor: 'bg-orange-50' },
-};
-
-const severityConfig = {
-  low: { label: '轻微', color: 'text-green-500', bgColor: 'bg-green-100' },
-  medium: { label: '中等', color: 'text-yellow-500', bgColor: 'bg-yellow-100' },
-  high: { label: '严重', color: 'text-red-500', bgColor: 'bg-red-100' },
-};
-
-const careCategoryConfig = {
-  feeding: { icon: Utensils, label: '饮食喂养', color: 'text-orange-500', bgColor: 'bg-orange-50' },
-  exercise: { icon: Zap, label: '运动玩耍', color: 'text-blue-500', bgColor: 'bg-blue-50' },
-  grooming: { icon: Scissors, label: '美容护理', color: 'text-pink-500', bgColor: 'bg-pink-50' },
-  health: { icon: Heart, label: '健康医疗', color: 'text-red-500', bgColor: 'bg-red-50' },
-  behavior: { icon: BookOpen, label: '行为训练', color: 'text-purple-500', bgColor: 'bg-purple-50' },
-};
 
 export default function HealthPage() {
-  const { healthAlerts, healthScore, currentPet, careTips } = useAppStore();
-  const [nightMode, setNightMode] = useState(true);
-  const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  
-  // 功能弹窗状态
-  const [showHealthScoreModal, setShowHealthScoreModal] = useState(false);
-  const [showFaceExpressionModal, setShowFaceExpressionModal] = useState(false);
-  const [showSmartPredictionModal, setShowSmartPredictionModal] = useState(false);
+  const { currentPet } = useAppStore();
+  const [activeTab, setActiveTab] = useState<'7d' | '30d' | '90d'>('7d');
+
+  const petName = currentPet?.name || 'JOJO';
+  const petBreed = currentPet?.breed || '柯基犬';
+  const petAge = currentPet?.birthday
+    ? `${new Date().getFullYear() - new Date(currentPet.birthday).getFullYear()}岁`
+    : '2岁';
 
   const healthMetrics = [
-    { label: '心率', value: '120', unit: 'bpm', icon: Heart, color: 'text-red-500', bgColor: 'bg-red-50' },
-    { label: '体温', value: '38.2', unit: '°C', icon: Thermometer, color: 'text-orange-500', bgColor: 'bg-orange-50' },
-    { label: '活动量', value: '85', unit: '%', icon: Activity, color: 'text-green-500', bgColor: 'bg-green-50' },
+    { icon: Scale, label: '体重', value: '12.5', unit: 'kg', status: '正常', color: '#f59e0b', bg: '#fef3c7' },
+    { icon: Thermometer, label: '体温', value: '38.6', unit: '°C', status: '正常', color: '#3b82f6', bg: '#dbeafe' },
+    { icon: Heart, label: '心率', value: '120', unit: '次/分', status: '正常', color: '#10b981', bg: '#d1fae5' },
+    { icon: Wind, label: '呼吸频率', value: '20', unit: '次/分', status: '正常', color: '#a78bfa', bg: '#ede9fe' },
   ];
 
-  const dailyData = [
-    { time: '00:00', heartRate: 110, activity: 20 },
-    { time: '04:00', heartRate: 105, activity: 15 },
-    { time: '08:00', heartRate: 125, activity: 70 },
-    { time: '12:00', heartRate: 120, activity: 85 },
-    { time: '16:00', heartRate: 115, activity: 60 },
-    { time: '20:00', heartRate: 118, activity: 45 },
+  const trendData = [
+    { date: '05/14', weight: 12.3, temp: 38.5, heart: 118, breath: 19 },
+    { date: '05/15', weight: 12.4, temp: 38.6, heart: 120, breath: 20 },
+    { date: '05/16', weight: 12.5, temp: 38.5, heart: 119, breath: 19 },
+    { date: '05/17', weight: 12.5, temp: 38.7, heart: 121, breath: 20 },
+    { date: '05/18', weight: 12.6, temp: 38.6, heart: 120, breath: 19 },
+    { date: '05/19', weight: 12.5, temp: 38.6, heart: 120, breath: 20 },
+    { date: '05/20', weight: 12.5, temp: 38.6, heart: 120, breath: 20 },
   ];
 
-  const maxHeartRate = Math.max(...dailyData.map(d => d.heartRate));
-  const maxActivity = Math.max(...dailyData.map(d => d.activity));
+  const vaccines = [
+    { icon: Syringe, name: '狂犬疫苗', status: 'completed', date: '2024.03.20', nextDate: '2026.03.20' },
+    { icon: Bug, name: '体内驱虫', status: 'warning', date: '2024.04.20', nextDate: '2024.06.20' },
+    { icon: Bug, name: '体外驱虫', status: 'completed', date: '2024.05.10', nextDate: '2024.06.10' },
+  ];
 
-  const filteredTips = activeCategory 
-    ? careTips.filter(tip => tip.category === activeCategory)
-    : careTips;
+  const healthReminders = [
+    { icon: Calendar, name: '年度体检', date: '2024.06.20', days: 31 },
+    { icon: Sparkles, name: '洁牙', date: '2024.08.15', days: 87 },
+    { icon: Syringe, name: '疫苗加强', date: '2025.03.20', days: 304 },
+  ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-green-50/50 via-white to-emerald-50/30 pb-20">
-      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-lg border-b border-green-100">
-        <div className="max-w-md mx-auto px-4 py-4">
-          <h1 className="text-xl font-bold text-gray-800 text-center">全天候健康哨兵</h1>
-          <p className="text-xs text-gray-400 text-center">守护 {currentPet?.name} 的健康</p>
+    <WarmContainer>
+      {/* 顶部宠物档案卡 */}
+      <div className="px-4 pt-6 pb-2 flex items-center gap-3">
+        <div
+          className="w-14 h-14 rounded-2xl flex items-center justify-center"
+          style={{
+            background: 'linear-gradient(135deg, #fde68a 0%, #fbbf24 100%)',
+            border: '2px solid rgba(255, 255, 255, 0.8)',
+            boxShadow: '0 4px 12px rgba(251, 191, 36, 0.25)',
+          }}
+        >
+          <Dog className="w-8 h-8 text-amber-900" strokeWidth={2} />
         </div>
-      </header>
+        <div className="flex-1">
+          <div className="flex items-center gap-1.5">
+            <h2 className="text-lg font-bold text-gray-900">{petName}</h2>
+            <span className="text-blue-500 text-sm">♂</span>
+          </div>
+          <p className="text-sm text-gray-500 mt-0.5">{petBreed} · {petAge}</p>
+        </div>
+        <button
+          className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium"
+          style={{
+            background: 'rgba(249, 115, 22, 0.1)',
+            color: '#ea580c',
+          }}
+        >
+          <Edit3 className="w-3 h-3" />
+          健康档案
+        </button>
+      </div>
 
-      <main className="max-w-md mx-auto px-4 py-6 space-y-5">
-        {/* 健康分数卡片 */}
-        <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl p-5 text-white shadow-lg">
+      <main className="max-w-md mx-auto px-4 mt-4 space-y-5">
+        {/* 健康状态卡 */}
+        <WarmCard padding="md">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <p className="text-green-100 text-sm">当前健康指数</p>
-              <p className="text-4xl font-bold mt-1">{healthScore}%</p>
-            </div>
-            <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center">
-              <Shield className="w-8 h-8" />
-            </div>
-          </div>
-          <div className="flex items-center gap-2 text-sm">
-            <span className="w-2 h-2 bg-green-300 rounded-full animate-pulse" />
-            <span className="text-green-100">监测中 · 数据更新于 2分钟前</span>
-          </div>
-        </div>
-
-        {/* 健康指标 */}
-        <div className="grid grid-cols-3 gap-3">
-          {healthMetrics.map((metric) => {
-            const Icon = metric.icon;
-            return (
-              <div key={metric.label} className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-                <div className={`w-10 h-10 rounded-full ${metric.bgColor} flex items-center justify-center mb-2`}>
-                  <Icon className={`w-5 h-5 ${metric.color}`} />
-                </div>
-                <p className="text-xs text-gray-400 mb-1">{metric.label}</p>
-                <p className="text-xl font-bold text-gray-800">{metric.value}<span className="text-xs font-normal text-gray-500 ml-1">{metric.unit}</span></p>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-bold text-gray-900">健康状态</h3>
+                <span
+                  className="px-2 py-0.5 rounded-full text-[11px] font-semibold"
+                  style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#047857' }}
+                >
+                  优秀
+                </span>
               </div>
-            );
-          })}
-        </div>
-
-        {/* 今日监测曲线 */}
-        <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-gray-700">今日监测曲线</h2>
-            <div className="flex gap-1">
-              <span className="flex items-center gap-1 text-xs text-gray-500">
-                <span className="w-2 h-2 bg-red-400 rounded-full" /> 心率
-              </span>
-              <span className="flex items-center gap-1 text-xs text-gray-500">
-                <span className="w-2 h-2 bg-green-400 rounded-full" /> 活动
-              </span>
+              <p className="text-[11px] text-gray-400 mt-1">最近更新：2024.05.20</p>
             </div>
+            <ChevronRight className="w-5 h-5 text-gray-300" />
           </div>
-          <div className="flex items-end gap-1 h-24">
-            {dailyData.map((data, index) => (
-              <div key={index} className="flex-1 flex flex-col items-center gap-1">
-                <div className="w-full flex flex-col items-center gap-0.5">
-                  <div
-                    className="w-2 bg-red-400 rounded-t-sm transition-all duration-300"
-                    style={{ height: `${(data.heartRate / maxHeartRate) * 80}px` }}
-                  />
-                  <div
-                    className="w-2 bg-green-400 rounded-t-sm transition-all duration-300"
-                    style={{ height: `${(data.activity / maxActivity) * 60}px` }}
-                  />
-                </div>
-                <span className="text-xs text-gray-400">{data.time}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* AI功能入口 */}
-        <section>
-          <h2 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-purple-500" />
-            AI 智能分析
-          </h2>
-          <div className="grid grid-cols-3 sm:grid-cols-3 gap-2 sm:gap-3">
-            {/* 健康评分入口 */}
-            <Card
-              variant="default"
-              padding="medium"
-              className="cursor-pointer hover:shadow-md transition-shadow"
-              onClick={() => setShowHealthScoreModal(true)}
-            >
-              <div className="flex flex-col items-center text-center">
-                <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-emerald-500 rounded-xl flex items-center justify-center mb-2">
-                  <Heart className="w-5 h-5 text-white" />
-                </div>
-                <p className="text-sm font-medium text-gray-800">健康评分</p>
-                <p className="text-xs text-gray-500 mt-1">综合评估</p>
-              </div>
-            </Card>
-
-            {/* 表情识别入口 */}
-            <Card
-              variant="default"
-              padding="medium"
-              className="cursor-pointer hover:shadow-md transition-shadow"
-              onClick={() => setShowFaceExpressionModal(true)}
-            >
-              <div className="flex flex-col items-center text-center">
-                <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-pink-500 rounded-xl flex items-center justify-center mb-2">
-                  <Camera className="w-5 h-5 text-white" />
-                </div>
-                <p className="text-sm font-medium text-gray-800">表情识别</p>
-                <p className="text-xs text-gray-500 mt-1">拍照分析</p>
-              </div>
-            </Card>
-
-            {/* 智能预测入口 */}
-            <Card
-              variant="default"
-              padding="medium"
-              className="cursor-pointer hover:shadow-md transition-shadow"
-              onClick={() => setShowSmartPredictionModal(true)}
-            >
-              <div className="flex flex-col items-center text-center">
-                <div className="w-10 h-10 bg-gradient-to-br from-purple-400 to-indigo-500 rounded-xl flex items-center justify-center mb-2">
-                  <Brain className="w-5 h-5 text-white" />
-                </div>
-                <p className="text-sm font-medium text-gray-800">智能预测</p>
-                <p className="text-xs text-gray-500 mt-1">AI预警</p>
-              </div>
-            </Card>
-          </div>
-        </section>
-
-        {/* 夜间监护模式 */}
-        <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <Moon className="w-5 h-5 text-purple-500" />
-              <h2 className="text-sm font-semibold text-gray-700">夜间监护模式</h2>
-            </div>
-            <button
-              onClick={() => setNightMode(!nightMode)}
-              className={`relative w-12 h-6 rounded-full transition-colors ${nightMode ? 'bg-purple-500' : 'bg-gray-200'}`}
-            >
-              <span className={`absolute top-1 w-4 h-4 rounded-full shadow transition-transform ${nightMode ? 'left-7 bg-white' : 'left-1 bg-gray-400'}`} />
-            </button>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs ${nightMode ? 'bg-purple-100 text-purple-600' : 'bg-gray-100 text-gray-500'}`}>
-              {nightMode ? <Moon className="w-3 h-3" /> : <Sun className="w-3 h-3" />}
-              {nightMode ? '已开启' : '已关闭'}
-            </div>
-            <p className="text-xs text-gray-400 flex-1">
-              {nightMode ? '夜间异常行为将被实时监测' : '夜间监测已关闭'}
-            </p>
-          </div>
-        </div>
-
-        {/* 护理指导分类 */}
-        <section>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-              <BookOpen className="w-4 h-4" />
-              护理指导
-            </h2>
-            {activeCategory && (
-              <button 
-                onClick={() => setActiveCategory(null)}
-                className="text-xs text-green-500 font-medium"
-              >
-                全部
-              </button>
-            )}
-          </div>
-          
-          <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
-            {Object.entries(careCategoryConfig).map(([category, config]) => {
-              const Icon = config.icon;
+          <div className="grid grid-cols-4 gap-2">
+            {healthMetrics.map((metric, i) => {
+              const Icon = metric.icon;
               return (
+                <div key={i} className="flex flex-col items-center">
+                  <div
+                    className="w-10 h-10 rounded-xl flex items-center justify-center mb-1.5"
+                    style={{ background: metric.bg }}
+                  >
+                    <Icon className="w-5 h-5" style={{ color: metric.color }} strokeWidth={2} />
+                  </div>
+                  <span className="text-[11px] text-gray-500">{metric.label}</span>
+                  <div className="flex items-baseline gap-0.5 mt-0.5">
+                    <span className="text-lg font-bold text-gray-900 tabular-nums">{metric.value}</span>
+                    <span className="text-[10px] text-gray-500">{metric.unit}</span>
+                  </div>
+                  <span
+                    className="mt-1 px-1.5 py-0.5 rounded text-[10px]"
+                    style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#047857' }}
+                  >
+                    {metric.status}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </WarmCard>
+
+        {/* 健康趋势 */}
+        <WarmCard padding="md">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-base font-bold text-gray-900">健康趋势</h3>
+            <div className="flex items-center gap-1 bg-gray-100 rounded-full p-0.5">
+              {(['7d', '30d', '90d'] as const).map((tab) => (
                 <button
-                  key={category}
-                  onClick={() => setActiveCategory(activeCategory === category ? null : category)}
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl whitespace-nowrap transition-all ${
-                    activeCategory === category 
-                      ? `${config.bgColor} ${config.color} shadow-sm` 
-                      : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${
+                    activeTab === tab
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-500'
                   }`}
                 >
-                  <Icon className="w-4 h-4" />
-                  <span className="text-xs font-medium">{config.label}</span>
+                  {tab === '7d' ? '7天' : tab === '30d' ? '30天' : '90天'}
                 </button>
-              );
-            })}
+              ))}
+            </div>
           </div>
 
-          <div className="space-y-3">
-            {filteredTips.map((tip) => {
-              const config = careCategoryConfig[tip.category];
-              const Icon = config.icon;
-              return (
-                <Card key={tip.id} variant="default" padding="medium" className="hover:shadow-md transition-shadow">
-                  <div className="flex items-start gap-3">
-                    <div className={`w-10 h-10 rounded-xl ${config.bgColor} flex items-center justify-center flex-shrink-0`}>
-                      <Icon className={`w-5 h-5 ${config.color}`} />
+          {/* 图表图例 */}
+          <div className="flex items-center justify-center gap-3 mb-3 text-[11px]">
+            <div className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full" style={{ background: '#f97316' }} />
+              <span className="text-gray-600">体重(kg)</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full" style={{ background: '#3b82f6' }} />
+              <span className="text-gray-600">体温(°C)</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full" style={{ background: '#10b981' }} />
+              <span className="text-gray-600">心率(次/分)</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full" style={{ background: '#a78bfa' }} />
+              <span className="text-gray-600">呼吸(次/分)</span>
+            </div>
+          </div>
+
+          {/* 简化版折线图（SVG） */}
+          <div className="h-40 relative">
+            <svg viewBox="0 0 350 160" className="w-full h-full" preserveAspectRatio="none">
+              {/* 网格线 */}
+              {[0, 1, 2, 3, 4].map((i) => (
+                <line
+                  key={i}
+                  x1="0"
+                  y1={i * 40}
+                  x2="350"
+                  y2={i * 40}
+                  stroke="#f3f4f6"
+                  strokeWidth="1"
+                />
+              ))}
+
+              {/* 体重线（橙色）- 数据归一化到 0-40 */}
+              <polyline
+                points={trendData.map((d, i) => {
+                  const x = (i * 350) / (trendData.length - 1);
+                  const y = 160 - ((d.weight - 12) / 1) * 80 - 40;
+                  return `${x},${y}`;
+                }).join(' ')}
+                fill="none"
+                stroke="#f97316"
+                strokeWidth="2"
+              />
+
+              {/* 体温线（蓝色）- 归一化 */}
+              <polyline
+                points={trendData.map((d, i) => {
+                  const x = (i * 350) / (trendData.length - 1);
+                  const y = 160 - ((d.temp - 38) / 1) * 100 - 30;
+                  return `${x},${y}`;
+                }).join(' ')}
+                fill="none"
+                stroke="#3b82f6"
+                strokeWidth="2"
+              />
+
+              {/* 心率线（绿色）- 归一化 */}
+              <polyline
+                points={trendData.map((d, i) => {
+                  const x = (i * 350) / (trendData.length - 1);
+                  const y = 160 - ((d.heart - 110) / 15) * 100 - 30;
+                  return `${x},${y}`;
+                }).join(' ')}
+                fill="none"
+                stroke="#10b981"
+                strokeWidth="2"
+              />
+
+              {/* 呼吸线（紫色）- 归一化 */}
+              <polyline
+                points={trendData.map((d, i) => {
+                  const x = (i * 350) / (trendData.length - 1);
+                  const y = 160 - ((d.breath - 18) / 4) * 100 - 30;
+                  return `${x},${y}`;
+                }).join(' ')}
+                fill="none"
+                stroke="#a78bfa"
+                strokeWidth="2"
+              />
+
+              {/* 体重数据点 */}
+              {trendData.map((d, i) => {
+                const x = (i * 350) / (trendData.length - 1);
+                const y = 160 - ((d.weight - 12) / 1) * 80 - 40;
+                return <circle key={i} cx={x} cy={y} r="3" fill="#f97316" />;
+              })}
+            </svg>
+
+            {/* X轴日期 */}
+            <div className="absolute -bottom-1 left-0 right-0 flex justify-between text-[10px] text-gray-400">
+              {trendData.map((d) => (
+                <span key={d.date}>{d.date}</span>
+              ))}
+            </div>
+          </div>
+        </WarmCard>
+
+        {/* 疫苗与驱虫 + 健康提醒 */}
+        <div className="grid grid-cols-2 gap-3">
+          <WarmCard padding="md">
+            <SectionTitle
+              title="疫苗与驱虫"
+              className="px-0 mb-3"
+            />
+            <div className="space-y-3">
+              {vaccines.map((item, i) => {
+                const Icon = item.icon;
+                const isCompleted = item.status === 'completed';
+                return (
+                  <div key={i} className="flex items-start gap-2.5">
+                    <div
+                      className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                      style={{ background: 'rgba(16, 185, 129, 0.12)' }}
+                    >
+                      <Icon className="w-4 h-4" style={{ color: '#10b981' }} strokeWidth={2} />
                     </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="text-sm font-semibold text-gray-800">{tip.title}</h3>
-                        {tip.priority === 'high' && (
-                          <span className="flex items-center gap-0.5 text-yellow-500">
-                            <Star className="w-3 h-3 fill-current" />
-                            <span className="text-xs">重要</span>
-                          </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="text-[13px] font-semibold text-gray-900 truncate">
+                          {item.name}
+                        </span>
+                        {isCompleted ? (
+                          <CheckCircle2 className="w-3.5 h-3.5" style={{ color: '#10b981' }} />
+                        ) : (
+                          <AlertCircle className="w-3.5 h-3.5" style={{ color: '#f59e0b' }} />
                         )}
                       </div>
-                      <p className="text-sm text-gray-600 leading-relaxed">{tip.content}</p>
-                      {(tip.petType === 'cat' || tip.petType === 'dog') && (
-                        <span className={`inline-block mt-2 text-xs px-2 py-0.5 rounded-full ${
-                          tip.petType === 'cat' ? 'bg-orange-50 text-orange-600' : 'bg-blue-50 text-blue-600'
-                        }`}>
-                          {tip.petType === 'cat' ? '🐱 猫咪专用' : '🐶 狗狗专用'}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </Card>
-              );
-            })}
-          </div>
-        </section>
-
-        {/* 健康警报记录 */}
-        <section>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-gray-700">健康警报记录</h2>
-            <button className="text-xs text-green-500 font-medium flex items-center gap-1 hover:text-green-600">
-              全部 <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-          
-          {healthAlerts.length > 0 ? (
-            <div className="space-y-3">
-              {healthAlerts.slice(0, 3).map((alert) => {
-                const typeConfig = alertTypeConfig[alert.type];
-                const severityConfigItem = severityConfig[alert.severity];
-                const Icon = typeConfig.icon;
-                return (
-                  <div key={alert.id} className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-full ${typeConfig.bgColor} flex items-center justify-center`}>
-                          <Icon className={`w-5 h-5 ${typeConfig.color}`} />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-gray-700">{typeConfig.label}</span>
-                            <span className={`px-2 py-0.5 rounded-full text-xs ${severityConfigItem.bgColor} ${severityConfigItem.color}`}>
-                              {severityConfigItem.label}
-                            </span>
-                          </div>
-                          <p className="text-xs text-gray-500 mt-1">{alert.message}</p>
-                        </div>
-                      </div>
-                      <span className="text-xs text-gray-400">{alert.timestamp}</span>
+                      <p className="text-[10px] text-gray-400 mt-0.5">
+                        接种日期 {item.date}
+                      </p>
+                      <p className="text-[10px] text-gray-400">
+                        下次 {item.nextDate}
+                      </p>
                     </div>
                   </div>
                 );
               })}
             </div>
-          ) : (
-            <div className="bg-white rounded-xl p-8 text-center shadow-sm border border-gray-100">
-              <Shield className="w-12 h-12 text-green-400 mx-auto mb-3" />
-              <p className="text-sm text-gray-600">暂无健康警报</p>
-              <p className="text-xs text-gray-400 mt-1">{currentPet?.name} 状态良好</p>
-            </div>
-          )}
-        </section>
+            <button className="w-full mt-3 text-[11px] text-gray-500 flex items-center justify-center gap-1">
+              查看全部 <ChevronRight className="w-3 h-3" />
+            </button>
+          </WarmCard>
 
-        <div className="bg-gradient-to-r from-red-50 to-orange-50 rounded-xl p-4 border border-red-100">
-          <p className="text-xs text-gray-500 text-center">
-            ⚠️ <strong>免责声明</strong>：本结果为AI辅助分析，不构成医疗诊断，请以专业兽医意见为准
-          </p>
-        </div>
-      </main>
-
-      {/* 健康评分弹窗 */}
-      {showHealthScoreModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl p-6 mx-4 max-w-md w-full shadow-2xl animate-fadeIn max-h-[85vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                <Heart className="w-5 h-5 text-green-500" />
-                健康评分详情
-              </h3>
+          <WarmCard padding="md">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-bold text-gray-900">健康提醒</h3>
               <button
-                onClick={() => setShowHealthScoreModal(false)}
-                className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                className="text-[10px] font-semibold flex items-center gap-0.5"
+                style={{ color: '#f59e0b' }}
               >
-                <X className="w-5 h-5 text-gray-500" />
+                <span>+</span> 添加提醒
               </button>
             </div>
-            <HealthScoreCard
-              score={healthScore}
-              metrics={{
-                activity: 85,
-                diet: 78,
-                sleep: 92,
-                mental: 88,
-                medical: 95,
+            <div className="space-y-3">
+              {healthReminders.map((item, i) => {
+                const Icon = item.icon;
+                return (
+                  <div key={i} className="flex items-start gap-2.5">
+                    <div
+                      className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                      style={{ background: 'rgba(245, 158, 11, 0.12)' }}
+                    >
+                      <Icon className="w-4 h-4" style={{ color: '#f59e0b' }} strokeWidth={2} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-[13px] font-semibold text-gray-900 block truncate">
+                        {item.name}
+                      </span>
+                      <p className="text-[10px] text-gray-400 mt-0.5">建议日期 {item.date}</p>
+                      <p className="text-[10px] mt-0.5" style={{ color: '#f59e0b' }}>
+                        还有 {item.days} 天
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <button className="w-full mt-3 text-[11px] text-gray-500 flex items-center justify-center gap-1">
+              查看全部 <ChevronRight className="w-3 h-3" />
+            </button>
+          </WarmCard>
+        </div>
+
+        {/* AI健康评估 */}
+        <WarmCard padding="md" className="relative overflow-hidden">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <h3 className="text-base font-bold text-gray-900">AI健康评估</h3>
+                <span
+                  className="px-2 py-0.5 rounded text-[10px] font-semibold"
+                  style={{ background: 'rgba(249, 115, 22, 0.15)', color: '#ea580c' }}
+                >
+                  Beta
+                </span>
+              </div>
+              <p className="text-[12px] text-gray-500">基于大数据分析，智能评估爱宠健康状况</p>
+            </div>
+            <button
+              className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold"
+              style={{
+                background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)',
+                color: '#ffffff',
               }}
-              lastCheckDate="2026-06-06"
-              trend="up"
-            />
+            >
+              开始评估
+              <Play className="w-3 h-3 fill-current" />
+            </button>
           </div>
-        </div>
-      )}
+        </WarmCard>
 
-      {/* 表情识别弹窗 */}
-      {showFaceExpressionModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl p-6 mx-4 max-w-md w-full shadow-2xl animate-fadeIn max-h-[85vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                <Camera className="w-5 h-5 text-orange-500" />
-                表情识别分析
-              </h3>
-              <button
-                onClick={() => setShowFaceExpressionModal(false)}
-                className="p-1 hover:bg-gray-100 rounded-full transition-colors"
-              >
-                <X className="w-5 h-5 text-gray-500" />
-              </button>
-            </div>
-            <FaceExpressionAnalyzer />
-          </div>
-        </div>
-      )}
-
-      {/* 智能预测弹窗 */}
-      {showSmartPredictionModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl p-6 mx-4 max-w-md w-full shadow-2xl animate-fadeIn max-h-[85vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                <Brain className="w-5 h-5 text-purple-500" />
-                智能预测
-              </h3>
-              <button
-                onClick={() => setShowSmartPredictionModal(false)}
-                className="p-1 hover:bg-gray-100 rounded-full transition-colors"
-              >
-                <X className="w-5 h-5 text-gray-500" />
-              </button>
-            </div>
-            <SmartPredictionCard predictions={undefined} />
-          </div>
-        </div>
-      )}
-    </div>
+        <div className="h-4" />
+      </main>
+    </WarmContainer>
   );
 }

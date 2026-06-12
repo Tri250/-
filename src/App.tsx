@@ -7,12 +7,11 @@
 // ============================================
 
 import { useState, useEffect, Suspense, lazy } from 'react';
-import { Navigation } from './components/Navigation';
+import { BottomNav } from './components/BottomNav';
 import { HomePage } from './pages/HomePage';
 import { useAppStore } from './store/appStore';
-import { PawPrint } from 'lucide-react';
+import { PawPrint, Plus, X, Camera, FileText, Activity, Apple, Droplet, Footprints } from 'lucide-react';
 import { useDeviceCapabilities, applyPerformanceClass } from './utils/performanceDetection';
-import { FloatingActionButton } from './components/FloatingActionButton';
 
 // 懒加载其他页面（性能优化）
 const TranslatorPage = lazy(() => import('./pages/TranslatorPage'));
@@ -37,6 +36,8 @@ const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const FavoritesPage = lazy(() => import('./pages/FavoritesPage'));
 const HelpFeedbackPage = lazy(() => import('./pages/HelpFeedbackPage'));
 const DeveloperInfoPage = lazy(() => import('./pages/DeveloperInfoPage'));
+const DevicesPage = lazy(() => import('./pages/DevicesPage'));
+const RecordsPage = lazy(() => import('./pages/RecordsPage'));
 
 // 页面加载占位符
 const PageLoader = () => (
@@ -79,6 +80,7 @@ function LoadingScreen({ progress, message }: { progress: number; message: strin
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState('home');
+  const [showAddSheet, setShowAddSheet] = useState(false);
   const { 
     isInitialized, 
     initProgress, 
@@ -117,6 +119,12 @@ export default function App() {
     switch (currentPage) {
       case 'home':
         return <HomePage onNavigate={setCurrentPage} />;
+      case 'devices':
+        return <DevicesPage onNavigate={setCurrentPage} />;
+      case 'records':
+        return <RecordsPage onNavigate={setCurrentPage} />;
+      case 'profile':
+        return <ProfilePage onNavigate={setCurrentPage} />;
       case 'pets':
         return <PetsPage onNavigate={setCurrentPage} />;
       case 'translator':
@@ -139,8 +147,6 @@ export default function App() {
         return <InsurancePage />;
       case 'medical':
         return <MedicalPage />;
-      case 'profile':
-        return <ProfilePage onNavigate={setCurrentPage} />;
       case 'camera':
         return <CameraPage />;
       case 'monitor':
@@ -168,13 +174,71 @@ export default function App() {
     }
   };
 
+  const addRecordTypes = [
+    { icon: Apple, label: '喂食', color: '#f59e0b', bg: '#fef3c7' },
+    { icon: Droplet, label: '饮水', color: '#3b82f6', bg: '#dbeafe' },
+    { icon: Footprints, label: '活动', color: '#10b981', bg: '#d1fae5' },
+    { icon: Activity, label: '健康', color: '#a78bfa', bg: '#ede9fe' },
+    { icon: FileText, label: '其他', color: '#fbbf24', bg: '#fef3c7' },
+  ];
+
   return (
-    <div className={`min-h-screen ${settings.darkMode ? 'bg-gray-900' : 'bg-neutral-50'}`}>
+    <div className={`min-h-screen ${settings.darkMode ? 'bg-gray-900' : ''}`}>
       <Suspense fallback={<PageLoader />}>
         {renderPage()}
       </Suspense>
-      <Navigation currentPage={currentPage} onNavigate={setCurrentPage} />
-      <FloatingActionButton onNavigate={setCurrentPage} />
+      <BottomNav
+        currentPage={currentPage}
+        onNavigate={setCurrentPage}
+        onAdd={() => setShowAddSheet(true)}
+      />
+
+      {/* 添加记录底部弹窗 */}
+      {showAddSheet && (
+        <div
+          className="fixed inset-0 bg-black/40 z-50 flex items-end justify-center"
+          onClick={() => setShowAddSheet(false)}
+        >
+          <div
+            className="w-full max-w-md bg-white rounded-t-3xl p-5 pb-8 animate-slide-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-4" />
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-900">添加记录</h3>
+              <button
+                onClick={() => setShowAddSheet(false)}
+                className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center"
+              >
+                <X className="w-4 h-4 text-gray-500" />
+              </button>
+            </div>
+            <div className="grid grid-cols-5 gap-3">
+              {addRecordTypes.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={item.label}
+                    onClick={() => {
+                      setShowAddSheet(false);
+                      setCurrentPage('records');
+                    }}
+                    className="flex flex-col items-center gap-2 active:scale-95"
+                  >
+                    <div
+                      className="w-14 h-14 rounded-2xl flex items-center justify-center"
+                      style={{ background: item.bg }}
+                    >
+                      <Icon className="w-7 h-7" style={{ color: item.color }} strokeWidth={2} />
+                    </div>
+                    <span className="text-xs text-gray-700 font-medium">{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
