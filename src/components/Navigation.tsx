@@ -181,7 +181,7 @@ export const Navigation: React.FC<NavigationProps> = memo(({ currentPage, onNavi
     <nav 
       className={`fixed bottom-0 left-0 right-0 z-50 ${colors.navBg} ${colors.navBorder} backdrop-blur-xl`}
       style={{
-        paddingBottom: Math.max(0, (responsiveStyle.safeAreaPadding?.paddingBottom as number || 16)),
+        paddingBottom: responsiveStyle.safeAreaPadding.paddingBottom,
         paddingTop: '12px',
       }}
       role="navigation"
@@ -194,7 +194,7 @@ export const Navigation: React.FC<NavigationProps> = memo(({ currentPage, onNavi
       <div 
         className="max-w-md mx-auto flex justify-around items-end px-2"
         style={{
-          paddingBottom: Math.max(8, ((responsiveStyle.safeAreaPadding?.paddingBottom as number || 16) - 4)),
+          paddingBottom: Math.max(8, responsiveStyle.safeAreaPadding.paddingBottom - 4),
         }}
       >
         {navItems.map((item) => (

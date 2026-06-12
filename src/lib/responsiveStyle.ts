@@ -8,9 +8,39 @@ import { useMemo } from 'react';
 import { useResponsive } from './responsive';
 
 /**
+ * 安全区域Padding接口
+ */
+export interface SafeAreaPadding {
+  paddingTop: number;
+  paddingBottom: number;
+  paddingLeft: number;
+  paddingRight: number;
+}
+
+/**
+ * 响应式样式返回值接口
+ */
+export interface ResponsiveStyleValues {
+  fontSize: number;
+  spacing: number;
+  cardRadius: number;
+  buttonHeight: number;
+  avatarSize: number;
+  iconSize: number;
+  contentMaxWidth: number;
+  safeAreaPadding: SafeAreaPadding;
+  screenWidth: number;
+  screenHeight: number;
+  screenSize: string;
+  isPortrait: boolean;
+  isLandscape: boolean;
+  getResponsiveValue: <T>(values: Partial<Record<string, T>>, defaultValue: T) => T;
+}
+
+/**
  * 响应式样式Hook
  */
-export const useResponsiveStyle = () => {
+export const useResponsiveStyle = (): ResponsiveStyleValues => {
   const { size, isPortrait, safeArea, width, height } = useResponsive();
 
   return useMemo(() => {
@@ -37,6 +67,14 @@ export const useResponsiveStyle = () => {
       }
       
       return defaultValue;
+    };
+
+    // 安全区域padding - 确保返回数值类型
+    const safeAreaPadding: SafeAreaPadding = {
+      paddingTop: typeof safeArea.top === 'number' ? safeArea.top : 0,
+      paddingBottom: typeof safeArea.bottom === 'number' ? safeArea.bottom : 0,
+      paddingLeft: typeof safeArea.left === 'number' ? safeArea.left : 0,
+      paddingRight: typeof safeArea.right === 'number' ? safeArea.right : 0,
     };
 
     return {
@@ -83,12 +121,7 @@ export const useResponsiveStyle = () => {
       ),
       
       // 安全区域padding
-      safeAreaPadding: {
-        paddingTop: safeArea.top,
-        paddingBottom: safeArea.bottom,
-        paddingLeft: safeArea.left,
-        paddingRight: safeArea.right,
-      },
+      safeAreaPadding,
       
       // 屏幕信息
       screenWidth: width,

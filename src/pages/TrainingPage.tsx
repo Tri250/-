@@ -252,7 +252,7 @@ export default function TrainingPage() {
   return (
     <div className="min-h-screen bg-neutral-50 pb-24">
       {/* Header */}
-      <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white px-6 py-8" style={{ paddingTop: Math.max(0, (responsive.safeAreaPadding?.paddingTop as number || 0) + 32) }}>
+      <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white px-6 py-8" style={{ paddingTop: responsive.safeAreaPadding.paddingTop + 32 }}>
         <div style={{ maxWidth: responsive.contentMaxWidth, margin: '0 auto' }}>
           <h1 className="text-2xl font-bold mb-2">宠物训练</h1>
           <p className="text-purple-100 mb-6">AI 个性化训练，让您的爱宠更聪明</p>

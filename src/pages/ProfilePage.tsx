@@ -316,14 +316,14 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
       className="min-h-screen pb-24"
       style={{
         backgroundColor: '#FAF7F2',
-        paddingTop: Math.max(0, (responsiveStyle.safeAreaPadding?.paddingTop as number || 0) + 48),
+        paddingTop: responsiveStyle.safeAreaPadding.paddingTop + 48,
       }}
     >
       {/* 顶部导航 */}
       <div
         className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-xl"
         style={{
-          paddingTop: Math.max(0, (responsiveStyle.safeAreaPadding?.paddingTop as number || 0) + 12),
+          paddingTop: responsiveStyle.safeAreaPadding.paddingTop + 12,
           paddingBottom: 12,
           borderBottom: '1px solid rgba(60, 60, 67, 0.12)',
         }}
@@ -561,7 +561,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
             className="w-full max-w-md bg-white rounded-t-3xl p-6 animate-slide-up"
             onClick={(e) => e.stopPropagation()}
             style={{
-              paddingBottom: Math.max(0, (responsiveStyle.safeAreaPadding?.paddingBottom as number || 0) + 24),
+              paddingBottom: responsiveStyle.safeAreaPadding.paddingBottom + 24,
             }}
           >
             <div className="text-center mb-6">

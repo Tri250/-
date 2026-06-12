@@ -181,7 +181,7 @@ export default function MedicalPage() {
   return (
     <div className="min-h-screen bg-neutral-50 pb-24">
       {/* Header */}
-      <div className="bg-gradient-to-br from-warning-500 to-warning-600 text-white px-6 py-8" style={{ paddingTop: Math.max(0, (responsive.safeAreaPadding?.paddingTop as number || 0) + 32) }}>
+      <div className="bg-gradient-to-br from-warning-500 to-warning-600 text-white px-6 py-8" style={{ paddingTop: responsive.safeAreaPadding.paddingTop + 32 }}>
         <div style={{ maxWidth: responsive.contentMaxWidth, margin: '0 auto' }}>
           <div className="flex items-center gap-3 mb-4">
             <div className="w-12 h-12 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center">
