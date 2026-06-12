@@ -753,7 +753,24 @@ export default function TranslatorPage({ onNavigate }: { onNavigate?: (page: str
     }
     
     try {
-      // 请求麦克风权限
+      // 使用 permissionService 检查和请求麦克风权限（支持Android原生）
+      const { permissionManager } = await import('../services/permissionService');
+      const permissionStatus = await permissionManager.checkPermission('microphone');
+      
+      if (permissionStatus.denied) {
+        setErrorMessage('麦克风权限被拒绝，请在系统设置中开启');
+        return;
+      }
+      
+      if (!permissionStatus.granted) {
+        const granted = await permissionManager.requestPermission('microphone');
+        if (!granted) {
+          setErrorMessage('无法获取麦克风权限，请手动开启');
+          return;
+        }
+      }
+      
+      // 请求麦克风权限（使用Web API，Capacitor WebView支持）
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
           echoCancellation: true,

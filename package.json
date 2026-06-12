@@ -7,13 +7,24 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:android": "vite --mode android",
     "build": "vite build",
+    "build:android": "vite build --mode android && npx cap sync android",
+    "build:production": "vite build --mode production",
     "lint": "eslint .",
     "preview": "vite preview",
     "check": "tsc -b --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "cap:init": "npx cap init",
+    "cap:add:android": "npx cap add android",
+    "cap:sync": "npx cap sync",
+    "cap:sync:android": "npx cap sync android",
+    "cap:open:android": "npx cap open android",
+    "android:run": "npm run build:android && npx cap run android",
+    "android:build:apk": "npm run build:android && cd android && ./gradlew assembleDebug",
+    "android:build:release": "npm run build:android && cd android && ./gradlew assembleRelease"
   },
   "dependencies": {
     "@capacitor/android": "^8.3.4",

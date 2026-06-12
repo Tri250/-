@@ -204,40 +204,90 @@ export const useAppStore = create<AppState>()(
       initializeApp: async () => {
         const { setInitProgress } = get();
         
-        setInitProgress(10, '正在加载应用配置...');
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        setInitProgress(30, '正在初始化状态管理...');
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        setInitProgress(50, '正在加载用户数据...');
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        setInitProgress(70, '正在加载宠物信息...');
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        setInitProgress(90, '正在完成初始化...');
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        setInitProgress(100, '初始化完成');
-        
-        const state = get();
-        if (!state.pets.length && state.isAuthenticated) {
-          const defaultPet: Pet = {
-            id: '1',
-            name: '小橘',
-            breed: '橘猫',
-            age: 2,
-            avatarUrl: '',
-            type: 'cat',
-          };
-          set({ 
-            pets: [defaultPet], 
-            currentPet: defaultPet,
-          });
+        try {
+          setInitProgress(10, '正在加载应用配置...');
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+          // 初始化平台服务（Android/iOS）
+          setInitProgress(20, '正在初始化平台服务...');
+          try {
+            const { PlatformServices } = await import('../lib/platformService');
+            const platform = PlatformServices.getCurrentPlatform();
+            console.log(`[AppStore] Current platform: ${platform}`);
+            
+            // 原生平台初始化
+            if (PlatformServices.isNativePlatform()) {
+              console.log('[AppStore] Initializing native platform services...');
+              
+              // 初始化推送通知服务
+              try {
+                const { pushNotificationService } = await import('../services/pushNotificationService');
+                await pushNotificationService.initialize();
+                console.log('[AppStore] Push notification service initialized');
+              } catch (pushError) {
+                console.warn('[AppStore] Push notification initialization failed:', pushError);
+              }
+              
+              // 初始化权限检查
+              try {
+                const { permissionManager } = await import('../services/permissionService');
+                await permissionManager.checkAllPermissions();
+                console.log('[AppStore] Permissions checked');
+              } catch (permError) {
+                console.warn('[AppStore] Permission check failed:', permError);
+              }
+            }
+          } catch (platformError) {
+            console.warn('[AppStore] Platform service initialization failed:', platformError);
+          }
+          
+          setInitProgress(30, '正在初始化状态管理...');
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+          setInitProgress(50, '正在加载用户数据...');
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+          setInitProgress(70, '正在加载宠物信息...');
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+          // 加载功能标志
+          setInitProgress(85, '正在加载功能配置...');
+          try {
+            const { getFeatureFlags } = await import('../lib/featureFlags');
+            const flags = getFeatureFlags();
+            console.log('[AppStore] Feature flags loaded:', Object.keys(flags).length);
+          } catch (flagError) {
+            console.warn('[AppStore] Feature flags loading failed:', flagError);
+          }
+          
+          setInitProgress(90, '正在完成初始化...');
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+          setInitProgress(100, '初始化完成');
+          
+          const state = get();
+          if (!state.pets.length && state.isAuthenticated) {
+            const defaultPet: Pet = {
+              id: '1',
+              name: '小橘',
+              breed: '橘猫',
+              age: 2,
+              avatarUrl: '',
+              type: 'cat',
+            };
+            set({ 
+              pets: [defaultPet], 
+              currentPet: defaultPet,
+            });
+          }
+          
+          set({ isInitialized: true });
+          console.log('[AppStore] App initialization completed');
+        } catch (error) {
+          console.error('[AppStore] Initialization failed:', error);
+          setInitProgress(100, '初始化完成（部分功能可能受限）');
+          set({ isInitialized: true });
         }
-        
-        set({ isInitialized: true });
       },
 
       setUser: (user) => set({ user, isAuthenticated: !!user }),

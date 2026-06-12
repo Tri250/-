@@ -13,6 +13,7 @@ import { useAppStore } from './store/appStore';
 import { PawPrint } from 'lucide-react';
 import { useDeviceCapabilities, applyPerformanceClass } from './utils/performanceDetection';
 import { FloatingActionButton } from './components/FloatingActionButton';
+import { initializeAndroidPerformance } from './config/androidPerformance';
 
 // 懒加载其他页面（性能优化）
 const TranslatorPage = lazy(() => import('./pages/TranslatorPage'));
@@ -91,6 +92,9 @@ export default function App() {
   const capabilities = useDeviceCapabilities();
 
   useEffect(() => {
+    // 初始化 Android 性能优化
+    initializeAndroidPerformance();
+    
     if (!isInitialized) {
       initializeApp();
     }
