@@ -42,8 +42,8 @@ export const PetProfilePage: React.FC<PetProfilePageProps> = ({ onNavigate }) =>
   const pet = getCurrentPet();
   const petId = pet?.id || '1';
   
-  // 获取健康评分
-  const healthScoreData = getScore(petId);
+  // 获取健康评分 - 使用默认值防止 undefined
+  const healthScoreData = getScore(petId) || { overall: 0, physical: 0, mental: 0, nutrition: 0, activity: 0, lastUpdated: '' };
   
   // 获取疫苗记录
   const vaccines = getPetVaccines(petId);
@@ -503,3 +503,5 @@ export const PetProfilePage: React.FC<PetProfilePageProps> = ({ onNavigate }) =>
     </div>
   );
 };
+
+export default PetProfilePage;
