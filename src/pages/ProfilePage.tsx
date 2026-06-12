@@ -195,14 +195,14 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
           icon: HelpCircle,
           title: '帮助中心',
           subtitle: '常见问题解答',
-          page: 'help',
+          page: 'help-feedback',
         },
         {
           id: 'feedback',
           icon: MessageCircle,
           title: '意见反馈',
           subtitle: '帮助我们改进',
-          page: 'feedback',
+          page: 'help-feedback',
         },
         {
           id: 'share',
@@ -212,6 +212,15 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
           action: () => {
             // 分享功能
           },
+        },
+        {
+          id: 'developer',
+          icon: Heart,
+          title: '开发者',
+          subtitle: '带娃的小陈工',
+          badge: '❤️',
+          badgeColor: '#F5A623',
+          page: 'developer-info',
         },
       ],
     },

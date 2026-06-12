@@ -15,7 +15,7 @@ interface DeveloperInfoPageProps {
 
 export default function DeveloperInfoPage({ onNavigate }: DeveloperInfoPageProps) {
   const developerInfo = {
-    name: '热爱生活的小陈',
+    name: '带娃的小陈工',
     title: '全栈开发者 & 宠物爱好者',
     avatar: '👨‍💻',
     bio: '一个热爱编程、热爱生活、热爱宠物的开发者。在带娃之余，用代码创造美好，让科技温暖每一个毛孩子。',
