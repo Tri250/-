@@ -42,6 +42,7 @@ import {
   Home,
 } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
+import { usePetStore } from '../store/petStore';
 import { COLORS, SHADOWS, RADIUS, FONT, ANIMATION, PET_IMAGE } from '../styles/constants';
 
 interface HomePageProps {
@@ -74,11 +75,16 @@ const MORE_FEATURES = [
 
 export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
   const { currentPet } = useAppStore();
-  const petName = currentPet?.name || 'JOJO';
-  const petBreed = currentPet?.breed || '柯基犬';
-  const petAge = currentPet?.birthday
-    ? `${new Date().getFullYear() - new Date(currentPet.birthday).getFullYear()}岁`
-    : '2岁';
+  const { getCurrentPet, pets } = usePetStore();
+  
+  // 使用petStore的真实数据
+  const realPet = getCurrentPet() || pets[0] || currentPet;
+  const petName = realPet?.name || '小橘';
+  const petBreed = realPet?.breed || '橘猫';
+  const petAge = realPet?.birthday
+    ? `${new Date().getFullYear() - new Date(realPet.birthday).getFullYear()}岁`
+    : `${realPet?.age || 2}岁`;
+  const petAvatar = realPet?.avatar || PET_IMAGE.avatar;
 
   const devices = [
     { icon: Utensils, name: `${petName}的碗`, battery: 85, online: true, color: COLORS.orange },
@@ -129,7 +135,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
               }}
             >
               <img
-                src={PET_IMAGE.avatar}
+                src={petAvatar}
                 alt="宠物头像"
                 className="w-full h-full object-cover"
               />
