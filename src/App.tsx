@@ -38,6 +38,11 @@ const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const FavoritesPage = lazy(() => import('./pages/FavoritesPage'));
 const HelpFeedbackPage = lazy(() => import('./pages/HelpFeedbackPage'));
 const DeveloperInfoPage = lazy(() => import('./pages/DeveloperInfoPage'));
+// 新增页面
+const PetProfilePage = lazy(() => import('./pages/PetProfilePage'));
+const DevicesPage = lazy(() => import('./pages/DevicesPage'));
+const DietDataPage = lazy(() => import('./pages/DietDataPage'));
+const RecordsPage = lazy(() => import('./pages/RecordsPage'));
 
 // 页面加载占位符
 const PageLoader = () => (
@@ -167,6 +172,17 @@ export default function App() {
         return <DeveloperInfoPage onNavigate={setCurrentPage} />;
       case 'history':
         return <TranslatorPage />;
+      // 新增页面路由
+      case 'pet-profile':
+        return <PetProfilePage onNavigate={setCurrentPage} />;
+      case 'devices':
+        return <DevicesPage onNavigate={setCurrentPage} />;
+      case 'diet-data':
+        return <DietDataPage onNavigate={setCurrentPage} />;
+      case 'records':
+        return <RecordsPage onNavigate={setCurrentPage} />;
+      case 'diet-advice':
+        return <HealthManualPage onNavigate={setCurrentPage} />;
       default:
         return <HomePage onNavigate={setCurrentPage} />;
     }

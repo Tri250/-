@@ -1,5 +1,5 @@
 import React, { memo, useMemo, useCallback, useRef, useEffect, useState } from 'react';
-import { Home, Shield, Sparkles, Camera, User } from 'lucide-react';
+import { Home, Camera, PlusCircle, Heart, User } from 'lucide-react';
 
 const debounce = <T extends (...args: unknown[]) => unknown>(
   func: T,
@@ -86,24 +86,50 @@ const NavItem = memo(({
   label, 
   icon: Icon, 
   isActive, 
-  onClick 
+  onClick,
+  isFab = false
 }: { 
   label: string; 
   icon: React.ElementType; 
   isActive: boolean; 
   onClick: () => void;
+  isFab?: boolean;
 }) => {
   const handleClick = useCallback(() => {
     onClick();
   }, [onClick]);
+
+  if (isFab) {
+    return (
+      <button
+        onClick={handleClick}
+        className="flex flex-col items-center -mt-6"
+        aria-label={label}
+        aria-current={isActive ? 'page' : undefined}
+      >
+        <div className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-all ${
+          isActive 
+            ? 'bg-orange-500 shadow-orange-500/40' 
+            : 'bg-orange-400 shadow-orange-400/30 hover:bg-orange-500'
+        }`}>
+          <Icon className="w-7 h-7 text-white" />
+        </div>
+        <span className={`text-xs font-medium mt-1 transition-all ${
+          isActive ? 'text-orange-500 font-semibold' : 'text-gray-400'
+        }`}>
+          {label}
+        </span>
+      </button>
+    );
+  }
 
   return (
     <button
       onClick={handleClick}
       className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-all ${
         isActive
-          ? 'text-primary-600 bg-primary-50'
-          : 'text-neutral-400 hover:text-neutral-600 hover:bg-neutral-50'
+          ? 'text-orange-500'
+          : 'text-gray-400 hover:text-gray-600'
       }`}
       aria-label={label}
       aria-current={isActive ? 'page' : undefined}
@@ -126,9 +152,9 @@ NavItem.displayName = 'NavItem';
 
 const navItems = [
   { id: 'home', label: '首页', icon: Home },
-  { id: 'advanced-health', label: '健康', icon: Shield },
-  { id: 'bond-emotion', label: '情感', icon: Sparkles },
-  { id: 'camera-monitor', label: '监控', icon: Camera },
+  { id: 'devices', label: '设备', icon: Camera },
+  { id: 'records', label: '记录', icon: PlusCircle, isFab: true },
+  { id: 'health', label: '健康', icon: Heart },
   { id: 'profile', label: '我的', icon: User },
 ];
 
@@ -183,7 +209,7 @@ export const Navigation: React.FC<NavigationProps> = memo(({ currentPage, onNavi
       role="navigation"
       aria-label="主导航"
     >
-      <div className="max-w-md mx-auto flex justify-between sm:justify-around items-center px-2 sm:px-4">
+      <div className="max-w-md mx-auto flex justify-between sm:justify-around items-end px-2 sm:px-4 pb-2">
         {navItems.map((item) => (
           <NavItem
             key={item.id}
@@ -191,6 +217,7 @@ export const Navigation: React.FC<NavigationProps> = memo(({ currentPage, onNavi
             icon={item.icon}
             isActive={currentPage === item.id}
             onClick={() => debouncedNavigate(item.id)}
+            isFab={(item as any).isFab}
           />
         ))}
       </div>
