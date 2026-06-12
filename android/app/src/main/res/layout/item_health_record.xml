@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:orientation="horizontal" android:gravity="center_vertical"
+    android:padding="12dp" android:background="@color/bg_card"
+    android:layout_marginBottom="8dp">
+
+    <!-- 时间线圆点 -->
+    <View android:id="@+id/timeline_dot" android:layout_width="12dp" android:layout_height="12dp"
+        android:layout_marginStart="4dp" android:background="@color/type_feed"/>
+
+    <!-- 图标 -->
+    <ImageView android:id="@+id/record_icon" android:layout_width="40dp" android:layout_height="40dp"
+        android:layout_marginStart="12dp" android:padding="10dp"
+        android:background="@drawable/bg_action_orange"/>
+
+    <!-- 内容 -->
+    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+        android:layout_weight="1" android:layout_marginStart="12dp"
+        android:orientation="vertical">
+        <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:orientation="horizontal">
+            <TextView android:id="@+id/record_title" android:layout_width="wrap_content"
+                android:layout_height="wrap_content" android:textSize="14sp"
+                android:textColor="@color/text_primary" android:text="喂食"/>
+            <TextView android:id="@+id/record_tag" android:layout_width="wrap_content"
+                android:layout_height="wrap_content" android:layout_marginStart="8dp"
+                android:paddingHorizontal="6dp" android:paddingVertical="2dp"
+                android:textSize="10sp" android:textColor="@color/type_feed"
+                android:background="@drawable/bg_action_orange" android:text="主食"
+                android:visibility="gone"/>
+        </LinearLayout>
+        <TextView android:id="@+id/record_content" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:layout_marginTop="2dp"
+            android:textSize="12sp" android:textColor="@color/text_secondary"
+            android:text="喂食了120g猫粮"/>
+    </LinearLayout>
+
+    <!-- 时间 -->
+    <TextView android:id="@+id/record_time" android:layout_width="wrap_content"
+        android:layout_height="wrap_content" android:textSize="11sp"
+        android:textColor="@color/text_tertiary" android:text="08:30"/>
+
+    <!-- 箭头 -->
+    <ImageView android:layout_width="16dp" android:layout_height="16dp"
+        android:layout_marginStart="8dp" android:src="@drawable/ic_arrow_right"
+        android:tint="@color/text_quaternary"/>
+
+</LinearLayout>

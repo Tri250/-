@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:background="@color/bg_primary">
+
+    <View android:id="@+id/status_bar" android:layout_width="match_parent" android:layout_height="24dp"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <LinearLayout android:id="@+id/header" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="vertical" android:padding="16dp"
+        app:layout_constraintTop_toBottomOf="@id/status_bar">
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="@string/title_records" android:textSize="24sp"
+            android:textColor="@color/text_primary" android:fontFamily="sans-serif-light" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_marginTop="4dp" android:text="记录每一次陪伴，见证每一点成长"
+            android:textSize="13sp" android:textColor="@color/text_secondary" />
+    </LinearLayout>
+
+    <!-- 分类标签 -->
+    <LinearLayout android:id="@+id/tabs" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:gravity="center" android:padding="12dp"
+        android:background="@color/bg_card"
+        app:layout_constraintTop_toBottomOf="@id/header">
+
+        <LinearLayout android:id="@+id/tab_all" android:layout_width="0dp" android:layout_height="wrap_content"
+            android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+            <ImageView android:layout_width="40dp" android:layout_height="40dp" android:padding="10dp"
+                android:background="@drawable/bg_action_orange" android:src="@drawable/ic_sparkle" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginTop="4dp" android:textSize="11sp" android:textColor="@color/brand_primary"
+                android:text="@string/all_records" />
+        </LinearLayout>
+
+        <LinearLayout android:id="@+id/tab_feed" android:layout_width="0dp" android:layout_height="wrap_content"
+            android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+            <ImageView android:layout_width="40dp" android:layout_height="40dp" android:padding="10dp"
+                android:background="@drawable/bg_action_orange" android:src="@drawable/ic_feed" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginTop="4dp" android:textSize="11sp" android:textColor="@color/text_tertiary"
+                android:text="@string/feed_records" />
+        </LinearLayout>
+
+        <LinearLayout android:id="@+id/tab_water" android:layout_width="0dp" android:layout_height="wrap_content"
+            android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+            <ImageView android:layout_width="40dp" android:layout_height="40dp" android:padding="10dp"
+                android:background="@drawable/bg_action_blue" android:src="@drawable/ic_water" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginTop="4dp" android:textSize="11sp" android:textColor="@color/text_tertiary"
+                android:text="@string/water_records" />
+        </LinearLayout>
+
+        <LinearLayout android:id="@+id/tab_activity" android:layout_width="0dp" android:layout_height="wrap_content"
+            android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+            <ImageView android:layout_width="40dp" android:layout_height="40dp" android:padding="10dp"
+                android:background="@drawable/bg_action_green" android:src="@drawable/ic_activity" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginTop="4dp" android:textSize="11sp" android:textColor="@color/text_tertiary"
+                android:text="@string/activity_records" />
+        </LinearLayout>
+
+        <LinearLayout android:id="@+id/tab_health" android:layout_width="0dp" android:layout_height="wrap_content"
+            android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+            <ImageView android:layout_width="40dp" android:layout_height="40dp" android:padding="10dp"
+                android:background="@drawable/bg_action_purple" android:src="@drawable/ic_health" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginTop="4dp" android:textSize="11sp" android:textColor="@color/text_tertiary"
+                android:text="@string/health_records" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- 时间线记录列表 -->
+    <androidx.recyclerview.widget.RecyclerView android:id="@+id/records_recycler"
+        android:layout_width="match_parent" android:layout_height="0dp"
+        android:layout_marginTop="12dp" android:paddingHorizontal="16dp"
+        app:layout_constraintTop_toBottomOf="@id/tabs"
+        app:layout_constraintBottom_toTopOf="@id/bottom_nav" />
+
+    <!-- 底部导航 -->
+    <LinearLayout android:id="@+id/bottom_nav" android:layout_width="match_parent" android:layout_height="56dp"
+        android:orientation="horizontal" android:gravity="center" android:background="@color/nav_bg" android:elevation="8dp"
+        app:layout_constraintBottom_toBottomOf="parent">
+
+        <LinearLayout android:id="@+id/nav_home" android:layout_width="0dp" android:layout_height="match_parent"
+            android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+            <ImageView android:id="@+id/nav_home_icon" android:layout_width="24dp" android:layout_height="24dp"
+                android:src="@drawable/ic_home_outline" android:tint="@color/nav_inactive" />
+            <TextView android:id="@+id/nav_home_text" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginTop="4dp" android:textSize="10sp" android:textColor="@color/nav_inactive"
+                android:text="@string/title_home" />
+        </LinearLayout>
+
+        <LinearLayout android:id="@+id/nav_devices" android:layout_width="0dp" android:layout_height="match_parent"
+            android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+            <ImageView android:id="@+id/nav_devices_icon" android:layout_width="24dp" android:layout_height="24dp"
+                android:src="@drawable/ic_device_outline" android:tint="@color/nav_inactive" />
+            <TextView android:id="@+id/nav_devices_text" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginTop="4dp" android:textSize="10sp" android:textColor="@color/nav_inactive"
+                android:text="@string/title_devices" />
+        </LinearLayout>
+
+        <LinearLayout android:id="@+id/nav_add" android:layout_width="0dp" android:layout_height="match_parent"
+            android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+            <ImageView android:layout_width="40dp" android:layout_height="40dp"
+                android:src="@drawable/ic_add_circle" android:tint="@color/brand_primary" />
+        </LinearLayout>
+
+        <LinearLayout android:id="@+id/nav_records" android:layout_width="0dp" android:layout_height="match_parent"
+            android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+            <ImageView android:id="@+id/nav_records_icon" android:layout_width="24dp" android:layout_height="24dp"
+                android:src="@drawable/ic_record_filled" android:tint="@color/nav_active" />
+            <TextView android:id="@+id/nav_records_text" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginTop="4dp" android:textSize="10sp" android:textColor="@color/nav_active"
+                android:text="@string/title_records" />
+        </LinearLayout>
+
+        <LinearLayout android:id="@+id/nav_profile" android:layout_width="0dp" android:layout_height="match_parent"
+            android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+            <ImageView android:id="@+id/nav_profile_icon" android:layout_width="24dp" android:layout_height="24dp"
+                android:src="@drawable/ic_profile_outline" android:tint="@color/nav_inactive" />
+            <TextView android:id="@+id/nav_profile_text" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginTop="4dp" android:textSize="10sp" android:textColor="@color/nav_inactive"
+                android:text="@string/title_profile" />
+        </LinearLayout>
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
