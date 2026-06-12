@@ -30,6 +30,13 @@ import {
   ArrowRight,
   Sparkles,
   Heart,
+  // 核心功能图标
+  Video,
+  Languages,
+  BellRing,
+  Brain,
+  Activity,
+  Stethoscope,
 } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 import { useBondStore } from '../store/bondStore';
@@ -310,6 +317,78 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
               <span className="text-5xl">🐱</span>
             </div>
           </div>
+        </div>
+
+        {/* 核心功能入口 */}
+        <div className="bg-white rounded-3xl p-4 shadow-soft">
+          <h2 className="text-[15px] font-bold text-neutral-800 mb-4">核心功能</h2>
+          <div className="grid grid-cols-4 gap-3">
+            {/* 实时监控 */}
+            <ServiceEntry
+              icon={Video}
+              label="实时监控"
+              bgColor="bg-gradient-to-br from-blue-100 to-cyan-100"
+              iconColor="text-info-600"
+              onClick={() => onNavigate('camera-monitor')}
+            />
+            {/* AI情感翻译 */}
+            <ServiceEntry
+              icon={Languages}
+              label="情感翻译"
+              bgColor="bg-gradient-to-br from-violet-100 to-purple-100"
+              iconColor="text-secondary-600"
+              onClick={() => onNavigate('translator')}
+            />
+            {/* 智能提醒 */}
+            <ServiceEntry
+              icon={BellRing}
+              label="智能提醒"
+              bgColor="bg-gradient-to-br from-amber-100 to-orange-100"
+              iconColor="text-warning-600"
+              onClick={() => onNavigate('reminders')}
+            />
+            {/* 健康顾问 */}
+            <ServiceEntry
+              icon={Brain}
+              label="健康顾问"
+              bgColor="bg-gradient-to-br from-emerald-100 to-teal-100"
+              iconColor="text-success-600"
+              onClick={() => onNavigate('ai-consultant')}
+            />
+          </div>
+        </div>
+
+        {/* 快捷入口 */}
+        <div className="grid grid-cols-2 gap-3">
+          {/* 健康档案 */}
+          <button
+            onClick={() => onNavigate('health')}
+            className="bg-white rounded-2xl p-4 shadow-soft flex items-center gap-3 active-scale"
+          >
+            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-rose-100 to-pink-100 flex items-center justify-center">
+              <Activity className="w-5.5 h-5.5 text-danger-500" strokeWidth={2.2} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[14px] font-semibold text-neutral-800">健康档案</div>
+              <div className="text-[11px] text-neutral-400 mt-0.5">查看健康数据</div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-neutral-300" />
+          </button>
+          
+          {/* AI问诊 */}
+          <button
+            onClick={() => onNavigate('ai-consultant')}
+            className="bg-white rounded-2xl p-4 shadow-soft flex items-center gap-3 active-scale"
+          >
+            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-lavender-100 to-purple-100 flex items-center justify-center">
+              <Stethoscope className="w-5.5 h-5.5 text-lavender-500" strokeWidth={2.2} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[14px] font-semibold text-neutral-800">AI问诊</div>
+              <div className="text-[11px] text-neutral-400 mt-0.5">智能健康评估</div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-neutral-300" />
+          </button>
         </div>
 
         {/* 我的服务 */}

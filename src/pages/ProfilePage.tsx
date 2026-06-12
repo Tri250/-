@@ -31,6 +31,11 @@ import {
   Signal,
   Crown,
   Sparkles,
+  Shield,
+  CreditCard,
+  Gift,
+  Star,
+  LogOut,
 } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 import { useBondStore } from '../store/bondStore';
@@ -330,6 +335,41 @@ export default function ProfilePage({ onNavigate }: ProfilePageProps) {
           </div>
         </div>
 
+        {/* 账户管理 */}
+        <div className="bg-white rounded-3xl p-4 shadow-soft">
+          <h2 className="text-[15px] font-bold text-neutral-800 mb-4">账户管理</h2>
+          <div className="grid grid-cols-4 gap-2">
+            <ServiceEntry
+              icon={Shield}
+              label="账户安全"
+              bgColor="bg-gradient-to-br from-blue-100 to-cyan-100"
+              iconColor="text-info-600"
+              onClick={() => handleNav('settings')}
+            />
+            <ServiceEntry
+              icon={CreditCard}
+              label="支付管理"
+              bgColor="bg-gradient-to-br from-emerald-100 to-teal-100"
+              iconColor="text-success-600"
+              onClick={() => handleNav('settings')}
+            />
+            <ServiceEntry
+              icon={Gift}
+              label="会员权益"
+              bgColor="bg-gradient-to-br from-amber-100 to-orange-100"
+              iconColor="text-warning-600"
+              onClick={() => {}}
+            />
+            <ServiceEntry
+              icon={Star}
+              label="我的评价"
+              bgColor="bg-gradient-to-br from-violet-100 to-purple-100"
+              iconColor="text-secondary-600"
+              onClick={() => {}}
+            />
+          </div>
+        </div>
+
         {/* 翻译次数统计卡（保留原功能） */}
         {analyses.length > 0 && (
           <div className="bg-white rounded-3xl p-4 shadow-soft">
@@ -368,7 +408,7 @@ export default function ProfilePage({ onNavigate }: ProfilePageProps) {
             icon={HomeIcon}
             iconBg="bg-orange-50"
             iconColor="text-primary-500"
-            title="家庭"
+            title="家庭管理"
             right={
               <div className="flex items-center -space-x-2 mr-1">
                 {familyMembers.map((m, i) => (
@@ -399,6 +439,22 @@ export default function ProfilePage({ onNavigate }: ProfilePageProps) {
           />
 
           <ListRow
+            icon={SettingsIcon}
+            iconBg="bg-violet-50"
+            iconColor="text-secondary-500"
+            title="应用设置"
+            onClick={() => handleNav('settings')}
+          />
+
+          <ListRow
+            icon={Bell}
+            iconBg="bg-amber-50"
+            iconColor="text-warning-500"
+            title="通知偏好"
+            onClick={() => handleNav('reminders')}
+          />
+
+          <ListRow
             icon={Share2}
             iconBg="bg-emerald-50"
             iconColor="text-success-500"
@@ -408,20 +464,28 @@ export default function ProfilePage({ onNavigate }: ProfilePageProps) {
 
           <ListRow
             icon={HelpCircle}
-            iconBg="bg-violet-50"
-            iconColor="text-secondary-500"
+            iconBg="bg-rose-50"
+            iconColor="text-danger-500"
             title="帮助与反馈"
             onClick={() => handleNav('help-feedback')}
           />
 
           <ListRow
             icon={Info}
-            iconBg="bg-rose-50"
-            iconColor="text-danger-500"
+            iconBg="bg-neutral-100"
+            iconColor="text-neutral-500"
             title="关于我们"
             onClick={() => handleNav('developer-info')}
           />
         </div>
+
+        {/* 退出登录 */}
+        <button
+          className="w-full bg-white rounded-3xl p-4 shadow-soft flex items-center justify-center gap-2 text-danger-500 font-medium active-scale"
+        >
+          <LogOut className="w-4 h-4" />
+          退出登录
+        </button>
 
         {/* 品牌签名 */}
         <div className="text-center pt-2 pb-4">
