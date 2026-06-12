@@ -177,7 +177,7 @@ export default function ServicesPage({ onNavigate }: ServicesPageProps) {
   return (
     <div className="min-h-screen bg-neutral-50 pb-24">
       {/* Header */}
-      <div className="bg-gradient-to-br from-secondary-500 to-secondary-600 text-white px-6 py-8" style={{ paddingTop: responsive.safeAreaPadding.paddingTop + 32 }}>
+      <div className="bg-gradient-to-br from-secondary-500 to-secondary-600 text-white px-6 py-8" style={{ paddingTop: Math.max(0, (responsive.safeAreaPadding?.paddingTop as number || 0) + 32) }}>
         <div style={{ maxWidth: responsive.contentMaxWidth, margin: '0 auto' }}>
           <h1 className="text-2xl font-bold mb-2">爱宠服务</h1>
           <p className="text-secondary-100 mb-6">全面的宠物健康与保障服务</p>
