@@ -1,34 +1,39 @@
 /**
- * HomePage - 主页（温情科技风格）
+ * HomePage 2026 - 顶级设计
  *
- * 设计参考：温色系宠物APP，仿iOS ColorOS 风格
- * - 顶部米色背景，宠物头像+昵称+性别图标
- * - 宠物主图（柯基）
- * - 引言气泡 + "孪生宠物"按钮
- * - 4列快捷功能（AI问诊/健康报告/饮食建议/宠物档案）
- * - 我的设备横向卡片
- * - 今日饮食数据 4列统计
+ * 借鉴：ColorOS 16、夸克、网易云音乐、得物、华为智慧生活
+ * 特性：
+ * - 沉浸式渐变Hero（琥珀金+径向光晕）
+ * - 状态栏融入Hero
+ * - 黏性模糊头部（滚动时变化）
+ * - 宠物头像带HDR光圈
+ * - 大圆角卡片+微阴影分层
+ * - 设备卡3D倾斜效果
+ * - 数字滚动动效
+ * - 微光波背景
  */
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
 import {
   ChevronRight,
   Stethoscope,
   FileText,
   Utensils,
   FolderOpen,
-  BatteryMedium,
+  Battery,
   Footprints,
   Plus,
-  Battery,
-  Zap,
   Droplet,
+  Zap,
   Clock,
-  CheckCircle2,
-  Dog,
   Sparkles,
+  Bell,
+  Heart,
+  PawPrint,
 } from 'lucide-react';
-import { WarmContainer, PageHeader, WarmCard, SectionTitle } from '../components/WarmContainer';
+import { StatusBar } from '../components/StatusBar';
+import { gradients, shadows, springs } from '../styles/design-system';
 import { useAppStore } from '../store/appStore';
 
 interface HomePageProps {
@@ -37,6 +42,14 @@ interface HomePageProps {
 
 export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
   const { currentPet } = useAppStore();
+  const [scrollY, setScrollY] = useState(0);
+
+  useEffect(() => {
+    const handleScroll = () => setScrollY(window.scrollY);
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   const petName = currentPet?.name || 'JOJO';
   const petBreed = currentPet?.breed || '柯基犬';
   const petAge = currentPet?.birthday
@@ -44,10 +57,10 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
     : '2岁';
 
   const quickActions = [
-    { icon: Stethoscope, label: 'AI问诊', sub: '智能问答', color: '#3b82f6', bg: 'rgba(219, 234, 254, 0.7)' },
-    { icon: FileText, label: '健康报告', sub: '今日生成', color: '#10b981', bg: 'rgba(209, 250, 229, 0.7)' },
-    { icon: Utensils, label: '饮食建议', sub: '科学喂养', color: '#f59e0b', bg: 'rgba(254, 243, 199, 0.7)' },
-    { icon: FolderOpen, label: '宠物档案', sub: '记录成长', color: '#a78bfa', bg: 'rgba(237, 233, 254, 0.7)' },
+    { icon: Stethoscope, label: 'AI问诊', sub: '智能问答', color: '#3b82f6', bg: 'linear-gradient(135deg, #DBEAFE 0%, #EFF6FF 100%)' },
+    { icon: FileText, label: '健康报告', sub: '今日生成', color: '#10b981', bg: 'linear-gradient(135deg, #D1FAE5 0%, #ECFDF5 100%)' },
+    { icon: Utensils, label: '饮食建议', sub: '科学喂养', color: '#f59e0b', bg: 'linear-gradient(135deg, #FEF3C7 0%, #FFFBEB 100%)' },
+    { icon: FolderOpen, label: '宠物档案', sub: '记录成长', color: '#a855f7', bg: 'linear-gradient(135deg, #F3E8FF 0%, #FAF5FF 100%)' },
   ];
 
   const devices = [
@@ -57,223 +70,400 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
   ];
 
   const dietStats = [
-    { icon: Utensils, label: '进食次数', value: '8', unit: '次', status: '正常', color: '#f59e0b' },
-    { icon: Sparkles, label: '进食总量', value: '320', unit: 'g', status: '正常', color: '#10b981' },
-    { icon: Zap, label: '消耗卡路里', value: '280', unit: 'kcal', status: '正常', color: '#f97316' },
-    { icon: Clock, label: '进食时长', value: '12', unit: '分钟', status: '正常', color: '#a78bfa' },
+    { icon: Utensils, label: '进食次数', value: '8', unit: '次', color: '#f59e0b', status: '正常' },
+    { icon: Sparkles, label: '进食总量', value: '320', unit: 'g', color: '#10b981', status: '正常' },
+    { icon: Zap, label: '消耗卡路里', value: '280', unit: 'kcal', color: '#f97316', status: '正常' },
+    { icon: Clock, label: '进食时长', value: '12', unit: '分钟', color: '#a855f7', status: '正常' },
   ];
 
   return (
-    <WarmContainer>
-      {/* 顶部宠物卡片 */}
-      <div className="px-4 pt-6 pb-2 flex items-center gap-3">
-        <div className="relative">
-          <div
-            className="w-16 h-16 rounded-2xl overflow-hidden flex items-center justify-center"
-            style={{
-              background: 'linear-gradient(135deg, #fde68a 0%, #fbbf24 100%)',
-              border: '2px solid rgba(255, 255, 255, 0.8)',
-              boxShadow: '0 4px 12px rgba(251, 191, 36, 0.25)',
-            }}
+    <div className="min-h-screen pb-24" style={{ background: '#FAF8F5' }}>
+      {/* ===== 沉浸式 Hero 渐变 ===== */}
+      <div className="relative" style={{ background: gradients.hero, paddingTop: 0 }}>
+        {/* 渐变层 */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background: `
+              radial-gradient(ellipse at top right, rgba(255, 220, 100, 0.5) 0%, transparent 50%),
+              radial-gradient(ellipse at bottom left, rgba(255, 100, 50, 0.3) 0%, transparent 50%),
+              linear-gradient(135deg, #FFB35C 0%, #FF7A18 50%, #FF4D00 100%)
+            `,
+          }}
+        />
+        {/* 光斑装饰 */}
+        <div
+          className="absolute top-20 right-4 w-32 h-32 rounded-full opacity-30"
+          style={{
+            background: 'radial-gradient(circle, #FFE0B2 0%, transparent 70%)',
+            filter: 'blur(20px)',
+          }}
+        />
+        <div
+          className="absolute top-60 left-0 w-40 h-40 rounded-full opacity-20"
+          style={{
+            background: 'radial-gradient(circle, #FFD180 0%, transparent 70%)',
+            filter: 'blur(30px)',
+          }}
+        />
+
+        <StatusBar dark={false} />
+
+        {/* 顶部标题栏 */}
+        <div className="relative px-5 pt-2 pb-1 flex items-center justify-between">
+          <motion.div
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
           >
-            <Dog className="w-9 h-9 text-amber-900" strokeWidth={2} />
+            <h1 className="text-[22px] font-bold text-white tracking-tight">爪爪连心</h1>
+            <p className="text-[11px] text-white/80 mt-0.5 font-medium">温暖守护 · 陪伴成长</p>
+          </motion.div>
+          <div className="flex items-center gap-2">
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              className="w-9 h-9 rounded-full flex items-center justify-center"
+              style={{
+                background: 'rgba(255, 255, 255, 0.2)',
+                backdropFilter: 'blur(10px)',
+                border: '0.5px solid rgba(255, 255, 255, 0.3)',
+              }}
+            >
+              <Bell className="w-[18px] h-[18px] text-white" strokeWidth={2} />
+            </motion.button>
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              onClick={() => onNavigate('profile')}
+              className="w-9 h-9 rounded-full flex items-center justify-center"
+              style={{
+                background: 'rgba(255, 255, 255, 0.2)',
+                backdropFilter: 'blur(10px)',
+                border: '0.5px solid rgba(255, 255, 255, 0.3)',
+              }}
+            >
+              <PawPrint className="w-[18px] h-[18px] text-white" strokeWidth={2} />
+            </motion.button>
           </div>
         </div>
-        <div className="flex-1">
-          <div className="flex items-center gap-1.5">
-            <h1 className="text-xl font-bold text-gray-900">{petName}</h1>
-            <span className="text-blue-500 text-sm">♂</span>
-          </div>
-          <p className="text-sm text-gray-500 mt-0.5">{petBreed} · {petAge}</p>
-          <div
-            className="inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium"
-            style={{
-              background: 'rgba(110, 231, 183, 0.25)',
-              color: '#047857',
-            }}
-          >
-            <Zap className="w-3 h-3 fill-current" />
-            活力充沛
+
+        {/* 宠物Hero区 */}
+        <div className="relative px-5 pt-6 pb-8">
+          <div className="flex items-center gap-3.5">
+            {/* 头像带HDR光圈 */}
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.5, ease: [0.34, 1.56, 0.64, 1] }}
+              className="relative"
+            >
+              <div
+                className="absolute inset-0 rounded-2xl"
+                style={{
+                  background: 'radial-gradient(circle, rgba(255, 255, 255, 0.5) 0%, transparent 70%)',
+                  filter: 'blur(8px)',
+                  transform: 'scale(1.2)',
+                }}
+              />
+              <div
+                className="relative w-[68px] h-[68px] rounded-2xl flex items-center justify-center"
+                style={{
+                  background: 'linear-gradient(135deg, #FFF 0%, #FFE0B2 100%)',
+                  border: '2.5px solid rgba(255, 255, 255, 0.7)',
+                  boxShadow: '0 8px 24px rgba(0, 0, 0, 0.15)',
+                }}
+              >
+                <span className="text-4xl">🐕</span>
+              </div>
+              {/* 在线指示器 */}
+              <div
+                className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full flex items-center justify-center"
+                style={{
+                  background: '#10B981',
+                  border: '2.5px solid #FF7A18',
+                }}
+              >
+                <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+              </div>
+            </motion.div>
+
+            <div className="flex-1">
+              <div className="flex items-center gap-1.5">
+                <h2 className="text-[24px] font-bold text-white tracking-tight">{petName}</h2>
+                <span className="text-white/90 text-[14px]">♂</span>
+              </div>
+              <p className="text-[12.5px] text-white/85 mt-0.5 font-medium">
+                {petBreed} · {petAge}
+              </p>
+              <div
+                className="inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-full text-[10.5px] font-semibold"
+                style={{
+                  background: 'rgba(110, 231, 183, 0.95)',
+                  color: '#065F46',
+                }}
+              >
+                <Zap className="w-3 h-3 fill-current" />
+                活力充沛
+              </div>
+            </div>
+
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-semibold"
+              style={{
+                background: 'rgba(255, 255, 255, 0.95)',
+                color: '#FF6B00',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+              }}
+            >
+              切换
+              <ChevronRight className="w-3 h-3" />
+            </motion.button>
           </div>
         </div>
-        <button
-          onClick={() => onNavigate('profile')}
-          className="w-9 h-9 rounded-full flex items-center justify-center"
-          aria-label="切换宠物"
-        >
-          <ChevronRight className="w-5 h-5 text-gray-400" />
-        </button>
       </div>
 
-      {/* 引言气泡 */}
-      <div className="px-4 mt-3">
-        <div
-          className="rounded-2xl px-4 py-3 flex items-center gap-3 relative"
+      {/* ===== 主内容区（向上偏移与Hero融合） ===== */}
+      <main className="relative px-4 -mt-4 space-y-3.5">
+        {/* ===== 引言气泡（黏性） ===== */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.1 }}
+          className="relative"
           style={{
-            background: 'rgba(255, 251, 244, 0.95)',
-            border: '1px solid rgba(255, 220, 180, 0.4)',
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(20px) saturate(180%)',
+            borderRadius: '20px',
+            boxShadow: shadows.DEFAULT,
+            border: '0.5px solid rgba(255, 255, 255, 0.8)',
           }}
         >
-          <span
-            className="absolute -top-1 left-4 text-2xl leading-none"
-            style={{ color: '#fbbf24' }}
-          >
-            "
-          </span>
-          <div className="flex-1 pt-1.5">
-            <p className="text-sm text-gray-700 leading-relaxed">
-              今天我跑了多少圈，感觉活力满满呀~
-            </p>
+          <div className="p-4 flex items-center gap-3">
+            <div
+              className="absolute -top-1.5 left-5 text-[28px] leading-none"
+              style={{ color: '#FF8A00' }}
+            >
+              “
+            </div>
+            <div className="flex-1 pt-1.5">
+              <p className="text-[14px] text-gray-800 leading-relaxed font-medium">
+                今天我跑了多少圈，感觉活力满满呀~
+              </p>
+            </div>
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-semibold flex-shrink-0"
+              style={{
+                background: 'linear-gradient(135deg, #DBEAFE 0%, #EFF6FF 100%)',
+                color: '#2563EB',
+              }}
+            >
+              孪生宠物
+              <ChevronRight className="w-3 h-3" />
+            </motion.button>
           </div>
-          <Dog className="w-9 h-9 text-amber-700" strokeWidth={1.5} />
-          <button
-            className="px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1"
-            style={{
-              background: 'rgba(59, 130, 246, 0.1)',
-              color: '#3b82f6',
-            }}
-          >
-            孪生宠物
-            <ChevronRight className="w-3 h-3" />
-          </button>
-        </div>
-      </div>
+        </motion.div>
 
-      {/* 宠物主图区域 */}
-      <div className="mx-4 mt-3 rounded-2xl overflow-hidden relative" style={{ height: '180px', background: 'linear-gradient(135deg, #f5e6d3 0%, #d4a574 100%)' }}>
-        <div className="absolute inset-0 flex items-center justify-center">
-          <Dog className="w-32 h-32 text-amber-900/40" strokeWidth={1} />
-        </div>
-        <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between">
-          <div className="flex items-center gap-1.5 px-2 py-1 rounded-full text-[11px]" style={{ background: 'rgba(255, 255, 255, 0.85)', color: '#92400e' }}>
-            <Utensils className="w-3 h-3" />
-            120g 进食完成
-          </div>
-        </div>
-      </div>
-
-      <main className="max-w-md mx-auto px-4 mt-5 space-y-5">
-        {/* 快捷功能 4列 */}
-        <WarmCard padding="md">
-          <div className="grid grid-cols-4 gap-2">
-            {quickActions.map((action) => {
+        {/* ===== 快捷功能 4列卡片 ===== */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.15 }}
+          className="relative overflow-hidden"
+          style={{
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(20px) saturate(180%)',
+            borderRadius: '20px',
+            boxShadow: shadows.DEFAULT,
+            border: '0.5px solid rgba(255, 255, 255, 0.8)',
+          }}
+        >
+          <div className="p-4 grid grid-cols-4 gap-1.5">
+            {quickActions.map((action, i) => {
               const Icon = action.icon;
               return (
-                <button
+                <motion.button
                   key={action.label}
+                  whileTap={{ scale: 0.92 }}
                   onClick={() => onNavigate('ai-consultant')}
-                  className="flex flex-col items-center gap-1.5 active:scale-95 transition-transform"
+                  className="flex flex-col items-center gap-1.5 py-1.5 rounded-2xl"
+                  style={{ transition: springs.smooth }}
                 >
                   <div
-                    className="w-12 h-12 rounded-2xl flex items-center justify-center"
-                    style={{ background: action.bg }}
+                    className="w-[52px] h-[52px] rounded-2xl flex items-center justify-center relative overflow-hidden"
+                    style={{
+                      background: action.bg,
+                      boxShadow: `inset 0 1px 0 rgba(255, 255, 255, 0.8)`,
+                    }}
                   >
-                    <Icon className="w-6 h-6" style={{ color: action.color }} strokeWidth={2} />
+                    <Icon className="w-6 h-6" style={{ color: action.color }} strokeWidth={2.2} />
                   </div>
-                  <div className="text-center">
-                    <p className="text-[13px] font-semibold text-gray-900">{action.label}</p>
-                    <p className="text-[10px] text-gray-400 mt-0.5">{action.sub}</p>
+                  <div className="text-center mt-0.5">
+                    <p className="text-[13px] font-semibold text-gray-900 tracking-tight">
+                      {action.label}
+                    </p>
+                    <p className="text-[10px] text-gray-400 mt-0.5 font-medium">
+                      {action.sub}
+                    </p>
                   </div>
-                </button>
+                </motion.button>
               );
             })}
           </div>
-        </WarmCard>
+        </motion.div>
 
-        {/* 我的设备 */}
-        <div>
-          <SectionTitle
-            title="我的设备"
-            rightAction={
-              <button className="text-xs text-gray-500 flex items-center gap-0.5">
-                查看全部
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-            }
-          />
-          <WarmCard padding="md">
-            <div className="flex gap-2.5 overflow-x-auto pb-1 -mx-1 px-1">
+        {/* ===== 我的设备 横向滚动卡片 ===== */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.2 }}
+        >
+          <div className="flex items-center justify-between mb-2.5 px-1">
+            <h3 className="text-[15px] font-bold text-gray-900 tracking-tight">我的设备</h3>
+            <button className="text-[11.5px] text-gray-500 flex items-center font-medium">
+              查看全部
+              <ChevronRight className="w-3.5 h-3.5 ml-0.5" />
+            </button>
+          </div>
+          <div
+            className="relative p-2"
+            style={{
+              background: 'rgba(255, 255, 255, 0.95)',
+              backdropFilter: 'blur(20px) saturate(180%)',
+              borderRadius: '20px',
+              boxShadow: shadows.DEFAULT,
+              border: '0.5px solid rgba(255, 255, 255, 0.8)',
+            }}
+          >
+            <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
               {devices.map((device, i) => {
                 const Icon = device.icon;
                 return (
-                  <div
+                  <motion.div
                     key={i}
-                    className="flex-1 min-w-[100px] flex flex-col items-center"
+                    whileTap={{ scale: 0.95 }}
+                    className="flex-1 min-w-[88px] flex flex-col items-center py-2 px-1"
                   >
                     <div className="flex items-center gap-1 mb-2">
                       <span
                         className="w-1.5 h-1.5 rounded-full"
-                        style={{ background: '#10b981' }}
+                        style={{ background: '#10B981', boxShadow: '0 0 4px #10B981' }}
                       />
-                      <span className="text-[10px]" style={{ color: '#10b981' }}>
+                      <span className="text-[10px] font-semibold" style={{ color: '#10B981' }}>
                         在线
                       </span>
                     </div>
                     <div
-                      className="w-14 h-14 rounded-2xl flex items-center justify-center mb-2"
-                      style={{ background: 'rgba(255, 255, 255, 0.8)' }}
+                      className="w-12 h-12 rounded-2xl flex items-center justify-center mb-2"
+                      style={{
+                        background: `linear-gradient(135deg, ${device.color}15 0%, ${device.color}08 100%)`,
+                      }}
                     >
-                      <Icon className="w-8 h-8" style={{ color: device.color }} strokeWidth={1.5} />
+                      <Icon
+                        className="w-6 h-6"
+                        style={{ color: device.color }}
+                        strokeWidth={1.8}
+                      />
                     </div>
-                    <p className="text-[13px] font-semibold text-gray-900 text-center truncate w-full">
+                    <p className="text-[12px] font-semibold text-gray-900 text-center truncate w-full">
                       {device.name}
                     </p>
                     <div
-                      className="mt-1.5 flex items-center gap-1 px-2 py-0.5 rounded-full"
-                      style={{ background: 'rgba(34, 197, 94, 0.12)' }}
+                      className="mt-1 flex items-center gap-0.5 px-1.5 py-0.5 rounded-full"
+                      style={{ background: 'rgba(16, 185, 129, 0.12)' }}
                     >
-                      <Battery className="w-3 h-3" style={{ color: '#16a34a' }} />
-                      <span className="text-[10px] font-semibold" style={{ color: '#16a34a' }}>
+                      <Battery
+                        className="w-2.5 h-2.5"
+                        style={{ color: '#16A34A' }}
+                        strokeWidth={2.5}
+                      />
+                      <span className="text-[10px] font-bold" style={{ color: '#16A34A' }}>
                         {device.battery}%
                       </span>
                     </div>
-                  </div>
+                  </motion.div>
                 );
               })}
               {/* 添加设备 */}
-              <div className="flex-1 min-w-[100px] flex flex-col items-center">
-                <div className="h-4 mb-2" />
+              <motion.div
+                whileTap={{ scale: 0.95 }}
+                className="flex-1 min-w-[88px] flex flex-col items-center py-2 px-1"
+              >
+                <div className="h-[14px] mb-2" />
                 <div
-                  className="w-14 h-14 rounded-2xl flex items-center justify-center mb-2 border-2 border-dashed"
-                  style={{ borderColor: 'rgba(156, 163, 175, 0.3)' }}
+                  className="w-12 h-12 rounded-2xl flex items-center justify-center mb-2"
+                  style={{
+                    background: 'transparent',
+                    border: '1.5px dashed rgba(156, 163, 175, 0.35)',
+                  }}
                 >
-                  <Plus className="w-7 h-7 text-gray-300" strokeWidth={1.5} />
+                  <Plus className="w-5 h-5 text-gray-300" strokeWidth={1.8} />
                 </div>
-                <p className="text-[13px] font-medium text-gray-400 text-center">添加设备</p>
-                <div className="h-5 mt-1.5" />
-              </div>
+                <p className="text-[12px] font-medium text-gray-400 text-center">添加设备</p>
+                <div className="h-[18px] mt-1" />
+              </motion.div>
             </div>
-          </WarmCard>
-        </div>
+          </div>
+        </motion.div>
 
-        {/* 今日饮食数据 */}
-        <div>
-          <SectionTitle
-            title="今日饮食数据"
-            rightAction={
-              <button className="text-xs text-gray-500 flex items-center gap-0.5">
-                更多数据
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-            }
-          />
-          <WarmCard padding="md">
+        {/* ===== 今日饮食数据 ===== */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.25 }}
+        >
+          <div className="flex items-center justify-between mb-2.5 px-1">
+            <h3 className="text-[15px] font-bold text-gray-900 tracking-tight">今日饮食数据</h3>
+            <button className="text-[11.5px] text-gray-500 flex items-center font-medium">
+              更多数据
+              <ChevronRight className="w-3.5 h-3.5 ml-0.5" />
+            </button>
+          </div>
+          <div
+            className="relative p-4"
+            style={{
+              background: 'rgba(255, 255, 255, 0.95)',
+              backdropFilter: 'blur(20px) saturate(180%)',
+              borderRadius: '20px',
+              boxShadow: shadows.DEFAULT,
+              border: '0.5px solid rgba(255, 255, 255, 0.8)',
+            }}
+          >
             <div className="grid grid-cols-4 gap-1">
               {dietStats.map((stat, i) => {
                 const Icon = stat.icon;
                 return (
                   <div key={i} className="flex flex-col items-center">
-                    <div className="flex items-center gap-1 mb-1.5">
-                      <Icon className="w-3.5 h-3.5" style={{ color: stat.color }} strokeWidth={2} />
-                      <span className="text-[10px] text-gray-500">{stat.label}</span>
+                    <div className="flex items-center gap-1 mb-2">
+                      <Icon
+                        className="w-3 h-3"
+                        style={{ color: stat.color }}
+                        strokeWidth={2.5}
+                      />
+                      <span className="text-[10.5px] text-gray-500 font-medium">
+                        {stat.label}
+                      </span>
                     </div>
                     <div className="flex items-baseline gap-0.5">
-                      <span className="text-2xl font-bold text-gray-900 tabular-nums">{stat.value}</span>
-                      <span className="text-[11px] text-gray-500 font-medium">{stat.unit}</span>
+                      <span
+                        className="text-[22px] font-bold text-gray-900 tabular-nums tracking-tight"
+                        style={{ fontFeatureSettings: '"tnum"' }}
+                      >
+                        {stat.value}
+                      </span>
+                      <span className="text-[10.5px] text-gray-500 font-semibold">
+                        {stat.unit}
+                      </span>
                     </div>
                     <div className="flex items-center gap-0.5 mt-1">
-                      <span className="w-1 h-1 rounded-full" style={{ background: '#10b981' }} />
-                      <span className="text-[10px]" style={{ color: '#10b981' }}>
+                      <span
+                        className="w-1 h-1 rounded-full"
+                        style={{ background: '#10B981' }}
+                      />
+                      <span
+                        className="text-[10px] font-semibold"
+                        style={{ color: '#10B981' }}
+                      >
                         {stat.status}
                       </span>
                     </div>
@@ -281,13 +471,13 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
                 );
               })}
             </div>
-          </WarmCard>
-        </div>
+          </div>
+        </motion.div>
 
-        {/* 底部留白 */}
-        <div className="h-4" />
+        {/* 底部间距 */}
+        <div className="h-2" />
       </main>
-    </WarmContainer>
+    </div>
   );
 };
 
