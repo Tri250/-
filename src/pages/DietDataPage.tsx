@@ -152,15 +152,15 @@ export const DietDataPage: React.FC<DietDataPageProps> = ({ onNavigate }) => {
       const date = new Date(today);
       date.setDate(date.getDate() - i);
       const dateStr = date.toISOString().split('T')[0];
-      const dayRecords = records.filter(r => r.date === dateStr);
+      const dayRecords = (records || []).filter(r => r?.date === dateStr);
       
       const dayNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
       weekData.push({
         date: dayNames[date.getDay()],
-        feeding: dayRecords.length,
-        drinking: dayRecords.reduce((sum, r) => sum + r.amount, 0),
-        calories: dayRecords.reduce((sum, r) => sum + (r.calories || 0), 0),
-        duration: dayRecords.length * 1.5,
+        feeding: dayRecords.length || 0,
+        drinking: dayRecords.reduce((sum, r) => sum + (r?.amount || 0), 0),
+        calories: dayRecords.reduce((sum, r) => sum + (r?.calories || 0), 0),
+        duration: dayRecords.length * 1.5 || 0,
       });
     }
     

@@ -40,10 +40,10 @@ export default function TrainingPage() {
   const selectedCourseData = courses.find(c => c.id === selectedCourse);
 
   // 计算成就统计
-  const totalCompletedCourses = courses.filter(c => c.progress === 100).length;
-  const totalPointsEarned = trainingRecords.reduce((sum, r) => sum + (r.success ? 50 : 0), 0);
-  const averageSuccessRate = trainingRecords.length > 0 
-    ? Math.round((trainingRecords.filter(r => r.success).length / trainingRecords.length) * 100)
+  const totalCompletedCourses = (courses || []).filter(c => c?.progress === 100).length;
+  const totalPointsEarned = (trainingRecords || []).reduce((sum, r) => sum + (r?.success ? 50 : 0), 0);
+  const averageSuccessRate = (trainingRecords || []).length > 0 
+    ? Math.round(((trainingRecords || []).filter(r => r?.success).length / (trainingRecords || []).length) * 100)
     : 0;
 
   const handleStartCourse = (courseId: string) => {

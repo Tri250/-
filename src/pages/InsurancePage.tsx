@@ -151,12 +151,12 @@ export default function InsurancePage() {
   };
 
   // 计算统计数据
-  const totalCoverage = policies.reduce((sum, p) => {
-    const plan = plans.find(pl => pl.id === p.planId);
+  const totalCoverage = (policies || []).reduce((sum, p) => {
+    const plan = (plans || []).find(pl => pl?.id === p?.planId);
     return sum + (plan?.annualLimit || 0);
   }, 0);
-  const totalClaimsAmount = claims.reduce((sum, c) => sum + c.amount, 0);
-  const approvedClaimsCount = claims.filter(c => c.status === 'approved').length;
+  const totalClaimsAmount = (claims || []).reduce((sum, c) => sum + (c?.amount || 0), 0);
+  const approvedClaimsCount = (claims || []).filter(c => c?.status === 'approved').length;
 
   return (
     <div className="min-h-screen bg-neutral-50 pb-24">

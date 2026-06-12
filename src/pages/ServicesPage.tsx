@@ -31,15 +31,15 @@ export default function ServicesPage({ onNavigate }: ServicesPageProps) {
   const selectedPet = pets.find(p => p.id === selectedPetId);
 
   // 计算统计数据
-  const totalCoverage = policies.reduce((sum, p) => {
-    const plan = plans.find(pl => pl.id === p.planId);
+  const totalCoverage = (policies || []).reduce((sum, p) => {
+    const plan = (plans || []).find(pl => pl?.id === p?.planId);
     return sum + (plan?.annualLimit || 0);
   }, 0);
-  const activePolicies = policies.filter(p => p.status === 'active').length;
-  const pendingClaims = claims.filter(c => c.status === 'under_review').length;
-  const upcomingAppointments = appointments.filter(a => a.status === 'scheduled').length;
-  const completedCourses = courses.filter(c => c.progress === 100).length;
-  const totalPointsEarned = trainingRecords.reduce((sum, r) => sum + (r.success ? 50 : 0), 0);
+  const activePolicies = (policies || []).filter(p => p?.status === 'active').length;
+  const pendingClaims = (claims || []).filter(c => c?.status === 'under_review').length;
+  const upcomingAppointments = (appointments || []).filter(a => a?.status === 'scheduled').length;
+  const completedCourses = (courses || []).filter(c => c?.progress === 100).length;
+  const totalPointsEarned = (trainingRecords || []).reduce((sum, r) => sum + (r?.success ? 50 : 0), 0);
 
   const services = [
     {
