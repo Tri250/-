@@ -255,6 +255,12 @@ export const useAppStore = create<AppState>()(
             const { useTranslatorStore } = await import('./translatorStore');
             const { useServicesStore } = await import('./servicesStore');
             const { useHealthReportStore } = await import('./healthReportStore');
+            const { usePetStore } = await import('./petStore');
+            const { useReminderStore } = await import('./reminderStore');
+            const { useMedicalStore } = await import('./medicalStore');
+            const { useTrainingStore } = await import('./trainingStore');
+            const { useInsuranceStore } = await import('./insuranceStore');
+            const { useBondStore } = await import('./bondStore');
             
             // 初始化各个Store
             await useDevicesStore.getState().initialize();
@@ -267,6 +273,12 @@ export const useAppStore = create<AppState>()(
             await useTranslatorStore.getState().initialize();
             await useServicesStore.getState().initialize();
             await useHealthReportStore.getState().initialize();
+            await usePetStore.getState().initialize?.();
+            await useReminderStore.getState().initialize?.();
+            await useMedicalStore.getState().initialize?.();
+            await useTrainingStore.getState().initialize?.();
+            await useInsuranceStore.getState().initialize?.();
+            await useBondStore.getState().initialize?.();
             
             console.log('[AppStore] All stores initialized');
           } catch (storeError) {
