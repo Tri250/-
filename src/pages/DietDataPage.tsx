@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ChevronLeft,
   Calendar,
@@ -13,38 +13,33 @@ import {
   PieChart,
   BarChart3
 } from 'lucide-react';
+import { useDietStore, type TimeRange } from '../store/dietStore';
 
 interface DietDataPageProps {
   onNavigate: (page: string) => void;
 }
 
-// 饮食数据项
-type DietDataType = 'feeding' | 'drinking' | 'calories' | 'duration';
-
-interface DietDataItem {
-  type: DietDataType;
-  label: string;
-  value: string;
-  unit: string;
-  change: number;
-  changeLabel: string;
-  icon: React.ElementType;
-  color: string;
-  bgColor: string;
-}
-
-// 时间段数据
-interface TimeRangeData {
-  date: string;
-  feeding: number;
-  drinking: number;
-  calories: number;
-  duration: number;
-}
-
 export const DietDataPage: React.FC<DietDataPageProps> = ({ onNavigate }) => {
-  const [timeRange, setTimeRange] = useState<'day' | 'week' | 'month'>('day');
-  const [selectedDate, setSelectedDate] = useState('2024年5月20日');
+  const {
+    timeRange,
+    setTimeRange,
+    selectedDate,
+    setSelectedDate,
+    getStats,
+    getNutritionIntake,
+    initialize,
+    isLoading,
+  } = useDietStore();
+  
+  const [localTimeRange, setLocalTimeRange] = useState<TimeRange>('day');
+
+  useEffect(() => {
+    initialize();
+  }, [initialize]);
+
+  // 获取统计数据
+  const stats = getStats('pet-1', localTimeRange);
+  const nutrition = getNutritionIntake('pet-1');
 
   // 今日数据
   const todayData: DietDataItem[] = [

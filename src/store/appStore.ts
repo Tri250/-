@@ -241,8 +241,37 @@ export const useAppStore = create<AppState>()(
             console.warn('[AppStore] Platform service initialization failed:', platformError);
           }
           
-          setInitProgress(30, '正在初始化状态管理...');
-          await new Promise(resolve => setTimeout(resolve, 100));
+          // 初始化所有数据存储
+          setInitProgress(30, '正在初始化数据存储...');
+          try {
+            // 初始化新增的Store
+            const { useDevicesStore } = await import('./devicesStore');
+            const { useDietStore } = await import('./dietStore');
+            const { useRecordsStore } = await import('./recordsStore');
+            const { useHealthStore } = await import('./healthStore');
+            const { useFavoritesStore } = await import('./favoritesStore');
+            const { useSettingsStore } = await import('./settingsStore');
+            const { useUserProfileStore } = await import('./userProfileStore');
+            const { useTranslatorStore } = await import('./translatorStore');
+            const { useServicesStore } = await import('./servicesStore');
+            const { useHealthReportStore } = await import('./healthReportStore');
+            
+            // 初始化各个Store
+            await useDevicesStore.getState().initialize();
+            await useDietStore.getState().initialize();
+            await useRecordsStore.getState().initialize();
+            await useHealthStore.getState().initialize();
+            await useFavoritesStore.getState().initialize();
+            await useSettingsStore.getState().initialize();
+            await useUserProfileStore.getState().initialize();
+            await useTranslatorStore.getState().initialize();
+            await useServicesStore.getState().initialize();
+            await useHealthReportStore.getState().initialize();
+            
+            console.log('[AppStore] All stores initialized');
+          } catch (storeError) {
+            console.warn('[AppStore] Store initialization failed:', storeError);
+          }
           
           setInitProgress(50, '正在加载用户数据...');
           await new Promise(resolve => setTimeout(resolve, 100));

@@ -15,71 +15,32 @@ import {
   Trash2,
   Power
 } from 'lucide-react';
-import { cameraAdapterService } from '../services/cameraAdapterService';
-import type { CameraDevice } from '../types/camera';
+import { useDevicesStore, type Device, type DeviceType } from '../store/devicesStore';
 
 interface DevicesPageProps {
   onNavigate: (page: string) => void;
 }
 
-interface DeviceItem {
-  id: string;
-  name: string;
-  type: 'camera' | 'collar' | 'dispenser' | 'bowl' | 'other';
-  status: 'online' | 'offline' | 'warning';
-  battery: number;
-  signal: number;
-  lastActive: string;
-  image?: string;
-}
-
 export const DevicesPage: React.FC<DevicesPageProps> = ({ onNavigate }) => {
-  const [devices, setDevices] = useState<DeviceItem[]>([]);
-  const [selectedDevice, setSelectedDevice] = useState<string | null>(null);
+  const {
+    devices,
+    isLoading,
+    isPairing,
+    getStats,
+    initialize,
+    startPairing,
+    cancelPairing,
+    removeDevice,
+    updateDeviceStatus,
+  } = useDevicesStore();
+  
   const [showAddModal, setShowAddModal] = useState(false);
 
   useEffect(() => {
-    // 模拟设备数据
-    const mockDevices: DeviceItem[] = [
-      {
-        id: '1',
-        name: 'JOJO的碗',
-        type: 'bowl',
-        status: 'online',
-        battery: 85,
-        signal: 95,
-        lastActive: '刚刚',
-      },
-      {
-        id: '2',
-        name: '智能项圈',
-        type: 'collar',
-        status: 'online',
-        battery: 92,
-        signal: 88,
-        lastActive: '2分钟前',
-      },
-      {
-        id: '3',
-        name: '饮水机',
-        type: 'dispenser',
-        status: 'warning',
-        battery: 15,
-        signal: 72,
-        lastActive: '5分钟前',
-      },
-      {
-        id: '4',
-        name: '客厅摄像头',
-        type: 'camera',
-        status: 'online',
-        battery: 100,
-        signal: 98,
-        lastActive: '在线',
-      },
-    ];
-    setDevices(mockDevices);
-  }, []);
+    initialize();
+  }, [initialize]);
+
+  const stats = getStats();
 
   const getDeviceIcon = (type: string) => {
     switch (type) {
@@ -142,7 +103,7 @@ export const DevicesPage: React.FC<DevicesPageProps> = ({ onNavigate }) => {
           <div className="flex items-center justify-between mb-4">
             <div>
               <p className="text-orange-100 text-sm">已连接设备</p>
-              <p className="text-3xl font-bold">{devices.length}</p>
+              <p className="text-3xl font-bold">{stats.total}</p>
             </div>
             <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
               <Zap className="w-6 h-6" />
@@ -151,15 +112,11 @@ export const DevicesPage: React.FC<DevicesPageProps> = ({ onNavigate }) => {
           <div className="flex gap-4">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-              <span className="text-sm">
-                {devices.filter(d => d.status === 'online').length} 在线
-              </span>
+              <span className="text-sm">{stats.online} 在线</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 bg-yellow-400 rounded-full"></div>
-              <span className="text-sm">
-                {devices.filter(d => d.status === 'warning').length} 注意
-              </span>
+              <span className="text-sm">{stats.warning} 注意</span>
             </div>
           </div>
         </div>

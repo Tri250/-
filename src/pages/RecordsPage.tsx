@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ChevronLeft, 
   ChevronDown,
@@ -11,41 +11,34 @@ import {
   Clock,
   Image as ImageIcon
 } from 'lucide-react';
-import { useHealthRecordStore } from '../store/healthRecordStore';
-import { usePetStore } from '../store/petStore';
+import { useRecordsStore, type RecordType } from '../store/recordsStore';
 
 interface RecordsPageProps {
   onNavigate: (page: string) => void;
 }
 
-// 记录类型
-type RecordType = 'all' | 'feeding' | 'drinking' | 'activity' | 'health' | 'other';
-
-// 记录项
-interface RecordItem {
-  id: string;
-  type: RecordType;
-  title: string;
-  description: string;
-  time: string;
-  date: string;
-  image?: string;
-  tag?: string;
-  tagColor?: string;
-}
-
-// 分类筛选项
-interface FilterItem {
-  id: RecordType;
-  icon: React.ElementType;
-  label: string;
-  color: string;
-}
-
 export const RecordsPage: React.FC<RecordsPageProps> = ({ onNavigate }) => {
-  const [activeFilter, setActiveFilter] = useState<RecordType>('all');
+  const {
+    activeFilter,
+    setActiveFilter,
+    selectedDate,
+    setSelectedDate,
+    getFilteredRecords,
+    getDateSummary,
+    initialize,
+    isLoading,
+  } = useRecordsStore();
+  
   const [expandedDate, setExpandedDate] = useState<string | null>(null);
-  const { currentPet } = usePetStore();
+  const [localFilter, setLocalFilter] = useState<RecordType | 'all'>('all');
+
+  useEffect(() => {
+    initialize();
+  }, [initialize]);
+
+  // 获取过滤后的记录
+  const filteredRecords = getFilteredRecords('pet-1', localFilter);
+  const summary = getDateSummary(selectedDate);
   
   // 分类筛选数据
   const filters: FilterItem[] = [
