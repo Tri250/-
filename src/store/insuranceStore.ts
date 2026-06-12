@@ -106,5 +106,9 @@ export const useInsuranceStore = create<InsuranceStore>((set, get) => ({
     
     set((state) => ({ claims: [claim, ...state.claims] }));
     return true;
+  },
+
+  initialize: async () => {
+    console.log('[InsuranceStore] Initialized');
   }
 }));

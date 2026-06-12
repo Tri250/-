@@ -21,3 +21,10 @@ export { default as SettingsPage } from './SettingsPage';
 export { default as FavoritesPage } from './FavoritesPage';
 export { default as HelpFeedbackPage } from './HelpFeedbackPage';
 export { default as DeveloperInfoPage } from './DeveloperInfoPage';
+// 新增页面导出
+export { default as PetProfilePage } from './PetProfilePage';
+export { default as DevicesPage } from './DevicesPage';
+export { default as DietDataPage } from './DietDataPage';
+export { default as RecordsPage } from './RecordsPage';
+export { default as HomePage } from './HomePage';
+export { default as UserProfilePage } from './UserProfilePage';

@@ -164,5 +164,9 @@ export const useBondStore = create<BondStore>((set, get) => ({
     } else {
       set({ streakDays: 1, lastActiveDate: today });
     }
+  },
+
+  initialize: async () => {
+    console.log('[BondStore] Initialized');
   }
 }));

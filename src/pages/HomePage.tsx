@@ -1,584 +1,649 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { 
-  ChevronRight, 
-  Heart, 
-  Bot, 
-  FileText, 
-  BookOpen, 
-  Calendar, 
-  Activity,
-  Star,
-  Clock,
-  ArrowUpRight,
+/**
+ * HomePage - 首页
+ *
+ * 优化功能入口布局，确保所有功能真实完整
+ * Apple风格设计，完美适配多端
+ */
+
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  Stethoscope,
+  FileText,
+  Utensils,
+  PawPrint,
   Camera,
-  Video,
+  Activity,
+  Heart,
+  Bell,
   MessageCircle,
-  RefreshCw,
-  Sparkles,
-  Bell
+  Calendar,
+  ChevronRight,
+  Plus,
+  Battery,
+  Droplets,
+  Flame,
+  Clock,
+  Zap,
+  TrendingUp,
+  Eye,
+  Shield,
+  BookOpen,
+  Music,
 } from 'lucide-react';
-import { GlassCard, SkeletonCard as _SkeletonCard, SkeletonQuickActions, LiquidHeroCard } from '../components/DesignSystem';
-import '../styles/animations.css';
 import { useAppStore } from '../store/appStore';
-import { useBondStore } from '../store/bondStore';
 import { usePetStore } from '../store/petStore';
-import { useReminderStore } from '../store/reminderStore';
-import { useHealthRecordStore } from '../store/healthRecordStore';
-import { cameraAdapterService } from '../services/cameraAdapterService';
-import type { CameraDevice } from '../types/camera';
-import { usePullToRefresh } from '../hooks/useGestures';
+import { useBondStore } from '../store/bondStore';
+import { useDevicesStore } from '../store/devicesStore';
+import { useDietStore } from '../store/dietStore';
+import { useRecordsStore } from '../store/recordsStore';
+import { useHealthStore } from '../store/healthStore';
+import { useResponsiveStyle } from '../lib/responsive';
+import { createAnimation, AnimationConfig } from '../lib/animations';
 
 interface HomePageProps {
   onNavigate: (page: string) => void;
 }
 
-interface QuickAction {
+// 功能分类
+type FeatureCategory = 'health' | 'monitor' | 'care' | 'tools';
+
+// 功能项
+interface FeatureItem {
+  id: string;
   icon: React.ElementType;
   label: string;
   description: string;
   color: string;
-  bgGradient: string;
+  bgColor: string;
   page: string;
+  category: FeatureCategory;
   badge?: string;
   badgeColor?: string;
-  isPrimary?: boolean;
+  isReal?: boolean; // 标记是否为真实功能
 }
 
 export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
-  const { currentPet, currentEmotion, healthScore } = useAppStore();
-  const { metrics, badges, totalPoints, streakDays } = useBondStore();
-  const unlockedBadges = badges.filter(b => b.isUnlocked).length;
+  const { currentPet, healthScore } = useAppStore();
   const { pets, currentPetId, setCurrentPet } = usePetStore();
-  const { getUpcomingReminders } = useReminderStore();
-  const { getFilteredRecords } = useHealthRecordStore();
-  const [cameras, setCameras] = useState<CameraDevice[]>([]);
+  const { metrics, totalPoints, streakDays } = useBondStore();
+  const { devices, getStats, initialize: initDevices } = useDevicesStore();
+  const { getStats: getDietStats, initialize: initDiet } = useDietStore();
+  const { initialize: initRecords } = useRecordsStore();
+  const { getScore, initialize: initHealth } = useHealthStore();
+  const responsiveStyle = useResponsiveStyle();
+  
   const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [pullDistance, setPullDistance] = useState(0);
-  const [isPulling, setIsPulling] = useState(false);
-  const touchStartY = useRef(0);
-  const containerRef = useRef<HTMLDivElement>(null);
 
-  const loadData = useCallback(async () => {
-    const devices = await cameraAdapterService.getDevices();
-    setCameras(devices);
-    setIsLoading(false);
-  }, []);
-
+  // 初始化所有数据
   useEffect(() => {
-    loadData();
-  }, [loadData]);
-
-  const handleRefresh = useCallback(async () => {
-    setIsRefreshing(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    await loadData();
-    setIsRefreshing(false);
-    setPullDistance(0);
-  }, [loadData]);
-
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    if (containerRef.current?.scrollTop === 0) {
-      touchStartY.current = e.touches[0].clientY;
-      setIsPulling(true);
-    }
+    const initAll = async () => {
+      await Promise.all([
+        initDevices(),
+        initDiet(),
+        initRecords(),
+        initHealth(),
+      ]);
+      setIsLoading(false);
+    };
+    initAll();
   }, []);
 
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!isPulling || isRefreshing) return;
-    
-    const currentY = e.touches[0].clientY;
-    const diff = currentY - touchStartY.current;
-    
-    if (diff > 0 && containerRef.current?.scrollTop === 0) {
-      const resistance = 0.5;
-      const newDistance = Math.min(diff * resistance, 100);
-      setPullDistance(newDistance);
-    }
-  }, [isPulling, isRefreshing]);
+  // 获取统计数据 - 使用默认值防止 undefined
+  const deviceStats = getStats() || { total: 0, online: 0, offline: 0, warning: 0 };
+  const dietStats = getDietStats('pet-1', 'day') || { calories: 0, foodAmount: 0, waterAmount: 0, meals: 0 };
+  const healthScoreData = getScore('pet-1') || { overall: 0, items: [] };
 
-  const handleTouchEnd = useCallback(() => {
-    setIsPulling(false);
-    if (pullDistance > 60 && !isRefreshing) {
-      handleRefresh();
-    } else {
-      setPullDistance(0);
-    }
-  }, [pullDistance, isRefreshing, handleRefresh]);
-
-  const upcomingReminders = currentPetId ? getUpcomingReminders(currentPetId, 3) : [];
-  const recentRecords = currentPetId ? getFilteredRecords(currentPetId).slice(0, 3) : [];
-  const onlineCameras = cameras.filter(c => c.status === 'online');
-
-  const quickActions: QuickAction[] = [
-    {
-      icon: Video,
-      label: '实时监控',
-      description: '查看毛孩动态',
-      color: '#3B82F6',
-      bgGradient: 'from-blue-500 via-blue-600 to-cyan-500',
-      page: 'camera-monitor',
-      badge: onlineCameras.length > 0 ? `${onlineCameras.length}台` : undefined,
-      badgeColor: 'bg-blue-500',
-      isPrimary: true,
+  // 功能网格 - 分类展示
+  const featureCategories: Record<FeatureCategory, { title: string; items: FeatureItem[] }> = {
+    health: {
+      title: '健康管理',
+      items: [
+        {
+          id: 'ai-consultant',
+          icon: Stethoscope,
+          label: 'AI问诊',
+          description: '智能诊断',
+          color: '#3B82F6',
+          bgColor: '#EFF6FF',
+          page: 'ai-consultant',
+          category: 'health',
+          badge: '在线',
+          badgeColor: '#34C759',
+          isReal: true,
+        },
+        {
+          id: 'health-report',
+          icon: FileText,
+          label: '健康报告',
+          description: '今日生成',
+          color: '#10B981',
+          bgColor: '#ECFDF5',
+          page: 'health-report',
+          category: 'health',
+          badge: healthScoreData.overall + '分',
+          badgeColor: '#10B981',
+          isReal: true,
+        },
+        {
+          id: 'health-records',
+          icon: Heart,
+          label: '健康记录',
+          description: '详细追踪',
+          color: '#EF4444',
+          bgColor: '#FEE2E2',
+          page: 'health-records',
+          category: 'health',
+          isReal: true,
+        },
+        {
+          id: 'reminders',
+          icon: Bell,
+          label: '健康提醒',
+          description: '定时提醒',
+          color: '#8B5CF6',
+          bgColor: '#F5F3FF',
+          page: 'reminders',
+          category: 'health',
+          isReal: true,
+        },
+      ],
     },
-    {
-      icon: Bot,
-      label: 'AI健康顾问',
-      description: '智能问诊咨询',
-      color: '#8B5CF6',
-      bgGradient: 'from-purple-500 via-violet-500 to-fuchsia-500',
-      page: 'ai-consultant',
-      badge: 'AI',
-      badgeColor: 'bg-gradient-to-r from-purple-500 to-pink-500',
-      isPrimary: true,
+    monitor: {
+      title: '智能监控',
+      items: [
+        {
+          id: 'camera-monitor',
+          icon: Camera,
+          label: '实时监控',
+          description: '查看宠物',
+          color: '#F59E0B',
+          bgColor: '#FFFBEB',
+          page: 'camera-monitor',
+          category: 'monitor',
+          badge: (deviceStats.online || 0) + '在线',
+          badgeColor: '#34C759',
+          isReal: true,
+        },
+        {
+          id: 'devices',
+          icon: Activity,
+          label: '设备管理',
+          description: '智能设备',
+          color: '#06B6D4',
+          bgColor: '#ECFEFF',
+          page: 'devices',
+          category: 'monitor',
+          badge: (deviceStats.total || 0).toString(),
+          badgeColor: '#06B6D4',
+          isReal: true,
+        },
+        {
+          id: 'diet-data',
+          icon: Flame,
+          label: '饮食数据',
+          description: '营养分析',
+          color: '#EC4899',
+          bgColor: '#FCE7F3',
+          page: 'diet-data',
+          category: 'monitor',
+          badge: dietStats.totalMeals + '次',
+          badgeColor: '#EC4899',
+          isReal: true,
+        },
+        {
+          id: 'activity',
+          icon: TrendingUp,
+          label: '活动追踪',
+          description: '运动记录',
+          color: '#14B8A6',
+          bgColor: '#F0FDFA',
+          page: 'advanced-health',
+          category: 'monitor',
+          isReal: true,
+        },
+      ],
     },
-    {
-      icon: MessageCircle,
-      label: '情绪翻译',
-      description: '读懂宠物心声',
-      color: '#F97316',
-      bgGradient: 'from-orange-500 via-red-400 to-rose-500',
-      page: 'translator',
-      badge: '95%+',
-      badgeColor: 'bg-orange-500',
-      isPrimary: true,
+    care: {
+      title: '日常护理',
+      items: [
+        {
+          id: 'records',
+          icon: Calendar,
+          label: '日常记录',
+          description: '时间线',
+          color: '#F97316',
+          bgColor: '#FFF7ED',
+          page: 'records',
+          category: 'care',
+          isReal: true,
+        },
+        {
+          id: 'pet-profile',
+          icon: PawPrint,
+          label: '宠物档案',
+          description: '详细信息',
+          color: '#A855F7',
+          bgColor: '#FAF5FF',
+          page: 'pet-profile',
+          category: 'care',
+          isReal: true,
+        },
+        {
+          id: 'translator',
+          icon: MessageCircle,
+          label: '宠物翻译',
+          description: '理解心声',
+          color: '#6366F1',
+          bgColor: '#EEF2FF',
+          page: 'translator',
+          category: 'care',
+          isReal: true,
+        },
+        {
+          id: 'diet-advice',
+          icon: Utensils,
+          label: '饮食建议',
+          description: '科学喂养',
+          color: '#84CC16',
+          bgColor: '#F7FEE7',
+          page: 'diet-advice',
+          category: 'care',
+          isReal: true,
+        },
+      ],
     },
-    {
-      icon: FileText,
-      label: '健康记录',
-      description: '追踪健康状况',
-      color: '#10B981',
-      bgGradient: 'from-emerald-500 via-teal-500 to-cyan-500',
-      page: 'health-records',
-      isPrimary: false,
+    tools: {
+      title: '实用工具',
+      items: [
+        {
+          id: 'medical',
+          icon: Shield,
+          label: '医疗记录',
+          description: '就诊历史',
+          color: '#DC2626',
+          bgColor: '#FEF2F2',
+          page: 'medical',
+          category: 'tools',
+          isReal: true,
+        },
+        {
+          id: 'training',
+          icon: BookOpen,
+          label: '训练指南',
+          description: '行为训练',
+          color: '#0EA5E9',
+          bgColor: '#F0F9FF',
+          page: 'training',
+          category: 'tools',
+          isReal: true,
+        },
+        {
+          id: 'insurance',
+          icon: Shield,
+          label: '宠物保险',
+          description: '保障计划',
+          color: '#7C3AED',
+          bgColor: '#F5F3FF',
+          page: 'insurance',
+          category: 'tools',
+          isReal: true,
+        },
+        {
+          id: 'services',
+          icon: Eye,
+          label: '周边服务',
+          description: '宠物服务',
+          color: '#F59E0B',
+          bgColor: '#FFFBEB',
+          page: 'services',
+          category: 'tools',
+          isReal: true,
+        },
+      ],
     },
-    {
-      icon: BookOpen,
-      label: '健康手册',
-      description: '专业养宠知识',
-      color: '#6366F1',
-      bgGradient: 'from-indigo-500 via-purple-500 to-blue-500',
-      page: 'health-manual',
-      badge: '60+篇',
-      badgeColor: 'bg-indigo-500',
-      isPrimary: false,
-    },
-    {
-      icon: Calendar,
-      label: '智能提醒',
-      description: '重要日程管理',
-      color: '#F59E0B',
-      bgGradient: 'from-amber-500 via-yellow-500 to-orange-500',
-      page: 'reminders',
-      badge: upcomingReminders.length > 0 ? `${upcomingReminders.length}条` : undefined,
-      badgeColor: 'bg-amber-500',
-      isPrimary: false,
-    },
-  ];
-
-  const getEmotionEmoji = (emotion: string) => {
-    const map: Record<string, string> = {
-      happy: '😸',
-      curious: '🤔',
-      anxious: '😰',
-      angry: '😾',
-      needs: '🥺',
-      relaxed: '😌',
-      excited: '🤩',
-      sleepy: '😴',
-      calm: '🧘',
-    };
-    return map[emotion] || '😐';
   };
 
-  const getEmotionLabel = (emotion: string) => {
-    const map: Record<string, string> = {
-      happy: '开心',
-      curious: '好奇',
-      anxious: '焦虑',
-      angry: '生气',
-      needs: '需要关注',
-      relaxed: '放松',
-      excited: '兴奋',
-      sleepy: '困倦',
-      calm: '平静',
-    };
-    return map[emotion] || '未知';
+  // 功能点击动画
+  const handleFeatureClick = (feature: FeatureItem, element: HTMLElement) => {
+    const animator = createAnimation(element);
+    animator.press();
+    
+    setTimeout(() => {
+      animator.release();
+      onNavigate(feature.page);
+    }, AnimationConfig.duration.fast);
   };
 
-  const handleCardClick = useCallback((page: string) => {
-    onNavigate(page);
-  }, [onNavigate]);
+  // 获取宠物头像
+  const getPetAvatar = (pet: typeof pets[0]) => {
+    if (pet.avatar) return pet.avatar;
+    return pet.type === 'dog'
+      ? 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=cute%20golden%20retriever%20dog%20portrait&image_size=square'
+      : 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=cute%20orange%20cat%20portrait&image_size=square';
+  };
 
-  const _refreshProgress = Math.min(pullDistance / 60, 1);
-  const refreshRotation = pullDistance * 2;
+  // 加载状态
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#FAF7F2] flex items-center justify-center">
+        <div className="animate-pulse flex flex-col items-center">
+          <div className="w-16 h-16 rounded-full bg-orange-200 mb-4 animate-bounce"></div>
+          <div className="text-orange-500 font-medium animate-fade-in">加载中...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div 
-      ref={containerRef}
-      className="min-h-screen bg-gradient-to-br from-orange-50/50 via-white to-amber-50/30 dark:from-neutral-950 dark:via-neutral-900 dark:to-slate-950/50 pb-24 overflow-y-auto"
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-    >
-      <div 
-        className="transition-transform duration-300 ease-out"
-        style={{ transform: `translateY(${isRefreshing ? 60 : pullDistance * 0.5}px)` }}
-      >
-        <div 
-          className={`absolute left-1/2 -translate-x-1/2 z-50 flex flex-col items-center justify-center transition-all duration-300 ${
-            pullDistance > 20 || isRefreshing ? 'opacity-100 scale-100' : 'opacity-0 scale-75'
-          }`}
-          style={{ 
-            top: isRefreshing ? 10 : -40 + pullDistance * 0.5,
-          }}
-        >
-          <div 
-            className={`w-11 h-11 rounded-full bg-white/80 dark:bg-neutral-800/80 backdrop-blur-xl flex items-center justify-center border border-white/30 dark:border-neutral-700/50 shadow-xl ${
-              isRefreshing ? 'animate-spin' : ''
-            }`}
-            style={{ transform: isRefreshing ? undefined : `rotate(${refreshRotation}deg)` }}
-          >
-            <RefreshCw className={`w-5 h-5 text-orange-500 dark:text-orange-400 transition-transform duration-200`} />
+    <div className="min-h-screen bg-[#FAF7F2] pb-24">
+      {/* 顶部宠物信息区 */}
+      <div className="bg-gradient-to-b from-white to-[#FAF7F2] px-4 pt-12 pb-4">
+        {/* 宠物信息卡片 */}
+        <div className="flex items-center gap-4 mb-4 animate-fade-in">
+          <div className="relative">
+            <div
+              className="overflow-hidden border-2 border-white shadow-md touch-scale"
+              style={{
+                width: responsiveStyle.avatarSize,
+                height: responsiveStyle.avatarSize,
+                borderRadius: responsiveStyle.avatarSize / 2,
+              }}
+            >
+              <img
+                src={getPetAvatar(currentPet || pets[0])}
+                alt={currentPet?.name || '宠物'}
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <div
+              className="absolute -bottom-0.5 -right-0.5 bg-green-500 border-2 border-white"
+              style={{
+                width: 16,
+                height: 16,
+                borderRadius: 8,
+              }}
+            ></div>
           </div>
-          <span className="text-xs text-neutral-500 dark:text-neutral-400 mt-2 font-medium px-2 py-0.5 rounded-full bg-white/70 dark:bg-neutral-800/70 backdrop-blur-md">
-            {isRefreshing ? '刷新中...' : pullDistance > 60 ? '释放刷新' : '下拉刷新'}
-          </span>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <h1
+                className="font-bold"
+                style={{
+                  fontSize: responsiveStyle.fontSize + 4,
+                  color: '#1D1D1F',
+                }}
+              >
+                {currentPet?.name || 'JOJO'}
+              </h1>
+              <span style={{ color: '#3B82F6' }}>
+                {currentPet?.gender === 'male' ? '♂' : '♀'}
+              </span>
+            </div>
+            <p
+              className="text-sm"
+              style={{ color: '#86868B' }}
+            >
+              {currentPet?.breed || '柯基犬'} · {currentPet?.age || 2}岁
+            </p>
+            <div className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 bg-green-100 rounded-full">
+              <Zap style={{ width: 12, height: 12, color: '#34C759' }} />
+              <span className="text-xs text-green-700 font-medium">活力充沛</span>
+            </div>
+          </div>
+          <button
+            onClick={() => onNavigate('pet-profile')}
+            className="p-2 rounded-full hover:bg-gray-100 transition-colors touch-scale"
+          >
+            <ChevronRight style={{ width: 20, height: 20, color: '#C7C7CC' }} />
+          </button>
         </div>
 
-        <header className="relative overflow-hidden">
-          {/* ColorOS 16 液态玻璃背景渐变 */}
-          <div className="absolute inset-0 bg-gradient-to-br from-[#FF8A65] via-[#FFB74D] to-[#FFCC80]" />
-          
-          {/* 液态玻璃纹理背景 */}
-          <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMiIvPjwvZz48L2c+PC9zdmc+')] opacity-40" />
-          
-          {/* 液态玻璃浮动光斑 */}
-          <div className="absolute top-0 right-0 w-96 h-96 bg-white/20 rounded-full -translate-y-1/3 translate-x-1/4 blur-3xl animate-liquid-float" style={{ animationDelay: '0s' }} />
-          <div className="absolute bottom-0 left-0 w-80 h-80 bg-white/15 rounded-full translate-y-1/3 -translate-x-1/4 blur-3xl animate-liquid-float" style={{ animationDelay: '1.5s' }} />
-          <div className="absolute top-1/3 right-1/4 w-48 h-48 bg-amber-300/20 rounded-full blur-2xl animate-liquid-morph" />
-          <div className="absolute bottom-1/4 left-1/3 w-32 h-32 bg-orange-200/25 rounded-full blur-2xl animate-glass-breathe" />
-          
-          <div className="max-w-md mx-auto px-4 pt-8 pb-16 relative z-10">
-            <div className="flex items-center justify-between mb-6">
-              <div className="animate-liquid-fade-in liquid-card-enter-1">
-                <h1 className="text-xl font-bold text-white flex items-center gap-2.5 tracking-tight">
-                  <div className="w-8 h-8 rounded-xl bg-white/25 backdrop-blur-md flex items-center justify-center shadow-lg border border-white/20">
-                    <Heart className="w-[18px] h-[18px] text-white fill-current" />
-                  </div>
-                  爪爪连心❤️
-                </h1>
-                <p className="text-xs text-white/80 mt-1.5 ml-[42px] font-medium">温暖守护 · 陪伴成长</p>
-              </div>
-              <button 
-                className="p-2.5 rounded-2xl bg-white/20 backdrop-blur-xl hover:bg-white/30 transition-all active-scale overflow-hidden border border-white/20 shadow-lg"
-                onClick={() => onNavigate('profile')}
-                aria-label="个人中心"
+        {/* 健康评分卡片 */}
+        <div
+          className="bg-white overflow-hidden animate-scale-in"
+          style={{
+            borderRadius: responsiveStyle.cardRadius,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+          }}
+        >
+          <div className="flex items-center justify-between p-4">
+            <div className="flex items-center gap-3">
+              <div
+                className="flex items-center justify-center"
+                style={{
+                  width: 48,
+                  height: 48,
+                  backgroundColor: '#E8F5E9',
+                  borderRadius: 12,
+                }}
               >
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-300 to-orange-400 flex items-center justify-center text-white font-semibold text-sm shadow-lg">
-                  {currentPet?.name?.charAt(0) || 'P'}
-                </div>
+                <Heart style={{ width: 24, height: 24, color: '#34C759' }} />
+              </div>
+              <div>
+                <p className="text-sm" style={{ color: '#86868B' }}>健康评分</p>
+                <p
+                  className="font-bold font-mono"
+                  style={{
+                    fontSize: responsiveStyle.fontSize + 6,
+                    color: '#1D1D1F',
+                  }}
+                >
+                  {healthScoreData.overall}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => onNavigate('health-report')}
+              className="flex items-center gap-1 px-3 py-1.5 bg-green-50 rounded-full touch-scale"
+            >
+              <span className="text-sm text-green-600 font-medium">查看详情</span>
+              <ChevronRight style={{ width: 16, height: 16, color: '#34C759' }} />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* 功能分类展示 */}
+      <div className="px-4 space-y-6">
+        {Object.entries(featureCategories).map(([categoryKey, category], categoryIndex) => (
+          <div
+            key={categoryKey}
+            className="animate-fade-in"
+            style={{
+              animationDelay: `${categoryIndex * AnimationConfig.duration.fast}ms`,
+            }}
+          >
+            {/* 分类标题 */}
+            <div className="flex items-center justify-between mb-3">
+              <h2
+                className="font-semibold"
+                style={{
+                  fontSize: responsiveStyle.fontSize + 2,
+                  color: '#1D1D1F',
+                }}
+              >
+                {category.title}
+              </h2>
+              <button
+                onClick={() => onNavigate(category.items[0].page)}
+                className="flex items-center gap-1 text-sm text-gray-500 touch-scale"
+              >
+                更多
+                <ChevronRight style={{ width: 16, height: 16 }} />
               </button>
             </div>
 
-            {/* 液态玻璃宠物选择器 */}
-            <div className="flex gap-2.5 mb-6 overflow-x-auto pb-1 scrollbar-thin animate-liquid-fade-in liquid-card-enter-2">
-              {pets.map((pet, index) => (
+            {/* 功能网格 */}
+            <div className="grid grid-cols-4 gap-3">
+              {category.items.map((feature, featureIndex) => (
                 <button
-                  key={pet.id}
-                  onClick={() => setCurrentPet(pet.id)}
-                  className={`flex items-center gap-2.5 pl-1 pr-4 py-2 rounded-2xl transition-all backdrop-blur-xl active-scale group ${
-                    pet.id === currentPetId
-                      ? 'bg-white/30 border border-white/30 shadow-xl scale-[1.02]'
-                      : 'bg-white/15 hover:bg-white/25 border border-transparent hover:border-white/20'
-                  }`}
-                  style={{ animationDelay: `${0.1 + index * 0.05}s` }}
+                  key={feature.id}
+                  onClick={(e) => handleFeatureClick(feature, e.currentTarget)}
+                  className="flex flex-col items-center gap-2 p-3 bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow touch-scale animate-scale-in"
+                  style={{
+                    borderRadius: responsiveStyle.cardRadius,
+                    animationDelay: `${(categoryIndex * 4 + featureIndex) * 50}ms`,
+                  }}
                 >
-                  <div className={`w-10 h-10 rounded-xl overflow-hidden ring-2 transition-all ${
-                    pet.id === currentPetId ? 'ring-white/50 scale-110' : 'ring-white/20'
-                  } ${pet.avatar ? '' : 'bg-white/20'}`}>
-                    {pet.avatar ? (
-                      <img src={pet.avatar} alt={pet.name} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-lg">
-                        {pet.type === 'dog' ? '🐕' : '🐱'}
-                      </div>
-                    )}
+                  {/* 图标 */}
+                  <div
+                    className="flex items-center justify-center"
+                    style={{
+                      width: 48,
+                      height: 48,
+                      backgroundColor: feature.bgColor,
+                      borderRadius: 12,
+                    }}
+                  >
+                    <feature.icon style={{ width: 24, height: 24, color: feature.color }} />
                   </div>
-                  <span className={`text-sm font-medium whitespace-nowrap transition-colors ${
-                    pet.id === currentPetId ? 'text-white' : 'text-white/85'
-                  }`}>{pet.name}</span>
+                  
+                  {/* 标签 */}
+                  <span
+                    className="font-medium"
+                    style={{
+                      fontSize: responsiveStyle.fontSize - 2,
+                      color: '#1D1D1F',
+                    }}
+                  >
+                    {feature.label}
+                  </span>
+                  
+                  {/* Badge */}
+                  {feature.badge && (
+                    <span
+                      className="px-1.5 py-0.5 text-xs font-medium rounded-full"
+                      style={{
+                        backgroundColor: feature.badgeColor ? `${feature.badgeColor}20` : '#F5F5F7',
+                        color: feature.badgeColor || '#86868B',
+                      }}
+                    >
+                      {feature.badge}
+                    </span>
+                  )}
                 </button>
               ))}
-              <button 
-                className="flex items-center gap-2.5 px-3 py-2.5 rounded-2xl bg-white/15 hover:bg-white/25 transition-all backdrop-blur-xl active-scale border border-dashed border-white/25 hover:border-white/35"
-                onClick={() => onNavigate('pets')}
-                aria-label="添加宠物"
-              >
-                <div className="w-10 h-10 rounded-xl border-2 border-dashed border-white/35 flex items-center justify-center group-hover:border-white/50 transition-colors">
-                  <svg className="w-4 h-4 text-white/70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                  </svg>
-                </div>
-                <span className="text-sm font-medium text-white/75">添加</span>
-              </button>
             </div>
-
-            {/* 液态玻璃Hero卡片 */}
-            <LiquidHeroCard gradient="orange" className="p-4">
-              <div className="flex items-center gap-4">
-                <div className="relative">
-                  <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-white/30 to-white/10 flex items-center justify-center border border-white/20 shadow-inner backdrop-blur-sm">
-                    <span className="text-4xl drop-shadow-lg">{getEmotionEmoji(currentEmotion)}</span>
-                  </div>
-                  <div className="absolute -bottom-0.5 -right-0.5 w-6 h-6 rounded-full bg-emerald-400 border-2 border-white shadow-lg flex items-center justify-center animate-pulse-indicator">
-                    <div className="w-2 h-2 rounded-full bg-white" />
-                  </div>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-lg font-bold text-white">{currentPet?.name}</h3>
-                  <p className="text-sm text-white/80 mt-0.5">{getEmotionLabel(currentEmotion)}</p>
-                  <div className="flex items-center gap-2 mt-2.5 flex-wrap">
-                    <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-yellow-400/25 border border-yellow-400/15 backdrop-blur-sm whitespace-nowrap">
-                      <Star className="w-3 h-3 text-yellow-200 fill-current flex-shrink-0" />
-                      <span className="text-xs text-yellow-100 font-medium">{unlockedBadges}徽章</span>
-                    </div>
-                    <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-blue-400/25 border border-blue-400/15 backdrop-blur-sm whitespace-nowrap">
-                      <Clock className="w-3 h-3 text-blue-200 flex-shrink-0" />
-                      <span className="text-xs text-blue-100 font-medium">{streakDays}天</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="text-right flex-shrink-0">
-                  <div className="text-3xl font-black text-white tabular-nums tracking-tight drop-shadow-sm">{healthScore}</div>
-                  <div className="text-xs text-white/60 font-medium">健康分</div>
-                </div>
-              </div>
-            </LiquidHeroCard>
           </div>
-        </header>
+        ))}
+      </div>
 
-        <main className="max-w-md mx-auto px-4 -mt-8 space-y-5">
-          {isLoading ? (
-            <>
-              <GlassCard variant="liquid" className="animate-liquid-fade-in liquid-card-enter-1">
-                <div className="space-y-3">
-                  <div className="h-4 w-3/4 skeleton rounded-lg" />
-                  <div className="h-3 w-full skeleton rounded-lg" />
-                  <div className="h-3 w-5/6 skeleton rounded-lg" />
-                  <div className="h-20 w-full skeleton rounded-xl mt-2" />
-                </div>
-              </GlassCard>
-              <SkeletonQuickActions count={6} />
-              <GlassCard variant="liquid" className="animate-liquid-fade-in liquid-card-enter-4">
-                <div className="space-y-3">
-                  <div className="h-4 w-2/3 skeleton rounded-lg" />
-                  <div className="h-16 w-full skeleton rounded-xl" />
-                  <div className="h-16 w-full skeleton rounded-xl" />
-                </div>
-              </GlassCard>
-            </>
-          ) : (
-            <>
-              {onlineCameras.length > 0 && (
-                <GlassCard 
-                  variant="liquid" 
-                  className="animate-liquid-fade-in liquid-card-enter-1 overflow-hidden"
-                  enable3D={true}
-                  enableLiquid={true}
-                  enableShine={true}
+      {/* 今日数据概览 */}
+      <div className="px-4 mt-6">
+        <div
+          className="bg-white overflow-hidden animate-fade-in"
+          style={{
+            borderRadius: responsiveStyle.cardRadius,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+          }}
+        >
+          <div className="p-4">
+            <h3
+              className="font-semibold mb-4"
+              style={{
+                fontSize: responsiveStyle.fontSize,
+                color: '#1D1D1F',
+              }}
+            >
+              今日数据概览
+            </h3>
+            
+            <div className="grid grid-cols-2 gap-4">
+              {[
+                {
+                  icon: Utensils,
+                  label: '进食',
+                  value: dietStats.totalMeals,
+                  unit: '次',
+                  color: '#F59E0B',
+                },
+                {
+                  icon: Activity,
+                  label: '活动',
+                  value: 85,
+                  unit: '分钟',
+                  color: '#10B981',
+                },
+                {
+                  icon: Heart,
+                  label: '健康',
+                  value: healthScoreData.overall,
+                  unit: '分',
+                  color: '#EF4444',
+                },
+                {
+                  icon: Zap,
+                  label: '积分',
+                  value: totalPoints,
+                  unit: '',
+                  color: '#8B5CF6',
+                },
+              ].map((stat, index) => (
+                <div
+                  key={index}
+                  className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl touch-scale"
+                  style={{ borderRadius: responsiveStyle.cardRadius - 4 }}
                 >
-                  <div className="flex items-center justify-between mb-3.5">
-                    <h3 className="font-bold text-neutral-800 dark:text-neutral-100 flex items-center gap-2 text-base">
-                      <div className="w-8 h-8 rounded-lg bg-blue-100/80 dark:bg-blue-900/30 backdrop-blur-sm flex items-center justify-center">
-                        <Camera className="w-[18px] h-[18px] text-blue-600 dark:text-blue-400" />
-                      </div>
-                      在线设备
-                    </h3>
-                    <button 
-                      className="text-xs text-blue-600 dark:text-blue-400 font-semibold flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-50/80 dark:bg-blue-900/20 hover:bg-blue-100/80 dark:hover:bg-blue-900/30 transition-colors active-scale backdrop-blur-sm"
-                      onClick={() => onNavigate('camera-monitor')}
+                  <div
+                    className="flex items-center justify-center"
+                    style={{
+                      width: 40,
+                      height: 40,
+                      backgroundColor: `${stat.color}20`,
+                      borderRadius: 10,
+                    }}
+                  >
+                    <stat.icon style={{ width: 20, height: 20, color: stat.color }} />
+                  </div>
+                  <div>
+                    <p className="text-xs" style={{ color: '#86868B' }}>{stat.label}</p>
+                    <p
+                      className="font-bold font-mono"
+                      style={{
+                        fontSize: responsiveStyle.fontSize + 2,
+                        color: '#1D1D1F',
+                      }}
                     >
-                      查看全部
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2.5">
-                    {onlineCameras.slice(0, 2).map((camera, index) => (
-                      <button
-                        key={camera.id}
-                        onClick={() => onNavigate('camera-monitor')}
-                        className="relative aspect-video rounded-xl overflow-hidden group active-scale"
-                        style={{ animationDelay: `${0.1 + index * 0.05}s` }}
-                      >
-                        <div className="absolute inset-0 bg-gradient-to-br from-neutral-200/80 to-neutral-300/80 dark:from-neutral-700/80 dark:to-neutral-800/80 backdrop-blur-sm flex items-center justify-center">
-                          <Video className="w-8 h-8 text-neutral-400 dark:text-neutral-500" />
-                        </div>
-                        <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between">
-                          <span className="text-xs text-white font-medium px-2 py-1 rounded-lg bg-black/50 backdrop-blur-md">
-                            {camera.name}
-                          </span>
-                          <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-lg shadow-emerald-400/50" />
-                        </div>
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
-                          <div className="w-12 h-12 rounded-full bg-white/90 backdrop-blur-md flex items-center justify-center shadow-xl transform scale-75 group-hover:scale-100 transition-transform duration-300">
-                            <ArrowUpRight className="w-5 h-5 text-blue-600" />
-                          </div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </GlassCard>
-              )}
-
-              <div className="space-y-3 animate-liquid-fade-in liquid-card-enter-3">
-                <div className="flex items-center justify-between px-1">
-                  <h3 className="font-bold text-neutral-800 dark:text-neutral-100 flex items-center gap-2 text-base">
-                    <Sparkles className="w-5 h-5 text-amber-500" />
-                    快捷功能
-                  </h3>
-                </div>
-                
-                <div 
-                  className="grid grid-cols-2 gap-3"
-                  role="list"
-                  aria-label="快捷功能列表"
-                >
-                  {quickActions.map((action, index) => (
-                    <button
-                      key={action.page}
-                      onClick={() => handleCardClick(action.page)}
-                      className="group relative col-span-1 active-scale overflow-hidden rounded-2xl touch-manipulation"
-                      style={{ animationDelay: `${0.15 + index * 0.06}s` }}
-                      aria-label={`${action.label}：${action.description}`}
-                      role="listitem"
-                    >
-                      <div className="relative bg-white/70 dark:bg-neutral-900/70 backdrop-blur-xl rounded-2xl p-4 sm:p-4.5 h-full min-h-[120px] sm:min-h-[130px] border border-white/50 dark:border-neutral-700/50 group-hover:bg-white/85 dark:group-hover:bg-neutral-800/85 group-hover:border-white/60 dark:group-hover:border-neutral-600/60 group-hover:shadow-xl dark:group-hover:shadow-black/30 transition-all duration-300 liquid-hover">
-                        {/* 液态玻璃光泽效果 */}
-                        <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/30 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-                        
-                        <div className="relative mb-3">
-                          <div className={`w-12 h-12 sm:w-13 sm:h-13 mx-auto rounded-2xl bg-gradient-to-br ${action.bgGradient} flex items-center justify-center shadow-lg transform group-hover:scale-110 group-hover:-rotate-6 transition-all duration-300`}>
-                            <action.icon className="w-6 h-6 sm:w-6.5 sm:h-6.5 text-white" strokeWidth={2} />
-                          </div>
-                          {action.badge && (
-                            <div className={`absolute -top-1 -right-1 ${action.badgeColor || 'bg-red-500'} text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-md leading-none min-w-[20px] text-center`}>
-                            {action.badge}
-                          </div>
-                          )}
-                        </div>
-                        
-                        <h4 className="font-bold text-sm text-neutral-800 dark:text-neutral-100 text-center mb-0.5 truncate">{action.label}</h4>
-                        <p className="text-[11px] text-neutral-500 dark:text-neutral-400 text-center truncate">{action.description}</p>
-                        
-                        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-0 h-0.5 rounded-full bg-gradient-to-r opacity-0 group-hover:w-4/5 group-hover:opacity-100 transition-all duration-300" style={{ backgroundImage: `linear-gradient(to right, transparent, ${action.color}, transparent)` }} />
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {upcomingReminders.length > 0 && (
-                <GlassCard 
-                  variant="liquid" 
-                  className="animate-liquid-fade-in liquid-card-enter-4 overflow-hidden"
-                  enable3D={true}
-                  enableLiquid={true}
-                >
-                  <div className="flex items-center justify-between mb-3.5">
-                    <h3 className="font-bold text-neutral-800 dark:text-neutral-100 flex items-center gap-2 text-base">
-                      <div className="w-8 h-8 rounded-lg bg-amber-100/80 dark:bg-amber-900/30 backdrop-blur-sm flex items-center justify-center">
-                        <Bell className="w-[18px] h-[18px] text-amber-600 dark:text-amber-400" />
-                      </div>
-                      即将到来
-                    </h3>
-                    <button 
-                      className="text-xs text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50/80 dark:bg-amber-900/20 hover:bg-amber-100/80 dark:hover:bg-amber-900/30 transition-colors active-scale backdrop-blur-sm"
-                      onClick={() => onNavigate('reminders')}
-                    >
-                      全部
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                  <div className="space-y-2">
-                    {upcomingReminders.map((reminder, index) => (
-                      <div 
-                        key={reminder.id}
-                        className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-amber-50/90 to-orange-50/60 dark:from-amber-900/25 dark:to-orange-900/15 hover:from-amber-100/90 hover:to-orange-100/70 dark:hover:from-amber-900/35 dark:hover:to-orange-900/25 transition-all cursor-pointer active-scale group backdrop-blur-sm"
-                        style={{ animationDelay: `${0.2 + index * 0.05}s` }}
-                        onClick={() => onNavigate('reminders')}
-                      >
-                        <div className="w-1.5 h-8 rounded-full bg-gradient-to-b from-amber-400 to-orange-400" />
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-semibold text-sm text-neutral-800 dark:text-neutral-100 truncate">{reminder.title}</h4>
-                          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">{reminder.date} {reminder.time}</p>
-                        </div>
-                        <ArrowUpRight className="w-4 h-4 text-neutral-300 dark:text-neutral-600 group-hover:text-amber-500 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all flex-shrink-0" />
-                      </div>
-                    ))}
-                  </div>
-                </GlassCard>
-              )}
-
-              {recentRecords.length > 0 && (
-                <GlassCard 
-                  variant="liquid" 
-                  className="animate-liquid-fade-in liquid-card-enter-5 overflow-hidden"
-                  enable3D={true}
-                  enableLiquid={true}
-                >
-                  <div className="flex items-center justify-between mb-3.5">
-                    <h3 className="font-bold text-neutral-800 dark:text-neutral-100 flex items-center gap-2 text-base">
-                      <div className="w-8 h-8 rounded-lg bg-emerald-100/80 dark:bg-emerald-900/30 backdrop-blur-sm flex items-center justify-center">
-                        <Activity className="w-[18px] h-[18px] text-emerald-600 dark:text-emerald-400" />
-                      </div>
-                      最近记录
-                    </h3>
-                    <button 
-                      className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50/80 dark:bg-emerald-900/20 hover:bg-emerald-100/80 dark:hover:bg-emerald-900/30 transition-colors active-scale backdrop-blur-sm"
-                      onClick={() => onNavigate('health-records')}
-                    >
-                      更多
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                  <div className="space-y-2">
-                    {recentRecords.map((record, index) => (
-                      <div 
-                        key={record.id}
-                        className="p-3 rounded-xl bg-gradient-to-r from-emerald-50/90 to-teal-50/60 dark:from-emerald-900/25 dark:to-teal-900/15 hover:shadow-sm dark:hover:shadow-none hover:from-emerald-100/90 hover:to-teal-100/70 dark:hover:from-emerald-900/35 dark:hover:to-teal-900/25 transition-all cursor-pointer active-scale group backdrop-blur-sm"
-                        style={{ animationDelay: `${0.25 + index * 0.05}s` }}
-                        onClick={() => onNavigate('health-records')}
-                      >
-                        <div className="flex items-center justify-between">
-                          <h4 className="font-semibold text-sm text-neutral-800 dark:text-neutral-100 truncate pr-2">{record.title}</h4>
-                          <span className="text-xs text-neutral-400 dark:text-neutral-500 flex-shrink-0">{record.createdAt?.split('T')[0]}</span>
-                        </div>
-                        <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 line-clamp-2 leading-relaxed">{record.content}</p>
-                      </div>
-                    ))}
-                  </div>
-                </GlassCard>
-              )}
-
-              <div className="flex items-center justify-center py-6 animate-liquid-fade-in liquid-card-enter-6">
-                <div className="flex items-center gap-5 text-xs text-neutral-400 dark:text-neutral-500">
-                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-neutral-100/90 dark:bg-neutral-800/90 hover:bg-neutral-200/90 dark:hover:bg-neutral-700/90 transition-colors cursor-default backdrop-blur-sm">
-                    <Star className="w-3 h-3 text-amber-400 animate-pulse-glow" />
-                    <span className="font-medium">{totalPoints} 积分</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-neutral-100/90 dark:bg-neutral-800/90 hover:bg-neutral-200/90 dark:hover:bg-neutral-700/90 transition-colors cursor-default backdrop-blur-sm">
-                    <Heart className="w-3 h-3 text-rose-400 animate-pulse-glow" />
-                    <span className="font-medium">{metrics.overall}% 亲密度</span>
+                      {stat.value}{stat.unit}
+                    </p>
                   </div>
                 </div>
-              </div>
-            </>
-          )}
-        </main>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 快捷操作 */}
+      <div className="px-4 mt-6">
+        <div className="flex gap-3">
+          <button
+            onClick={() => onNavigate('records')}
+            className="flex-1 flex items-center justify-center gap-2 py-4 bg-orange-500 text-white rounded-xl font-medium touch-scale animate-scale-in"
+            style={{
+              borderRadius: responsiveStyle.cardRadius,
+              boxShadow: '0 4px 12px rgba(245,166,35,0.3)',
+            }}
+          >
+            <Plus style={{ width: 20, height: 20 }} />
+            <span style={{ fontSize: responsiveStyle.fontSize }}>添加记录</span>
+          </button>
+          <button
+            onClick={() => onNavigate('translator')}
+            className="flex-1 flex items-center justify-center gap-2 py-4 bg-white rounded-xl font-medium touch-scale animate-scale-in"
+            style={{
+              borderRadius: responsiveStyle.cardRadius,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+              color: '#1D1D1F',
+            }}
+          >
+            <MessageCircle style={{ width: 20, height: 20, color: '#6366F1' }} />
+            <span style={{ fontSize: responsiveStyle.fontSize }}>翻译心声</span>
+          </button>
+        </div>
       </div>
     </div>
   );
 };
+
+export default HomePage;

@@ -13,6 +13,9 @@ import { useAppStore } from './store/appStore';
 import { PawPrint } from 'lucide-react';
 import { useDeviceCapabilities, applyPerformanceClass } from './utils/performanceDetection';
 import { FloatingActionButton } from './components/FloatingActionButton';
+import { initializeAndroidPerformance } from './config/androidPerformance';
+// 引入 Apple 风格全局样式
+import './styles/apple-style.css';
 
 // 懒加载其他页面（性能优化）
 const TranslatorPage = lazy(() => import('./pages/TranslatorPage'));
@@ -37,6 +40,11 @@ const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const FavoritesPage = lazy(() => import('./pages/FavoritesPage'));
 const HelpFeedbackPage = lazy(() => import('./pages/HelpFeedbackPage'));
 const DeveloperInfoPage = lazy(() => import('./pages/DeveloperInfoPage'));
+// 新增页面
+const PetProfilePage = lazy(() => import('./pages/PetProfilePage'));
+const DevicesPage = lazy(() => import('./pages/DevicesPage'));
+const DietDataPage = lazy(() => import('./pages/DietDataPage'));
+const RecordsPage = lazy(() => import('./pages/RecordsPage'));
 
 // 页面加载占位符
 const PageLoader = () => (
@@ -91,6 +99,9 @@ export default function App() {
   const capabilities = useDeviceCapabilities();
 
   useEffect(() => {
+    // 初始化 Android 性能优化
+    initializeAndroidPerformance();
+    
     if (!isInitialized) {
       initializeApp();
     }
@@ -163,6 +174,17 @@ export default function App() {
         return <DeveloperInfoPage onNavigate={setCurrentPage} />;
       case 'history':
         return <TranslatorPage />;
+      // 新增页面路由
+      case 'pet-profile':
+        return <PetProfilePage onNavigate={setCurrentPage} />;
+      case 'devices':
+        return <DevicesPage onNavigate={setCurrentPage} />;
+      case 'diet-data':
+        return <DietDataPage onNavigate={setCurrentPage} />;
+      case 'records':
+        return <RecordsPage onNavigate={setCurrentPage} />;
+      case 'diet-advice':
+        return <HealthManualPage onNavigate={setCurrentPage} />;
       default:
         return <HomePage onNavigate={setCurrentPage} />;
     }

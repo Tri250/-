@@ -260,4 +260,5 @@ export interface BondStore {
   unlockBadge: (badgeId: string) => void;
   updateAchievement: (achievementId: string, progress: number) => void;
   checkStreak: () => void;
+  initialize: () => Promise<void>;
 }

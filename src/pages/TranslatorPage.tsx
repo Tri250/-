@@ -9,6 +9,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Mic, Share2, RefreshCw, Sparkles, Heart, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Activity, Waves, Music2, Camera, Upload, X, History, Clock, Volume2, Radio, Drum, Palette } from 'lucide-react';
 import { useAppStore, type Analysis } from '../store/appStore';
+import { useTranslatorStore, type TranslationResult } from '../store/translatorStore';
+import { usePetStore } from '../store/petStore';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -27,6 +29,7 @@ import {
   BadgeAnimation,
 } from '../components/animations';
 import { EmotionTrendChart } from '../components/EmotionTrendChart';
+import { useResponsiveStyle } from '../lib/responsiveStyle';
 
 type AppStoreEmotion = 'happy' | 'anxious' | 'angry' | 'needs' | 'neutral';
 
@@ -660,7 +663,27 @@ function AnalysisDetailPanel({ analysis }: { analysis: EmotionAnalysis }) {
 }
 
 export default function TranslatorPage({ onNavigate }: { onNavigate?: (page: string) => void }) {
+  const responsive = useResponsiveStyle();
   const { currentPet, addAnalysis, setCurrentEmotion, analyses } = useAppStore();
+  const { currentPetId } = usePetStore();
+  const {
+    results,
+    stats,
+    currentResult,
+    isRecording: storeIsRecording,
+    isTranslating,
+    startRecording: storeStartRecording,
+    stopRecording: storeStopRecording,
+    translate,
+    setCurrentResult,
+    saveResult,
+    deleteResult,
+    getResultsByPet,
+    getRecentResults,
+    calculateStats,
+    initialize,
+  } = useTranslatorStore();
+  
   const [isRecording, setIsRecording] = useState(false);
   const [showResult, setShowResult] = useState(false);
   const [emotion, setEmotion] = useState<PrimaryEmotion>('calm');
@@ -690,6 +713,16 @@ export default function TranslatorPage({ onNavigate }: { onNavigate?: (page: str
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedBlobRef = useRef<Blob | null>(null);
+
+  // 初始化翻译器Store
+  useEffect(() => {
+    initialize();
+  }, [initialize]);
+
+  // 获取当前宠物的翻译结果
+  const petResults = currentPetId ? getResultsByPet(currentPetId) : [];
+  const recentResults = getRecentResults(10);
+  const petStats = currentPetId ? calculateStats(currentPetId) : stats;
 
   useEffect(() => {
     return () => {
@@ -753,7 +786,24 @@ export default function TranslatorPage({ onNavigate }: { onNavigate?: (page: str
     }
     
     try {
-      // 请求麦克风权限
+      // 使用 permissionService 检查和请求麦克风权限（支持Android原生）
+      const { permissionManager } = await import('../services/permissionService');
+      const permissionStatus = await permissionManager.checkPermission('microphone');
+      
+      if (permissionStatus.denied) {
+        setErrorMessage('麦克风权限被拒绝，请在系统设置中开启');
+        return;
+      }
+      
+      if (!permissionStatus.granted) {
+        const granted = await permissionManager.requestPermission('microphone');
+        if (!granted) {
+          setErrorMessage('无法获取麦克风权限，请手动开启');
+          return;
+        }
+      }
+      
+      // 请求麦克风权限（使用Web API，Capacitor WebView支持）
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
           echoCancellation: true,
@@ -960,6 +1010,7 @@ export default function TranslatorPage({ onNavigate }: { onNavigate?: (page: str
       setShowResult(true);
       setCurrentEmotion(mapToAppStoreEmotion(analysis.primaryEmotion));
       
+      // 保存到 useAppStore
       addAnalysis({
         petId: currentPet?.id || '',
         type: 'voice',
@@ -969,6 +1020,22 @@ export default function TranslatorPage({ onNavigate }: { onNavigate?: (page: str
           confidence: analysis.confidence,
         },
       });
+      
+      // 同时保存到 useTranslatorStore
+      if (currentPetId) {
+        const translationResult: TranslationResult = {
+          id: `trans-${Date.now()}`,
+          petId: currentPetId,
+          audioDuration: actualRecordingDuration,
+          emotion: analysis.primaryEmotion,
+          emotionEmoji: EMOTION_CONFIGS[analysis.primaryEmotion]?.emoji || '😊',
+          translation: analysis.translation,
+          confidence: analysis.confidence,
+          suggestions: analysis.detail?.suggestions || [],
+          timestamp: new Date().toISOString(),
+        };
+        saveResult(translationResult);
+      }
     } catch (error) {
       console.error('分析失败:', error);
       setErrorMessage('语音分析失败，请重试。');
@@ -1075,6 +1142,7 @@ export default function TranslatorPage({ onNavigate }: { onNavigate?: (page: str
       setShowResult(true);
       setCurrentEmotion(mapToAppStoreEmotion(analysis.primaryEmotion));
       
+      // 保存到 useAppStore
       addAnalysis({
         petId: currentPet?.id || '',
         type: 'image',
@@ -1084,6 +1152,22 @@ export default function TranslatorPage({ onNavigate }: { onNavigate?: (page: str
           confidence: analysis.confidence,
         },
       });
+      
+      // 同时保存到 useTranslatorStore
+      if (currentPetId) {
+        const translationResult: TranslationResult = {
+          id: `trans-${Date.now()}`,
+          petId: currentPetId,
+          audioDuration: 0,
+          emotion: analysis.primaryEmotion,
+          emotionEmoji: EMOTION_CONFIGS[analysis.primaryEmotion]?.emoji || '😊',
+          translation: analysis.translation,
+          confidence: analysis.confidence,
+          suggestions: analysis.detail?.suggestions || [],
+          timestamp: new Date().toISOString(),
+        };
+        saveResult(translationResult);
+      }
     } catch (error) {
       console.error('图片分析失败:', error);
       setErrorMessage('图片分析失败，请重试。');
@@ -1541,45 +1625,72 @@ export default function TranslatorPage({ onNavigate }: { onNavigate?: (page: str
               </div>
             ) : (
               <div className="space-y-2 overflow-y-auto flex-1">
-                {analyses.length === 0 ? (
+                {(analyses.length === 0 && petResults.length === 0) ? (
                   <div className="text-center py-8">
                     <History className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                     <p className="text-gray-500 text-sm">暂无分析记录</p>
                     <p className="text-gray-400 text-xs mt-1">开始录音或拍照分析吧</p>
                   </div>
                 ) : (
-                  analyses
+                  // 合并两个数据源并排序
+                  [...analyses
                     .filter(a => a.petId === currentPet?.id)
+                    .map(a => ({
+                      id: a.id,
+                      emotion: a.result.emotion,
+                      translation: a.result.translation,
+                      confidence: a.result.confidence,
+                      type: a.type,
+                      createdAt: a.createdAt,
+                    })),
+                  ...petResults.map(r => ({
+                    id: r.id,
+                    emotion: mapToAppStoreEmotion(r.emotion as PrimaryEmotion),
+                    translation: r.translation,
+                    confidence: r.confidence,
+                    type: r.audioDuration > 0 ? 'voice' as const : 'image' as const,
+                    createdAt: r.timestamp,
+                  }))]
                     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
                     .slice(0, 20)
-                    .map((analysis) => (
+                    .map((item) => (
                       <button
-                        key={analysis.id}
-                        onClick={() => setSelectedHistoryItem(analysis)}
+                        key={item.id}
+                        onClick={() => setSelectedHistoryItem({
+                          id: item.id,
+                          petId: currentPet?.id || '',
+                          type: item.type,
+                          result: {
+                            emotion: item.emotion as AppStoreEmotion,
+                            translation: item.translation,
+                            confidence: item.confidence,
+                          },
+                          createdAt: item.createdAt,
+                        })}
                         className="w-full p-3 bg-gray-50 hover:bg-orange-50 rounded-xl transition-colors flex items-center gap-3"
                       >
                         <div className="text-2xl">
-                          {EMOTION_CONFIGS[analysis.result.emotion as PrimaryEmotion]?.emoji || '😊'}
+                          {EMOTION_CONFIGS[item.emotion as PrimaryEmotion]?.emoji || '😊'}
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-gray-700 truncate">
-                            "{analysis.result.translation}"
+                            "{item.translation}"
                           </p>
                           <div className="flex items-center gap-2 mt-1">
                             <span className="text-xs text-gray-400 flex items-center gap-1">
                               <Clock className="w-3 h-3" />
-                              {new Date(analysis.createdAt).toLocaleDateString('zh-CN')}
+                              {new Date(item.createdAt).toLocaleDateString('zh-CN')}
                             </span>
                             <span className="text-xs text-gray-400">
-                              {analysis.type === 'voice' ? '🎤' : '📷'}
+                              {item.type === 'voice' ? '🎤' : '📷'}
                             </span>
                           </div>
                         </div>
                         <div className="text-right">
                           <span className={`text-xs font-semibold ${
-                            analysis.result.confidence >= 95 ? 'text-green-500' : 'text-gray-500'
+                            item.confidence >= 95 ? 'text-green-500' : 'text-gray-500'
                           }`}>
-                            {analysis.result.confidence}%
+                            {item.confidence}%
                           </span>
                         </div>
                       </button>

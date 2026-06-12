@@ -24,6 +24,16 @@ interface AddReminderModalProps {
   petBirthday?: string;
   lastVaccineDate?: string;
   lastDewormingDate?: string;
+  editingReminder?: {
+    id: string;
+    type: ReminderType;
+    title: string;
+    notes?: string;
+    date: string;
+    time: string;
+    repeat: RepeatType;
+    endDate?: string;
+  } | null;
 }
 
 const REPEAT_OPTIONS = [
@@ -54,6 +64,7 @@ export const AddReminderModal: React.FC<AddReminderModalProps> = ({
   petBirthday,
   lastVaccineDate,
   lastDewormingDate,
+  editingReminder,
 }) => {
   const [selectedType, setSelectedType] = useState<ReminderType>('vaccine');
   const [title, setTitle] = useState('');
@@ -129,8 +140,21 @@ export const AddReminderModal: React.FC<AddReminderModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       generateSmartRecommendations();
+      
+      // 如果是编辑模式，填充表单数据
+      if (editingReminder) {
+        setSelectedType(editingReminder.type);
+        setTitle(editingReminder.title);
+        setNotes(editingReminder.notes || '');
+        setDate(editingReminder.date);
+        setTime(editingReminder.time);
+        setRepeat(editingReminder.repeat);
+        setEndDate(editingReminder.endDate || '');
+      } else {
+        resetForm();
+      }
     }
-  }, [isOpen, generateSmartRecommendations]);
+  }, [isOpen, generateSmartRecommendations, editingReminder]);
 
   const applyRecommendation = (rec: { type: ReminderType; suggestedDate: string; suggestedTime: string; reason: string }) => {
     setSelectedType(rec.type);
@@ -217,7 +241,7 @@ export const AddReminderModal: React.FC<AddReminderModalProps> = ({
   };
 
   return (
-    <GlassModal isOpen={isOpen} onClose={handleClose} title="添加提醒" size="md">
+    <GlassModal isOpen={isOpen} onClose={handleClose} title={editingReminder ? '编辑提醒' : '添加提醒'} size="md">
       <div className="space-y-5 md:space-y-5">
         {errors.pet && (
           <div className="p-3 rounded-xl bg-danger-50 border border-danger-200 text-danger-700 text-sm">
@@ -436,7 +460,7 @@ export const AddReminderModal: React.FC<AddReminderModalProps> = ({
               onClick={handleSubmit}
               className="flex-1 px-4 py-3 md:py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-purple-600 text-white font-medium hover:shadow-lg hover:shadow-purple-500/30 active:from-purple-600 active:to-purple-700 transition-all min-h-[48px] md:min-h-0"
             >
-              添加提醒
+              {editingReminder ? '保存修改' : '添加提醒'}
             </button>
           </div>
         </div>

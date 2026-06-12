@@ -204,40 +204,131 @@ export const useAppStore = create<AppState>()(
       initializeApp: async () => {
         const { setInitProgress } = get();
         
-        setInitProgress(10, '正在加载应用配置...');
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        setInitProgress(30, '正在初始化状态管理...');
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        setInitProgress(50, '正在加载用户数据...');
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        setInitProgress(70, '正在加载宠物信息...');
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        setInitProgress(90, '正在完成初始化...');
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        setInitProgress(100, '初始化完成');
-        
-        const state = get();
-        if (!state.pets.length && state.isAuthenticated) {
-          const defaultPet: Pet = {
-            id: '1',
-            name: '小橘',
-            breed: '橘猫',
-            age: 2,
-            avatarUrl: '',
-            type: 'cat',
-          };
-          set({ 
-            pets: [defaultPet], 
-            currentPet: defaultPet,
-          });
+        try {
+          setInitProgress(10, '正在加载应用配置...');
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+          // 初始化平台服务（Android/iOS）
+          setInitProgress(20, '正在初始化平台服务...');
+          try {
+            const { PlatformServices } = await import('../lib/platformService');
+            const platform = PlatformServices.getCurrentPlatform();
+            console.log(`[AppStore] Current platform: ${platform}`);
+            
+            // 原生平台初始化
+            if (PlatformServices.isNativePlatform()) {
+              console.log('[AppStore] Initializing native platform services...');
+              
+              // 初始化推送通知服务
+              try {
+                const { pushNotificationService } = await import('../services/pushNotificationService');
+                await pushNotificationService.initialize();
+                console.log('[AppStore] Push notification service initialized');
+              } catch (pushError) {
+                console.warn('[AppStore] Push notification initialization failed:', pushError);
+              }
+              
+              // 初始化权限检查
+              try {
+                const { permissionManager } = await import('../services/permissionService');
+                await permissionManager.checkAllPermissions();
+                console.log('[AppStore] Permissions checked');
+              } catch (permError) {
+                console.warn('[AppStore] Permission check failed:', permError);
+              }
+            }
+          } catch (platformError) {
+            console.warn('[AppStore] Platform service initialization failed:', platformError);
+          }
+          
+          // 初始化所有数据存储
+          setInitProgress(30, '正在初始化数据存储...');
+          try {
+            // 初始化新增的Store
+            const { useDevicesStore } = await import('./devicesStore');
+            const { useDietStore } = await import('./dietStore');
+            const { useRecordsStore } = await import('./recordsStore');
+            const { useHealthStore } = await import('./healthStore');
+            const { useFavoritesStore } = await import('./favoritesStore');
+            const { useSettingsStore } = await import('./settingsStore');
+            const { useUserProfileStore } = await import('./userProfileStore');
+            const { useTranslatorStore } = await import('./translatorStore');
+            const { useServicesStore } = await import('./servicesStore');
+            const { useHealthReportStore } = await import('./healthReportStore');
+            const { usePetStore } = await import('./petStore');
+            const { useReminderStore } = await import('./reminderStore');
+            const { useMedicalStore } = await import('./medicalStore');
+            const { useTrainingStore } = await import('./trainingStore');
+            const { useInsuranceStore } = await import('./insuranceStore');
+            const { useBondStore } = await import('./bondStore');
+            
+            // 初始化各个Store
+            await useDevicesStore.getState().initialize();
+            await useDietStore.getState().initialize();
+            await useRecordsStore.getState().initialize();
+            await useHealthStore.getState().initialize();
+            await useFavoritesStore.getState().initialize();
+            await useSettingsStore.getState().initialize();
+            await useUserProfileStore.getState().initialize();
+            await useTranslatorStore.getState().initialize();
+            await useServicesStore.getState().initialize();
+            await useHealthReportStore.getState().initialize();
+            await usePetStore.getState().initialize?.();
+            await useReminderStore.getState().initialize?.();
+            await useMedicalStore.getState().initialize?.();
+            await useTrainingStore.getState().initialize?.();
+            await useInsuranceStore.getState().initialize?.();
+            await useBondStore.getState().initialize?.();
+            
+            console.log('[AppStore] All stores initialized');
+          } catch (storeError) {
+            console.warn('[AppStore] Store initialization failed:', storeError);
+          }
+          
+          setInitProgress(50, '正在加载用户数据...');
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+          setInitProgress(70, '正在加载宠物信息...');
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+          // 加载功能标志
+          setInitProgress(85, '正在加载功能配置...');
+          try {
+            const { getFeatureFlags } = await import('../lib/featureFlags');
+            const flags = getFeatureFlags();
+            console.log('[AppStore] Feature flags loaded:', Object.keys(flags).length);
+          } catch (flagError) {
+            console.warn('[AppStore] Feature flags loading failed:', flagError);
+          }
+          
+          setInitProgress(90, '正在完成初始化...');
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+          setInitProgress(100, '初始化完成');
+          
+          const state = get();
+          if (!state.pets.length && state.isAuthenticated) {
+            const defaultPet: Pet = {
+              id: '1',
+              name: '小橘',
+              breed: '橘猫',
+              age: 2,
+              avatarUrl: '',
+              type: 'cat',
+            };
+            set({ 
+              pets: [defaultPet], 
+              currentPet: defaultPet,
+            });
+          }
+          
+          set({ isInitialized: true });
+          console.log('[AppStore] App initialization completed');
+        } catch (error) {
+          console.error('[AppStore] Initialization failed:', error);
+          setInitProgress(100, '初始化完成（部分功能可能受限）');
+          set({ isInitialized: true });
         }
-        
-        set({ isInitialized: true });
       },
 
       setUser: (user) => set({ user, isAuthenticated: !!user }),

@@ -80,16 +80,17 @@ export const useTrainingStore = create<TrainingStore>((set, get) => ({
   },
 
   endSession: (notes) => {
-    const { currentSession, totalTrainingTime } = get();
+    const { currentSession, totalTrainingTime, courses } = get();
     if (!currentSession) return;
 
     const duration = Math.floor((new Date().getTime() - currentSession.startTime.getTime()) / 1000 / 60);
+    const course = courses.find(c => c.id === currentSession.courseId);
     
     const record: TrainingRecord = {
       id: Date.now().toString(),
       date: new Date(),
       courseId: currentSession.courseId,
-      courseTitle: '训练课程',
+      courseTitle: course?.title || '训练课程',
       duration,
       success: duration >= 10,
       notes
@@ -112,5 +113,9 @@ export const useTrainingStore = create<TrainingStore>((set, get) => ({
         ? { ...course, completedSteps, progress: Math.round((completedSteps / course.totalSteps) * 100) }
         : course
     )
-  }))
+  })),
+
+  initialize: async () => {
+    console.log('[TrainingStore] Initialized');
+  }
 }));

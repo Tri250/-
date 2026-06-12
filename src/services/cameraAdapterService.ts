@@ -56,9 +56,9 @@ const mockOnvifDevices: ONVIFDiscoveryResult[] = [
  }
 ];
 const mockGo2rtcStreams: Go2rtcStreamConfig[] = [
- { name: 'ezviz_living', source: 'rtsp://admin:password@192.168.1.100/stream1', webrtc: true },
- { name: 'tapo_balcony', source: 'rtsp://admin:password@192.168.1.102:554/stream1', webrtc: true },
- { name: 'hikvision_garden', source: 'rtsp://admin:password@192.168.1.103:554/stream1', webrtc: true }
+ { name: 'ezviz_living', source: 'rtsp://admin:PLACEHOLDER_PASSWORD@192.168.1.100/stream1', webrtc: true },
+ { name: 'tapo_balcony', source: 'rtsp://admin:PLACEHOLDER_PASSWORD@192.168.1.102:554/stream1', webrtc: true },
+ { name: 'hikvision_garden', source: 'rtsp://admin:PLACEHOLDER_PASSWORD@192.168.1.103:554/stream1', webrtc: true }
 ];
 class CameraAdapterService {
  private accessToken: string | null = null;
@@ -76,7 +76,7 @@ class CameraAdapterService {
  model: 'CS-C6CN',
  status: 'online',
  lastActive: new Date().toISOString(),
- streamUrl: 'rtsp://admin:password@192.168.1.100/stream1',
+ streamUrl: 'rtsp://admin:PLACEHOLDER_PASSWORD@192.168.1.100/stream1',
  webrtcUrl: `${GO2RTC_BASE}/stream/webrtc?src=ezviz_living`,
  capabilities: [
  { type: 'live_stream', enabled: true },
@@ -100,7 +100,7 @@ class CameraAdapterService {
  port: 554,
  protocol: 'rtsp',
  username: 'admin',
- password: 'password',
+ password: 'PLACEHOLDER_PASSWORD',
  go2rtcId: 'ezviz_living'
  },
  {
@@ -134,7 +134,7 @@ class CameraAdapterService {
  port: 554,
  protocol: 'rtsp',
  username: 'admin',
- password: 'password',
+ password: 'PLACEHOLDER_PASSWORD',
  go2rtcId: 'tapo_balcony'
  },
  {
@@ -168,7 +168,7 @@ class CameraAdapterService {
  port: 554,
  protocol: 'rtsp',
  username: 'admin',
- password: 'password',
+ password: 'PLACEHOLDER_PASSWORD',
  go2rtcId: 'hikvision_garden'
  }
  ];

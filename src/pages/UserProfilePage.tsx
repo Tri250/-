@@ -224,3 +224,5 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({ onNavigate }) 
     </div>
   );
 };
+
+export default UserProfilePage;

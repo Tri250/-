@@ -103,5 +103,9 @@ export const useMedicalStore = create<MedicalStore>((set, _get) => ({
       id: Date.now().toString()
     };
     set((state) => ({ medicalRecords: [newRecord, ...state.medicalRecords] }));
+  },
+
+  initialize: async () => {
+    console.log('[MedicalStore] Initialized');
   }
 }));
