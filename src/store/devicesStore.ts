@@ -361,12 +361,12 @@ export const useDevicesStore = create<DevicesState>()(
 
       // 获取统计
       getStats: () => {
-        const devices = get().devices;
+        const devices = get().devices || [];
         return {
-          total: devices.length,
-          online: devices.filter((d) => d.status === 'online').length,
-          offline: devices.filter((d) => d.status === 'offline').length,
-          warning: devices.filter((d) => d.status === 'warning').length,
+          total: devices.length || 0,
+          online: devices.filter((d) => d?.status === 'online').length || 0,
+          offline: devices.filter((d) => d?.status === 'offline').length || 0,
+          warning: devices.filter((d) => d?.status === 'warning').length || 0,
         };
       },
 

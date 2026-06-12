@@ -88,10 +88,10 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
     initAll();
   }, []);
 
-  // 获取统计数据
-  const deviceStats = getStats();
-  const dietStats = getDietStats('pet-1', 'day');
-  const healthScoreData = getScore('pet-1');
+  // 获取统计数据 - 使用默认值防止 undefined
+  const deviceStats = getStats() || { total: 0, online: 0, offline: 0, warning: 0 };
+  const dietStats = getDietStats('pet-1', 'day') || { calories: 0, foodAmount: 0, waterAmount: 0, meals: 0 };
+  const healthScoreData = getScore('pet-1') || { overall: 0, items: [] };
 
   // 功能网格 - 分类展示
   const featureCategories: Record<FeatureCategory, { title: string; items: FeatureItem[] }> = {
@@ -160,7 +160,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
           bgColor: '#FFFBEB',
           page: 'camera-monitor',
           category: 'monitor',
-          badge: deviceStats.online + '在线',
+          badge: (deviceStats.online || 0) + '在线',
           badgeColor: '#34C759',
           isReal: true,
         },
@@ -173,7 +173,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
           bgColor: '#ECFEFF',
           page: 'devices',
           category: 'monitor',
-          badge: deviceStats.total.toString(),
+          badge: (deviceStats.total || 0).toString(),
           badgeColor: '#06B6D4',
           isReal: true,
         },

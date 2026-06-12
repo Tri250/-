@@ -56,8 +56,11 @@ interface MenuGroup {
   items: MenuItem[];
 }
 
-export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
-  const { profile, membership, stats, isLoggedIn, updateProfile } = useUserProfileStore();
+const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
+  const { profile, membership: rawMembership, stats: rawStats, isLoggedIn, updateProfile } = useUserProfileStore();
+  // 使用默认值防止 undefined
+  const stats = rawStats || { totalPets: 0, totalRecords: 0, totalDays: 0, achievements: 0, points: 0 };
+  const membership = rawMembership || { level: 'free', features: ['basic_features'] };
   const { display, toggleDarkMode, notifications } = useSettingsStore();
   const responsive = useResponsive();
   const responsiveStyle = useResponsiveStyle();
@@ -96,8 +99,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
           id: 'pets',
           icon: PawPrint,
           title: '我的宠物',
-          subtitle: `${stats.totalPets} 只宠物`,
-          badge: stats.totalPets.toString(),
+          subtitle: `${stats.totalPets || 0} 只宠物`,
+          badge: (stats.totalPets || 0).toString(),
           badgeColor: '#F5A623',
           page: 'pets',
         },
@@ -112,8 +115,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
           id: 'achievements',
           icon: Award,
           title: '成就徽章',
-          subtitle: `${stats.achievements} 个徽章`,
-          badge: stats.achievements.toString(),
+          subtitle: `${stats.achievements || 0} 个徽章`,
+          badge: (stats.achievements || 0).toString(),
           badgeColor: '#34C759',
           page: 'achievements',
         },
@@ -124,19 +127,19 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
       items: [
         {
           id: 'membership',
-          icon: getMembershipStyle(membership.level).icon,
+          icon: getMembershipStyle(membership.level || 'free').icon,
           title: '会员中心',
-          subtitle: membership.level === 'free' ? '升级享受更多权益' : `${membership.level}会员`,
-          badge: membership.level !== 'free' ? 'VIP' : undefined,
-          badgeColor: getMembershipStyle(membership.level).color,
+          subtitle: (membership.level || 'free') === 'free' ? '升级享受更多权益' : `${membership.level || 'free'}会员`,
+          badge: (membership.level || 'free') !== 'free' ? 'VIP' : undefined,
+          badgeColor: getMembershipStyle(membership.level || 'free').color,
           page: 'membership',
         },
         {
           id: 'points',
           icon: Zap,
           title: '积分商城',
-          subtitle: `${stats.points} 积分`,
-          badge: stats.points.toString(),
+          subtitle: `${stats.points || 0} 积分`,
+          badge: (stats.points || 0).toString(),
           badgeColor: '#FF9500',
           page: 'points',
         },
@@ -416,17 +419,17 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
             <div
               className="flex items-center gap-1 px-3 py-1.5 rounded-full"
               style={{
-                backgroundColor: getMembershipStyle(membership.level).bgColor,
+                backgroundColor: getMembershipStyle(membership.level || 'free').bgColor,
               }}
             >
-              {React.createElement(getMembershipStyle(membership.level).icon, {
-                style: { width: 16, height: 16, color: getMembershipStyle(membership.level).color },
+              {React.createElement(getMembershipStyle(membership.level || 'free').icon, {
+                style: { width: 16, height: 16, color: getMembershipStyle(membership.level || 'free').color },
               })}
               <span
                 className="text-xs font-medium"
-                style={{ color: getMembershipStyle(membership.level).color }}
+                style={{ color: getMembershipStyle(membership.level || 'free').color }}
               >
-                {membership.level === 'free' ? '普通' : membership.level.toUpperCase()}
+                {(membership.level || 'free') === 'free' ? '普通' : (membership.level || 'free').toUpperCase()}
               </span>
             </div>
           </div>
@@ -439,10 +442,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
             }}
           >
             {[
-              { label: '宠物', value: stats.totalPets, icon: PawPrint },
-              { label: '记录', value: stats.totalRecords, icon: Heart },
-              { label: '天数', value: stats.totalDays, icon: Zap },
-              { label: '积分', value: stats.points, icon: Star },
+              { label: '宠物', value: stats.totalPets || 0, icon: PawPrint },
+              { label: '记录', value: stats.totalRecords || 0, icon: Heart },
+              { label: '天数', value: stats.totalDays || 0, icon: Zap },
+              { label: '积分', value: stats.points || 0, icon: Star },
             ].map((stat, index) => (
               <button
                 key={index}
@@ -612,3 +615,5 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
     </div>
   );
 };
+
+export default ProfilePage;
