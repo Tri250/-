@@ -795,3 +795,5 @@ export const DietDataPage: React.FC<DietDataPageProps> = ({ onNavigate }) => {
     </div>
   );
 };
+
+export default DietDataPage;

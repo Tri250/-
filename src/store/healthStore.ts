@@ -203,7 +203,8 @@ export const useHealthStore = create<HealthState>()(
       },
 
       getScore: (petId) => {
-        return get().scores[petId] || mockScore;
+        const scores = get().scores || {};
+        return scores[petId] || mockScore;
       },
 
       getTrend: (petId, type) => {

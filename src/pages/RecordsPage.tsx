@@ -694,3 +694,5 @@ export const RecordsPage: React.FC<RecordsPageProps> = ({ onNavigate }) => {
     </div>
   );
 };
+
+export default RecordsPage;

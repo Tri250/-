@@ -246,28 +246,31 @@ export const useRecordsStore = create<RecordsState>()(
 
       // 过滤查询
       getFilteredRecords: (petId, type = 'all') => {
-        let filtered = get().records.filter((r) => r.petId === petId);
+        const allRecords = get().records || [];
+        let filtered = allRecords.filter((r) => r?.petId === petId);
         
         if (type !== 'all') {
-          filtered = filtered.filter((r) => r.type === type);
+          filtered = filtered.filter((r) => r?.type === type);
         }
         
         return filtered.sort((a, b) => {
-          const dateA = new Date(`${a.date} ${a.time}`);
-          const dateB = new Date(`${b.date} ${b.time}`);
+          const dateA = new Date(`${a?.date || ''} ${a?.time || ''}`);
+          const dateB = new Date(`${b?.date || ''} ${b?.time || ''}`);
           return dateB.getTime() - dateA.getTime();
         });
       },
 
       // 获取日期汇总
       getDateSummary: (date) => {
-        const summary = get().summaries.find((s) => s.date === date);
+        const summaries = get().summaries || [];
+        const summary = summaries.find((s) => s?.date === date);
         
         if (summary) return summary;
         
         // 生成汇总
         get().generateSummary(date);
-        return get().summaries.find((s) => s.date === date) || {
+        const newSummaries = get().summaries || [];
+        return newSummaries.find((s) => s?.date === date) || {
           date,
           feeding: 0,
           drinking: 0,

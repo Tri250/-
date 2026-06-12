@@ -139,10 +139,11 @@ export const useReminderStore = create<ReminderStore>()(
 
       getFilteredReminders: (petId) => {
         const state = get();
-        let filtered = state.reminders.filter((r) => r.petId === petId);
+        const reminders = state.reminders || [];
+        let filtered = reminders.filter((r) => r?.petId === petId);
         
         if (state.selectedType) {
-          filtered = filtered.filter((r) => r.type === state.selectedType);
+          filtered = filtered.filter((r) => r?.type === state.selectedType);
         }
         
         const today = new Date();
@@ -169,12 +170,13 @@ export const useReminderStore = create<ReminderStore>()(
 
       getUpcomingReminders: (petId, limit) => {
         const state = get();
+        const reminders = state.reminders || [];
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         
-        return state.reminders
-          .filter((r) => r.petId === petId && !r.isCompleted && new Date(r.date) >= today)
-          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+        return reminders
+          .filter((r) => r?.petId === petId && !r?.isCompleted && new Date(r?.date || '') >= today)
+          .sort((a, b) => new Date(a?.date || '').getTime() - new Date(b?.date || '').getTime())
           .slice(0, limit);
       },
 

@@ -171,12 +171,22 @@ export const usePetStore = create<PetStore>()(
 
       getCurrentPet: () => {
         const state = get();
-        return state.pets.find((pet) => pet.id === state.currentPetId) || null;
+        const pets = state.pets || [];
+        return pets.find((pet) => pet?.id === state.currentPetId) || null;
       },
 
-      getPetVaccines: (petId) => get().vaccines.filter((v) => v.petId === petId),
-      getPetCheckups: (petId) => get().checkups.filter((c) => c.petId === petId),
-      getPetGrowth: (petId) => get().growthRecords.filter((g) => g.petId === petId),
+      getPetVaccines: (petId) => {
+        const vaccines = get().vaccines || [];
+        return vaccines.filter((v) => v?.petId === petId);
+      },
+      getPetCheckups: (petId) => {
+        const checkups = get().checkups || [];
+        return checkups.filter((c) => c?.petId === petId);
+      },
+      getPetGrowth: (petId) => {
+        const growthRecords = get().growthRecords || [];
+        return growthRecords.filter((g) => g?.petId === petId);
+      },
 
       importPetsFromCSV: (csvData) => {
         const result = { success: 0, duplicates: 0, errors: [] as string[] };

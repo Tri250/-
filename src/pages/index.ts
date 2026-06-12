@@ -26,3 +26,5 @@ export { default as PetProfilePage } from './PetProfilePage';
 export { default as DevicesPage } from './DevicesPage';
 export { default as DietDataPage } from './DietDataPage';
 export { default as RecordsPage } from './RecordsPage';
+export { default as HomePage } from './HomePage';
+export { default as UserProfilePage } from './UserProfilePage';

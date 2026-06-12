@@ -262,21 +262,22 @@ export const useDietStore = create<DietState>()(
 
       // 获取统计
       getStats: (petId, range = 'day') => {
-        const records = get().getRecordsByRange(range).filter((r) => r.petId === petId);
+        const allRecords = get().records || [];
+        const records = get().getRecordsByRange(range).filter((r) => r?.petId === petId);
         
-        const totalMeals = records.length;
-        const totalAmount = records.reduce((sum, r) => sum + r.amount, 0);
-        const totalCalories = records.reduce((sum, r) => sum + (r.calories || 0), 0);
+        const totalMeals = records.length || 0;
+        const totalAmount = records.reduce((sum, r) => sum + (r?.amount || 0), 0) || 0;
+        const totalCalories = records.reduce((sum, r) => sum + (r?.calories || 0), 0) || 0;
         
         const days = range === 'day' ? 1 : range === 'week' ? 7 : 30;
-        const avgMealsPerDay = totalMeals / days;
+        const avgMealsPerDay = totalMeals / days || 0;
         const avgAmountPerMeal = totalMeals > 0 ? totalAmount / totalMeals : 0;
         
         return {
           totalMeals,
           totalAmount,
           totalCalories,
-          totalDuration: totalMeals * 1.5, // 假设每次进食1.5分钟
+          totalDuration: totalMeals * 1.5 || 0,
           avgMealsPerDay,
           avgAmountPerMeal,
         };
