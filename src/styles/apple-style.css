@@ -759,3 +759,264 @@ h1, h2, h3, h4, h5, h6 {
     box-shadow: none !important;
   }
 }
+
+/* ============================================
+   19. 底部导航栏专用样式 - Apple风格
+   ============================================ */
+
+/* 导航栏固定定位 */
+nav[role="navigation"] {
+  position: fixed !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 50 !important;
+  
+  /* 毛玻璃效果 */
+  background: linear-gradient(
+    to top,
+    rgba(255, 255, 255, 0.98) 0%,
+    rgba(255, 255, 255, 0.95) 70%,
+    rgba(255, 255, 255, 0.85) 100%
+  );
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  
+  /* 边框 */
+  border-top: 1px solid rgba(245, 166, 35, 0.1);
+  
+  /* 阴影 */
+  box-shadow: 
+    0 -4px 16px rgba(0, 0, 0, 0.06),
+    0 -1px 2px rgba(0, 0, 0, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+/* 导航栏顶部装饰线 */
+nav[role="navigation"]::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(245, 166, 35, 0.3) 20%,
+    rgba(245, 166, 35, 0.5) 50%,
+    rgba(245, 166, 35, 0.3) 80%,
+    transparent 100%
+  );
+}
+
+/* 导航项基础样式 */
+nav[role="navigation"] button {
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* 导航项活动状态 */
+nav[role="navigation"] button[aria-current="page"] {
+  background: linear-gradient(
+    135deg,
+    rgba(245, 166, 35, 0.08) 0%,
+    rgba(245, 166, 35, 0.12) 100%
+  );
+}
+
+/* 导航项图标动画 */
+nav[role="navigation"] button svg {
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+nav[role="navigation"] button:hover svg {
+  transform: scale(1.05);
+}
+
+nav[role="navigation"] button[aria-current="page"] svg {
+  transform: scale(1.1);
+  filter: drop-shadow(0 2px 4px rgba(245, 166, 35, 0.3));
+}
+
+/* FAB按钮样式 */
+nav[role="navigation"] button .rounded-full {
+  /* 渐变背景 */
+  background: linear-gradient(
+    135deg,
+    #F97316 0%,
+    #F5A623 50%,
+    #FFB84D 100%
+  );
+  
+  /* 阴影 */
+  box-shadow: 
+    0 4px 12px rgba(249, 115, 22, 0.35),
+    0 2px 4px rgba(249, 115, 22, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  
+  /* 动画 */
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+nav[role="navigation"] button:hover .rounded-full {
+  transform: scale(1.08);
+  box-shadow: 
+    0 6px 16px rgba(249, 115, 22, 0.4),
+    0 3px 6px rgba(249, 115, 22, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+nav[role="navigation"] button:active .rounded-full {
+  transform: scale(0.95);
+  box-shadow: 
+    0 2px 8px rgba(249, 115, 22, 0.3),
+    0 1px 2px rgba(249, 115, 22, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+/* FAB按钮活动状态 */
+nav[role="navigation"] button[aria-current="page"] .rounded-full {
+  background: linear-gradient(
+    135deg,
+    #EA580C 0%,
+    #F97316 50%,
+    #F5A623 100%
+  );
+  box-shadow: 
+    0 6px 20px rgba(249, 115, 22, 0.45),
+    0 3px 8px rgba(249, 115, 22, 0.3),
+    inset 0 2px 0 rgba(255, 255, 255, 0.3);
+  
+  /* 脉冲动画 */
+  animation: fab-pulse 2s ease-in-out infinite;
+}
+
+@keyframes fab-pulse {
+  0%, 100% {
+    box-shadow: 
+      0 6px 20px rgba(249, 115, 22, 0.45),
+      0 3px 8px rgba(249, 115, 22, 0.3),
+      inset 0 2px 0 rgba(255, 255, 255, 0.3);
+  }
+  50% {
+    box-shadow: 
+      0 8px 24px rgba(249, 115, 22, 0.5),
+      0 4px 10px rgba(249, 115, 22, 0.35),
+      inset 0 2px 0 rgba(255, 255, 255, 0.35);
+  }
+}
+
+/* 活动状态指示点 */
+nav[role="navigation"] button[aria-current="page"] .animate-pulse {
+  animation: indicator-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes indicator-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.2);
+  }
+}
+
+/* 底部安全区域填充 */
+nav[role="navigation"] .absolute.bottom-0 {
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.95) 0%,
+    rgba(255, 255, 255, 1) 100%
+  );
+}
+
+/* 暗黑模式导航栏 */
+.dark nav[role="navigation"] {
+  background: linear-gradient(
+    to top,
+    rgba(28, 28, 30, 0.98) 0%,
+    rgba(28, 28, 30, 0.95) 70%,
+    rgba(28, 28, 30, 0.85) 100%
+  );
+  border-top: 1px solid rgba(245, 166, 35, 0.2);
+  box-shadow: 
+    0 -4px 16px rgba(0, 0, 0, 0.2),
+    0 -1px 2px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.dark nav[role="navigation"]::before {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(245, 166, 35, 0.4) 20%,
+    rgba(245, 166, 35, 0.6) 50%,
+    rgba(245, 166, 35, 0.4) 80%,
+    transparent 100%
+  );
+}
+
+/* 页面内容底部留白 - 为导航栏预留空间 */
+.pb-nav {
+  padding-bottom: calc(80px + env(safe-area-inset-bottom, 16px));
+}
+
+/* 简化版本 - 用于不需要安全区域的场景 */
+.pb-nav-safe {
+  padding-bottom: 96px;
+}
+
+/* 导航栏高度常量 */
+.nav-height {
+  height: calc(80px + env(safe-area-inset-bottom, 16px));
+}
+
+/* ============================================
+   20. 颜色精细调整 - 导航栏专用
+   ============================================ */
+
+/* 橙色系渐变 - 主色调 */
+.gradient-orange {
+  background: linear-gradient(135deg, #F97316 0%, #F5A623 50%, #FFB84D 100%);
+}
+
+/* 橙色系文字 */
+.text-orange-gradient {
+  background: linear-gradient(135deg, #F97316, #F5A623);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* 橙色系阴影 */
+.shadow-orange {
+  box-shadow: 
+    0 4px 12px rgba(249, 115, 22, 0.25),
+    0 2px 4px rgba(249, 115, 22, 0.15);
+}
+
+.shadow-orange-lg {
+  box-shadow: 
+    0 8px 24px rgba(249, 115, 22, 0.35),
+    0 4px 8px rgba(249, 115, 22, 0.2);
+}
+
+/* 橙色系边框 */
+.border-orange {
+  border-color: rgba(245, 166, 35, 0.3);
+}
+
+.border-orange-light {
+  border-color: rgba(245, 166, 35, 0.15);
+}
+
+/* 橙色系背景 */
+.bg-orange-subtle {
+  background: linear-gradient(135deg, rgba(245, 166, 35, 0.05) 0%, rgba(245, 166, 35, 0.08) 100%);
+}
+
+.bg-orange-light {
+  background: linear-gradient(135deg, rgba(245, 166, 35, 0.08) 0%, rgba(245, 166, 35, 0.12) 100%);
+}
