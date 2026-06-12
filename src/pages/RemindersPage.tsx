@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ChevronLeft, 
   Calendar, 
@@ -11,28 +11,143 @@ import {
   Pill,
   Activity,
   Star,
-  Sparkles
+  Sparkles,
+  Trash2,
+  Edit3,
+  Bell,
+  BellOff,
+  MoreVertical,
+  X,
 } from 'lucide-react';
-import { Card, EmptyState } from '../components/DesignSystem';
+import { Card, EmptyState, Badge, Button } from '../components/DesignSystem';
 import { useReminderStore } from '../store/reminderStore';
 import { usePetStore } from '../store/petStore';
-import { REMINDER_TYPES, ReminderType } from '../types/reminder';
+import { REMINDER_TYPES, ReminderType, Reminder } from '../types/reminder';
 import { AddReminderModal } from '../components/AddReminderModal';
+import { useResponsiveStyle } from '../lib/responsiveStyle';
+import { LocalNotifications } from '@capacitor/local-notifications';
 
 interface RemindersPageProps {
   onNavigate: (page: string) => void;
 }
 
 export default function RemindersPage({ onNavigate }: RemindersPageProps) {
-  const { selectedType, viewMode, getFilteredReminders, getUpcomingReminders, setSelectedType, setViewMode, toggleComplete, addReminder } = useReminderStore();
+  const responsive = useResponsiveStyle();
   const { currentPetId } = usePetStore();
+  const {
+    selectedType,
+    viewMode,
+    reminders,
+    getFilteredReminders,
+    getUpcomingReminders,
+    setSelectedType,
+    setViewMode,
+    toggleComplete,
+    addReminder,
+    updateReminder,
+    deleteReminder,
+    sendNotification,
+    getSmartRecommendations,
+  } = useReminderStore();
+  
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
+  const [showActionMenu, setShowActionMenu] = useState<string | null>(null);
+  const [notificationStatus, setNotificationStatus] = useState<Record<string, boolean>>({});
 
   const filteredReminders = currentPetId ? getFilteredReminders(currentPetId) : [];
   const upcomingReminders = currentPetId ? getUpcomingReminders(currentPetId, 5) : [];
 
+  // 检查通知权限
+  useEffect(() => {
+    checkNotificationPermission();
+  }, []);
+
+  const checkNotificationPermission = async () => {
+    try {
+      const { display } = await LocalNotifications.checkPermissions();
+      setNotificationStatus({ enabled: display === 'granted' });
+    } catch (error) {
+      console.log('Notification permission check failed:', error);
+      setNotificationStatus({ enabled: false });
+    }
+  };
+
+  const requestNotificationPermission = async () => {
+    try {
+      const result = await LocalNotifications.requestPermissions();
+      setNotificationStatus({ enabled: result.display === 'granted' });
+      return result.display === 'granted';
+    } catch (error) {
+      console.log('Notification permission request failed:', error);
+      return false;
+    }
+  };
+
   const handleAddReminder = (reminderData: Parameters<typeof addReminder>[0]) => {
     addReminder(reminderData);
+    
+    // 如果通知权限已开启，为该提醒创建本地通知
+    if (notificationStatus.enabled) {
+      scheduleLocalNotification(reminderData);
+    }
+  };
+
+  const scheduleLocalNotification = async (reminder: Reminder | Parameters<typeof addReminder>[0]) => {
+    try {
+      const notificationDate = new Date(`${reminder.date} ${reminder.time}`);
+      
+      await LocalNotifications.schedule({
+        notifications: [
+          {
+            id: Date.now(),
+            title: reminder.title,
+            body: reminder.notes || `提醒时间: ${reminder.date} ${reminder.time}`,
+            schedule: { at: notificationDate },
+            sound: 'default',
+            actionTypeId: 'REMINDER_ACTION',
+            extra: {
+              reminderId: reminder.id || Date.now().toString(),
+              type: reminder.type,
+            },
+          },
+        ],
+      });
+      
+      console.log('Local notification scheduled:', reminder.title);
+    } catch (error) {
+      console.log('Failed to schedule notification:', error);
+    }
+  };
+
+  const handleDeleteReminder = async (id: string) => {
+    deleteReminder(id);
+    setShowActionMenu(null);
+    
+    // 取消相关的本地通知（如果有）
+    try {
+      await LocalNotifications.cancel({
+        notifications: [{ id: parseInt(id) || Date.now() }],
+      });
+    } catch (error) {
+      console.log('Failed to cancel notification:', error);
+    }
+  };
+
+  const handleEditReminder = (reminder: Reminder) => {
+    setEditingReminder(reminder);
+    setIsAddModalOpen(true);
+    setShowActionMenu(null);
+  };
+
+  const handleToggleNotification = async (reminder: Reminder) => {
+    const channels: ('app' | 'push' | 'email' | 'sms' | 'wechat')[] = ['app', 'push'];
+    await sendNotification(reminder, channels);
+    setShowActionMenu(null);
+  };
+
+  const handleToggleComplete = async (id: string) => {
+    toggleComplete(id);
   };
 
   const getIconForType = (type: string) => {
@@ -60,6 +175,15 @@ export default function RemindersPage({ onNavigate }: RemindersPageProps) {
     if (date.toDateString() === tomorrow.toDateString()) return '明天';
 
     return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
+  };
+
+  const getPriorityColor = (priority?: 'high' | 'medium' | 'low') => {
+    switch (priority) {
+      case 'high': return 'text-red-500';
+      case 'medium': return 'text-yellow-500';
+      case 'low': return 'text-green-500';
+      default: return 'text-gray-500';
+    }
   };
 
   return (
@@ -150,6 +274,24 @@ export default function RemindersPage({ onNavigate }: RemindersPageProps) {
         </div>
       </div>
 
+      {/* Notification Permission Banner */}
+      {!notificationStatus.enabled && (
+        <div className="bg-yellow-50 border-b border-yellow-100 px-4 py-3">
+          <div className="max-w-md mx-auto flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <BellOff className="w-5 h-5 text-yellow-600" />
+              <span className="text-sm text-yellow-700">通知权限未开启</span>
+            </div>
+            <button
+              onClick={requestNotificationPermission}
+              className="px-3 py-1.5 bg-yellow-500 text-white rounded-lg text-sm font-medium hover:bg-yellow-600 transition-colors"
+            >
+              开启通知
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="px-4 py-4 space-y-6">
         <div className="max-w-md mx-auto">
           {/* Upcoming */}
@@ -178,27 +320,63 @@ export default function RemindersPage({ onNavigate }: RemindersPageProps) {
                             <Clock className="w-3.5 h-3.5 text-neutral-400 flex-shrink-0" />
                             <span className="text-sm text-neutral-500">{formatDate(reminder.date)} {reminder.time}</span>
                             {reminder.repeat !== 'once' && (
-                              <span className="text-xs text-neutral-400 bg-neutral-100 px-1.5 py-0.5 rounded-full">
+                              <Badge variant="default" size="sm">
                                 {reminder.repeat === 'daily' ? '每天' : reminder.repeat === 'weekly' ? '每周' : reminder.repeat === 'monthly' ? '每月' : '每年'}
-                              </span>
+                              </Badge>
                             )}
                           </div>
                           {reminder.notes && (
                             <p className="text-sm text-neutral-500 mt-2 line-clamp-2">{reminder.notes}</p>
                           )}
                         </div>
-                        <button
-                          onClick={() => toggleComplete(reminder.id)}
-                          className={`w-7 h-7 md:w-6 md:h-6 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 ${
-                            reminder.isCompleted
-                              ? 'bg-success-500 border-success-500'
-                              : 'border-neutral-300 hover:border-purple-500 active:border-purple-400'
-                          }`}
-                          aria-label={reminder.isCompleted ? '标记为未完成' : '标记为完成'}
-                        >
-                          {reminder.isCompleted && <Check className="w-4 h-4 text-white" />}
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleToggleComplete(reminder.id)}
+                            className={`w-7 h-7 md:w-6 md:h-6 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 ${
+                              reminder.isCompleted
+                                ? 'bg-success-500 border-success-500'
+                                : 'border-neutral-300 hover:border-purple-500 active:border-purple-400'
+                            }`}
+                            aria-label={reminder.isCompleted ? '标记为未完成' : '标记为完成'}
+                          >
+                            {reminder.isCompleted && <Check className="w-4 h-4 text-white" />}
+                          </button>
+                          <button
+                            onClick={() => setShowActionMenu(showActionMenu === reminder.id ? null : reminder.id)}
+                            className="p-2 rounded-full hover:bg-neutral-100 transition-colors min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0"
+                            aria-label="更多操作"
+                          >
+                            <MoreVertical className="w-5 h-5 text-neutral-400" />
+                          </button>
+                        </div>
                       </div>
+                      
+                      {/* Action Menu */}
+                      {showActionMenu === reminder.id && (
+                        <div className="mt-3 pt-3 border-t border-neutral-100 flex flex-wrap gap-2">
+                          <button
+                            onClick={() => handleEditReminder(reminder)}
+                            className="flex items-center gap-1 px-3 py-2 bg-neutral-100 rounded-lg text-sm text-neutral-600 hover:bg-neutral-200 transition-colors"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                            编辑
+                          </button>
+                          <button
+                            onClick={() => handleToggleNotification(reminder)}
+                            className="flex items-center gap-1 px-3 py-2 bg-purple-100 rounded-lg text-sm text-purple-600 hover:bg-purple-200 transition-colors"
+                          >
+                            <Bell className="w-4 h-4" />
+                            发送通知
+                          </button>
+                          <button
+                            onClick={() => handleDeleteReminder(reminder.id)}
+                            className="flex items-center gap-1 px-3 py-2 bg-red-100 rounded-lg text-sm text-red-600 hover:bg-red-200 transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            删除
+                          </button>
+                        </div>
+                      )}
                     </Card>
                   );
                 })}
@@ -245,27 +423,63 @@ export default function RemindersPage({ onNavigate }: RemindersPageProps) {
                             <Clock className="w-3.5 h-3.5 text-neutral-400 flex-shrink-0" />
                             <span className="text-sm text-neutral-500">{formatDate(reminder.date)} {reminder.time}</span>
                             {reminder.repeat !== 'once' && (
-                              <span className="text-xs text-neutral-400 bg-neutral-100 px-1.5 py-0.5 rounded-full">
+                              <Badge variant="default" size="sm">
                                 {reminder.repeat === 'daily' ? '每天' : reminder.repeat === 'weekly' ? '每周' : reminder.repeat === 'monthly' ? '每月' : '每年'}
-                              </span>
+                              </Badge>
                             )}
                           </div>
                           {reminder.notes && (
                             <p className="text-sm text-neutral-500 mt-2 line-clamp-2">{reminder.notes}</p>
                           )}
                         </div>
-                        <button
-                          onClick={() => toggleComplete(reminder.id)}
-                          className={`w-7 h-7 md:w-6 md:h-6 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 ${
-                            reminder.isCompleted
-                              ? 'bg-success-500 border-success-500'
-                              : 'border-neutral-300 hover:border-purple-500 active:border-purple-400'
-                          }`}
-                          aria-label={reminder.isCompleted ? '标记为未完成' : '标记为完成'}
-                        >
-                          {reminder.isCompleted && <Check className="w-4 h-4 text-white" />}
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleToggleComplete(reminder.id)}
+                            className={`w-7 h-7 md:w-6 md:h-6 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 ${
+                              reminder.isCompleted
+                                ? 'bg-success-500 border-success-500'
+                                : 'border-neutral-300 hover:border-purple-500 active:border-purple-400'
+                            }`}
+                            aria-label={reminder.isCompleted ? '标记为未完成' : '标记为完成'}
+                          >
+                            {reminder.isCompleted && <Check className="w-4 h-4 text-white" />}
+                          </button>
+                          <button
+                            onClick={() => setShowActionMenu(showActionMenu === reminder.id ? null : reminder.id)}
+                            className="p-2 rounded-full hover:bg-neutral-100 transition-colors min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0"
+                            aria-label="更多操作"
+                          >
+                            <MoreVertical className="w-5 h-5 text-neutral-400" />
+                          </button>
+                        </div>
                       </div>
+                      
+                      {/* Action Menu */}
+                      {showActionMenu === reminder.id && (
+                        <div className="mt-3 pt-3 border-t border-neutral-100 flex flex-wrap gap-2">
+                          <button
+                            onClick={() => handleEditReminder(reminder)}
+                            className="flex items-center gap-1 px-3 py-2 bg-neutral-100 rounded-lg text-sm text-neutral-600 hover:bg-neutral-200 transition-colors"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                            编辑
+                          </button>
+                          <button
+                            onClick={() => handleToggleNotification(reminder)}
+                            className="flex items-center gap-1 px-3 py-2 bg-purple-100 rounded-lg text-sm text-purple-600 hover:bg-purple-200 transition-colors"
+                          >
+                            <Bell className="w-4 h-4" />
+                            发送通知
+                          </button>
+                          <button
+                            onClick={() => handleDeleteReminder(reminder.id)}
+                            className="flex items-center gap-1 px-3 py-2 bg-red-100 rounded-lg text-sm text-red-600 hover:bg-red-200 transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            删除
+                          </button>
+                        </div>
+                      )}
                     </Card>
                   );
                 })}
@@ -277,9 +491,16 @@ export default function RemindersPage({ onNavigate }: RemindersPageProps) {
 
       <AddReminderModal
         isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        onSubmit={handleAddReminder}
+        onClose={() => {
+          setIsAddModalOpen(false);
+          setEditingReminder(null);
+        }}
+        onSubmit={editingReminder ? (data) => {
+          updateReminder(editingReminder.id, data);
+          setEditingReminder(null);
+        } : handleAddReminder}
         currentPetId={currentPetId}
+        editingReminder={editingReminder}
       />
     </div>
   );

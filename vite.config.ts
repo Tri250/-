@@ -25,7 +25,7 @@ export default defineConfig(({ mode }) => {
             'react-vendor': ['react', 'react-dom', 'react-router-dom'],
             'ui-vendor': ['lucide-react', 'framer-motion'],
             'state-vendor': ['zustand'],
-            'capacitor-vendor': ['@capacitor/core', '@capacitor/android'],
+            'capacitor-vendor': ['@capacitor/core'],
           },
         },
       },
@@ -44,7 +44,6 @@ export default defineConfig(({ mode }) => {
     },
     optimizeDeps: {
       include: ['react', 'react-dom', 'zustand', 'lucide-react'],
-      exclude: ['@capacitor/android'],
     },
     plugins: [
       react({

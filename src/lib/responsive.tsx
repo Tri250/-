@@ -42,7 +42,7 @@ export const breakpoints = {
   md: 414,   // iPhone Plus
   lg: 768,   // iPad
   xl: 1024,  // iPad Pro 11
-  2xl: 1280, // iPad Pro 12.9
+  '2xl': 1280, // iPad Pro 12.9
 };
 
 // 获取屏幕尺寸
@@ -69,7 +69,6 @@ const getOrientation = (width: number, height: number): Orientation =>
 
 // 获取安全区域
 const getSafeArea = (): { top: number; bottom: number; left: number; right: number } => {
-  // CSS env() 变量在 JS 中无法直接获取，使用默认值
   return {
     top: 0,
     bottom: 0,
@@ -112,10 +111,7 @@ export const useResponsive = () => {
   }, []);
 
   useEffect(() => {
-    // 监听窗口大小变化
     window.addEventListener('resize', updateDeviceInfo);
-    
-    // 监听屏幕方向变化
     window.addEventListener('orientationchange', updateDeviceInfo);
     
     return () => {
@@ -139,12 +135,9 @@ export const useResponsive = () => {
 
 /**
  * 响应式值 Hook
- * 根据屏幕尺寸返回不同的值
  */
-export const useResponsiveValue = <T>(values: Partial<Record<ScreenSize, T>>, defaultValue: T): T => {
+export const useResponsiveValue = <T,>(values: Partial<Record<ScreenSize, T>>, defaultValue: T): T => {
   const { size } = useResponsive();
-  
-  // 按优先级查找值
   const sizeOrder: ScreenSize[] = [size, 'md', 'sm', 'xs'];
   
   for (const s of sizeOrder) {
@@ -156,114 +149,8 @@ export const useResponsiveValue = <T>(values: Partial<Record<ScreenSize, T>>, de
   return defaultValue;
 };
 
-/**
- * 响应式样式 Hook
- */
-export const useResponsiveStyle = () => {
-  const { size, isPortrait, safeArea } = useResponsive();
-
-  // 字体大小
-  const fontSize = useResponsiveValue(
-    {
-      xs: 14,
-      sm: 15,
-      md: 16,
-      lg: 17,
-      xl: 18,
-    },
-    15
-  );
-
-  // 间距
-  const spacing = useResponsiveValue(
-    {
-      xs: 12,
-      sm: 16,
-      md: 18,
-      lg: 24,
-      xl: 28,
-    },
-    16
-  );
-
-  // 卡片圆角
-  const cardRadius = useResponsiveValue(
-    {
-      xs: 12,
-      sm: 14,
-      md: 16,
-      lg: 18,
-      xl: 20,
-    },
-    14
-  );
-
-  // 按钮高度
-  const buttonHeight = useResponsiveValue(
-    {
-      xs: 40,
-      sm: 44,
-      md: 48,
-      lg: 52,
-      xl: 56,
-    },
-    44
-  );
-
-  // 头像大小
-  const avatarSize = useResponsiveValue(
-    {
-      xs: 48,
-      sm: 56,
-      md: 64,
-      lg: 80,
-      xl: 96,
-    },
-    56
-  );
-
-  // 图标大小
-  const iconSize = useResponsiveValue(
-    {
-      xs: 20,
-      sm: 24,
-      md: 28,
-      lg: 32,
-      xl: 36,
-    },
-    24
-  );
-
-  // 内容最大宽度
-  const contentMaxWidth = useResponsiveValue(
-    {
-      xs: 320,
-      sm: 375,
-      md: 414,
-      lg: 768,
-      xl: 1024,
-    },
-    375
-  );
-
-  return {
-    fontSize,
-    spacing,
-    cardRadius,
-    buttonHeight,
-    avatarSize,
-    iconSize,
-    contentMaxWidth,
-    safeAreaPadding: {
-      paddingTop: safeArea.top,
-      paddingBottom: safeArea.bottom,
-      paddingLeft: safeArea.left,
-      paddingRight: safeArea.right,
-    },
-    isPortrait,
-    isLandscape: !isPortrait,
-  };
-};
+// 导出响应式样式Hook
+export { useResponsiveStyle } from './responsiveStyle';
 
 /**
  * 响应式图片尺寸
