@@ -23,6 +23,8 @@ import com.getcapacitor.BridgeActivity;
 public class MainActivity extends BridgeActivity {
     private static final String TAG = "PawSyncMain";
 
+    private PawSyncNativeBridge nativeBridge;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         // 安装启动画面（必须在 super.onCreate 之前）
@@ -47,6 +49,18 @@ public class MainActivity extends BridgeActivity {
 
         // 优化窗口渲染
         optimizeWindowRendering();
+    }
+
+    /**
+     * 初始化原生桥接（在 WebView 就绪后调用）
+     */
+    private void initNativeBridge() {
+        if (getBridge() != null && getBridge().getWebView() != null) {
+            WebView webView = getBridge().getWebView();
+            nativeBridge = new PawSyncNativeBridge(this, webView);
+            nativeBridge.register();
+            Log.i(TAG, "Native bridge initialized");
+        }
     }
 
     /**
@@ -151,6 +165,43 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
+    protected void onStop() {
+        super.onStop();
+        // 应用进入后台时，通知 WebView
+        if (nativeBridge != null) {
+            getBridge().getWebView().evaluateJavascript(
+                "window.dispatchEvent(new CustomEvent('appBackground'))", null);
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        // 注销原生桥接
+        if (nativeBridge != null) {
+            nativeBridge.unregister();
+            nativeBridge = null;
+        }
+    }
+
+    @Override
+    public void onBackPressed() {
+        // 先让 WebView 处理返回键（支持 Web 端路由导航）
+        if (getBridge() != null && getBridge().getWebView() != null) {
+            WebView webView = getBridge().getWebView();
+            if (webView.canGoBack()) {
+                webView.goBack();
+                return;
+            }
+            // 通知 Web 端有返回键事件
+            webView.evaluateJavascript(
+                "window.dispatchEvent(new CustomEvent('androidBackPressed'))", null);
+        }
+        // 如果 Web 端没有处理，则退出 Activity
+        super.onBackPressed();
+    }
+
+    @Override
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
 
@@ -193,6 +244,11 @@ public class MainActivity extends BridgeActivity {
         if (webView == null) {
             Log.w(TAG, "WebView not yet available, skipping optimization");
             return;
+        }
+
+        // 初始化原生桥接（首次 WebView 就绪时）
+        if (nativeBridge == null) {
+            initNativeBridge();
         }
 
         // 启用硬件加速渲染

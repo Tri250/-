@@ -6,6 +6,7 @@
  */
 
 import { Capacitor } from '@capacitor/core';
+import { NativeServices } from './nativeBridge';
 
 // 平台类型
 export type PlatformType = 'android' | 'ios' | 'web';
@@ -34,6 +35,8 @@ export const platformCheck = {
   isIOS: () => Capacitor.getPlatform() === 'ios',
   isWeb: () => !Capacitor.isNativePlatform(),
   isNative: () => Capacitor.isNativePlatform(),
+  /** 原生桥接是否可用（Android 专属） */
+  isNativeBridgeAvailable: () => NativeServices.isAvailable(),
 };
 
 /**

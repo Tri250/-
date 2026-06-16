@@ -11,6 +11,7 @@ import androidx.appcompat.app.AppCompatDelegate;
 public class PawSyncApplication extends Application {
 
     private static PawSyncApplication instance;
+    private NotificationChannelHelper notificationHelper;
 
     @Override
     public void onCreate() {
@@ -19,6 +20,10 @@ public class PawSyncApplication extends Application {
 
         // 启用暗色模式支持（跟随系统设置）
         AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM);
+
+        // 创建原生通知渠道
+        notificationHelper = new NotificationChannelHelper(this);
+        notificationHelper.createAllChannels();
 
         // 初始化WebView数据目录（Android 9+）
         initWebViewDataDirectory();
