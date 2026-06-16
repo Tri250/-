@@ -1,6 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- 主题色：与 Web 端 Tailwind orange-400 / orange-500 完全一致 -->
     <color name="colorPrimary">#f97316</color>
     <color name="colorPrimaryDark">#ea580c</color>
     <color name="colorAccent">#f97316</color>
+
+    <!-- 背景色：与 Web 端 neutral-50 一致 -->
+    <color name="colorBackground">#f8fafc</color>
+    <color name="colorSurface">#ffffff</color>
+
+    <!-- 文字色 -->
+    <color name="colorOnPrimary">#ffffff</color>
+    <color name="colorOnBackground">#1f2937</color>
+    <color name="colorOnSurface">#1f2937</color>
+
+    <!-- 导航栏色 -->
+    <color name="colorNavigationBar">#f97316</color>
+    <color name="colorNavigationBarDivider">#e5e7eb</color>
+
+    <!-- 状态栏色 -->
+    <color name="colorStatusBar">#f97316</color>
+
+    <!-- 暗色模式 -->
+    <color name="colorPrimaryDarkMode">#f97316</color>
+    <color name="colorPrimaryDarkDarkMode">#ea580c</color>
+    <color name="colorBackgroundDark">#0f172a</color>
+    <color name="colorSurfaceDark">#1e293b</color>
+    <color name="colorOnBackgroundDark">#e2e8f0</color>
+    <color name="colorOnSurfaceDark">#e2e8f0</color>
+    <color name="colorStatusBarDark">#0f172a</color>
+    <color name="colorNavigationBarDark">#1e293b</color>
 </resources>

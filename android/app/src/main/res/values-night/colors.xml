@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 暗色主题颜色：与 Web 端 Tailwind dark mode 完全一致 -->
+    <color name="colorPrimary">#f97316</color>
+    <color name="colorPrimaryDark">#ea580c</color>
+    <color name="colorAccent">#f97316</color>
+    <color name="colorBackground">#0f172a</color>
+    <color name="colorSurface">#1e293b</color>
+    <color name="colorOnPrimary">#ffffff</color>
+    <color name="colorOnBackground">#e2e8f0</color>
+    <color name="colorOnSurface">#e2e8f0</color>
+    <color name="colorNavigationBar">#1e293b</color>
+    <color name="colorNavigationBarDivider">#334155</color>
+    <color name="colorStatusBar">#0f172a</color>
+</resources>

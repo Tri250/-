@@ -2,7 +2,11 @@ package com.pawsync.pro;
 
 import android.app.Application;
 import android.content.Context;
+import android.content.res.Configuration;
 import android.os.Build;
+import android.webkit.WebView;
+
+import androidx.appcompat.app.AppCompatDelegate;
 
 public class PawSyncApplication extends Application {
 
@@ -13,23 +17,40 @@ public class PawSyncApplication extends Application {
         super.onCreate();
         instance = this;
 
+        // 启用暗色模式支持（跟随系统设置）
+        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM);
+
         // 初始化WebView数据目录（Android 9+）
         initWebViewDataDirectory();
 
         // 内存优化配置
         configureMemoryOptimization();
+
+        // 预初始化 WebView 引擎（减少首次加载延迟）
+        prewarmWebView();
     }
 
     private void initWebViewDataDirectory() {
-        // Android 9+ 需要设置WebView数据目录
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             try {
-                // 使用Android内置API设置WebView数据目录后缀
-                android.webkit.WebView.setDataDirectorySuffix("pawsync_webview");
+                WebView.setDataDirectorySuffix("pawsync_webview");
             } catch (Exception e) {
                 // 忽略配置错误
             }
         }
+    }
+
+    private void prewarmWebView() {
+        // 在后台线程预初始化 WebView 引擎
+        new Thread(() -> {
+            try {
+                // 触发 WebView 引擎初始化，加速首次加载
+                WebView webView = new WebView(this);
+                webView.destroy();
+            } catch (Exception e) {
+                // 忽略预热错误
+            }
+        }, "WebViewPrewarm").start();
     }
 
     private void configureMemoryOptimization() {
