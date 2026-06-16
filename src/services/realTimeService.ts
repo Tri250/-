@@ -1,4 +1,5 @@
 import type { RTCSession, RTCMessage, RTCStats, VideoCallState } from '../types/rtc';
+import { logger } from '@/lib/logger';
 
 const MOCK_DELAY = 500;
 
@@ -54,7 +55,7 @@ class RealTimeService {
 
   async initialize(): Promise<void> {
     await this.simulateDelay(MOCK_DELAY);
-    console.log('Real-time communication service initialized');
+    logger.log('Real-time communication service initialized');
   }
 
   async connect(): Promise<{ success: boolean; error?: string }> {
@@ -230,7 +231,7 @@ class RealTimeService {
 
   async switchCamera(): Promise<void> {
     await this.simulateDelay(200);
-    console.log('Camera switched');
+    logger.log('Camera switched');
   }
 
   onSessionChange(listener: (session: RTCSession) => void): () => void {

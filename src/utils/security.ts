@@ -241,17 +241,35 @@ export const validationUtils = {
 };
 
 // 安全存储 - F-SEC-002 增强版
-export const secureStorage = {
+type SecureStorage = {
+  PREFIX: string;
+  SENSITIVE_PREFIX: string;
+  encryptionCache: Map<string, string>;
+  _self: SecureStorage | null;
+  init: () => void;
+  set: (key: string, value: unknown, encrypt?: boolean, sensitive?: boolean) => Promise<void>;
+  setSync: (key: string, value: unknown, encrypt?: boolean) => void;
+  get: <T = unknown>(key: string, decrypt?: boolean, sensitive?: boolean) => Promise<T | null>;
+  getSync: <T = unknown>(key: string, decrypt?: boolean) => T | null;
+  remove: (key: string, sensitive?: boolean) => void;
+  clear: () => void;
+  clearSensitive: () => void;
+  getOrCreateKey: (sensitive: boolean) => Promise<string>;
+  hasKey: (key: string, sensitive?: boolean) => boolean;
+  getAllKeys: (sensitive?: boolean) => string[];
+};
+
+export const secureStorage: SecureStorage = {
   PREFIX: 'PS_',
   SENSITIVE_PREFIX: 'PSS_',
   encryptionCache: new Map<string, string>(),
-  _self: null as Record<string, unknown> | null,
+  _self: null,
 
-  init: function() {
+  init: function(this: SecureStorage) {
     this._self = this;
   },
 
-  set: async function(key: string, value: unknown, encrypt: boolean = true, sensitive: boolean = false): Promise<void> {
+  set: async function(this: SecureStorage, key: string, value: unknown, encrypt: boolean = true, sensitive: boolean = false): Promise<void> {
     const self = this._self || this;
     try {
       const serialized = JSON.stringify(value);
@@ -274,7 +292,7 @@ export const secureStorage = {
     }
   },
 
-  setSync: function(key: string, value: unknown, encrypt: boolean = true): void {
+  setSync: function(this: SecureStorage, key: string, value: unknown, encrypt: boolean = true): void {
     const self = this._self || this;
     try {
       const serialized = JSON.stringify(value);
@@ -290,7 +308,7 @@ export const secureStorage = {
     }
   },
 
-  get: async function<T = unknown>(key: string, decrypt: boolean = true, sensitive: boolean = false): Promise<T | null> {
+  get: async function<T = unknown>(this: SecureStorage, key: string, decrypt: boolean = true, sensitive: boolean = false): Promise<T | null> {
     const self = this._self || this;
     try {
       const prefix = sensitive ? self.SENSITIVE_PREFIX : self.PREFIX;
@@ -314,7 +332,7 @@ export const secureStorage = {
     }
   },
 
-  getSync: function<T = unknown>(key: string, decrypt: boolean = true): T | null {
+  getSync: function<T = unknown>(this: SecureStorage, key: string, decrypt: boolean = true): T | null {
     const self = this._self || this;
     try {
       const value = localStorage.getItem(self.PREFIX + key);
@@ -332,13 +350,13 @@ export const secureStorage = {
     }
   },
 
-  remove: function(key: string, sensitive: boolean = false): void {
+  remove: function(this: SecureStorage, key: string, sensitive: boolean = false): void {
     const self = this._self || this;
     const prefix = sensitive ? self.SENSITIVE_PREFIX : self.PREFIX;
     localStorage.removeItem(prefix + key);
   },
 
-  clear: function(): void {
+  clear: function(this: SecureStorage): void {
     const self = this._self || this;
     Object.keys(localStorage)
       .filter(key => key.startsWith(self.PREFIX) || key.startsWith(self.SENSITIVE_PREFIX))
@@ -346,14 +364,14 @@ export const secureStorage = {
     self.encryptionCache.clear();
   },
 
-  clearSensitive: function(): void {
+  clearSensitive: function(this: SecureStorage): void {
     const self = this._self || this;
     Object.keys(localStorage)
       .filter(key => key.startsWith(self.SENSITIVE_PREFIX))
       .forEach(key => localStorage.removeItem(key));
   },
 
-  getOrCreateKey: async function(sensitive: boolean): Promise<string> {
+  getOrCreateKey: async function(this: SecureStorage, sensitive: boolean): Promise<string> {
     const self = this._self || this;
     const keyType = sensitive ? 'sensitive' : 'normal';
     if (self.encryptionCache.has(keyType)) {
@@ -371,13 +389,13 @@ export const secureStorage = {
     return key;
   },
 
-  hasKey: function(key: string, sensitive: boolean = false): boolean {
+  hasKey: function(this: SecureStorage, key: string, sensitive: boolean = false): boolean {
     const self = this._self || this;
     const prefix = sensitive ? self.SENSITIVE_PREFIX : self.PREFIX;
     return localStorage.getItem(prefix + key) !== null;
   },
 
-  getAllKeys: function(sensitive: boolean = false): string[] {
+  getAllKeys: function(this: SecureStorage, sensitive: boolean = false): string[] {
     const self = this._self || this;
     const prefix = sensitive ? self.SENSITIVE_PREFIX : self.PREFIX;
     return Object.keys(localStorage)

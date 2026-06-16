@@ -7,6 +7,7 @@
 // ============================================
 
 import { useAppStore } from '../store/appStore';
+import { logger } from '@/lib/logger';
 
 export interface AppStateInfo {
   isActive: boolean;
@@ -32,7 +33,7 @@ class AppStateService {
     
     window.addEventListener('pageshow', this.handlePageShow.bind(this));
     
-    console.log('AppStateService initialized');
+    logger.log('AppStateService initialized');
   }
 
   private handleVisibilityChange() {
@@ -86,14 +87,14 @@ class AppStateService {
       store.setIsRecording(false);
     }
     
-    console.log('App paused, state saved');
+    logger.log('App paused, state saved');
   }
 
   private onAppResume(backgroundDuration: number) {
     const store = useAppStore.getState();
     
     if (backgroundDuration > 300000) {
-      console.log('App resumed after extended background time, reinitializing...');
+      logger.log('App resumed after extended background time, reinitializing...');
       store.initializeApp();
     }
     
@@ -103,7 +104,7 @@ class AppStateService {
       document.documentElement.classList.remove('dark');
     }
     
-    console.log(`App resumed after ${backgroundDuration}ms in background`);
+    logger.log(`App resumed after ${backgroundDuration}ms in background`);
   }
 
   subscribe(listener: (state: AppStateInfo) => void): () => void {

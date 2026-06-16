@@ -124,19 +124,19 @@ export const useHealthManualStore = create<HealthManualStore>()(
     (set, get) => ({
       manuals: SAMPLE_MANUALS,
       categories: MANUAL_CATEGORIES,
-      selectedCategory: null,
-      currentManualId: null,
-      bookmarks: [],
+      selectedCategory: null as ManualCategory | null,
+      currentManualId: null as string | null,
+      bookmarks: [] as string[],
       bookmarkFolders: [
         { id: 'default', name: '默认收藏', createdAt: new Date().toISOString() }
       ],
       folderBookmarks: {},
       searchQuery: '',
       petTypeFilter: 'both',
-      searchResults: [],
+      searchResults: [] as SearchResult[],
       isSearching: false,
       lastSearchTime: 0,
-      offlineCache: [],
+      offlineCache: [] as OfflineCache[],
       isOfflineMode: false,
 
       setSelectedCategory: (category) => set({ selectedCategory: category }),

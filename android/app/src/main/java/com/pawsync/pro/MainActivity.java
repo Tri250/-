@@ -1,6 +1,7 @@
 package com.pawsync.pro;
 
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.webkit.WebView;
 import android.webkit.WebSettings;
@@ -10,6 +11,7 @@ import androidx.core.splashscreen.SplashScreen;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
+    private static final String TAG = "PawSyncMain";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -17,13 +19,14 @@ public class MainActivity extends BridgeActivity {
         SplashScreen splashScreen = SplashScreen.installSplashScreen(this);
 
         // 设置启动画面退出条件
-        splashScreen.setOnExitAnimationListener(splashScreenView -> {
-            // 启动画面退出动画
-            splashScreenView.remove();
+        splashScreen.setKeepOnScreenCondition(() -> {
+            // WebView 未加载完成前保持启动画面
+            return getBridge() == null || getBridge().getWebView() == null;
         });
 
-        // 保持启动画面直到WebView加载完成
-        splashScreen.setKeepOnScreenCondition(() -> false);
+        splashScreen.setOnExitAnimationListener(splashScreenView -> {
+            splashScreenView.remove();
+        });
 
         super.onCreate(savedInstanceState);
 
@@ -44,52 +47,39 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
-    public void onStart() {
-        super.onStart();
-        // 预加载WebView（可选优化）
-        preloadWebView();
-    }
-
-    private void preloadWebView() {
-        // WebView预加载优化
-        try {
-            WebView webView = new WebView(this);
-            webView.destroy();
-        } catch (Exception e) {
-            // 忽略预加载错误
-        }
-    }
-
-    @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
         if (hasFocus) {
-            // 窗口获焦时的优化
             optimizeWebView();
         }
     }
 
     private void optimizeWebView() {
-        // 获取Capacitor的WebView并优化
-        if (getBridge() != null && getBridge().getWebView() != null) {
-            WebView webView = getBridge().getWebView();
-            WebSettings settings = webView.getSettings();
-
-            // 启用硬件加速渲染
-            webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
-
-            // 性能优化设置
-            settings.setEnableSmoothTransition(true);
-            settings.setLoadsImagesAutomatically(true);
-            settings.setBlockNetworkImage(false);
-
-            // 缓存优化
-            settings.setDomStorageEnabled(true);
-            settings.setDatabaseEnabled(true);
-
-            // JavaScript优化
-            settings.setJavaScriptEnabled(true);
-            settings.setJavaScriptCanOpenWindowsAutomatically(false);
+        if (getBridge() == null) {
+            Log.w(TAG, "Bridge not yet initialized, skipping WebView optimization");
+            return;
         }
+        WebView webView = getBridge().getWebView();
+        if (webView == null) {
+            Log.w(TAG, "WebView not yet available, skipping optimization");
+            return;
+        }
+
+        // 启用硬件加速渲染
+        webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+
+        WebSettings settings = webView.getSettings();
+
+        // 性能优化设置
+        settings.setLoadsImagesAutomatically(true);
+        settings.setBlockNetworkImage(false);
+
+        // 缓存优化
+        settings.setDomStorageEnabled(true);
+        settings.setDatabaseEnabled(true);
+
+        // JavaScript优化
+        settings.setJavaScriptEnabled(true);
+        settings.setJavaScriptCanOpenWindowsAutomatically(false);
     }
 }

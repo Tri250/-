@@ -425,8 +425,8 @@ abstract class AIModel {
     if (timeEffect) {
       // 增加该时间段常见情绪的权重
       for (const emotion of timeEffect.likelyEmotions) {
-        if (adjusted[emotion] !== undefined) {
-          adjusted[emotion] *= 1.15;
+        if ((adjusted as Record<string, number>)[emotion] !== undefined) {
+          (adjusted as Record<string, number>)[emotion] *= 1.15;
         }
       }
     }

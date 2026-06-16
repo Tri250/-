@@ -121,9 +121,6 @@
 # 预验证（Android不需要）
 -dontpreverify
 
-# 允许访问修改（优化内联）
--allowaccessmodification
-
 # WebView性能优化
 -keepclassmembers class * extends android.webkit.WebViewClient {
     public void *(android.webkit.WebView, java.lang.String);

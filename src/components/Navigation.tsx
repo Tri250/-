@@ -1,7 +1,7 @@
 import React, { memo, useMemo, useCallback, useRef, useEffect, useState } from 'react';
 import { Home, Shield, Sparkles, Camera, User } from 'lucide-react';
 
-const debounce = <T extends (...args: unknown[]) => unknown>(
+const debounce = <T extends (...args: never[]) => void>(
   func: T,
   wait: number
 ): ((...args: Parameters<T>) => void) => {
@@ -18,7 +18,7 @@ const debounce = <T extends (...args: unknown[]) => unknown>(
   };
 };
 
-const throttle = <T extends (...args: unknown[]) => unknown>(
+const throttle = <T extends (...args: never[]) => void>(
   func: T,
   limit: number
 ): ((...args: Parameters<T>) => void) => {

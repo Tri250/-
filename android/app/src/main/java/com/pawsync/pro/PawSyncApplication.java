@@ -81,13 +81,26 @@ public class PawSyncApplication extends Application {
 
     private void clearCache() {
         try {
-            // 清理应用缓存
-            getCacheDir().deleteOnExit();
+            // 递归删除缓存目录内容
+            deleteDirContents(getCacheDir());
             if (getExternalCacheDir() != null) {
-                getExternalCacheDir().deleteOnExit();
+                deleteDirContents(getExternalCacheDir());
             }
         } catch (Exception e) {
             // 忽略清理错误
+        }
+    }
+
+    private void deleteDirContents(java.io.File dir) {
+        if (dir == null || !dir.isDirectory()) return;
+        java.io.File[] children = dir.listFiles();
+        if (children != null) {
+            for (java.io.File child : children) {
+                if (child.isDirectory()) {
+                    deleteDirContents(child);
+                }
+                child.delete();
+            }
         }
     }
 

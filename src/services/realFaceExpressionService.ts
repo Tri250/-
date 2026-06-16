@@ -6,6 +6,7 @@
 // ============================================
 
 import type { FaceExpression, FaceAnalysis, FacialLandmark, ExpressionConfig } from '../types/face';
+import { logger } from '@/lib/logger';
 
 // 表情配置
 const expressionConfig: Record<FaceExpression, ExpressionConfig> = {
@@ -87,12 +88,12 @@ class RealFaceExpressionService {
   async initialize(): Promise<void> {
     if (this.isModelLoaded) return;
     
-    console.log('Initializing real face expression service...');
+    logger.log('Initializing real face expression service...');
     
     // 使用基于像素分析的算法，无需加载外部模型
     // 这样可以确保离线可用且响应快速
     this.isModelLoaded = true;
-    console.log('Face expression service initialized successfully');
+    logger.log('Face expression service initialized successfully');
   }
 
   // 真实的表情分析 - 基于图像特征提取

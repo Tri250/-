@@ -13,7 +13,7 @@ vi.stubGlobal('navigator', {
   clipboard: mockNavigatorClipboard,
   mediaDevices: {
     getUserMedia: vi.fn().mockResolvedValue({
-      getTracks: () => [],
+      getTracks: () => [] as MediaStreamTrack[],
     }),
   },
 });

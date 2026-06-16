@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { Reminder, ReminderType, REMINDER_TYPES as _REMINDER_TYPES, NotificationChannel } from '../types/reminder';
+import { logger } from '@/lib/logger';
 
 interface ReminderStore {
   reminders: Reminder[];
@@ -260,7 +261,7 @@ export const useReminderStore = create<ReminderStore>((set, get) => ({
       for (const channel of channels) {
         switch (channel) {
           case 'app':
-            console.log('发送应用内通知:', notificationContent);
+            logger.log('发送应用内通知:', notificationContent);
             break;
           case 'push':
             if ('Notification' in window && Notification.permission === 'granted') {
@@ -272,13 +273,13 @@ export const useReminderStore = create<ReminderStore>((set, get) => ({
             }
             break;
           case 'email':
-            console.log('发送邮件通知:', notificationContent);
+            logger.log('发送邮件通知:', notificationContent);
             break;
           case 'sms':
-            console.log('发送短信通知:', notificationContent);
+            logger.log('发送短信通知:', notificationContent);
             break;
           case 'wechat':
-            console.log('发送微信通知:', notificationContent);
+            logger.log('发送微信通知:', notificationContent);
             break;
         }
       }

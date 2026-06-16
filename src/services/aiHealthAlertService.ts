@@ -623,7 +623,7 @@ class AIHealthAlertService {
       history.push({
         date: date.toISOString().split('T')[0],
         weight: Math.round((baseWeight + weightVariation) * 100) / 100,
-        trend: weightVariation > 0.02 ? 'gaining' : weightVariation < -0.02 ? 'losing' : 'stable'
+        trend: (weightVariation > 0.02 ? 'gaining' : weightVariation < -0.02 ? 'losing' : 'stable') as 'stable' | 'gaining' | 'losing'
       });
     }
     

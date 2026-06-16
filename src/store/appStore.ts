@@ -184,7 +184,7 @@ export const useAppStore = create<AppState>()(
         avatarUrl: '',
         type: 'cat' as const,
       },
-      analyses: [],
+      analyses: [] as Analysis[],
       healthAlerts: [{
         id: '1',
         petId: '1',

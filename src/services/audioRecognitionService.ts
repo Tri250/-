@@ -7,6 +7,7 @@
 // ============================================
 
 import type { AudioEvent, SoundEmotion, AudioAnalysis, YAMNetCategory } from '../types/audio';
+import { logger } from '@/lib/logger';
 
 const MOCK_DELAY = 500;
 
@@ -137,14 +138,14 @@ class AudioRecognitionService {
   // 初始化音频识别
   async initialize(): Promise<void> {
     await this.simulateDelay(MOCK_DELAY);
-    console.log('Audio recognition service initialized');
+    logger.log('Audio recognition service initialized');
   }
 
   // 开始监听
   async startListening(petId: string): Promise<void> {
     await this.simulateDelay(MOCK_DELAY);
     this.isListening = true;
-    console.log(`Started listening for pet ${petId}`);
+    logger.log(`Started listening for pet ${petId}`);
     
     // 模拟定期分析
     this.simulateAudioAnalysis(petId);
@@ -154,7 +155,7 @@ class AudioRecognitionService {
   async stopListening(): Promise<void> {
     await this.simulateDelay(200);
     this.isListening = false;
-    console.log('Stopped listening');
+    logger.log('Stopped listening');
   }
 
   // 模拟音频分析流程
