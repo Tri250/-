@@ -9,6 +9,7 @@ ext {
     androidxBrowserVersion = '1.8.0'
     androidxLocalBroadcastManagerVersion = '1.1.0'
     androidxCoordinatorLayoutVersion = '1.2.0'
+    androidxBiometricVersion = '1.1.0'
     firebaseMessagingVersion = '24.1.0'
     playServicesLocationVersion = '21.3.0'
     junitVersion = '4.13.2'

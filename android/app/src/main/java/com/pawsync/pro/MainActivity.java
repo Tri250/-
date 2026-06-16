@@ -9,14 +9,9 @@ import android.view.Window;
 import android.view.WindowInsetsController;
 import android.webkit.WebView;
 import android.webkit.WebSettings;
-import android.webkit.WebViewClient;
 import android.graphics.Color;
 import androidx.core.splashscreen.SplashScreen;
 import androidx.core.view.WindowCompat;
-import androidx.core.view.WindowInsetsCompat;
-import androidx.core.view.ViewCompat;
-import androidx.core.view.OnApplyWindowInsetsListener;
-import androidx.appcompat.app.AppCompatDelegate;
 
 import com.getcapacitor.BridgeActivity;
 
@@ -168,7 +163,7 @@ public class MainActivity extends BridgeActivity {
     protected void onStop() {
         super.onStop();
         // 应用进入后台时，通知 WebView
-        if (nativeBridge != null) {
+        if (nativeBridge != null && getBridge() != null && getBridge().getWebView() != null) {
             getBridge().getWebView().evaluateJavascript(
                 "window.dispatchEvent(new CustomEvent('appBackground'))", null);
         }
