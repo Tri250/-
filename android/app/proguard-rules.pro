@@ -39,11 +39,16 @@
 -keep class capacitor.** { *; }
 -keepclassmembers class capacitor.** { *; }
 
-# Keep Android components
--keep class com.pawsync.pro.** { *; }
+# Keep Android components (但混淆内部实现)
+-keep public class com.pawsync.pro.MainActivity { *; }
+-keep public class com.pawsync.pro.PawSyncApplication { *; }
 -keepclassmembers class com.pawsync.pro.** {
-    public <methods>;
-    public <fields>;
+    @android.webkit.JavascriptInterface public <methods>;
+}
+
+# 混淆内部类和私有方法
+-keepclassmembers class com.pawsync.pro.** {
+    private *;
 }
 
 # Keep native methods

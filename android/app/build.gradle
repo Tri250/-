@@ -14,7 +14,7 @@ android {
             keyPassword 'android'
         }
         release {
-            // 从环境变量或keystore.properties读取签名配置
+            // 从 keystore.properties 读取签名配置（不硬编码密码）
             def keystorePropertiesFile = rootProject.file('keystore.properties')
             if (keystorePropertiesFile.exists()) {
                 def keystoreProperties = new Properties()
@@ -24,11 +24,24 @@ android {
                 keyAlias keystoreProperties['keyAlias']
                 keyPassword keystoreProperties['keyPassword']
             } else {
-                // 使用环境变量（CI/CD）
-                storeFile file(System.getenv('KEYSTORE_FILE') ?: 'release.keystore')
-                storePassword System.getenv('KEYSTORE_PASSWORD') ?: ''
-                keyAlias System.getenv('KEY_ALIAS') ?: 'pawsync'
-                keyPassword System.getenv('KEY_PASSWORD') ?: ''
+                // CI/CD 环境使用环境变量
+                // 如果环境变量未设置，构建将失败（安全设计）
+                def keystoreFile = System.getenv('KEYSTORE_FILE')
+                def keystorePassword = System.getenv('KEYSTORE_PASSWORD')
+                def keyAlias = System.getenv('KEY_ALIAS')
+                def keyPassword = System.getenv('KEY_PASSWORD')
+                
+                if (keystoreFile && keystorePassword && keyAlias && keyPassword) {
+                    storeFile file(keystoreFile)
+                    storePassword keystorePassword
+                    keyAlias keyAlias
+                    keyPassword keyPassword
+                } else {
+                    // 安全警告：缺少签名配置
+                    throw new GradleException("Release signing config missing. " +
+                        "Please provide keystore.properties or set environment variables: " +
+                        "KEYSTORE_FILE, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD")
+                }
             }
         }
     }
@@ -59,8 +72,8 @@ android {
     }
     
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_21
-        targetCompatibility JavaVersion.VERSION_21
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
         coreLibraryDesugaringEnabled true
     }
     

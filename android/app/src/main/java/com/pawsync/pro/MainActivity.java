@@ -277,9 +277,12 @@ public class MainActivity extends BridgeActivity {
         settings.setUseWideViewPort(true);
         settings.setLoadWithOverviewMode(true);
 
-        // 允许文件访问（用于 WebView 内图片上传）
-        settings.setAllowFileAccess(true);
-        settings.setAllowContentAccess(true);
+        // 文件访问安全配置
+        // 仅允许从应用私有目录加载文件
+        settings.setAllowFileAccess(false);  // 禁止通用文件访问
+        settings.setAllowContentAccess(true); // 仅允许 ContentProvider 访问
+        settings.setAllowFileAccessFromFileURLs(false); // 禁止 file:// URL 访问本地文件
+        settings.setAllowUniversalAccessFromFileURLs(false); // 禁止 file:// URL 访问任何源
 
         // 设置用户代理
         String userAgent = settings.getUserAgentString();

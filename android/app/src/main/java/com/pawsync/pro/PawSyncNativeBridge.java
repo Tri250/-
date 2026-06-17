@@ -79,8 +79,19 @@ public class PawSyncNativeBridge {
 
     @JavascriptInterface
     public void authenticateBiometric(String title, String subtitle) {
+        // 参数验证
+        if (title == null || title.isEmpty()) {
+            title = "身份验证";
+        }
+        if (subtitle == null || subtitle.isEmpty()) {
+            subtitle = "请验证您的身份";
+        }
+        // 限制参数长度防止滥用
+        final String safeTitle = title.length() > 50 ? title.substring(0, 50) : title;
+        final String safeSubtitle = subtitle.length() > 100 ? subtitle.substring(0, 100) : subtitle;
+        
         activity.runOnUiThread(() -> {
-            biometricHelper.authenticate(title, subtitle,
+            biometricHelper.authenticate(safeTitle, safeSubtitle,
                 new BiometricAuthHelper.BiometricAuthCallback() {
                     @Override
                     public void onSuccess() {
@@ -253,6 +264,15 @@ public class PawSyncNativeBridge {
 
     @JavascriptInterface
     public void setStatusBarColor(String color) {
+        // 参数验证：只允许有效的颜色格式
+        if (color == null || color.isEmpty()) {
+            return;
+        }
+        // 验证颜色格式（#RRGGBB 或 #AARRGGBB）
+        if (!color.matches("^#[0-9A-Fa-f]{6,8}$")) {
+            Log.w(TAG, "Invalid status bar color format: " + color);
+            return;
+        }
         activity.runOnUiThread(() -> {
             try {
                 int c = android.graphics.Color.parseColor(color);
@@ -265,6 +285,15 @@ public class PawSyncNativeBridge {
 
     @JavascriptInterface
     public void setNavigationBarColor(String color) {
+        // 参数验证：只允许有效的颜色格式
+        if (color == null || color.isEmpty()) {
+            return;
+        }
+        // 验证颜色格式（#RRGGBB 或 #AARRGGBB）
+        if (!color.matches("^#[0-9A-Fa-f]{6,8}$")) {
+            Log.w(TAG, "Invalid nav bar color format: " + color);
+            return;
+        }
         activity.runOnUiThread(() -> {
             try {
                 int c = android.graphics.Color.parseColor(color);
@@ -281,10 +310,15 @@ public class PawSyncNativeBridge {
 
     @JavascriptInterface
     public void setScreenBrightness(float brightness) {
+        // 参数验证：亮度范围 0.01 - 1.0
+        if (brightness < 0.01f || brightness > 1.0f) {
+            Log.w(TAG, "Invalid brightness value: " + brightness);
+            return;
+        }
         activity.runOnUiThread(() -> {
             android.view.Window window = activity.getWindow();
             android.view.WindowManager.LayoutParams lp = window.getAttributes();
-            lp.screenBrightness = Math.max(0.01f, Math.min(1f, brightness));
+            lp.screenBrightness = brightness;
             window.setAttributes(lp);
         });
     }
@@ -327,7 +361,16 @@ public class PawSyncNativeBridge {
 
     private void callJS(String js) {
         if (webView != null) {
-            webView.post(() -> webView.evaluateJavascript(js, null));
+            // 安全检查：只允许特定的事件调用
+            if (js == null || !js.startsWith("window.dispatchEvent")) {
+                Log.w(TAG, "Blocked potentially unsafe JS call");
+                return;
+            }
+            // 移除可能的危险字符
+            String sanitizedJs = js.replace("<", "&lt;")
+                                    .replace(">", "&gt;")
+                                    .replace("'", "\\'");
+            webView.post(() -> webView.evaluateJavascript(sanitizedJs, null));
         }
     }
 
@@ -344,12 +387,21 @@ public class PawSyncNativeBridge {
         batteryFilter.addAction(Intent.ACTION_BATTERY_LOW);
         batteryFilter.addAction(Intent.ACTION_POWER_CONNECTED);
         batteryFilter.addAction(Intent.ACTION_POWER_DISCONNECTED);
-        activity.registerReceiver(batteryReceiver, batteryFilter);
+        // Android 13+ 需要指定导出状态
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            activity.registerReceiver(batteryReceiver, batteryFilter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            activity.registerReceiver(batteryReceiver, batteryFilter);
+        }
 
         // 网络状态接收器
         connectivityReceiver = new ConnectivityReceiver();
         IntentFilter networkFilter = new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION);
-        activity.registerReceiver(connectivityReceiver, networkFilter);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            activity.registerReceiver(connectivityReceiver, networkFilter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            activity.registerReceiver(connectivityReceiver, networkFilter);
+        }
     }
 
     private void unregisterReceivers() {
