@@ -1,33 +1,67 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- 主题色：与 Web 端 Tailwind orange-400 / orange-500 完全一致 -->
+    <!-- PawSync 主题色 (与 Web 端 Tailwind orange-400/500 一致) -->
     <color name="colorPrimary">#f97316</color>
     <color name="colorPrimaryDark">#ea580c</color>
     <color name="colorAccent">#f97316</color>
-
-    <!-- 背景色：与 Web 端 neutral-50 一致 -->
-    <color name="colorBackground">#f8fafc</color>
+    <color name="colorBackground">#fafafa</color>
     <color name="colorSurface">#ffffff</color>
-
-    <!-- 文字色 -->
     <color name="colorOnPrimary">#ffffff</color>
     <color name="colorOnBackground">#1f2937</color>
     <color name="colorOnSurface">#1f2937</color>
-
-    <!-- 导航栏色 -->
-    <color name="colorNavigationBar">#f97316</color>
+    <color name="colorNavigationBar">#ffffff</color>
     <color name="colorNavigationBarDivider">#e5e7eb</color>
+    <color name="colorStatusBar">#fafafa</color>
 
-    <!-- 状态栏色 -->
-    <color name="colorStatusBar">#f97316</color>
+    <!-- 主题色系列 -->
+    <color name="primary">#f97316</color>
+    <color name="primary_dark">#ea580c</color>
+    <color name="primary_light">#fed7aa</color>
+    <color name="primary_50">#fff7ed</color>
+    <color name="primary_100">#ffedd5</color>
+    <color name="primary_200">#fed7aa</color>
+    <color name="primary_300">#fdba74</color>
+    <color name="primary_400">#fb923c</color>
+    <color name="primary_500">#f97316</color>
+    <color name="primary_600">#ea580c</color>
+    <color name="primary_700">#c2410c</color>
+    <color name="primary_800">#9a3412</color>
+    <color name="primary_900">#7c2d12</color>
 
-    <!-- 暗色模式 -->
-    <color name="colorPrimaryDarkMode">#f97316</color>
-    <color name="colorPrimaryDarkDarkMode">#ea580c</color>
-    <color name="colorBackgroundDark">#0f172a</color>
-    <color name="colorSurfaceDark">#1e293b</color>
-    <color name="colorOnBackgroundDark">#e2e8f0</color>
-    <color name="colorOnSurfaceDark">#e2e8f0</color>
-    <color name="colorStatusBarDark">#0f172a</color>
-    <color name="colorNavigationBarDark">#1e293b</color>
+    <!-- 背景色 -->
+    <color name="background">#fafafa</color>
+    <color name="background_dark">#121212</color>
+    <color name="card_background">#ffffff</color>
+    <color name="card_background_dark">#1e1e1e</color>
+
+    <!-- 文字颜色 -->
+    <color name="text_primary">#1f2937</color>
+    <color name="text_secondary">#6b7280</color>
+    <color name="text_tertiary">#9ca3af</color>
+    <color name="text_primary_dark">#f3f4f6</color>
+    <color name="text_secondary_dark">#d1d5db</color>
+
+    <!-- 导航栏 -->
+    <color name="nav_background">#ffffff</color>
+    <color name="nav_background_dark">#1e1e1e</color>
+    <color name="nav_bar_color">#ffffff</color>
+    <color name="nav_active">#f97316</color>
+    <color name="nav_inactive">#9ca3af</color>
+
+    <!-- 状态颜色 -->
+    <color name="success">#22c55e</color>
+    <color name="warning">#eab308</color>
+    <color name="error">#ef4444</color>
+    <color name="info">#3b82f6</color>
+
+    <!-- 健康状态 -->
+    <color name="health_good">#22c55e</color>
+    <color name="health_warning">#f59e0b</color>
+    <color name="health_alert">#ef4444</color>
+
+    <!-- 情感颜色 -->
+    <color name="emotion_happy">#22c55e</color>
+    <color name="emotion_neutral">#f59e0b</color>
+    <color name="emotion_sad">#6366f1</color>
+    <color name="emotion_anxious">#ef4444</color>
 </resources>

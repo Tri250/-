@@ -1,136 +1,68 @@
 package com.pawsync.pro;
 
 import android.app.Application;
-import android.content.Context;
-import android.content.res.Configuration;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.os.Build;
-import android.webkit.WebView;
 
-import androidx.appcompat.app.AppCompatDelegate;
-
+/**
+ * PawSync 应用主类
+ * 纯原生 Android 实现
+ */
 public class PawSyncApplication extends Application {
-
-    private static PawSyncApplication instance;
-    private NotificationChannelHelper notificationHelper;
 
     @Override
     public void onCreate() {
         super.onCreate();
-        instance = this;
-
-        // 启用暗色模式支持（跟随系统设置）
-        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM);
-
-        // 创建原生通知渠道
-        notificationHelper = new NotificationChannelHelper(this);
-        notificationHelper.createAllChannels();
-
-        // 初始化WebView数据目录（Android 9+）
-        initWebViewDataDirectory();
-
-        // 内存优化配置
-        configureMemoryOptimization();
-
-        // 预初始化 WebView 引擎（减少首次加载延迟）
-        prewarmWebView();
+        
+        // 创建通知渠道
+        createNotificationChannels();
     }
 
-    private void initWebViewDataDirectory() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            try {
-                WebView.setDataDirectorySuffix("pawsync_webview");
-            } catch (Exception e) {
-                // 忽略配置错误
-            }
+    /**
+     * 创建通知渠道（Android 8.0+）
+     */
+    private void createNotificationChannels() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationManager manager = getSystemService(NotificationManager.class);
+            
+            // 健康告警渠道
+            NotificationChannel healthAlertChannel = new NotificationChannel(
+                "health_alert",
+                "健康告警",
+                NotificationManager.IMPORTANCE_HIGH
+            );
+            healthAlertChannel.setDescription("宠物健康状态告警通知");
+            healthAlertChannel.enableLights(true);
+            healthAlertChannel.setLightColor(getColor(R.color.health_alert));
+            manager.createNotificationChannel(healthAlertChannel);
+            
+            // 智能提醒渠道
+            NotificationChannel reminderChannel = new NotificationChannel(
+                "smart_reminder",
+                "智能提醒",
+                NotificationManager.IMPORTANCE_DEFAULT
+            );
+            reminderChannel.setDescription("喂食、运动等日常提醒");
+            manager.createNotificationChannel(reminderChannel);
+            
+            // 情感分析渠道
+            NotificationChannel emotionChannel = new NotificationChannel(
+                "emotion_analysis",
+                "情感分析",
+                NotificationManager.IMPORTANCE_LOW
+            );
+            emotionChannel.setDescription("宠物情感状态分析通知");
+            manager.createNotificationChannel(emotionChannel);
+            
+            // 通用通知渠道
+            NotificationChannel generalChannel = new NotificationChannel(
+                "general",
+                "通用通知",
+                NotificationManager.IMPORTANCE_DEFAULT
+            );
+            generalChannel.setDescription("应用通用通知");
+            manager.createNotificationChannel(generalChannel);
         }
-    }
-
-    private void prewarmWebView() {
-        // 在后台线程预初始化 WebView 引擎
-        new Thread(() -> {
-            try {
-                // 触发 WebView 引擎初始化，加速首次加载
-                WebView webView = new WebView(this);
-                webView.destroy();
-            } catch (Exception e) {
-                // 忽略预热错误
-            }
-        }, "WebViewPrewarm").start();
-    }
-
-    private void configureMemoryOptimization() {
-        // 内存优化：设置线程优先级
-        Thread.currentThread().setPriority(Thread.NORM_PRIORITY);
-
-        // 低内存设备优化
-        if (isLowMemoryDevice()) {
-            System.setProperty("java.util.concurrent.ForkJoinPool.common.parallelism", "2");
-        }
-    }
-
-    private boolean isLowMemoryDevice() {
-        android.app.ActivityManager am = (android.app.ActivityManager)
-            getSystemService(Context.ACTIVITY_SERVICE);
-        return am != null && am.isLowRamDevice();
-    }
-
-    @Override
-    public void onLowMemory() {
-        super.onLowMemory();
-        // 低内存时清理缓存
-        clearCache();
-    }
-
-    @Override
-    public void onTrimMemory(int level) {
-        super.onTrimMemory(level);
-        // 根据内存压力级别清理资源
-        switch (level) {
-            case TRIM_MEMORY_RUNNING_LOW:
-            case TRIM_MEMORY_RUNNING_CRITICAL:
-                // 运行时内存紧张，清理非关键资源
-                clearCache();
-                break;
-            case TRIM_MEMORY_UI_HIDDEN:
-                // UI隐藏，可以释放更多资源
-                clearCache();
-                System.gc();
-                break;
-            case TRIM_MEMORY_MODERATE:
-            case TRIM_MEMORY_COMPLETE:
-                // 内存严重不足，积极清理
-                clearCache();
-                System.gc();
-                break;
-        }
-    }
-
-    private void clearCache() {
-        try {
-            // 递归删除缓存目录内容
-            deleteDirContents(getCacheDir());
-            if (getExternalCacheDir() != null) {
-                deleteDirContents(getExternalCacheDir());
-            }
-        } catch (Exception e) {
-            // 忽略清理错误
-        }
-    }
-
-    private void deleteDirContents(java.io.File dir) {
-        if (dir == null || !dir.isDirectory()) return;
-        java.io.File[] children = dir.listFiles();
-        if (children != null) {
-            for (java.io.File child : children) {
-                if (child.isDirectory()) {
-                    deleteDirContents(child);
-                }
-                child.delete();
-            }
-        }
-    }
-
-    public static PawSyncApplication getInstance() {
-        return instance;
     }
 }

@@ -1,293 +1,161 @@
 package com.pawsync.pro;
 
-import android.content.res.Configuration;
-import android.os.Build;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.View;
-import android.view.Window;
 import android.view.WindowInsetsController;
-import android.webkit.WebView;
-import android.webkit.WebSettings;
-import android.graphics.Color;
+
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.splashscreen.SplashScreen;
-import androidx.core.view.WindowCompat;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
+import androidx.fragment.app.FragmentTransaction;
 
-import com.getcapacitor.BridgeActivity;
+import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.pawsync.pro.databinding.ActivityMainBinding;
+import com.pawsync.pro.ui.fragment.HomeFragment;
+import com.pawsync.pro.ui.fragment.HealthFragment;
+import com.pawsync.pro.ui.fragment.EmotionFragment;
+import com.pawsync.pro.ui.fragment.MonitorFragment;
+import com.pawsync.pro.ui.fragment.ProfileFragment;
 
-public class MainActivity extends BridgeActivity {
-    private static final String TAG = "PawSyncMain";
+/**
+ * PawSync 主 Activity
+ * 纯原生 Android 实现，使用 Fragment 导航
+ */
+public class MainActivity extends AppCompatActivity {
 
-    private PawSyncNativeBridge nativeBridge;
+    private ActivityMainBinding binding;
+    private FragmentManager fragmentManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        // 安装启动画面（必须在 super.onCreate 之前）
-        SplashScreen splashScreen = SplashScreen.installSplashScreen(this);
-
-        // 启动画面退出条件：WebView 加载完成后才退出
-        splashScreen.setKeepOnScreenCondition(() -> {
-            return getBridge() == null || getBridge().getWebView() == null;
-        });
-
-        splashScreen.setOnExitAnimationListener(splashScreenView -> {
-            splashScreenView.remove();
-        });
-
+        // 安装启动屏幕
+        SplashScreen.installSplashScreen(this);
+        
         super.onCreate(savedInstanceState);
+        binding = ActivityMainBinding.inflate(getLayoutInflater());
+        setContentView(binding.getRoot());
 
-        // 启用边到边显示（Android 15+ 默认行为）
-        enableEdgeToEdge();
+        // Edge-to-Edge 显示
+        setupEdgeToEdge();
 
-        // 根据当前主题模式设置状态栏
-        applyThemeMode();
+        // 初始化 Fragment 管理
+        fragmentManager = getSupportFragmentManager();
 
-        // 优化窗口渲染
-        optimizeWindowRendering();
-    }
+        // 设置底部导航
+        setupBottomNavigation();
 
-    /**
-     * 初始化原生桥接（在 WebView 就绪后调用）
-     */
-    private void initNativeBridge() {
-        if (getBridge() != null && getBridge().getWebView() != null) {
-            WebView webView = getBridge().getWebView();
-            nativeBridge = new PawSyncNativeBridge(this, webView);
-            nativeBridge.register();
-            Log.i(TAG, "Native bridge initialized");
+        // 默认显示首页
+        if (savedInstanceState == null) {
+            navigateToFragment(new HomeFragment(), "home");
         }
     }
 
     /**
-     * 启用边到边（Edge-to-Edge）显示
-     * 让 WebView 内容延伸到状态栏和导航栏下方
+     * 设置 Edge-to-Edge 显示模式
      */
-    private void enableEdgeToEdge() {
-        Window window = getWindow();
+    private void setupEdgeToEdge() {
+        // 状态栏透明
+        getWindow().setStatusBarColor(android.graphics.Color.TRANSPARENT);
+        getWindow().setNavigationBarColor(getColor(R.color.nav_bar_color));
 
-        // 设置内容延伸到系统栏
-        WindowCompat.setDecorFitsSystemWindows(window, false);
-
-        // 设置导航栏透明
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            window.setNavigationBarColor(Color.TRANSPARENT);
-            window.setStatusBarColor(Color.TRANSPARENT);
-        }
-
-        // 设置系统栏图标颜色
-        WindowInsetsController controller = window.getInsetsController();
+        // 状态栏图标颜色（根据主题）
+        WindowInsetsController controller = getWindow().getInsetsController();
         if (controller != null) {
-            // 浅色背景：深色图标
-            int currentNightMode = getResources().getConfiguration().uiMode
-                & Configuration.UI_MODE_NIGHT_MASK;
-            boolean isDark = currentNightMode == Configuration.UI_MODE_NIGHT_YES;
-
-            if (isDark) {
-                controller.setSystemBarsAppearance(0,
-                    WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
-                    | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS);
-            } else {
-                controller.setSystemBarsAppearance(
-                    WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
-                    | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS,
-                    WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
-                    | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS);
-            }
-        }
-    }
-
-    /**
-     * 根据当前主题模式应用颜色
-     */
-    private void applyThemeMode() {
-        int currentNightMode = getResources().getConfiguration().uiMode
-            & Configuration.UI_MODE_NIGHT_MASK;
-        boolean isDark = currentNightMode == Configuration.UI_MODE_NIGHT_YES;
-
-        // 通知 WebView 当前主题模式
-        applyThemeToWebView(isDark);
-    }
-
-    /**
-     * 通过 JavaScript 接口将主题信息传递给 WebView
-     */
-    private void applyThemeToWebView(boolean isDark) {
-        if (getBridge() != null && getBridge().getWebView() != null) {
-            WebView webView = getBridge().getWebView();
-            String theme = isDark ? "dark" : "light";
-            webView.evaluateJavascript(
-                "document.documentElement.classList." + (isDark ? "add" : "remove") + "('dark');" +
-                "window.dispatchEvent(new CustomEvent('themeChange', { detail: { theme: '" + theme + "' } }));",
-                null
+            // Android R+ 使用新的 API
+            controller.setSystemBarsAppearance(
+                WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS,
+                WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
             );
         }
     }
 
-    private void optimizeWindowRendering() {
-        Window window = getWindow();
+    /**
+     * 设置底部导航栏
+     */
+    private void setupBottomNavigation() {
+        binding.bottomNavigation.setOnItemSelectedListener(item -> {
+            Fragment fragment = null;
+            String tag = null;
+            
+            int itemId = item.getItemId();
+            if (itemId == R.id.nav_home) {
+                fragment = new HomeFragment();
+                tag = "home";
+            } else if (itemId == R.id.nav_health) {
+                fragment = new HealthFragment();
+                tag = "health";
+            } else if (itemId == R.id.nav_emotion) {
+                fragment = new EmotionFragment();
+                tag = "emotion";
+            } else if (itemId == R.id.nav_monitor) {
+                fragment = new MonitorFragment();
+                tag = "monitor";
+            } else if (itemId == R.id.nav_profile) {
+                fragment = new ProfileFragment();
+                tag = "profile";
+            }
 
-        // 硬件加速（默认已启用，显式确保）
-        window.setFlags(
-            android.view.WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
-            android.view.WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
-        );
+            if (fragment != null) {
+                navigateToFragment(fragment, tag);
+                return true;
+            }
+            return false;
+        });
+    }
 
-        // 设置窗口背景为透明（边到边模式）
-        window.setBackgroundDrawable(null);
+    /**
+     * 导航到指定 Fragment
+     */
+    private void navigateToFragment(@NonNull Fragment fragment, @NonNull String tag) {
+        FragmentTransaction transaction = fragmentManager.beginTransaction();
+        
+        // 查找现有 Fragment
+        Fragment existing = fragmentManager.findFragmentByTag(tag);
+        if (existing != null) {
+            // 显示已存在的 Fragment
+            transaction.show(existing);
+            // 隐藏其他 Fragment
+            for (Fragment f : fragmentManager.getFragments()) {
+                if (f != existing && f.isAdded()) {
+                    transaction.hide(f);
+                }
+            }
+        } else {
+            // 添加新 Fragment
+            transaction.add(R.id.fragment_container, fragment, tag);
+            // 隐藏其他 Fragment
+            for (Fragment f : fragmentManager.getFragments()) {
+                if (f.isAdded()) {
+                    transaction.hide(f);
+                }
+            }
+        }
+        
+        transaction.commitAllowingStateLoss();
+    }
+
+    /**
+     * 公开导航方法（供 Fragment 调用）
+     */
+    public void navigateTo(int itemId) {
+        binding.bottomNavigation.setSelectedItemId(itemId);
     }
 
     @Override
-    public void onResume() {
+    protected void onResume() {
         super.onResume();
-
-        // 应用回到前台时重新检查主题
-        applyThemeMode();
-
-        // 恢复 WebView 状态
-        if (getBridge() != null && getBridge().getWebView() != null) {
-            getBridge().getWebView().onResume();
-        }
     }
 
     @Override
-    public void onPause() {
+    protected void onPause() {
         super.onPause();
-
-        // 暂停 WebView 以节省资源
-        if (getBridge() != null && getBridge().getWebView() != null) {
-            getBridge().getWebView().onPause();
-        }
     }
 
     @Override
-    public void onStop() {
-        super.onStop();
-        // 应用进入后台时，通知 WebView
-        if (nativeBridge != null && getBridge() != null && getBridge().getWebView() != null) {
-            getBridge().getWebView().evaluateJavascript(
-                "window.dispatchEvent(new CustomEvent('appBackground'))", null);
-        }
-    }
-
-    @Override
-    public void onDestroy() {
+    protected void onDestroy() {
         super.onDestroy();
-        // 注销原生桥接
-        if (nativeBridge != null) {
-            nativeBridge.unregister();
-            nativeBridge = null;
-        }
-    }
-
-    @Override
-    public void onBackPressed() {
-        // 先让 WebView 处理返回键（支持 Web 端路由导航）
-        if (getBridge() != null && getBridge().getWebView() != null) {
-            WebView webView = getBridge().getWebView();
-            if (webView.canGoBack()) {
-                webView.goBack();
-                return;
-            }
-            // 通知 Web 端有返回键事件
-            webView.evaluateJavascript(
-                "window.dispatchEvent(new CustomEvent('androidBackPressed'))", null);
-        }
-        // 如果 Web 端没有处理，则退出 Activity
-        super.onBackPressed();
-    }
-
-    @Override
-    public void onConfigurationChanged(Configuration newConfig) {
-        super.onConfigurationChanged(newConfig);
-
-        // 主题切换时更新系统栏
-        int currentNightMode = newConfig.uiMode & Configuration.UI_MODE_NIGHT_MASK;
-        boolean isDark = currentNightMode == Configuration.UI_MODE_NIGHT_YES;
-
-        WindowInsetsController controller = getWindow().getInsetsController();
-        if (controller != null) {
-            if (isDark) {
-                controller.setSystemBarsAppearance(0,
-                    WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
-                    | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS);
-            } else {
-                controller.setSystemBarsAppearance(
-                    WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
-                    | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS,
-                    WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
-                    | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS);
-            }
-        }
-
-        applyThemeToWebView(isDark);
-    }
-
-    @Override
-    public void onWindowFocusChanged(boolean hasFocus) {
-        super.onWindowFocusChanged(hasFocus);
-        if (hasFocus) {
-            optimizeWebView();
-        }
-    }
-
-    private void optimizeWebView() {
-        if (getBridge() == null) {
-            Log.w(TAG, "Bridge not yet initialized, skipping WebView optimization");
-            return;
-        }
-        WebView webView = getBridge().getWebView();
-        if (webView == null) {
-            Log.w(TAG, "WebView not yet available, skipping optimization");
-            return;
-        }
-
-        // 初始化原生桥接（首次 WebView 就绪时）
-        if (nativeBridge == null) {
-            initNativeBridge();
-        }
-
-        // 启用硬件加速渲染
-        webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
-
-        WebSettings settings = webView.getSettings();
-
-        // 核心性能优化
-        settings.setLoadsImagesAutomatically(true);
-        settings.setBlockNetworkImage(false);
-        settings.setDomStorageEnabled(true);
-        settings.setDatabaseEnabled(true);
-        settings.setJavaScriptEnabled(true);
-        settings.setJavaScriptCanOpenWindowsAutomatically(false);
-
-        // Android 缓存优化
-        settings.setCacheMode(WebSettings.LOAD_DEFAULT);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            settings.setSafeBrowsingEnabled(true);
-        }
-
-        // 文本缩放优化
-        settings.setTextZoom(100);
-
-        // 混合内容安全
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        }
-
-        // 视口适配
-        settings.setUseWideViewPort(true);
-        settings.setLoadWithOverviewMode(true);
-
-        // 文件访问安全配置
-        // 仅允许从应用私有目录加载文件
-        settings.setAllowFileAccess(false);  // 禁止通用文件访问
-        settings.setAllowContentAccess(true); // 仅允许 ContentProvider 访问
-        settings.setAllowFileAccessFromFileURLs(false); // 禁止 file:// URL 访问本地文件
-        settings.setAllowUniversalAccessFromFileURLs(false); // 禁止 file:// URL 访问任何源
-
-        // 设置用户代理
-        String userAgent = settings.getUserAgentString();
-        if (userAgent != null && !userAgent.contains("PawSync")) {
-            settings.setUserAgentString(userAgent + " PawSync/1.0.0");
-        }
+        binding = null;
     }
 }
