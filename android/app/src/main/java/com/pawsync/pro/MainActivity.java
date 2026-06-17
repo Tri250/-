@@ -137,7 +137,7 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
-    protected void onResume() {
+    public void onResume() {
         super.onResume();
 
         // 应用回到前台时重新检查主题
@@ -150,7 +150,7 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
-    protected void onPause() {
+    public void onPause() {
         super.onPause();
 
         // 暂停 WebView 以节省资源
@@ -160,7 +160,7 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
-    protected void onStop() {
+    public void onStop() {
         super.onStop();
         // 应用进入后台时，通知 WebView
         if (nativeBridge != null && getBridge() != null && getBridge().getWebView() != null) {
@@ -170,7 +170,7 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
-    protected void onDestroy() {
+    public void onDestroy() {
         super.onDestroy();
         // 注销原生桥接
         if (nativeBridge != null) {
