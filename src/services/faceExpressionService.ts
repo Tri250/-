@@ -1,16 +1,6 @@
-// ============================================
-// PawSync Pro 3.0 - Face Expression Service
-//
-// 作者: 带娃的小陈工
-// 日期: 2026-05-27
-// 描述: 面部表情分析模块 - MediaPipe Face Mesh集成
-// ============================================
-
+import { PawSyncCamera } from '../plugins';
 import type { FaceExpression, FaceAnalysis, FacialLandmark, ExpressionConfig } from '../types/face';
 
-const MOCK_DELAY = 800;
-
-// 表情配置
 const expressionConfig: Record<FaceExpression, ExpressionConfig> = {
   relaxed: {
     label: '放松',
@@ -56,8 +46,7 @@ const expressionConfig: Record<FaceExpression, ExpressionConfig> = {
   }
 };
 
-// 动物面部关键点索引映射（简化版，针对猫狗面部特征）
-const _PET_FACE_LANDMARKS = {
+const PET_FACE_LANDMARKS = {
   cat: {
     leftEye: [33, 133],
     rightEye: [362, 263],
@@ -84,99 +73,37 @@ const _PET_FACE_LANDMARKS = {
 class FaceExpressionService {
   private faceAnalyses: FaceAnalysis[] = [];
   private isAnalyzing = false;
+  private videoElement: HTMLVideoElement | null = null;
+  private canvasElement: HTMLCanvasElement | null = null;
+  private animationFrameId: number | null = null;
 
-  constructor() {
-    this.initializeMockData();
-  }
-
-  private initializeMockData() {
-    const expressions: FaceExpression[] = ['relaxed', 'happy', 'curious', 'relaxed', 'tense'];
-    
-    for (let i = 0; i < 8; i++) {
-      const expression = expressions[i % expressions.length];
-      const config = expressionConfig[expression];
-      
-      this.faceAnalyses.push({
-        id: `face-analysis-${i}`,
-        petId: '1',
-        timestamp: new Date(Date.now() - i * 7200000).toISOString(),
-        expression,
-        confidence: 0.75 + Math.random() * 0.24,
-        petType: i % 2 === 0 ? 'cat' : 'dog',
-        landmarks: this.generateMockLandmarks(),
-        features: config.features.slice(0, 2),
-        description: config.description,
-        imageUrl: `https://picsum.photos/seed/face${i}/400/300`
-      });
-    }
-  }
-
-  private generateMockLandmarks(): FacialLandmark[] {
-    const landmarks: FacialLandmark[] = [];
-    
-    // 眼睛关键点
-    landmarks.push(
-      { x: 0.35, y: 0.42, z: -0.05, name: 'leftEyeInner' },
-      { x: 0.38, y: 0.41, z: -0.06, name: 'leftEyeTop' },
-      { x: 0.41, y: 0.42, z: -0.05, name: 'leftEyeOuter' },
-      { x: 0.38, y: 0.44, z: -0.04, name: 'leftEyeBottom' },
-      { x: 0.62, y: 0.42, z: -0.05, name: 'rightEyeInner' },
-      { x: 0.65, y: 0.41, z: -0.06, name: 'rightEyeTop' },
-      { x: 0.68, y: 0.42, z: -0.05, name: 'rightEyeOuter' },
-      { x: 0.65, y: 0.44, z: -0.04, name: 'rightEyeBottom' }
-    );
-
-    // 鼻子关键点
-    landmarks.push(
-      { x: 0.5, y: 0.52, z: -0.08, name: 'noseTip' },
-      { x: 0.48, y: 0.5, z: -0.06, name: 'noseLeft' },
-      { x: 0.52, y: 0.5, z: -0.06, name: 'noseRight' }
-    );
-
-    // 嘴巴关键点
-    landmarks.push(
-      { x: 0.42, y: 0.62, z: -0.05, name: 'mouthLeft' },
-      { x: 0.5, y: 0.64, z: -0.06, name: 'mouthTop' },
-      { x: 0.58, y: 0.62, z: -0.05, name: 'mouthRight' },
-      { x: 0.5, y: 0.68, z: -0.04, name: 'mouthBottom' }
-    );
-
-    // 耳朵关键点
-    landmarks.push(
-      { x: 0.22, y: 0.35, z: -0.15, name: 'leftEarTop' },
-      { x: 0.78, y: 0.35, z: -0.15, name: 'rightEarTop' },
-      { x: 0.25, y: 0.45, z: -0.1, name: 'leftEarBottom' },
-      { x: 0.75, y: 0.45, z: -0.1, name: 'rightEarBottom' }
-    );
-
-    return landmarks;
-  }
-
-  // 初始化面部分析
   async initialize(): Promise<void> {
-    await this.simulateDelay(MOCK_DELAY);
     console.log('Face expression service initialized');
   }
 
-  // 分析面部图像
   async analyzeFace(imageData: ImageData, petType: 'cat' | 'dog'): Promise<FaceAnalysis> {
-    await this.simulateDelay(MOCK_DELAY);
-
-    const expressions: FaceExpression[] = ['relaxed', 'happy', 'curious', 'tense', 'pain', 'aggressive'];
-    const expression = expressions[Math.floor(Math.random() * expressions.length)];
+    const landmarks = this.extractLandmarks(imageData, petType);
+    const eyeState = this.detectEyeState(landmarks);
+    const mouthState = this.detectMouthState(landmarks);
+    const earState = this.detectEarState(landmarks, petType);
+    
+    const expression = this.inferExpression(eyeState, mouthState, earState);
+    const confidence = this.calculateConfidence(eyeState, mouthState, earState, expression);
     const config = expressionConfig[expression];
+    
+    const features = this.extractKeyFeatures(expression, eyeState, mouthState, earState);
 
     const analysis: FaceAnalysis = {
       id: `face-analysis-${Date.now()}`,
       petId: '1',
       timestamp: new Date().toISOString(),
       expression,
-      confidence: 0.7 + Math.random() * 0.29,
+      confidence,
       petType,
-      landmarks: this.generateMockLandmarks(),
-      features: config.features.slice(0, Math.floor(Math.random() * 2) + 1),
+      landmarks,
+      features,
       description: config.description,
-      imageUrl: `https://picsum.photos/seed/${Date.now()}/400/300`
+      imageUrl: this.generateImageUrl(imageData),
     };
 
     this.faceAnalyses.unshift(analysis);
@@ -187,7 +114,161 @@ class FaceExpressionService {
     return analysis;
   }
 
-  // 检测眼睛状态
+  private extractLandmarks(imageData: ImageData, petType: 'cat' | 'dog'): FacialLandmark[] {
+    const landmarks: FacialLandmark[] = [];
+    const width = imageData.width;
+    const height = imageData.height;
+    
+    const faceCenterX = width * 0.5;
+    const faceCenterY = height * 0.45;
+    
+    const eyeOffsetX = width * 0.15;
+    const eyeOffsetY = height * 0.12;
+    
+    const eyeOpenness = this.calculateEyeOpenness(imageData);
+    const mouthOpenness = this.calculateMouthOpenness(imageData);
+    const earPosition = this.detectEarPosition(imageData, petType);
+
+    landmarks.push(
+      { x: faceCenterX - eyeOffsetX, y: faceCenterY - eyeOffsetY, z: -0.05, name: 'leftEyeInner' },
+      { x: faceCenterX - eyeOffsetX, y: faceCenterY - eyeOffsetY - eyeOpenness * 15, z: -0.06, name: 'leftEyeTop' },
+      { x: faceCenterX - eyeOffsetX, y: faceCenterY - eyeOffsetY + eyeOpenness * 15, z: -0.05, name: 'leftEyeOuter' },
+      { x: faceCenterX - eyeOffsetX, y: faceCenterY - eyeOffsetY + eyeOpenness * 10, z: -0.04, name: 'leftEyeBottom' },
+      { x: faceCenterX + eyeOffsetX, y: faceCenterY - eyeOffsetY, z: -0.05, name: 'rightEyeInner' },
+      { x: faceCenterX + eyeOffsetX, y: faceCenterY - eyeOffsetY - eyeOpenness * 15, z: -0.06, name: 'rightEyeTop' },
+      { x: faceCenterX + eyeOffsetX, y: faceCenterY - eyeOffsetY + eyeOpenness * 15, z: -0.05, name: 'rightEyeOuter' },
+      { x: faceCenterX + eyeOffsetX, y: faceCenterY - eyeOffsetY + eyeOpenness * 10, z: -0.04, name: 'rightEyeBottom' }
+    );
+
+    landmarks.push(
+      { x: faceCenterX, y: faceCenterY + height * 0.08, z: -0.08, name: 'noseTip' },
+      { x: faceCenterX - width * 0.03, y: faceCenterY + height * 0.05, z: -0.06, name: 'noseLeft' },
+      { x: faceCenterX + width * 0.03, y: faceCenterY + height * 0.05, z: -0.06, name: 'noseRight' }
+    );
+
+    const mouthY = faceCenterY + height * 0.22;
+    landmarks.push(
+      { x: faceCenterX - width * 0.08, y: mouthY, z: -0.05, name: 'mouthLeft' },
+      { x: faceCenterX, y: mouthY - mouthOpenness * 20, z: -0.06, name: 'mouthTop' },
+      { x: faceCenterX + width * 0.08, y: mouthY, z: -0.05, name: 'mouthRight' },
+      { x: faceCenterX, y: mouthY + mouthOpenness * 25, z: -0.04, name: 'mouthBottom' }
+    );
+
+    const earOffsetY = earPosition === 'forward' ? -height * 0.18 : earPosition === 'backward' ? height * 0.05 : -height * 0.12;
+    landmarks.push(
+      { x: width * 0.22, y: height * 0.25 + earOffsetY, z: -0.15, name: 'leftEarTop' },
+      { x: width * 0.78, y: height * 0.25 + earOffsetY, z: -0.15, name: 'rightEarTop' },
+      { x: width * 0.25, y: height * 0.4 + earOffsetY * 0.5, z: -0.1, name: 'leftEarBottom' },
+      { x: width * 0.75, y: height * 0.4 + earOffsetY * 0.5, z: -0.1, name: 'rightEarBottom' }
+    );
+
+    return landmarks;
+  }
+
+  private calculateEyeOpenness(imageData: ImageData): number {
+    const width = imageData.width;
+    const height = imageData.height;
+    const data = imageData.data;
+    
+    const leftEyeRegion = {
+      x: Math.floor(width * 0.3),
+      y: Math.floor(height * 0.35),
+      w: Math.floor(width * 0.12),
+      h: Math.floor(height * 0.08)
+    };
+    
+    const rightEyeRegion = {
+      x: Math.floor(width * 0.58),
+      y: Math.floor(height * 0.35),
+      w: Math.floor(width * 0.12),
+      h: Math.floor(height * 0.08)
+    };
+    
+    const leftBrightness = this.calculateRegionBrightness(data, width, leftEyeRegion);
+    const rightBrightness = this.calculateRegionBrightness(data, width, rightEyeRegion);
+    
+    const avgBrightness = (leftBrightness + rightBrightness) / 2;
+    
+    return Math.min(1, Math.max(0, (avgBrightness - 30) / 70));
+  }
+
+  private calculateMouthOpenness(imageData: ImageData): number {
+    const width = imageData.width;
+    const height = imageData.height;
+    const data = imageData.data;
+    
+    const mouthRegion = {
+      x: Math.floor(width * 0.4),
+      y: Math.floor(height * 0.55),
+      w: Math.floor(width * 0.2),
+      h: Math.floor(height * 0.15)
+    };
+    
+    const mouthBrightness = this.calculateRegionBrightness(data, width, mouthRegion);
+    const surroundingRegion = {
+      x: Math.floor(width * 0.4),
+      y: Math.floor(height * 0.45),
+      w: Math.floor(width * 0.2),
+      h: Math.floor(height * 0.08)
+    };
+    
+    const surroundingBrightness = this.calculateRegionBrightness(data, width, surroundingRegion);
+    
+    const brightnessDiff = surroundingBrightness - mouthBrightness;
+    
+    return Math.min(1, Math.max(0, brightnessDiff / 50));
+  }
+
+  private detectEarPosition(imageData: ImageData, petType: 'cat' | 'dog'): 'forward' | 'neutral' | 'backward' {
+    const width = imageData.width;
+    const height = imageData.height;
+    const data = imageData.data;
+    
+    const leftEarRegion = {
+      x: Math.floor(width * 0.15),
+      y: Math.floor(height * 0.15),
+      w: Math.floor(width * 0.12),
+      h: Math.floor(height * 0.2)
+    };
+    
+    const rightEarRegion = {
+      x: Math.floor(width * 0.73),
+      y: Math.floor(height * 0.15),
+      w: Math.floor(width * 0.12),
+      h: Math.floor(height * 0.2)
+    };
+    
+    const leftEarBrightness = this.calculateRegionBrightness(data, width, leftEarRegion);
+    const rightEarBrightness = this.calculateRegionBrightness(data, width, rightEarRegion);
+    
+    const avgEarBrightness = (leftEarBrightness + rightEarBrightness) / 2;
+    
+    if (avgEarBrightness > 120) return 'forward';
+    if (avgEarBrightness < 70) return 'backward';
+    return 'neutral';
+  }
+
+  private calculateRegionBrightness(data: Uint8ClampedArray, width: number, region: { x: number; y: number; w: number; h: number }): number {
+    let totalBrightness = 0;
+    let count = 0;
+    
+    for (let y = region.y; y < region.y + region.h; y++) {
+      for (let x = region.x; x < region.x + region.w; x++) {
+        if (y < 0 || y >= data.length / (width * 4) || x < 0 || x >= width) continue;
+        
+        const index = (y * width + x) * 4;
+        const r = data[index];
+        const g = data[index + 1];
+        const b = data[index + 2];
+        
+        totalBrightness += (r + g + b) / 3;
+        count++;
+      }
+    }
+    
+    return count > 0 ? totalBrightness / count : 0;
+  }
+
   private detectEyeState(landmarks: FacialLandmark[]): { leftEyeOpen: number; rightEyeOpen: number } {
     const leftEyeTop = landmarks.find(l => l.name === 'leftEyeTop');
     const leftEyeBottom = landmarks.find(l => l.name === 'leftEyeBottom');
@@ -207,7 +288,6 @@ class FaceExpressionService {
     };
   }
 
-  // 检测嘴巴状态
   private detectMouthState(landmarks: FacialLandmark[]): { mouthOpen: number; smiling: number } {
     const mouthTop = landmarks.find(l => l.name === 'mouthTop');
     const mouthBottom = landmarks.find(l => l.name === 'mouthBottom');
@@ -227,8 +307,7 @@ class FaceExpressionService {
     };
   }
 
-  // 检测耳朵状态
-  private detectEarState(landmarks: FacialLandmark[], _petType: 'cat' | 'dog'): { 
+  private detectEarState(landmarks: FacialLandmark[], petType: 'cat' | 'dog'): { 
     leftEarPosition: 'forward' | 'neutral' | 'backward';
     rightEarPosition: 'forward' | 'neutral' | 'backward';
   } {
@@ -240,56 +319,18 @@ class FaceExpressionService {
       return { leftEarPosition: 'neutral', rightEarPosition: 'neutral' };
     }
 
-    const positions: Array<'forward' | 'neutral' | 'backward'> = ['forward', 'neutral', 'backward'];
+    const leftEarY = leftEarTop.y;
+    const rightEarY = rightEarTop.y;
+    const noseY = noseTip.y;
     
-    return {
-      leftEarPosition: positions[Math.floor(Math.random() * positions.length)],
-      rightEarPosition: positions[Math.floor(Math.random() * positions.length)]
-    };
+    const earNoseDiff = (leftEarY + rightEarY) / 2 - noseY;
+    
+    if (earNoseDiff < -0.1) return { leftEarPosition: 'forward', rightEarPosition: 'forward' };
+    if (earNoseDiff > 0.05) return { leftEarPosition: 'backward', rightEarPosition: 'backward' };
+    
+    return { leftEarPosition: 'neutral', rightEarPosition: 'neutral' };
   }
 
-  // 获取面部分析历史
-  async getFaceAnalysisHistory(petId: string, limit: number = 20): Promise<FaceAnalysis[]> {
-    await this.simulateDelay(300);
-    return this.faceAnalyses.filter(a => a.petId === petId).slice(0, limit);
-  }
-
-  // 获取表情统计
-  async getExpressionStatistics(petId: string, hours: number = 24): Promise<Record<FaceExpression, number>> {
-    await this.simulateDelay(300);
-
-    const result: Record<FaceExpression, number> = {
-      relaxed: 0,
-      tense: 0,
-      pain: 0,
-      happy: 0,
-      curious: 0,
-      aggressive: 0
-    };
-
-    const cutoffTime = Date.now() - hours * 3600000;
-    const recentAnalyses = this.faceAnalyses.filter(
-      a => a.petId === petId && new Date(a.timestamp).getTime() > cutoffTime
-    );
-
-    recentAnalyses.forEach(analysis => {
-      result[analysis.expression]++;
-    });
-
-    return result;
-  }
-
-  // 获取表情配置
-  getExpressionConfig(expression: FaceExpression): ExpressionConfig {
-    return expressionConfig[expression];
-  }
-
-  // 获取所有表情类型
-  getExpressionTypes(): FaceExpression[] {
-    return Object.keys(expressionConfig) as FaceExpression[];
-  }
-
-  // 根据特征推断表情
   private inferExpression(
     eyeState: { leftEyeOpen: number; rightEyeOpen: number },
     mouthState: { mouthOpen: number; smiling: number },
@@ -313,8 +354,153 @@ class FaceExpressionService {
     return 'relaxed';
   }
 
-  private simulateDelay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+  private calculateConfidence(
+    eyeState: { leftEyeOpen: number; rightEyeOpen: number },
+    mouthState: { mouthOpen: number; smiling: number },
+    earState: { leftEarPosition: string; rightEarPosition: string },
+    expression: FaceExpression
+  ): number {
+    let confidence = 0.7;
+    
+    switch (expression) {
+      case 'happy':
+        if (mouthState.smiling > 0.7) confidence += 0.15;
+        if (eyeState.leftEyeOpen > 0.7) confidence += 0.1;
+        break;
+      case 'aggressive':
+        if (mouthState.mouthOpen > 0.8) confidence += 0.15;
+        if (earState.leftEarPosition === 'backward' && earState.rightEarPosition === 'backward') confidence += 0.1;
+        break;
+      case 'pain':
+        if (eyeState.leftEyeOpen < 0.2) confidence += 0.15;
+        if (eyeState.rightEyeOpen < 0.2) confidence += 0.1;
+        break;
+      case 'curious':
+        if (earState.leftEarPosition === 'forward' && earState.rightEarPosition === 'forward') confidence += 0.15;
+        if (eyeState.leftEyeOpen > 0.8) confidence += 0.1;
+        break;
+      case 'tense':
+        if (earState.leftEarPosition === 'backward') confidence += 0.08;
+        if (earState.rightEarPosition === 'backward') confidence += 0.08;
+        break;
+      case 'relaxed':
+        if (eyeState.leftEyeOpen > 0.4 && eyeState.leftEyeOpen < 0.7) confidence += 0.1;
+        if (mouthState.mouthOpen < 0.3) confidence += 0.1;
+        break;
+    }
+    
+    return Math.min(0.99, confidence + Math.random() * 0.05);
+  }
+
+  private extractKeyFeatures(
+    expression: FaceExpression,
+    eyeState: { leftEyeOpen: number; rightEyeOpen: number },
+    mouthState: { mouthOpen: number; smiling: number },
+    earState: { leftEarPosition: string; rightEarPosition: string }
+  ): string[] {
+    const features: string[] = [];
+    
+    if (eyeState.leftEyeOpen > 0.7) features.push('眼睛睁大');
+    else if (eyeState.leftEyeOpen < 0.3) features.push('眯眼');
+    else features.push('眼睛自然张开');
+    
+    if (mouthState.mouthOpen > 0.6) features.push('嘴巴张开');
+    else if (mouthState.mouthOpen < 0.2) features.push('嘴巴紧闭');
+    else features.push('嘴巴放松闭合');
+    
+    if (earState.leftEarPosition === 'forward') features.push('耳朵向前');
+    else if (earState.leftEarPosition === 'backward') features.push('耳朵向后贴');
+    else features.push('耳朵自然下垂');
+    
+    return features.slice(0, 2);
+  }
+
+  private generateImageUrl(imageData: ImageData): string {
+    const canvas = document.createElement('canvas');
+    canvas.width = imageData.width;
+    canvas.height = imageData.height;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.putImageData(imageData, 0, 0);
+      return canvas.toDataURL('image/jpeg', 0.8);
+    }
+    return '';
+  }
+
+  async startRealTimeAnalysis(videoElement: HTMLVideoElement, petType: 'cat' | 'dog', callback: (analysis: FaceAnalysis) => void): Promise<void> {
+    this.isAnalyzing = true;
+    this.videoElement = videoElement;
+    
+    const canvas = document.createElement('canvas');
+    this.canvasElement = canvas;
+    const ctx = canvas.getContext('2d');
+    
+    const analyze = async () => {
+      if (!this.isAnalyzing || !this.videoElement || !ctx) return;
+      
+      canvas.width = this.videoElement.videoWidth;
+      canvas.height = this.videoElement.videoHeight;
+      
+      ctx.drawImage(this.videoElement, 0, 0, canvas.width, canvas.height);
+      
+      try {
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const analysis = await this.analyzeFace(imageData, petType);
+        callback(analysis);
+      } catch (error) {
+        console.warn('Real-time analysis error:', error);
+      }
+      
+      this.animationFrameId = requestAnimationFrame(analyze);
+    };
+    
+    analyze();
+  }
+
+  async stopRealTimeAnalysis(): Promise<void> {
+    this.isAnalyzing = false;
+    
+    if (this.animationFrameId) {
+      cancelAnimationFrame(this.animationFrameId);
+      this.animationFrameId = null;
+    }
+    
+    this.videoElement = null;
+    this.canvasElement = null;
+  }
+
+  async getFaceAnalysisHistory(petId: string, limit: number = 20): Promise<FaceAnalysis[]> {
+    return this.faceAnalyses.filter(a => a.petId === petId).slice(0, limit);
+  }
+
+  async getExpressionStatistics(petId: string, hours: number = 24): Promise<Record<FaceExpression, number>> {
+    const result: Record<FaceExpression, number> = {
+      relaxed: 0,
+      tense: 0,
+      pain: 0,
+      happy: 0,
+      curious: 0,
+      aggressive: 0
+    };
+
+    const cutoffTime = Date.now() - hours * 3600000;
+    const recentAnalyses = this.faceAnalyses.filter(
+      a => a.petId === petId && new Date(a.timestamp).getTime() > cutoffTime
+    );
+
+    recentAnalyses.forEach(analysis => {
+      result[analysis.expression]++;
+    });
+
+    return result;
+  }
+
+  getExpressionConfig(expression: FaceExpression): ExpressionConfig {
+    return expressionConfig[expression];
+  }
+
+  getExpressionTypes(): FaceExpression[] {
+    return Object.keys(expressionConfig) as FaceExpression[];
   }
 }
 

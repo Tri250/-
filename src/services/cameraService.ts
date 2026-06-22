@@ -1,6 +1,5 @@
+import { PawSyncCamera } from '../plugins';
 import type { CameraDevice, DeviceConfig, StreamOptions, DeviceCapability, PairingProgress, BrandInfo, CameraCapability, CameraSettings, CameraBrand } from '../types/camera';
-
-const MOCK_DELAY = 800;
 
 export const BRAND_INFO: BrandInfo[] = [
   { id: 'xiaomi', name: '小米米家', icon: '📱', color: 'hover:border-orange-400', description: '小米智能摄像头', pairingMethod: 'code' },
@@ -21,150 +20,27 @@ export const BRAND_INFO: BrandInfo[] = [
 ];
 
 const brandCapabilities: Record<string, DeviceCapability> = {
-  xiaomi: {
-    brand: 'xiaomi',
-    supports1080p: true,
-    supports720p: true,
-    supports480p: true,
-    supportsAudio: true,
-    supportsNightVision: true,
-    maxResolution: '1920x1080',
-  },
-  huawei: {
-    brand: 'huawei',
-    supports1080p: true,
-    supports720p: true,
-    supports480p: true,
-    supportsAudio: true,
-    supportsNightVision: true,
-    maxResolution: '2560x1440',
-  },
-  honor: {
-    brand: 'honor',
-    supports1080p: true,
-    supports720p: true,
-    supports480p: true,
-    supportsAudio: true,
-    supportsNightVision: true,
-    maxResolution: '1920x1080',
-  },
-  ezviz: {
-    brand: 'ezviz',
-    supports1080p: true,
-    supports720p: true,
-    supports480p: true,
-    supportsAudio: true,
-    supportsNightVision: true,
-    maxResolution: '2560x1440',
-  },
-  tapo: {
-    brand: 'tapo',
-    supports1080p: true,
-    supports720p: true,
-    supports480p: true,
-    supportsAudio: true,
-    supportsNightVision: true,
-    maxResolution: '1920x1080',
-  },
-  hikvision: {
-    brand: 'hikvision',
-    supports1080p: true,
-    supports720p: true,
-    supports480p: true,
-    supportsAudio: true,
-    supportsNightVision: true,
-    maxResolution: '3840x2160',
-  },
-  dahua: {
-    brand: 'dahua',
-    supports1080p: true,
-    supports720p: true,
-    supports480p: true,
-    supportsAudio: true,
-    supportsNightVision: true,
-    maxResolution: '3840x2160',
-  },
-  yi: {
-    brand: 'yi',
-    supports1080p: true,
-    supports720p: true,
-    supports480p: true,
-    supportsAudio: true,
-    supportsNightVision: true,
-    maxResolution: '1920x1080',
-  },
-  ring: {
-    brand: 'ring',
-    supports1080p: true,
-    supports720p: true,
-    supports480p: false,
-    supportsAudio: true,
-    supportsNightVision: true,
-    maxResolution: '1920x1080',
-  },
-  nest: {
-    brand: 'nest',
-    supports1080p: true,
-    supports720p: true,
-    supports480p: true,
-    supportsAudio: true,
-    supportsNightVision: true,
-    maxResolution: '2560x1440',
-  },
-  eufy: {
-    brand: 'eufy',
-    supports1080p: true,
-    supports720p: true,
-    supports480p: true,
-    supportsAudio: true,
-    supportsNightVision: true,
-    maxResolution: '2560x1440',
-  },
-  '360': {
-    brand: '360',
-    supports1080p: true,
-    supports720p: true,
-    supports480p: true,
-    supportsAudio: true,
-    supportsNightVision: true,
-    maxResolution: '1920x1080',
-  },
-  haier: {
-    brand: 'haier',
-    supports1080p: true,
-    supports720p: true,
-    supports480p: true,
-    supportsAudio: true,
-    supportsNightVision: true,
-    maxResolution: '1920x1080',
-  },
-  onvif: {
-    brand: 'onvif',
-    supports1080p: true,
-    supports720p: true,
-    supports480p: true,
-    supportsAudio: true,
-    supportsNightVision: true,
-    maxResolution: '3840x2160',
-  },
-  generic: {
-    brand: 'generic',
-    supports1080p: true,
-    supports720p: true,
-    supports480p: true,
-    supportsAudio: true,
-    supportsNightVision: true,
-    maxResolution: '3840x2160',
-  },
+  xiaomi: { brand: 'xiaomi', supports1080p: true, supports720p: true, supports480p: true, supportsAudio: true, supportsNightVision: true, maxResolution: '1920x1080' },
+  huawei: { brand: 'huawei', supports1080p: true, supports720p: true, supports480p: true, supportsAudio: true, supportsNightVision: true, maxResolution: '2560x1440' },
+  honor: { brand: 'honor', supports1080p: true, supports720p: true, supports480p: true, supportsAudio: true, supportsNightVision: true, maxResolution: '1920x1080' },
+  ezviz: { brand: 'ezviz', supports1080p: true, supports720p: true, supports480p: true, supportsAudio: true, supportsNightVision: true, maxResolution: '2560x1440' },
+  tapo: { brand: 'tapo', supports1080p: true, supports720p: true, supports480p: true, supportsAudio: true, supportsNightVision: true, maxResolution: '1920x1080' },
+  hikvision: { brand: 'hikvision', supports1080p: true, supports720p: true, supports480p: true, supportsAudio: true, supportsNightVision: true, maxResolution: '3840x2160' },
+  dahua: { brand: 'dahua', supports1080p: true, supports720p: true, supports480p: true, supportsAudio: true, supportsNightVision: true, maxResolution: '3840x2160' },
+  yi: { brand: 'yi', supports1080p: true, supports720p: true, supports480p: true, supportsAudio: true, supportsNightVision: true, maxResolution: '1920x1080' },
+  ring: { brand: 'ring', supports1080p: true, supports720p: true, supports480p: false, supportsAudio: true, supportsNightVision: true, maxResolution: '1920x1080' },
+  nest: { brand: 'nest', supports1080p: true, supports720p: true, supports480p: true, supportsAudio: true, supportsNightVision: true, maxResolution: '2560x1440' },
+  eufy: { brand: 'eufy', supports1080p: true, supports720p: true, supports480p: true, supportsAudio: true, supportsNightVision: true, maxResolution: '2560x1440' },
+  '360': { brand: '360', supports1080p: true, supports720p: true, supports480p: true, supportsAudio: true, supportsNightVision: true, maxResolution: '1920x1080' },
+  haier: { brand: 'haier', supports1080p: true, supports720p: true, supports480p: true, supportsAudio: true, supportsNightVision: true, maxResolution: '1920x1080' },
+  onvif: { brand: 'onvif', supports1080p: true, supports720p: true, supports480p: true, supportsAudio: true, supportsNightVision: true, maxResolution: '3840x2160' },
+  generic: { brand: 'generic', supports1080p: true, supports720p: true, supports480p: true, supportsAudio: true, supportsNightVision: true, maxResolution: '3840x2160' },
 };
 
 class CameraManager {
   private devices: CameraDevice[] = [];
   private connectionCallbacks: Array<(device: CameraDevice) => void> = [];
-
-  constructor() {
-    this.initializeMockDevices();
-  }
+  private currentCameraId: string | null = null;
 
   private getDefaultCapabilities(): CameraCapability[] {
     return [
@@ -188,7 +64,7 @@ class CameraManager {
 
   private createDeviceBase(brand: CameraBrand, model: string, name: string, streamUrl: string, thumbnail: string, extra?: Partial<CameraDevice>): CameraDevice {
     return {
-      id: `cam-${Date.now()}`,
+      id: `cam-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       brand,
       model,
       name,
@@ -203,391 +79,77 @@ class CameraManager {
     };
   }
 
-  private initializeMockDevices() {
-    this.devices = [
-      {
-        id: 'cam-001',
-        brand: 'xiaomi',
-        model: 'MJSXJ02CM',
-        name: '客厅摄像头',
-        status: 'online',
-        streamUrl: 'https://example.com/stream/cam-001',
-        thumbnail: 'https://picsum.photos/400/300?random=1',
-        lastActive: new Date().toISOString(),
-        location: '客厅',
-        capabilities: [],
-        settings: this.getDefaultSettings(),
-        protocol: 'rtsp',
-      },
-      {
-        id: 'cam-002',
-        brand: 'huawei',
-        model: 'HW-海雀Pro',
-        name: '卧室摄像头',
-        status: 'online',
-        streamUrl: 'https://example.com/stream/cam-002',
-        thumbnail: 'https://picsum.photos/400/300?random=2',
-        lastActive: new Date().toISOString(),
-        location: '卧室',
-        capabilities: [],
-        settings: this.getDefaultSettings(),
-        protocol: 'rtsp',
-      },
-      {
-        id: 'cam-003',
-        brand: 'honor',
-        model: 'Honor-小值C1',
-        name: '厨房摄像头',
-        status: 'offline',
-        streamUrl: 'https://example.com/stream/cam-003',
-        thumbnail: 'https://picsum.photos/400/300?random=3',
-        lastActive: new Date(Date.now() - 3600000).toISOString(),
-        location: '厨房',
-        capabilities: [],
-        settings: this.getDefaultSettings(),
-        protocol: 'rtsp',
-      },
-    ];
-  }
-
-  async connectXiaomi(deviceCode: string): Promise<CameraDevice> {
-    await this.simulateDelay(MOCK_DELAY);
-    
-    const existingDevice = this.devices.find(d => d.brand === 'xiaomi' && d.model === deviceCode);
-    if (existingDevice) {
-      existingDevice.status = 'online';
-      existingDevice.lastActive = new Date().toISOString();
-      return existingDevice;
+  async checkCameraPermission(): Promise<boolean> {
+    try {
+      const result = await PawSyncCamera.checkCameraPermission();
+      return result.granted ?? false;
+    } catch {
+      return false;
     }
-
-    const newDevice = this.createDeviceBase(
-      'xiaomi',
-      deviceCode,
-      `小米摄像头 ${deviceCode}`,
-      `https://example.com/stream/${deviceCode}`,
-      `https://picsum.photos/400/300?random=${Date.now()}`
-    );
-
-    this.devices.push(newDevice);
-    this.notifyConnection(newDevice);
-    return newDevice;
   }
 
-  async connectHuawei(deviceCode: string): Promise<CameraDevice> {
-    await this.simulateDelay(MOCK_DELAY);
-    
-    const existingDevice = this.devices.find(d => d.brand === 'huawei' && d.model === deviceCode);
-    if (existingDevice) {
-      existingDevice.status = 'online';
-      existingDevice.lastActive = new Date().toISOString();
-      return existingDevice;
+  async requestCameraPermission(): Promise<boolean> {
+    try {
+      const result = await PawSyncCamera.requestCameraPermission();
+      return result.granted ?? false;
+    } catch {
+      return false;
     }
-
-    const newDevice = this.createDeviceBase(
-      'huawei',
-      deviceCode,
-      `华为摄像头 ${deviceCode}`,
-      `https://example.com/stream/${deviceCode}`,
-      `https://picsum.photos/400/300?random=${Date.now()}`
-    );
-
-    this.devices.push(newDevice);
-    this.notifyConnection(newDevice);
-    return newDevice;
   }
 
-  async connectHonor(deviceCode: string): Promise<CameraDevice> {
-    await this.simulateDelay(MOCK_DELAY);
-    
-    const existingDevice = this.devices.find(d => d.brand === 'honor' && d.model === deviceCode);
-    if (existingDevice) {
-      existingDevice.status = 'online';
-      existingDevice.lastActive = new Date().toISOString();
-      return existingDevice;
+  async getAvailableCameras(): Promise<string[]> {
+    try {
+      const result = await PawSyncCamera.getAvailableCameras();
+      return result.cameras ?? [];
+    } catch {
+      return ['0', '1'];
     }
-
-    const newDevice = this.createDeviceBase(
-      'honor',
-      deviceCode,
-      `荣耀摄像头 ${deviceCode}`,
-      `https://example.com/stream/${deviceCode}`,
-      `https://picsum.photos/400/300?random=${Date.now()}`
-    );
-
-    this.devices.push(newDevice);
-    this.notifyConnection(newDevice);
-    return newDevice;
   }
 
-  async connectEzviz(deviceCode: string): Promise<CameraDevice> {
-    await this.simulateDelay(MOCK_DELAY);
-    
-    const existingDevice = this.devices.find(d => d.brand === 'ezviz' && d.model === deviceCode);
-    if (existingDevice) {
-      existingDevice.status = 'online';
-      existingDevice.lastActive = new Date().toISOString();
-      return existingDevice;
+  async openCamera(cameraId: string = '0'): Promise<void> {
+    this.currentCameraId = cameraId;
+    try {
+      await PawSyncCamera.openCamera({ cameraId });
+    } catch (error) {
+      throw new Error(`Failed to open camera: ${error}`);
     }
-
-    const newDevice = this.createDeviceBase(
-      'ezviz',
-      deviceCode,
-      `萤石摄像头 ${deviceCode}`,
-      `https://example.com/stream/${deviceCode}`,
-      `https://picsum.photos/400/300?random=${Date.now()}`
-    );
-
-    this.devices.push(newDevice);
-    this.notifyConnection(newDevice);
-    return newDevice;
   }
 
-  async connectTapo(deviceCode: string): Promise<CameraDevice> {
-    await this.simulateDelay(MOCK_DELAY);
-    
-    const existingDevice = this.devices.find(d => d.brand === 'tapo' && d.model === deviceCode);
-    if (existingDevice) {
-      existingDevice.status = 'online';
-      existingDevice.lastActive = new Date().toISOString();
-      return existingDevice;
+  async closeCamera(): Promise<void> {
+    try {
+      await PawSyncCamera.closeCamera();
+      this.currentCameraId = null;
+    } catch (error) {
+      throw new Error(`Failed to close camera: ${error}`);
     }
-
-    const newDevice = this.createDeviceBase(
-      'tapo',
-      deviceCode,
-      `TP-Link Tapo ${deviceCode}`,
-      `https://example.com/stream/${deviceCode}`,
-      `https://picsum.photos/400/300?random=${Date.now()}`
-    );
-
-    this.devices.push(newDevice);
-    this.notifyConnection(newDevice);
-    return newDevice;
   }
 
-  async connectHikvision(ipAddress: string, username: string, password: string): Promise<CameraDevice> {
-    await this.simulateDelay(MOCK_DELAY);
-    
-    const existingDevice = this.devices.find(d => d.brand === 'hikvision' && d.ipAddress === ipAddress);
-    if (existingDevice) {
-      existingDevice.status = 'online';
-      existingDevice.lastActive = new Date().toISOString();
-      return existingDevice;
+  async startPreview(): Promise<void> {
+    try {
+      await PawSyncCamera.startPreview();
+    } catch (error) {
+      throw new Error(`Failed to start preview: ${error}`);
     }
-
-    const newDevice = this.createDeviceBase(
-      'hikvision',
-      'IP Camera',
-      `海康威视 ${ipAddress}`,
-      `rtsp://${username}:${password}@${ipAddress}:554/stream1`,
-      `https://picsum.photos/400/300?random=${Date.now()}`,
-      { ipAddress, port: 554 }
-    );
-
-    this.devices.push(newDevice);
-    this.notifyConnection(newDevice);
-    return newDevice;
   }
 
-  async connectDahua(ipAddress: string, username: string, password: string): Promise<CameraDevice> {
-    await this.simulateDelay(MOCK_DELAY);
-    
-    const existingDevice = this.devices.find(d => d.brand === 'dahua' && d.ipAddress === ipAddress);
-    if (existingDevice) {
-      existingDevice.status = 'online';
-      existingDevice.lastActive = new Date().toISOString();
-      return existingDevice;
+  async stopPreview(): Promise<void> {
+    try {
+      await PawSyncCamera.stopPreview();
+    } catch (error) {
+      throw new Error(`Failed to stop preview: ${error}`);
     }
-
-    const newDevice = this.createDeviceBase(
-      'dahua',
-      'IP Camera',
-      `大华摄像头 ${ipAddress}`,
-      `rtsp://${username}:${password}@${ipAddress}:554/cam/realmonitor?channel=1&subtype=0`,
-      `https://picsum.photos/400/300?random=${Date.now()}`,
-      { ipAddress, port: 554 }
-    );
-
-    this.devices.push(newDevice);
-    this.notifyConnection(newDevice);
-    return newDevice;
   }
 
-  async connectYi(deviceCode: string): Promise<CameraDevice> {
-    await this.simulateDelay(MOCK_DELAY);
-    
-    const existingDevice = this.devices.find(d => d.brand === 'yi' && d.model === deviceCode);
-    if (existingDevice) {
-      existingDevice.status = 'online';
-      existingDevice.lastActive = new Date().toISOString();
-      return existingDevice;
+  async takePhoto(options?: { quality?: number }): Promise<string> {
+    try {
+      const result = await PawSyncCamera.takePhoto(options || {});
+      return result.filePath ?? '';
+    } catch (error) {
+      throw new Error(`Failed to take photo: ${error}`);
     }
-
-    const newDevice = this.createDeviceBase(
-      'yi',
-      deviceCode,
-      `小蚁摄像头 ${deviceCode}`,
-      `https://example.com/stream/${deviceCode}`,
-      `https://picsum.photos/400/300?random=${Date.now()}`
-    );
-
-    this.devices.push(newDevice);
-    this.notifyConnection(newDevice);
-    return newDevice;
-  }
-
-  async connectRing(_accountId: string): Promise<CameraDevice> {
-    await this.simulateDelay(MOCK_DELAY);
-    
-    const newDevice = this.createDeviceBase(
-      'ring',
-      'Doorbell',
-      `Ring 门铃`,
-      `https://example.com/stream/ring-${Date.now()}`,
-      `https://picsum.photos/400/300?random=${Date.now()}`
-    );
-
-    this.devices.push(newDevice);
-    this.notifyConnection(newDevice);
-    return newDevice;
-  }
-
-  async connectNest(_accountId: string): Promise<CameraDevice> {
-    await this.simulateDelay(MOCK_DELAY);
-    
-    const newDevice = this.createDeviceBase(
-      'nest',
-      'Nest Cam',
-      `Nest 摄像头`,
-      `https://example.com/stream/nest-${Date.now()}`,
-      `https://picsum.photos/400/300?random=${Date.now()}`
-    );
-
-    this.devices.push(newDevice);
-    this.notifyConnection(newDevice);
-    return newDevice;
-  }
-
-  async connectEufy(deviceCode: string): Promise<CameraDevice> {
-    await this.simulateDelay(MOCK_DELAY);
-    
-    const existingDevice = this.devices.find(d => d.brand === 'eufy' && d.model === deviceCode);
-    if (existingDevice) {
-      existingDevice.status = 'online';
-      existingDevice.lastActive = new Date().toISOString();
-      return existingDevice;
-    }
-
-    const newDevice = this.createDeviceBase(
-      'eufy',
-      deviceCode,
-      `Eufy 摄像头 ${deviceCode}`,
-      `https://example.com/stream/${deviceCode}`,
-      `https://picsum.photos/400/300?random=${Date.now()}`
-    );
-
-    this.devices.push(newDevice);
-    this.notifyConnection(newDevice);
-    return newDevice;
-  }
-
-  async connect360(deviceCode: string): Promise<CameraDevice> {
-    await this.simulateDelay(MOCK_DELAY);
-    
-    const existingDevice = this.devices.find(d => d.brand === '360' && d.model === deviceCode);
-    if (existingDevice) {
-      existingDevice.status = 'online';
-      existingDevice.lastActive = new Date().toISOString();
-      return existingDevice;
-    }
-
-    const newDevice = this.createDeviceBase(
-      '360',
-      deviceCode,
-      `360智能摄像头 ${deviceCode}`,
-      `https://example.com/stream/${deviceCode}`,
-      `https://picsum.photos/400/300?random=${Date.now()}`
-    );
-
-    this.devices.push(newDevice);
-    this.notifyConnection(newDevice);
-    return newDevice;
-  }
-
-  async connectHaier(deviceCode: string): Promise<CameraDevice> {
-    await this.simulateDelay(MOCK_DELAY);
-    
-    const existingDevice = this.devices.find(d => d.brand === 'haier' && d.model === deviceCode);
-    if (existingDevice) {
-      existingDevice.status = 'online';
-      existingDevice.lastActive = new Date().toISOString();
-      return existingDevice;
-    }
-
-    const newDevice = this.createDeviceBase(
-      'haier',
-      deviceCode,
-      `海尔摄像头 ${deviceCode}`,
-      `https://example.com/stream/${deviceCode}`,
-      `https://picsum.photos/400/300?random=${Date.now()}`
-    );
-
-    this.devices.push(newDevice);
-    this.notifyConnection(newDevice);
-    return newDevice;
-  }
-
-  async connectOnvif(ipAddress: string, username: string, password: string, port: number = 80): Promise<CameraDevice> {
-    await this.simulateDelay(MOCK_DELAY);
-    
-    const existingDevice = this.devices.find(d => d.brand === 'onvif' && d.ipAddress === ipAddress);
-    if (existingDevice) {
-      existingDevice.status = 'online';
-      existingDevice.lastActive = new Date().toISOString();
-      return existingDevice;
-    }
-
-    const newDevice = this.createDeviceBase(
-      'onvif',
-      'ONVIF Camera',
-      `ONVIF设备 ${ipAddress}`,
-      `rtsp://${username}:${password}@${ipAddress}:${port}/stream`,
-      `https://picsum.photos/400/300?random=${Date.now()}`,
-      { ipAddress, port }
-    );
-
-    this.devices.push(newDevice);
-    this.notifyConnection(newDevice);
-    return newDevice;
-  }
-
-  async connectGeneric(config: { ipAddress: string; port: number; username: string; password: string; streamUrl?: string }): Promise<CameraDevice> {
-    await this.simulateDelay(MOCK_DELAY);
-    
-    const existingDevice = this.devices.find(d => d.brand === 'generic' && d.ipAddress === config.ipAddress);
-    if (existingDevice) {
-      existingDevice.status = 'online';
-      existingDevice.lastActive = new Date().toISOString();
-      return existingDevice;
-    }
-
-    const newDevice = this.createDeviceBase(
-      'generic',
-      'Generic IP Camera',
-      `IP摄像头 ${config.ipAddress}`,
-      config.streamUrl || `rtsp://${config.username}:${config.password}@${config.ipAddress}:${config.port}/stream`,
-      `https://picsum.photos/400/300?random=${Date.now()}`,
-      { ipAddress: config.ipAddress, port: config.port }
-    );
-
-    this.devices.push(newDevice);
-    this.notifyConnection(newDevice);
-    return newDevice;
   }
 
   async getStream(deviceId: string): Promise<MediaStream> {
-    await this.simulateDelay(500);
-    
     const device = this.devices.find(d => d.id === deviceId);
     if (!device || device.status !== 'online') {
       throw new Error(`Camera ${deviceId} is not available`);
@@ -605,18 +167,252 @@ class CameraManager {
     }
   }
 
+  async connectXiaomi(deviceCode: string): Promise<CameraDevice> {
+    const existingDevice = this.devices.find(d => d.model === deviceCode && d.brand === 'xiaomi');
+    if (existingDevice) {
+      existingDevice.status = 'online';
+      existingDevice.lastActive = new Date().toISOString();
+      this.notifyConnection(existingDevice);
+      return existingDevice;
+    }
+    
+    const newDevice = this.createDeviceBase(
+      'xiaomi',
+      deviceCode,
+      `小米摄像头 ${deviceCode}`,
+      `https://example.com/stream/${deviceCode}`,
+      `https://picsum.photos/400/300?random=${Date.now()}`
+    );
+    this.devices.push(newDevice);
+    this.notifyConnection(newDevice);
+    return newDevice;
+  }
+
+  async connectHuawei(deviceCode: string): Promise<CameraDevice> {
+    const newDevice = this.createDeviceBase(
+      'huawei',
+      deviceCode,
+      `华为摄像头 ${deviceCode}`,
+      `https://example.com/stream/${deviceCode}`,
+      `https://picsum.photos/400/300?random=${Date.now()}`
+    );
+    this.devices.push(newDevice);
+    this.notifyConnection(newDevice);
+    return newDevice;
+  }
+
+  async connectHonor(deviceCode: string): Promise<CameraDevice> {
+    const newDevice = this.createDeviceBase(
+      'honor',
+      deviceCode,
+      `荣耀摄像头 ${deviceCode}`,
+      `https://example.com/stream/${deviceCode}`,
+      `https://picsum.photos/400/300?random=${Date.now()}`
+    );
+    this.devices.push(newDevice);
+    this.notifyConnection(newDevice);
+    return newDevice;
+  }
+
+  async connectEzviz(deviceCode: string): Promise<CameraDevice> {
+    const newDevice = this.createDeviceBase(
+      'ezviz',
+      deviceCode,
+      `萤石摄像头 ${deviceCode}`,
+      `https://example.com/stream/${deviceCode}`,
+      `https://picsum.photos/400/300?random=${Date.now()}`
+    );
+    this.devices.push(newDevice);
+    this.notifyConnection(newDevice);
+    return newDevice;
+  }
+
+  async connectTapo(deviceCode: string): Promise<CameraDevice> {
+    const newDevice = this.createDeviceBase(
+      'tapo',
+      deviceCode,
+      `TP-Link Tapo ${deviceCode}`,
+      `https://example.com/stream/${deviceCode}`,
+      `https://picsum.photos/400/300?random=${Date.now()}`
+    );
+    this.devices.push(newDevice);
+    this.notifyConnection(newDevice);
+    return newDevice;
+  }
+
+  async connectHikvision(ipAddress: string, username: string, password: string): Promise<CameraDevice> {
+    const newDevice = this.createDeviceBase(
+      'hikvision',
+      'IP Camera',
+      `海康威视 ${ipAddress}`,
+      `rtsp://${username}:${password}@${ipAddress}:554/stream1`,
+      `https://picsum.photos/400/300?random=${Date.now()}`,
+      { ipAddress, port: 554 }
+    );
+    this.devices.push(newDevice);
+    this.notifyConnection(newDevice);
+    return newDevice;
+  }
+
+  async connectDahua(ipAddress: string, username: string, password: string): Promise<CameraDevice> {
+    const newDevice = this.createDeviceBase(
+      'dahua',
+      'IP Camera',
+      `大华摄像头 ${ipAddress}`,
+      `rtsp://${username}:${password}@${ipAddress}:554/cam/realmonitor?channel=1&subtype=0`,
+      `https://picsum.photos/400/300?random=${Date.now()}`,
+      { ipAddress, port: 554 }
+    );
+    this.devices.push(newDevice);
+    this.notifyConnection(newDevice);
+    return newDevice;
+  }
+
+  async connectYi(deviceCode: string): Promise<CameraDevice> {
+    const newDevice = this.createDeviceBase(
+      'yi',
+      deviceCode,
+      `小蚁摄像头 ${deviceCode}`,
+      `https://example.com/stream/${deviceCode}`,
+      `https://picsum.photos/400/300?random=${Date.now()}`
+    );
+    this.devices.push(newDevice);
+    this.notifyConnection(newDevice);
+    return newDevice;
+  }
+
+  async connectRing(accountId: string): Promise<CameraDevice> {
+    const newDevice = this.createDeviceBase(
+      'ring',
+      'Doorbell',
+      `Ring 门铃`,
+      `https://example.com/stream/ring-${Date.now()}`,
+      `https://picsum.photos/400/300?random=${Date.now()}`
+    );
+    this.devices.push(newDevice);
+    this.notifyConnection(newDevice);
+    return newDevice;
+  }
+
+  async connectNest(accountId: string): Promise<CameraDevice> {
+    const newDevice = this.createDeviceBase(
+      'nest',
+      'Nest Cam',
+      `Nest 摄像头`,
+      `https://example.com/stream/nest-${Date.now()}`,
+      `https://picsum.photos/400/300?random=${Date.now()}`
+    );
+    this.devices.push(newDevice);
+    this.notifyConnection(newDevice);
+    return newDevice;
+  }
+
+  async connectEufy(deviceCode: string): Promise<CameraDevice> {
+    const newDevice = this.createDeviceBase(
+      'eufy',
+      deviceCode,
+      `Eufy 摄像头 ${deviceCode}`,
+      `https://example.com/stream/${deviceCode}`,
+      `https://picsum.photos/400/300?random=${Date.now()}`
+    );
+    this.devices.push(newDevice);
+    this.notifyConnection(newDevice);
+    return newDevice;
+  }
+
+  async connect360(deviceCode: string): Promise<CameraDevice> {
+    const newDevice = this.createDeviceBase(
+      '360',
+      deviceCode,
+      `360智能摄像头 ${deviceCode}`,
+      `https://example.com/stream/${deviceCode}`,
+      `https://picsum.photos/400/300?random=${Date.now()}`
+    );
+    this.devices.push(newDevice);
+    this.notifyConnection(newDevice);
+    return newDevice;
+  }
+
+  async connectHaier(deviceCode: string): Promise<CameraDevice> {
+    const newDevice = this.createDeviceBase(
+      'haier',
+      deviceCode,
+      `海尔摄像头 ${deviceCode}`,
+      `https://example.com/stream/${deviceCode}`,
+      `https://picsum.photos/400/300?random=${Date.now()}`
+    );
+    this.devices.push(newDevice);
+    this.notifyConnection(newDevice);
+    return newDevice;
+  }
+
+  async connectOnvif(ipAddress: string, username: string, password: string, port: number = 80): Promise<CameraDevice> {
+    const newDevice = this.createDeviceBase(
+      'onvif',
+      'ONVIF Camera',
+      `ONVIF设备 ${ipAddress}`,
+      `rtsp://${username}:${password}@${ipAddress}:${port}/stream`,
+      `https://picsum.photos/400/300?random=${Date.now()}`,
+      { ipAddress, port }
+    );
+    this.devices.push(newDevice);
+    this.notifyConnection(newDevice);
+    return newDevice;
+  }
+
+  async connectGeneric(config: { ipAddress: string; port: number; username: string; password: string; streamUrl?: string }): Promise<CameraDevice> {
+    const newDevice = this.createDeviceBase(
+      'generic',
+      'Generic IP Camera',
+      `IP摄像头 ${config.ipAddress}`,
+      config.streamUrl || `rtsp://${config.username}:${config.password}@${config.ipAddress}:${config.port}/stream`,
+      `https://picsum.photos/400/300?random=${Date.now()}`,
+      { ipAddress: config.ipAddress, port: config.port }
+    );
+    this.devices.push(newDevice);
+    this.notifyConnection(newDevice);
+    return newDevice;
+  }
+
   async getAllDevices(): Promise<CameraDevice[]> {
-    await this.simulateDelay(300);
+    if (this.devices.length === 0) {
+      this.devices = [
+        {
+          id: 'cam-default-1',
+          brand: 'xiaomi',
+          model: 'MJSXJ02CM',
+          name: '客厅摄像头',
+          status: 'online',
+          streamUrl: 'rtsp://192.168.1.100:554/stream1',
+          thumbnail: 'https://example.com/thumb1.jpg',
+          lastActive: new Date().toISOString(),
+          capabilities: this.getDefaultCapabilities(),
+          settings: this.getDefaultSettings(),
+          protocol: 'rtsp',
+        },
+        {
+          id: 'cam-default-2',
+          brand: 'huawei',
+          model: 'HQ8',
+          name: '卧室摄像头',
+          status: 'offline',
+          streamUrl: '',
+          thumbnail: 'https://example.com/thumb2.jpg',
+          lastActive: new Date(Date.now() - 3600000).toISOString(),
+          capabilities: this.getDefaultCapabilities(),
+          settings: this.getDefaultSettings(),
+          protocol: 'rtsp',
+        },
+      ];
+    }
     return [...this.devices];
   }
 
   async getDeviceById(deviceId: string): Promise<CameraDevice | null> {
-    await this.simulateDelay(200);
     return this.devices.find(d => d.id === deviceId) || null;
   }
 
   async removeDevice(deviceId: string): Promise<boolean> {
-    await this.simulateDelay(500);
     const index = this.devices.findIndex(d => d.id === deviceId);
     if (index !== -1) {
       this.devices.splice(index, 1);
@@ -626,7 +422,6 @@ class CameraManager {
   }
 
   async getCapability(brand: string): Promise<DeviceCapability> {
-    await this.simulateDelay(200);
     return brandCapabilities[brand] || brandCapabilities.xiaomi;
   }
 
@@ -645,53 +440,36 @@ class CameraManager {
         message,
         progress: ((i + 1) / stages.length) * 100,
       });
-      await this.simulateDelay(delay);
+      await new Promise(resolve => setTimeout(resolve, delay));
     }
 
     switch (config.brand) {
-      case 'xiaomi':
-        return this.connectXiaomi(config.deviceCode);
-      case 'huawei':
-        return this.connectHuawei(config.deviceCode);
-      case 'honor':
-        return this.connectHonor(config.deviceCode);
-      case 'ezviz':
-        return this.connectEzviz(config.deviceCode);
-      case 'tapo':
-        return this.connectTapo(config.deviceCode);
-      case 'hikvision':
-        return this.connectHikvision(config.ipAddress || '', config.username || '', config.password || '');
-      case 'dahua':
-        return this.connectDahua(config.ipAddress || '', config.username || '', config.password || '');
-      case 'yi':
-        return this.connectYi(config.deviceCode);
-      case 'ring':
-        return this.connectRing(config.accountId || '');
-      case 'nest':
-        return this.connectNest(config.accountId || '');
-      case 'eufy':
-        return this.connectEufy(config.deviceCode);
-      case '360':
-        return this.connect360(config.deviceCode);
-      case 'haier':
-        return this.connectHaier(config.deviceCode);
-      case 'onvif':
-        return this.connectOnvif(config.ipAddress || '', config.username || '', config.password || '', config.port);
-      case 'generic':
-        return this.connectGeneric({
-          ipAddress: config.ipAddress || '',
-          port: config.port || 554,
-          username: config.username || '',
-          password: config.password || '',
-          streamUrl: config.streamUrl,
-        });
-      default:
-        throw new Error(`Unsupported brand: ${config.brand}`);
+      case 'xiaomi': return this.connectXiaomi(config.deviceCode);
+      case 'huawei': return this.connectHuawei(config.deviceCode);
+      case 'honor': return this.connectHonor(config.deviceCode);
+      case 'ezviz': return this.connectEzviz(config.deviceCode);
+      case 'tapo': return this.connectTapo(config.deviceCode);
+      case 'hikvision': return this.connectHikvision(config.ipAddress || '', config.username || '', config.password || '');
+      case 'dahua': return this.connectDahua(config.ipAddress || '', config.username || '', config.password || '');
+      case 'yi': return this.connectYi(config.deviceCode);
+      case 'ring': return this.connectRing(config.accountId || '');
+      case 'nest': return this.connectNest(config.accountId || '');
+      case 'eufy': return this.connectEufy(config.deviceCode);
+      case '360': return this.connect360(config.deviceCode);
+      case 'haier': return this.connectHaier(config.deviceCode);
+      case 'onvif': return this.connectOnvif(config.ipAddress || '', config.username || '', config.password || '', config.port);
+      case 'generic': return this.connectGeneric({
+        ipAddress: config.ipAddress || '',
+        port: config.port || 554,
+        username: config.username || '',
+        password: config.password || '',
+        streamUrl: config.streamUrl,
+      });
+      default: throw new Error(`Unsupported brand: ${config.brand}`);
     }
   }
 
   async updateStream(deviceId: string, options: StreamOptions): Promise<boolean> {
-    await this.simulateDelay(300);
     const device = this.devices.find(d => d.id === deviceId);
     if (device) {
       console.log(`Updated stream options for ${deviceId}:`, options);
@@ -706,10 +484,6 @@ class CameraManager {
 
   private notifyConnection(device: CameraDevice) {
     this.connectionCallbacks.forEach(cb => cb(device));
-  }
-
-  private simulateDelay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
   }
 }
 

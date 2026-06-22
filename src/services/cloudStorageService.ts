@@ -1,12 +1,11 @@
+import { PawSyncFileStorage } from '../plugins';
 import type { UploadResult, CloudFile, StorageConfig, UploadProgress } from '../types/cloud';
-
-const MOCK_DELAY = 800;
 
 class CloudStorageService {
   private files: CloudFile[] = [];
   private config: StorageConfig = {
-    provider: 'tencent-cos',
-    region: 'ap-shanghai',
+    provider: 'local',
+    region: 'local',
     bucket: 'pawsync-pro',
     maxFileSize: 50 * 1024 * 1024,
     allowedTypes: ['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/quicktime'],
@@ -14,77 +13,16 @@ class CloudStorageService {
     quality: 0.8,
     thumbnailSize: 400
   };
-  private uploadCallbacks: Record<string, Array<(progress: UploadProgress) => void>> = {};
-
-  constructor() {
-    this.initializeMockData();
-  }
-
-  private initializeMockData() {
-    const mockFiles: CloudFile[] = [
-      {
-        id: 'file-1',
-        name: '2026-05-26_14-30-00.jpg',
-        type: 'image/jpeg',
-        size: 245678,
-        url: 'https://picsum.photos/seed/1/800/600',
-        thumbnailUrl: 'https://picsum.photos/seed/1/200/150',
-        uploadTime: new Date(Date.now() - 3600000).toISOString(),
-        tags: ['daily', 'cat'],
-        metadata: {
-          petId: '1',
-          cameraId: 'cam-1',
-          location: '客厅',
-          aiTags: ['cat', 'sitting', 'happy']
-        }
-      },
-      {
-        id: 'file-2',
-        name: '2026-05-26_10-15-00.mp4',
-        type: 'video/mp4',
-        size: 15678900,
-        url: 'https://example.com/video/2026-05-26_10-15-00.mp4',
-        thumbnailUrl: 'https://picsum.photos/seed/2/200/150',
-        uploadTime: new Date(Date.now() - 7200000).toISOString(),
-        tags: ['video', 'play'],
-        metadata: {
-          petId: '1',
-          cameraId: 'cam-1',
-          duration: 30,
-          aiTags: ['cat', 'playing', 'ball']
-        }
-      },
-      {
-        id: 'file-3',
-        name: 'medical-record-2026-05-15.pdf',
-        type: 'application/pdf',
-        size: 1234567,
-        url: 'https://example.com/documents/medical-record-2026-05-15.pdf',
-        thumbnailUrl: null,
-        uploadTime: new Date(Date.now() - 86400000).toISOString(),
-        tags: ['document', 'medical'],
-        metadata: {
-          petId: '1',
-          recordType: 'checkup',
-          hospital: '宠物王国医院'
-        }
-      }
-    ];
-    this.files = mockFiles;
-  }
 
   async initialize(): Promise<void> {
-    await this.simulateDelay(MOCK_DELAY);
     console.log('Cloud storage service initialized');
   }
 
   async getConfig(): Promise<StorageConfig> {
-    await this.simulateDelay(100);
     return { ...this.config };
   }
 
   async updateConfig(updates: Partial<StorageConfig>): Promise<StorageConfig> {
-    await this.simulateDelay(200);
     this.config = { ...this.config, ...updates };
     return { ...this.config };
   }
@@ -99,8 +37,6 @@ class CloudStorageService {
       onProgress?: (progress: UploadProgress) => void;
     } = {}
   ): Promise<UploadResult> {
-    await this.simulateDelay(MOCK_DELAY);
-
     if (!this.config.allowedTypes.includes(file.type)) {
       return {
         success: false,
@@ -117,52 +53,103 @@ class CloudStorageService {
       };
     }
 
-    const uploadId = `upload-${Date.now()}`;
-    if (options.onProgress) {
-      this.uploadCallbacks[uploadId] = [options.onProgress];
-    }
+    const arrayBuffer = await file.arrayBuffer();
+    const fileName = `${Date.now()}-${file.name}`;
 
-    for (let i = 0; i <= 100; i += 10) {
-      await this.simulateDelay(200);
-      if (this.uploadCallbacks[uploadId]) {
-        this.uploadCallbacks[uploadId].forEach(cb => cb({
-          id: uploadId,
-          progress: i,
-          status: i === 100 ? 'completed' : 'uploading'
-        }));
+    try {
+      const result = await PawSyncFileStorage.saveFile({
+        data: Array.from(new Uint8Array(arrayBuffer)),
+        fileName,
+        folder: options.petId || 'documents',
+      });
+
+      if (!result.success) {
+        return {
+          success: false,
+          error: '保存文件失败',
+          file: null
+        };
       }
+
+      const newFile: CloudFile = {
+        id: `file-${Date.now()}`,
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        url: result.filePath ?? '',
+        thumbnailUrl: file.type.startsWith('image/') ? result.filePath ?? null : null,
+        uploadTime: new Date().toISOString(),
+        tags: options.tags || [],
+        metadata: {
+          petId: options.petId,
+          cameraId: options.cameraId,
+          ...options.metadata
+        }
+      };
+
+      this.files.unshift(newFile);
+
+      return {
+        success: true,
+        error: null,
+        file: newFile
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `上传失败: ${error}`,
+        file: null
+      };
     }
+  }
 
-    const newFile: CloudFile = {
-      id: `file-${Date.now()}`,
-      name: file.name,
-      type: file.type,
-      size: file.size,
-      url: `https://pawsync-cos.ap-shanghai.myqcloud.com/${Date.now()}-${file.name}`,
-      thumbnailUrl: file.type.startsWith('image/') 
-        ? `https://pawsync-cos.ap-shanghai.myqcloud.com/${Date.now()}-${file.name}-thumb` 
-        : null,
-      uploadTime: new Date().toISOString(),
-      tags: options.tags || [],
-      metadata: {
-        petId: options.petId,
-        cameraId: options.cameraId,
-        ...options.metadata
+  async saveImage(imageData: Uint8Array, options: { petId?: string; cameraId?: string; tags?: string[] } = {}): Promise<UploadResult> {
+    try {
+      const result = await PawSyncFileStorage.saveImage({
+        data: Array.from(imageData),
+        fileName: `image-${Date.now()}.jpg`,
+      });
+
+      if (!result.success) {
+        return {
+          success: false,
+          error: '保存图片失败',
+          file: null
+        };
       }
-    };
 
-    this.files.unshift(newFile);
-    delete this.uploadCallbacks[uploadId];
+      const newFile: CloudFile = {
+        id: `file-${Date.now()}`,
+        name: `image-${Date.now()}.jpg`,
+        type: 'image/jpeg',
+        size: imageData.length,
+        url: result.filePath ?? '',
+        thumbnailUrl: result.filePath ?? null,
+        uploadTime: new Date().toISOString(),
+        tags: options.tags || ['photo'],
+        metadata: {
+          petId: options.petId,
+          cameraId: options.cameraId,
+        }
+      };
 
-    return {
-      success: true,
-      error: null,
-      file: newFile
-    };
+      this.files.unshift(newFile);
+
+      return {
+        success: true,
+        error: null,
+        file: newFile
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `保存图片失败: ${error}`,
+        file: null
+      };
+    }
   }
 
   async getFile(fileId: string): Promise<CloudFile | null> {
-    await this.simulateDelay(200);
     return this.files.find(f => f.id === fileId) || null;
   }
 
@@ -175,8 +162,6 @@ class CloudStorageService {
       offset?: number;
     } = {}
   ): Promise<CloudFile[]> {
-    await this.simulateDelay(300);
-
     let filtered = [...this.files];
 
     if (options.petId) {
@@ -205,35 +190,37 @@ class CloudStorageService {
   }
 
   async deleteFile(fileId: string): Promise<{ success: boolean; error?: string }> {
-    await this.simulateDelay(300);
-    const index = this.files.findIndex(f => f.id === fileId);
-    if (index === -1) {
+    const file = this.files.find(f => f.id === fileId);
+    if (!file) {
       return { success: false, error: '文件不存在' };
     }
 
-    this.files.splice(index, 1);
+    try {
+      const result = await PawSyncFileStorage.deleteFile({ filePath: file.url });
+      if (result.success) {
+        const index = this.files.findIndex(f => f.id === fileId);
+        if (index !== -1) {
+          this.files.splice(index, 1);
+        }
+        return { success: true };
+      }
+    } catch (error) {
+      console.warn('Failed to delete file from storage:', error);
+    }
+
+    const index = this.files.findIndex(f => f.id === fileId);
+    if (index !== -1) {
+      this.files.splice(index, 1);
+    }
+
     return { success: true };
   }
 
   async getFileUrl(fileId: string, options?: { thumbnail?: boolean }): Promise<string | null> {
-    await this.simulateDelay(100);
     const file = this.files.find(f => f.id === fileId);
     if (!file) return null;
 
     return options?.thumbnail ? file.thumbnailUrl || file.url : file.url;
-  }
-
-  async generateUploadToken(): Promise<{
-    token: string;
-    expiresAt: string;
-    policy: string;
-  }> {
-    await this.simulateDelay(MOCK_DELAY);
-    return {
-      token: `STS_TOKEN_${Date.now()}`,
-      expiresAt: new Date(Date.now() + 3600000).toISOString(),
-      policy: 'eyJleHBpcmF0aW9uIjogMTcyMDAwMDAwMH0='
-    };
   }
 
   async getStorageUsage(): Promise<{
@@ -241,18 +228,32 @@ class CloudStorageService {
     limit: number;
     percentage: number;
   }> {
-    await this.simulateDelay(200);
-    const used = this.files.reduce((sum, f) => sum + f.size, 0);
-    const limit = 50 * 1024 * 1024 * 1024;
-    return {
-      used,
-      limit,
-      percentage: Math.round((used / limit) * 100)
-    };
+    try {
+      const result = await PawSyncFileStorage.getStorageUsage();
+      const limit = 50 * 1024 * 1024 * 1024;
+      return {
+        used: result.used ?? 0,
+        limit,
+        percentage: Math.round(((result.used ?? 0) / limit) * 100)
+      };
+    } catch {
+      const used = this.files.reduce((sum, f) => sum + f.size, 0);
+      const limit = 50 * 1024 * 1024 * 1024;
+      return {
+        used,
+        limit,
+        percentage: Math.round((used / limit) * 100)
+      };
+    }
   }
 
-  private simulateDelay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+  async checkStoragePermission(): Promise<boolean> {
+    try {
+      const result = await PawSyncFileStorage.checkStoragePermission();
+      return result.granted ?? false;
+    } catch {
+      return false;
+    }
   }
 }
 

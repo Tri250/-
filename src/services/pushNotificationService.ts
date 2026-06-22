@@ -1,6 +1,5 @@
+import { PawSyncNotification } from '../plugins';
 import type { PushNotification, NotificationConfig, NotificationPriority } from '../types/push';
-
-const MOCK_DELAY = 500;
 
 class PushNotificationService {
   private notifications: PushNotification[] = [];
@@ -18,70 +17,14 @@ class PushNotificationService {
     }
   };
   private deviceToken: string | null = null;
-  private tokenUpdatedAt: string | null = null;
   private listeners: Array<(notification: PushNotification) => void> = [];
 
-  constructor() {
-    this.initializeMockData();
-  }
-
-  private initializeMockData() {
-    const mockNotifications: PushNotification[] = [
-      {
-        id: 'push-1',
-        title: '宠物行为异常提醒',
-        body: '检测到猫咪频繁舔舐腹部，请关注',
-        type: 'health',
-        priority: 'high',
-        timestamp: new Date(Date.now() - 1800000).toISOString(),
-        read: false,
-        data: {
-          petId: '1',
-          action: 'view-alert',
-          alertId: 'alert-123'
-        }
-      },
-      {
-        id: 'push-2',
-        title: '疫苗接种提醒',
-        body: '糖糖的狂犬疫苗还有30天到期',
-        type: 'reminder',
-        priority: 'normal',
-        timestamp: new Date(Date.now() - 86400000).toISOString(),
-        read: true,
-        data: {
-          petId: '1',
-          action: 'view-vaccination',
-          vaccineId: 'vaccine-456'
-        }
-      },
-      {
-        id: 'push-3',
-        title: '监控异常通知',
-        body: '检测到花园摄像头离线',
-        type: 'security',
-        priority: 'critical',
-        timestamp: new Date(Date.now() - 3600000).toISOString(),
-        read: false,
-        data: {
-          petId: '1',
-          action: 'view-camera',
-          cameraId: 'cam-3'
-        }
-      }
-    ];
-    this.notifications = mockNotifications;
-  }
-
   async initialize(): Promise<void> {
-    await this.simulateDelay(MOCK_DELAY);
     console.log('Push notification service initialized');
   }
 
   async registerToken(token: string): Promise<{ success: boolean; message: string }> {
-    await this.simulateDelay(MOCK_DELAY);
     this.deviceToken = token;
-    this.tokenUpdatedAt = new Date().toISOString();
     return {
       success: true,
       message: 'Token registered successfully'
@@ -89,9 +32,7 @@ class PushNotificationService {
   }
 
   async unregisterToken(): Promise<void> {
-    await this.simulateDelay(200);
     this.deviceToken = null;
-    this.tokenUpdatedAt = null;
   }
 
   async getToken(): Promise<string | null> {
@@ -99,19 +40,16 @@ class PushNotificationService {
   }
 
   async getNotifications(limit: number = 20): Promise<PushNotification[]> {
-    await this.simulateDelay(300);
     return [...this.notifications].sort((a, b) => 
       new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     ).slice(0, limit);
   }
 
   async getUnreadCount(): Promise<number> {
-    await this.simulateDelay(100);
     return this.notifications.filter(n => !n.read).length;
   }
 
   async markAsRead(notificationId: string): Promise<boolean> {
-    await this.simulateDelay(100);
     const notification = this.notifications.find(n => n.id === notificationId);
     if (notification) {
       notification.read = true;
@@ -121,7 +59,6 @@ class PushNotificationService {
   }
 
   async markAllAsRead(): Promise<void> {
-    await this.simulateDelay(100);
     this.notifications.forEach(n => n.read = true);
   }
 
@@ -134,7 +71,16 @@ class PushNotificationService {
       data?: Record<string, string>;
     } = {}
   ): Promise<PushNotification> {
-    await this.simulateDelay(MOCK_DELAY);
+    try {
+      const result = await PawSyncNotification.showNotification({
+        title,
+        body,
+        id: `push-${Date.now()}`,
+        type: options.type || 'reminder',
+      });
+    } catch (error) {
+      console.warn('Failed to show native notification:', error);
+    }
 
     const notification: PushNotification = {
       id: `push-${Date.now()}`,
@@ -157,13 +103,37 @@ class PushNotificationService {
     return notification;
   }
 
+  async showHealthNotification(title: string, body: string, data?: Record<string, string>) {
+    try {
+      await PawSyncNotification.showNotification({
+        title,
+        body,
+        id: `health-${Date.now()}`,
+        type: 'health',
+      });
+    } catch (error) {
+      console.warn('Failed to show health notification:', error);
+    }
+  }
+
+  async showSecurityNotification(title: string, body: string, data?: Record<string, string>) {
+    try {
+      await PawSyncNotification.showNotification({
+        title,
+        body,
+        id: `security-${Date.now()}`,
+        type: 'security',
+      });
+    } catch (error) {
+      console.warn('Failed to show security notification:', error);
+    }
+  }
+
   async getConfig(): Promise<NotificationConfig> {
-    await this.simulateDelay(100);
     return { ...this.config };
   }
 
   async updateConfig(updates: Partial<NotificationConfig>): Promise<NotificationConfig> {
-    await this.simulateDelay(200);
     this.config = { ...this.config, ...updates };
     
     if (updates.categories) {
@@ -174,14 +144,30 @@ class PushNotificationService {
   }
 
   async getCategoryStatus(category: keyof NotificationConfig['categories']): Promise<boolean> {
-    await this.simulateDelay(50);
     return this.config.categories[category]?.enabled ?? true;
   }
 
   async setCategoryStatus(category: keyof NotificationConfig['categories'], enabled: boolean): Promise<void> {
-    await this.simulateDelay(100);
     if (this.config.categories[category]) {
       this.config.categories[category].enabled = enabled;
+    }
+  }
+
+  async checkNotificationPermission(): Promise<boolean> {
+    try {
+      const result = await PawSyncNotification.checkPermission();
+      return result.granted ?? false;
+    } catch {
+      return false;
+    }
+  }
+
+  async requestNotificationPermission(): Promise<boolean> {
+    try {
+      const result = await PawSyncNotification.requestPermission();
+      return result.granted ?? false;
+    } catch {
+      return false;
     }
   }
 
@@ -197,10 +183,6 @@ class PushNotificationService {
 
   private notifyListeners(notification: PushNotification) {
     this.listeners.forEach(listener => listener(notification));
-  }
-
-  private simulateDelay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
   }
 }
 

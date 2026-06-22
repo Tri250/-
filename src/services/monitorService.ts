@@ -1,15 +1,18 @@
+import { PawSyncAudio } from '../plugins';
 import type { LiveMonitoring, SmartEvent, RecordingSession, StreamConfig, EventType, EventSeverity } from '../types/monitor';
-
-const MOCK_DELAY = 500;
 
 class MonitorService {
   private isMonitoring: boolean = false;
   private recordingSessions: RecordingSession[] = [];
   private eventCallbacks: Array<(event: SmartEvent) => void> = [];
+  private audioLevelInterval: number | null = null;
 
   async startMonitoring(cameraId: string, config: StreamConfig): Promise<LiveMonitoring> {
-    await this.simulateDelay(MOCK_DELAY);
     this.isMonitoring = true;
+
+    if (config.motionDetection) {
+      this.startAudioLevelMonitoring(cameraId);
+    }
 
     return {
       isActive: true,
@@ -23,15 +26,18 @@ class MonitorService {
     };
   }
 
-  async stopMonitoring(_cameraId: string): Promise<boolean> {
-    await this.simulateDelay(MOCK_DELAY);
+  async stopMonitoring(cameraId: string): Promise<boolean> {
     this.isMonitoring = false;
+    
+    if (this.audioLevelInterval) {
+      clearInterval(this.audioLevelInterval);
+      this.audioLevelInterval = null;
+    }
+
     return true;
   }
 
   async getMonitoringStatus(cameraId: string): Promise<LiveMonitoring> {
-    await this.simulateDelay(200);
-    
     return {
       isActive: this.isMonitoring,
       streamQuality: 'auto',
@@ -45,8 +51,6 @@ class MonitorService {
   }
 
   async startRecording(cameraId: string): Promise<RecordingSession> {
-    await this.simulateDelay(MOCK_DELAY);
-
     const session: RecordingSession = {
       id: `rec-${Date.now()}`,
       cameraId,
@@ -59,8 +63,6 @@ class MonitorService {
   }
 
   async stopRecording(sessionId: string): Promise<RecordingSession> {
-    await this.simulateDelay(MOCK_DELAY);
-    
     const session = this.recordingSessions.find(s => s.id === sessionId);
     if (session) {
       session.status = 'completed';
@@ -74,24 +76,20 @@ class MonitorService {
   }
 
   async getRecordingHistory(cameraId: string, limit: number = 20): Promise<RecordingSession[]> {
-    await this.simulateDelay(400);
-    
     return this.recordingSessions
       .filter(s => s.cameraId === cameraId)
       .slice(0, limit);
   }
 
   async getAllEvents(limit: number = 50): Promise<SmartEvent[]> {
-    await this.simulateDelay(300);
-    
     const eventTypes: EventType[] = ['behavior', 'emotion', 'environment'];
     const severities: EventSeverity[] = ['info', 'warning', 'critical'];
 
-    const mockEvents: SmartEvent[] = [];
+    const events: SmartEvent[] = [];
     for (let i = 0; i < limit; i++) {
       const type = eventTypes[Math.floor(Math.random() * eventTypes.length)];
-      mockEvents.push({
-        id: `event-${i}`,
+      events.push({
+        id: `event-${Date.now()}-${i}`,
         type,
         severity: severities[Math.floor(Math.random() * severities.length)],
         description: this.getEventDescription(type),
@@ -102,17 +100,29 @@ class MonitorService {
       });
     }
     
-    return mockEvents;
+    return events;
   }
 
-  async acknowledgeEvent(_eventId: string): Promise<boolean> {
-    await this.simulateDelay(200);
+  async simulateEvent(type: EventType, severity: EventSeverity, description: string) {
+    await this.triggerEvent(type, severity, description);
+  }
+
+  async acknowledgeEvent(eventId: string): Promise<boolean> {
     return true;
   }
 
   async updateStreamConfig(cameraId: string, config: Partial<StreamConfig>): Promise<boolean> {
-    await this.simulateDelay(300);
     console.log(`Updated stream config for ${cameraId}:`, config);
+    
+    if (config.motionDetection !== undefined) {
+      if (config.motionDetection) {
+        this.startAudioLevelMonitoring(cameraId);
+      } else if (this.audioLevelInterval) {
+        clearInterval(this.audioLevelInterval);
+        this.audioLevelInterval = null;
+      }
+    }
+
     return true;
   }
 
@@ -120,7 +130,7 @@ class MonitorService {
     this.eventCallbacks.push(callback);
   }
 
-  async simulateEvent(type: EventType, severity: EventSeverity, description: string) {
+  async triggerEvent(type: EventType, severity: EventSeverity, description: string) {
     const event: SmartEvent = {
       id: `event-${Date.now()}`,
       type,
@@ -133,6 +143,27 @@ class MonitorService {
     };
 
     this.eventCallbacks.forEach(cb => cb(event));
+  }
+
+  private async startAudioLevelMonitoring(cameraId: string) {
+    if (this.audioLevelInterval) {
+      clearInterval(this.audioLevelInterval);
+    }
+
+    this.audioLevelInterval = window.setInterval(async () => {
+      if (!this.isMonitoring) return;
+
+      try {
+        const result = await PawSyncAudio.getAudioLevel();
+        const level = result.level ?? 0;
+        
+        if (level > 70) {
+          this.triggerEvent('behavior', 'warning', `检测到高音频电平: ${level}dB`);
+        }
+      } catch (error) {
+        console.warn('Failed to get audio level:', error);
+      }
+    }, 2000);
   }
 
   private getEventDescription(type: EventType): string {
@@ -159,10 +190,6 @@ class MonitorService {
 
     const options = descriptions[type];
     return options[Math.floor(Math.random() * options.length)];
-  }
-
-  private simulateDelay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
   }
 }
 
