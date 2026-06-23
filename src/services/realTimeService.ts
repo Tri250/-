@@ -676,13 +676,18 @@ class RealTimeService {
         this.signalingSocket = new WebSocket(url);
       } catch (error) {
         console.warn('[RealTimeService] WebSocket creation failed, signaling unavailable:', error);
-        resolve();
+        reject(new Error('WebSocket creation failed'));
         return;
       }
 
+      let resolved = false;
+
       this.signalingSocket.onopen = () => {
-        console.log('[RealTimeService] Connected to signaling server');
-        resolve();
+        if (!resolved) {
+          resolved = true;
+          console.log('[RealTimeService] Connected to signaling server');
+          resolve();
+        }
       };
 
       this.signalingSocket.onmessage = (event) => {
@@ -696,23 +701,34 @@ class RealTimeService {
 
       this.signalingSocket.onerror = (error) => {
         console.error('[RealTimeService] Signaling server error:', error);
-        reject(new Error('Signaling server connection failed'));
+        if (!resolved) {
+          resolved = true;
+          reject(new Error('Signaling server connection failed'));
+        }
       };
 
       this.signalingSocket.onclose = () => {
         console.log('[RealTimeService] Signaling server disconnected');
+        if (!resolved) {
+          resolved = true;
+          reject(new Error('Signaling server connection closed before established'));
+        }
+        this.signalingSocket = null;
         // 自动重连逻辑
         setTimeout(() => {
-          if (this.stats.connected && !this.signalingSocket) {
-            this.connectSignalingServer().catch(() => {});
+          if (this.stats.connected) {
+            this.connectSignalingServer().catch(err => {
+              console.warn('[RealTimeService] Auto-reconnect failed:', err);
+            });
           }
         }, 5000);
       };
 
       // 连接超时
       setTimeout(() => {
-        if (this.signalingSocket?.readyState !== WebSocket.OPEN) {
-          resolve(); // 不阻塞，允许无信令运行
+        if (!resolved && this.signalingSocket?.readyState !== WebSocket.OPEN) {
+          resolved = true;
+          reject(new Error('Signaling server connection timeout'));
         }
       }, 3000);
     });

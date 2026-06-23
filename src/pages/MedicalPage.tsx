@@ -6,18 +6,29 @@
 // 描述: 医疗咨询页面
 // ============================================
 
-import { useState } from 'react';
-import { Stethoscope, MessageSquare, Calendar, CheckCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Stethoscope, MessageSquare, Calendar, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
 import { useMedicalStore } from '../store/medicalStore';
+import { EmptyState } from '../components/EmptyState';
 
 export default function MedicalPage() {
-  const { symptoms, consultations, currentConsultation, startAIConsultation } = useMedicalStore();
+  const { symptoms, consultations, currentConsultation, startAIConsultation, fetchSymptoms, fetchConsultations, loading, error } = useMedicalStore();
   const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isConsulting, setIsConsulting] = useState(false);
+
+  useEffect(() => {
+    fetchSymptoms();
+    fetchConsultations();
+  }, [fetchSymptoms, fetchConsultations]);
+
+  const handleRetry = () => {
+    fetchSymptoms();
+    fetchConsultations();
+  };
 
   const toggleSymptom = (symptomId: string) => {
-    setSelectedSymptoms(prev => 
-      prev.includes(symptomId) 
+    setSelectedSymptoms(prev =>
+      prev.includes(symptomId)
         ? prev.filter(id => id !== symptomId)
         : [...prev, symptomId]
     );
@@ -25,13 +36,14 @@ export default function MedicalPage() {
 
   const handleStartConsultation = async () => {
     if (selectedSymptoms.length === 0) return;
-    
-    setIsLoading(true);
-    try {
-      await startAIConsultation(selectedSymptoms);
-    } finally {
-      setIsLoading(false);
-    }
+
+    setIsConsulting(true);
+    await startAIConsultation(selectedSymptoms);
+    setIsConsulting(false);
+  };
+
+  const handleResetConsultation = () => {
+    setSelectedSymptoms([]);
   };
 
   const getSeverityColor = (severity: string) => {
@@ -53,6 +65,56 @@ export default function MedicalPage() {
     };
     return labels[severity] || severity;
   };
+
+  const renderSkeleton = () => (
+    <div className="px-4 max-w-md mx-auto space-y-2 animate-pulse">
+      {[1, 2, 3, 4].map((i) => (
+        <div key={i} className="bg-white rounded-xl p-4 border border-neutral-100">
+          <div className="flex items-center justify-between">
+            <div className="space-y-2 flex-1">
+              <div className="h-5 bg-neutral-200 rounded w-1/3" />
+              <div className="h-4 bg-neutral-100 rounded w-2/3" />
+            </div>
+            <div className="h-5 bg-neutral-200 rounded w-12" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  if (error && symptoms.length === 0 && consultations.length === 0) {
+    return (
+      <div className="min-h-screen bg-neutral-50 pb-24">
+        <div className="bg-gradient-to-br from-warning-500 to-warning-600 text-white px-6 py-8">
+          <div className="max-w-md mx-auto">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center">
+                <Stethoscope className="w-6 h-6" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold">医疗咨询</h1>
+                <p className="text-warning-100">AI 预诊 + 专业兽医服务</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-col items-center justify-center py-16 px-4">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
+            <AlertCircle className="w-8 h-8 text-red-500" />
+          </div>
+          <h2 className="text-lg font-semibold text-neutral-800 mb-2">加载失败</h2>
+          <p className="text-neutral-500 text-sm mb-6 text-center">{error}</p>
+          <button
+            onClick={handleRetry}
+            className="px-6 py-3 bg-warning-500 text-white rounded-xl font-semibold hover:bg-warning-600 transition-all flex items-center gap-2"
+          >
+            <RefreshCw className="w-5 h-5" />
+            重试
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-neutral-50 pb-24">
@@ -91,56 +153,70 @@ export default function MedicalPage() {
       <div className="px-4 max-w-md mx-auto">
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-neutral-100 mb-6">
           <h2 className="text-lg font-bold text-neutral-800 mb-4">AI 智能预诊</h2>
-          
-          {!currentConsultation ? (
+
+          {loading && symptoms.length === 0 ? (
+            renderSkeleton()
+          ) : !currentConsultation ? (
             <>
               <p className="text-neutral-600 text-sm mb-4">请选择爱宠出现的症状</p>
-              
-              <div className="space-y-2 mb-6">
-                {symptoms.map((symptom) => (
-                  <button
-                    key={symptom.id}
-                    onClick={() => toggleSymptom(symptom.id)}
-                    className={`w-full p-4 rounded-xl border-2 text-left transition-all ${
-                      selectedSymptoms.includes(symptom.id)
-                        ? 'border-warning-500 bg-warning-50'
-                        : 'border-neutral-100 hover:border-neutral-200'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="font-semibold text-neutral-800">{symptom.name}</h4>
-                        <p className="text-sm text-neutral-500">{symptom.description}</p>
-                      </div>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getSeverityColor(symptom.severity)}`}>
-                        {getSeverityLabel(symptom.severity)}
-                      </span>
-                    </div>
-                  </button>
-                ))}
-              </div>
 
-              <button
-                onClick={handleStartConsultation}
-                disabled={selectedSymptoms.length === 0 || isLoading}
-                className={`w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all ${
-                  selectedSymptoms.length === 0 || isLoading
-                    ? 'bg-neutral-200 text-neutral-400 cursor-not-allowed'
-                    : 'bg-gradient-to-r from-warning-500 to-warning-600 text-white hover:shadow-lg'
-                }`}
-              >
-                {isLoading ? (
-                  <>
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    分析中...
-                  </>
-                ) : (
-                  <>
-                    <Stethoscope className="w-5 h-5" />
-                    开始咨询
-                  </>
-                )}
-              </button>
+              {symptoms.length === 0 ? (
+                <EmptyState
+                  icon={<Stethoscope className="w-12 h-12" />}
+                  title="暂无症状数据"
+                  description="症状数据加载中，请稍后再试"
+                  actionText="重试"
+                  onAction={handleRetry}
+                />
+              ) : (
+                <div className="space-y-2 mb-6">
+                  {symptoms.map((symptom) => (
+                    <button
+                      key={symptom.id}
+                      onClick={() => toggleSymptom(symptom.id)}
+                      className={`w-full p-4 rounded-xl border-2 text-left transition-all ${
+                        selectedSymptoms.includes(symptom.id)
+                          ? 'border-warning-500 bg-warning-50'
+                          : 'border-neutral-100 hover:border-neutral-200'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="font-semibold text-neutral-800">{symptom.name}</h4>
+                          <p className="text-sm text-neutral-500">{symptom.description}</p>
+                        </div>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getSeverityColor(symptom.severity)}`}>
+                          {getSeverityLabel(symptom.severity)}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {symptoms.length > 0 && (
+                <button
+                  onClick={handleStartConsultation}
+                  disabled={selectedSymptoms.length === 0 || isConsulting}
+                  className={`w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all ${
+                    selectedSymptoms.length === 0 || isConsulting
+                      ? 'bg-neutral-200 text-neutral-400 cursor-not-allowed'
+                      : 'bg-gradient-to-r from-warning-500 to-warning-600 text-white hover:shadow-lg'
+                  }`}
+                >
+                  {isConsulting ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      分析中...
+                    </>
+                  ) : (
+                    <>
+                      <Stethoscope className="w-5 h-5" />
+                      开始咨询
+                    </>
+                  )}
+                </button>
+              )}
             </>
           ) : (
             <div className="animate-fade-in">
@@ -160,7 +236,7 @@ export default function MedicalPage() {
                     </div>
                     <p className="text-neutral-700 text-sm">{currentConsultation.diagnosis}</p>
                   </div>
-                  
+
                   {currentConsultation.recommendations && (
                     <div className="mb-4">
                       <h4 className="font-semibold text-neutral-800 mb-2">建议</h4>
@@ -176,9 +252,7 @@ export default function MedicalPage() {
                   )}
 
                   <button
-                    onClick={() => {
-                      setSelectedSymptoms([]);
-                    }}
+                    onClick={handleResetConsultation}
                     className="w-full py-3 bg-neutral-100 text-neutral-700 rounded-xl font-semibold hover:bg-neutral-200 transition-all"
                   >
                     重新咨询

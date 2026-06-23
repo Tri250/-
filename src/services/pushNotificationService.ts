@@ -1,28 +1,7 @@
 import type { PushNotification, NotificationConfig, NotificationPriority } from '../types/push';
+import { api } from '../lib/api';
 import { capacitorBridge } from './capacitorBridge';
 import { databaseService } from './databaseService';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.pawsync.com/v1';
-
-async function fetchWithRetry(url: string, options: RequestInit, retries = 3): Promise<Response> {
-  let lastError: Error | null = null;
-  for (let i = 0; i < retries; i++) {
-    try {
-      const response = await fetch(url, options);
-      if (response.ok) return response;
-      if (response.status >= 400 && response.status < 500) {
-        throw new Error(`Client error ${response.status}: ${response.statusText}`);
-      }
-      lastError = new Error(`Server error ${response.status}: ${response.statusText}`);
-    } catch (err) {
-      lastError = err instanceof Error ? err : new Error(String(err));
-    }
-    if (i < retries - 1) {
-      await new Promise((r) => setTimeout(r, 1000 * (i + 1)));
-    }
-  }
-  throw lastError || new Error('Request failed after retries');
-}
 
 class PushNotificationService {
   private config: NotificationConfig = {
@@ -40,6 +19,7 @@ class PushNotificationService {
   };
   private deviceToken: string | null = null;
   private listeners: Array<(notification: PushNotification) => void> = [];
+  private navigationCallbacks: Array<(data: Record<string, string>) => void> = [];
   private initialized = false;
 
   async initialize(): Promise<void> {
@@ -66,7 +46,7 @@ class PushNotificationService {
         return;
       }
 
-      // Register for push notifications
+      // Register for push notifications via Capacitor (FCM on Android)
       capacitorBridge.registerPush();
 
       // Listen for registration token
@@ -86,8 +66,8 @@ class PushNotificationService {
           id: notification.id || `push-${Date.now()}`,
           title: notification.title || '',
           body: notification.body || '',
-          type: 'reminder',
-          priority: 'normal',
+          type: this.inferType(notification.data),
+          priority: this.inferPriority(notification.data),
           timestamp: new Date().toISOString(),
           read: false,
           data: notification.data,
@@ -96,21 +76,24 @@ class PushNotificationService {
         this.notifyListeners(pushNotif);
       });
 
-      // Listen for push notification action (tap)
+      // Listen for push notification action (tap) - handle navigation
       capacitorBridge.addPushEventListener('pushNotificationActionPerformed', (action) => {
         const notification = action.notification;
         const pushNotif: PushNotification = {
           id: notification.id || `push-${Date.now()}`,
           title: notification.title || '',
           body: notification.body || '',
-          type: 'reminder',
-          priority: 'normal',
+          type: this.inferType(notification.data),
+          priority: this.inferPriority(notification.data),
           timestamp: new Date().toISOString(),
-          read: false,
+          read: true,
           data: notification.data,
         };
         this.saveNotification(pushNotif);
         this.notifyListeners(pushNotif);
+
+        // Handle notification click navigation
+        this.handleNotificationNavigation(notification.data || {});
       });
 
       this.initialized = true;
@@ -118,6 +101,50 @@ class PushNotificationService {
       console.error('Failed to initialize push notification service:', err);
       this.initialized = true;
     }
+  }
+
+  private inferType(data?: Record<string, string>): PushNotification['type'] {
+    if (!data?.type) return 'reminder';
+    const type = data.type;
+    if (type === 'health' || type === 'security' || type === 'reminder' || type === 'promotion') {
+      return type;
+    }
+    return 'reminder';
+  }
+
+  private inferPriority(data?: Record<string, string>): NotificationPriority {
+    if (!data?.priority) return 'normal';
+    const priority = data.priority;
+    if (priority === 'low' || priority === 'normal' || priority === 'high' || priority === 'critical') {
+      return priority;
+    }
+    return 'normal';
+  }
+
+  private handleNotificationNavigation(data: Record<string, string>): void {
+    // Notify navigation callbacks with the notification data
+    for (const cb of this.navigationCallbacks) {
+      try {
+        cb(data);
+      } catch (err) {
+        console.error('Navigation callback error:', err);
+      }
+    }
+  }
+
+  /**
+   * Register a callback for notification click navigation.
+   * The callback receives the notification data which can contain
+   * route information like { route: '/health', petId: '123' }
+   */
+  onNotificationNavigation(callback: (data: Record<string, string>) => void): () => void {
+    this.navigationCallbacks.push(callback);
+    return () => {
+      const index = this.navigationCallbacks.indexOf(callback);
+      if (index > -1) {
+        this.navigationCallbacks.splice(index, 1);
+      }
+    };
   }
 
   private async saveNotification(notification: PushNotification): Promise<void> {
@@ -130,13 +157,11 @@ class PushNotificationService {
 
   async registerToken(token: string): Promise<{ success: boolean; message: string }> {
     try {
-      const response = await fetchWithRetry(`${API_BASE_URL}/push/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, platform: 'android' }),
+      const result = await api.post<{ message: string }>('/push/register', {
+        token,
+        platform: 'android',
       });
 
-      const result = await response.json();
       this.deviceToken = token;
       await databaseService.setConfig('push_device_token', token);
 
@@ -157,10 +182,8 @@ class PushNotificationService {
     if (!this.deviceToken) return;
 
     try {
-      await fetchWithRetry(`${API_BASE_URL}/push/unregister`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: this.deviceToken }),
+      await api.post('/push/unregister', {
+        token: this.deviceToken,
       });
     } catch (err) {
       console.error('Failed to unregister push token:', err);
@@ -250,17 +273,11 @@ class PushNotificationService {
     // Schedule local notification via Capacitor plugin
     try {
       await capacitorBridge.scheduleNotification({
-        notifications: [
-          {
-            title,
-            body,
-            id: Date.now(),
-            schedule: { at: new Date(Date.now() + 100) },
-            sound: this.config.sound ? undefined : undefined,
-            attachments: undefined,
-            extra: options.data,
-          },
-        ],
+        title,
+        body,
+        id: parseInt(notification.id.replace(/\D/g, '').slice(0, 9)),
+        schedule: { at: new Date(Date.now() + 100) },
+        extra: options.data as Record<string, unknown>,
       });
     } catch (err) {
       console.error('Failed to schedule local notification:', err);

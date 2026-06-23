@@ -1,50 +1,45 @@
 import { create } from 'zustand';
 import { Symptom, MedicalConsultation, VetAppointment, MedicalRecord, MedicalStore } from '../types/medical';
+import { api } from '../lib/api';
 
-const mockSymptoms: Symptom[] = [
-  {
-    id: '1',
-    name: '食欲不振',
-    description: '宠物进食量减少或拒绝进食',
-    severity: 'medium',
-    relatedConditions: ['消化系统问题', '牙齿问题', '压力反应']
-  },
-  {
-    id: '2',
-    name: '呕吐',
-    description: '反复呕吐或干呕',
-    severity: 'high',
-    relatedConditions: ['胃炎', '食物中毒', '肠道阻塞']
-  },
-  {
-    id: '3',
-    name: '腹泻',
-    description: '排便异常，粪便稀薄',
-    severity: 'medium',
-    relatedConditions: ['肠胃炎', '寄生虫感染', '食物过敏']
-  },
-  {
-    id: '4',
-    name: '发热',
-    description: '体温升高，精神萎靡',
-    severity: 'high',
-    relatedConditions: ['感染', '炎症', '病毒性疾病']
-  },
-  {
-    id: '5',
-    name: '咳嗽',
-    description: '频繁咳嗽或呼吸困难',
-    severity: 'medium',
-    relatedConditions: ['呼吸道感染', '心脏病', '过敏反应']
-  }
-];
-
-export const useMedicalStore = create<MedicalStore>((set, _get) => ({
-  symptoms: mockSymptoms,
+export const useMedicalStore = create<MedicalStore>((set, get) => ({
+  symptoms: [],
   consultations: [],
   appointments: [],
   medicalRecords: [],
   currentConsultation: null,
+  loading: false,
+  error: null,
+
+  fetchSymptoms: async () => {
+    set({ loading: true, error: null });
+    try {
+      const data = await api.get<{ symptoms: Symptom[] }>('/medical/symptoms');
+      set({ symptoms: data.symptoms, loading: false });
+    } catch (err) {
+      set({ error: err instanceof Error ? err.message : '获取症状列表失败', loading: false });
+    }
+  },
+
+  fetchConsultations: async () => {
+    set({ loading: true, error: null });
+    try {
+      const data = await api.get<{ consultations: MedicalConsultation[] }>('/medical-records');
+      set({ consultations: data.consultations.map(c => ({ ...c, date: new Date(c.date) })), loading: false });
+    } catch (err) {
+      set({ error: err instanceof Error ? err.message : '获取问诊记录失败', loading: false });
+    }
+  },
+
+  fetchMedicalRecords: async () => {
+    set({ loading: true, error: null });
+    try {
+      const data = await api.get<{ records: MedicalRecord[] }>('/medical-records/all');
+      set({ medicalRecords: data.records.map(r => ({ ...r, date: new Date(r.date), nextDueDate: r.nextDueDate ? new Date(r.nextDueDate) : undefined })), loading: false });
+    } catch (err) {
+      set({ error: err instanceof Error ? err.message : '获取医疗记录失败', loading: false });
+    }
+  },
 
   setSymptoms: (symptoms) => set({ symptoms }),
   setConsultations: (consultations) => set({ consultations }),
@@ -57,51 +52,59 @@ export const useMedicalStore = create<MedicalStore>((set, _get) => ({
       date: new Date(),
       type: 'ai',
       status: 'in_progress',
-      symptoms
+      symptoms,
     };
 
     set({ currentConsultation: consultation });
 
-    // 模拟 AI 诊断延迟
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    try {
+      const data = await api.post<{ consultation: MedicalConsultation }>('/medical/ai-consultation', { symptoms });
+      const completedConsultation: MedicalConsultation = {
+        ...data.consultation,
+        id: consultation.id,
+        date: new Date(data.consultation.date),
+        type: 'ai',
+        status: 'completed',
+      };
 
-    const completedConsultation: MedicalConsultation = {
-      ...consultation,
-      status: 'completed',
-      diagnosis: '根据您描述的症状，建议您密切观察宠物的情况。如果症状持续或加重，请及时就医。',
-      recommendations: [
-        '确保宠物有充足的饮水',
-        '监测体温变化',
-        '记录症状出现的频率',
-        '避免剧烈运动',
-        '如症状持续超过24小时，请联系兽医'
-      ]
-    };
+      set((state) => ({
+        currentConsultation: completedConsultation,
+        consultations: [completedConsultation, ...state.consultations],
+      }));
 
-    set((state) => ({
-      currentConsultation: completedConsultation,
-      consultations: [completedConsultation, ...state.consultations]
-    }));
+      return completedConsultation;
+    } catch {
+      const completedConsultation: MedicalConsultation = {
+        ...consultation,
+        status: 'completed',
+        diagnosis: 'AI 分析暂时不可用，请稍后重试或联系兽医。',
+        recommendations: ['确保宠物有充足的饮水', '观察症状变化', '如症状持续，请联系兽医'],
+      };
 
-    return completedConsultation;
+      set((state) => ({
+        currentConsultation: completedConsultation,
+        consultations: [completedConsultation, ...state.consultations],
+      }));
+
+      return completedConsultation;
+    }
   },
 
   bookAppointment: async (appointmentData) => {
-    const appointment: VetAppointment = {
-      ...appointmentData,
-      id: Date.now().toString(),
-      status: 'scheduled'
-    };
-
-    set((state) => ({ appointments: [appointment, ...state.appointments] }));
-    return true;
+    try {
+      const data = await api.post<{ appointment: VetAppointment }>('/medical/appointments', appointmentData);
+      set((state) => ({ appointments: [data.appointment, ...state.appointments] }));
+      return true;
+    } catch {
+      return false;
+    }
   },
 
   addMedicalRecord: (record) => {
     const newRecord: MedicalRecord = {
       ...record,
-      id: Date.now().toString()
+      id: Date.now().toString(),
     };
     set((state) => ({ medicalRecords: [newRecord, ...state.medicalRecords] }));
-  }
+  },
 }));

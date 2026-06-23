@@ -255,6 +255,12 @@ export interface BondStore {
   totalPoints: number;
   streakDays: number;
   lastActiveDate: Date;
+  loading: boolean;
+  error: string | null;
+  fetchMetrics: () => Promise<void>;
+  fetchBadges: () => Promise<void>;
+  fetchAchievements: () => Promise<void>;
+  fetchEmotionAnalyses: () => Promise<void>;
   updateMetrics: (metrics: Partial<BondMetrics>) => void;
   addDailyActivity: (activity: Omit<DailyActivity, 'id' | 'timestamp'>) => void;
   unlockBadge: (badgeId: string) => void;

@@ -27,7 +27,6 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 import { dataExportManager } from '../services/dataExportService';
-import { permissionManager, PermissionType, PermissionStatus } from '../services/permissionService';
 
 interface SettingsPageProps {
   onNavigate: (page: string) => void;
@@ -62,12 +61,6 @@ export default function SettingsPage({ onNavigate }: SettingsPageProps) {
   const [toastMessage, setToastMessage] = useState('');
   const [isExporting, setIsExporting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [_permissionStatuses, setPermissionStatuses] = useState<Map<PermissionType, PermissionStatus>>(new Map());
-  const [privacySettings, setPrivacySettings] = useState({
-    dataAnalysis: true,
-    personalizedRecommendations: true,
-    locationInfo: false,
-  });
 
   const showToast = (message: string) => {
     setToastMessage(message);
@@ -80,10 +73,6 @@ export default function SettingsPage({ onNavigate }: SettingsPageProps) {
     } else {
       document.documentElement.classList.remove('dark');
     }
-    
-    permissionManager.checkAllPermissions().then(statuses => {
-      setPermissionStatuses(statuses);
-    });
   }, [settings.darkMode]);
 
   const handleExportData = async () => {
@@ -123,17 +112,6 @@ export default function SettingsPage({ onNavigate }: SettingsPageProps) {
     } finally {
       setIsDeleting(false);
       setDeleteConfirmationInput('');
-    }
-  };
-
-  const _handleRequestPermission = async (type: PermissionType) => {
-    const granted = await permissionManager.requestPermission(type);
-    if (granted) {
-      showToast(`${permissionManager.getConfig(type).description} 权限已开启`);
-      const statuses = await permissionManager.checkAllPermissions();
-      setPermissionStatuses(statuses);
-    } else {
-      showToast(permissionManager.getFallbackMessage(type));
     }
   };
 
@@ -495,12 +473,12 @@ export default function SettingsPage({ onNavigate }: SettingsPageProps) {
             </div>
             <button
               onClick={() => {
-                setPrivacySettings(prev => ({ ...prev, dataAnalysis: !prev.dataAnalysis }));
+                updateSettings({ privacy: { ...settings.privacy, dataAnalysis: !settings.privacy.dataAnalysis } });
                 showToast('设置已更新');
               }}
-              className={`w-12 h-7 rounded-full transition-all relative ${privacySettings.dataAnalysis ? 'bg-purple-500' : 'bg-gray-300'}`}
+              className={`w-12 h-7 rounded-full transition-all relative ${settings.privacy.dataAnalysis ? 'bg-purple-500' : 'bg-gray-300'}`}
             >
-              <div className={`w-5 h-5 rounded-full bg-white shadow-md absolute top-1 transition-all ${privacySettings.dataAnalysis ? 'right-1' : 'left-1'}`} />
+              <div className={`w-5 h-5 rounded-full bg-white shadow-md absolute top-1 transition-all ${settings.privacy.dataAnalysis ? 'right-1' : 'left-1'}`} />
             </button>
           </div>
           <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
@@ -510,12 +488,12 @@ export default function SettingsPage({ onNavigate }: SettingsPageProps) {
             </div>
             <button
               onClick={() => {
-                setPrivacySettings(prev => ({ ...prev, personalizedRecommendations: !prev.personalizedRecommendations }));
+                updateSettings({ privacy: { ...settings.privacy, personalizedRecommendations: !settings.privacy.personalizedRecommendations } });
                 showToast('设置已更新');
               }}
-              className={`w-12 h-7 rounded-full transition-all relative ${privacySettings.personalizedRecommendations ? 'bg-purple-500' : 'bg-gray-300'}`}
+              className={`w-12 h-7 rounded-full transition-all relative ${settings.privacy.personalizedRecommendations ? 'bg-purple-500' : 'bg-gray-300'}`}
             >
-              <div className={`w-5 h-5 rounded-full bg-white shadow-md absolute top-1 transition-all ${privacySettings.personalizedRecommendations ? 'right-1' : 'left-1'}`} />
+              <div className={`w-5 h-5 rounded-full bg-white shadow-md absolute top-1 transition-all ${settings.privacy.personalizedRecommendations ? 'right-1' : 'left-1'}`} />
             </button>
           </div>
           <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
@@ -525,12 +503,12 @@ export default function SettingsPage({ onNavigate }: SettingsPageProps) {
             </div>
             <button
               onClick={() => {
-                setPrivacySettings(prev => ({ ...prev, locationInfo: !prev.locationInfo }));
+                updateSettings({ privacy: { ...settings.privacy, locationInfo: !settings.privacy.locationInfo } });
                 showToast('设置已更新');
               }}
-              className={`w-12 h-7 rounded-full transition-all relative ${privacySettings.locationInfo ? 'bg-purple-500' : 'bg-gray-300'}`}
+              className={`w-12 h-7 rounded-full transition-all relative ${settings.privacy.locationInfo ? 'bg-purple-500' : 'bg-gray-300'}`}
             >
-              <div className={`w-5 h-5 rounded-full bg-white shadow-md absolute top-1 transition-all ${privacySettings.locationInfo ? 'right-1' : 'left-1'}`} />
+              <div className={`w-5 h-5 rounded-full bg-white shadow-md absolute top-1 transition-all ${settings.privacy.locationInfo ? 'right-1' : 'left-1'}`} />
             </button>
           </div>
         </div>

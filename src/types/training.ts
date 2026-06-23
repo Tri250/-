@@ -50,7 +50,11 @@ export interface TrainingStore {
   trainingRecords: TrainingRecord[];
   totalTrainingTime: number;
   streakDays: number;
-  
+  loading: boolean;
+  error: string | null;
+
+  fetchCourses: () => Promise<void>;
+  fetchTrainingRecords: () => Promise<void>;
   setCourses: (courses: TrainingCourse[]) => void;
   startSession: (courseId: string) => void;
   completeStep: (stepId: string) => void;

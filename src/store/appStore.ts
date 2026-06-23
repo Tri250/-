@@ -8,6 +8,7 @@
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { api } from '../lib/api';
 
 export interface User {
   id: string;
@@ -57,6 +58,12 @@ export interface CareTip {
   priority: 'high' | 'medium' | 'low';
 }
 
+export interface PrivacySettings {
+  dataAnalysis: boolean;
+  personalizedRecommendations: boolean;
+  locationInfo: boolean;
+}
+
 export interface AppSettings {
   notifications: boolean;
   soundEnabled: boolean;
@@ -64,6 +71,7 @@ export interface AppSettings {
   fontSize: 'small' | 'medium' | 'large';
   autoPlay: boolean;
   language: 'zh-CN' | 'en-US';
+  privacy: PrivacySettings;
 }
 
 interface AppState {
@@ -151,6 +159,11 @@ const defaultSettings: AppSettings = {
   fontSize: 'medium',
   autoPlay: true,
   language: 'zh-CN',
+  privacy: {
+    dataAnalysis: true,
+    personalizedRecommendations: true,
+    locationInfo: false,
+  },
 };
 
 export const useAppStore = create<AppState>()(
@@ -242,53 +255,51 @@ export const useAppStore = create<AppState>()(
 
       setUser: (user) => set({ user, isAuthenticated: !!user }),
 
-      login: async (email, _password) => {
+      login: async (email, password) => {
         set({ initProgress: 30, initMessage: '正在验证账号...' });
-        await new Promise(resolve => setTimeout(resolve, 500));
         
-        set({ initProgress: 60, initMessage: '正在获取用户信息...' });
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        const mockUser: User = {
-          id: '1',
-          email,
-          username: email.split('@')[0],
-          isPremium: false,
-          createdAt: new Date().toISOString(),
-        };
-        
-        set({ 
-          user: mockUser, 
-          isAuthenticated: true,
-          initProgress: 100,
-          initMessage: '登录成功',
-        });
-        return true;
+        try {
+          const response = await api.post<{ user: User; token: string }>('/auth/login', { email, password });
+          
+          set({ initProgress: 70, initMessage: '正在获取用户信息...' });
+          
+          await api.setToken(response.token);
+          
+          set({ 
+            user: response.user, 
+            isAuthenticated: true,
+            initProgress: 100,
+            initMessage: '登录成功',
+          });
+          return true;
+        } catch (error) {
+          set({ initProgress: 0, initMessage: '' });
+          throw error;
+        }
       },
 
-      register: async (email, _password, username) => {
+      register: async (email, password, username) => {
         set({ initProgress: 30, initMessage: '正在创建账号...' });
-        await new Promise(resolve => setTimeout(resolve, 500));
         
-        set({ initProgress: 60, initMessage: '正在初始化用户数据...' });
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        const mockUser: User = {
-          id: Date.now().toString(),
-          email,
-          username,
-          isPremium: false,
-          createdAt: new Date().toISOString(),
-        };
-        
-        set({ 
-          user: mockUser, 
-          isAuthenticated: true, 
-          isOnboardingComplete: false,
-          initProgress: 100,
-          initMessage: '注册成功',
-        });
-        return true;
+        try {
+          const response = await api.post<{ user: User; token: string }>('/auth/register', { email, password, username });
+          
+          set({ initProgress: 70, initMessage: '正在初始化用户数据...' });
+          
+          await api.setToken(response.token);
+          
+          set({ 
+            user: response.user, 
+            isAuthenticated: true, 
+            isOnboardingComplete: false,
+            initProgress: 100,
+            initMessage: '注册成功',
+          });
+          return true;
+        } catch (error) {
+          set({ initProgress: 0, initMessage: '' });
+          throw error;
+        }
       },
 
       logout: () => {

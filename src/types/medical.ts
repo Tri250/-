@@ -47,7 +47,12 @@ export interface MedicalStore {
   appointments: VetAppointment[];
   medicalRecords: MedicalRecord[];
   currentConsultation: MedicalConsultation | null;
-  
+  loading: boolean;
+  error: string | null;
+
+  fetchSymptoms: () => Promise<void>;
+  fetchConsultations: () => Promise<void>;
+  fetchMedicalRecords: () => Promise<void>;
   setSymptoms: (symptoms: Symptom[]) => void;
   setConsultations: (consultations: MedicalConsultation[]) => void;
   setAppointments: (appointments: VetAppointment[]) => void;

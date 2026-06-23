@@ -17,8 +17,7 @@ import type {
   EmotionAnalysisDetail,
 } from '../types/emotion';
 import { EMOTION_CONFIGS, TRANSLATIONS } from '../types/emotion';
-
-const MOCK_DELAY = 800;
+import { api } from '../lib/api';
 
 // 置信度阈值配置
 const EMOTION_CONFIDENCE_THRESHOLDS = {
@@ -165,39 +164,56 @@ class EmotionService {
   }
 
   async analyzeVoice(audioData: Float32Array, context?: VoiceAnalysisContext): Promise<EmotionAnalysis> {
-    await this.simulateDelay(MOCK_DELAY);
-
     // 验证音频数据有效性
     const validation = this.validateAudioInput(audioData, context);
     if (!validation.isValid) {
-      // 返回低置信度的默认结果，但标记为不可靠
       return this.createLowConfidenceResult(validation.reason || '音频数据无效', 'voice');
     }
 
     const audioFeatures = this.extractAudioFeatures(audioData);
     
-    // 验证提取的特征是否有效
     if (!this.areAudioFeaturesValid(audioFeatures)) {
       return this.createLowConfidenceResult('无法提取有效的音频特征', 'voice');
     }
-    
+
+    // 尝试调用后端 AI 推理服务
+    try {
+      const audioBlob = new Blob([audioData.buffer], { type: 'audio/wav' });
+      const formData = new FormData();
+      formData.append('audio', audioBlob, 'recording.wav');
+      formData.append('petType', context?.petType || 'unknown');
+      formData.append('petAge', String(context?.age || 0));
+      formData.append('duration', String(context?.duration || 0));
+
+      const token = await this.getAuthToken();
+      const response = await fetch(`${this.API_ENDPOINT}/analyze-voice`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData,
+      });
+
+      if (response.ok) {
+        const serverResult = await response.json();
+        const analysis: EmotionAnalysis = {
+          ...serverResult.analysis,
+          source: 'voice',
+          detail: { ...serverResult.analysis.detail, audioFeatures },
+        };
+        this.cacheAnalysis(analysis);
+        return analysis;
+      }
+    } catch (error) {
+      console.warn('[EmotionService] Backend AI inference unavailable, falling back to local analysis:', error);
+    }
+
+    // 后端不可用时，使用本地分析引擎作为降级方案
     const emotionScores = this.calculateEmotionScores(audioFeatures);
-    
-    // 应用宠物类型和时间上下文调整
     const adjustedScores = this.applyContextAdjustments(emotionScores, context);
-    
     const { primaryEmotion, secondaryEmotion, confidence, reasoning } = this.determinePrimaryEmotion(adjustedScores, audioFeatures);
-    
-    // 根据音频质量调整置信度
     const adjustedConfidence = this.adjustConfidenceByQuality(confidence, audioFeatures, context);
-    
-    // 分析不确定性
     const uncertainty = this.analyzeEmotionUncertainty(adjustedScores, adjustedConfidence, audioFeatures);
-    
     const translation = this.selectTranslation(primaryEmotion, adjustedScores);
     const behaviorIndicators = this.identifyBehaviors(primaryEmotion, audioFeatures);
-
-    // 构建推理说明
     const enhancedReasoning = this.buildEnhancedReasoning(reasoning, uncertainty, context);
 
     const detail: EmotionAnalysisDetail = {
@@ -211,7 +227,6 @@ class EmotionService {
       behaviorIndicators,
     };
 
-    // 生成建议，考虑不确定性
     const finalTranslation = uncertainty.isUncertain 
       ? `⚠️ **分析置信度较低 (${adjustedConfidence}%)**\n\n原因：${uncertainty.reason}\n\n${uncertainty.suggestions.join('\n')}\n\n---\n\n${translation}`
       : translation;
@@ -224,24 +239,31 @@ class EmotionService {
       confidence: adjustedConfidence,
       subEmotions: secondaryEmotion ? [primaryEmotion, secondaryEmotion] : [primaryEmotion],
       translation: finalTranslation,
-      context: {
-        timeContext: '刚刚',
-        locationContext: '家中',
-      },
+      context: { timeContext: '刚刚', locationContext: '家中' },
       createdAt: new Date().toISOString(),
       source: 'voice',
       detail,
     };
 
+    this.cacheAnalysis(analysis);
+    return analysis;
+  }
+
+  private cacheAnalysis(analysis: EmotionAnalysis): void {
     this.recentAnalyses.unshift(analysis);
     if (this.recentAnalyses.length > 50) {
       this.recentAnalyses.pop();
     }
-    
-    // 保存到本地存储
     this.saveAnalyses();
+  }
 
-    return analysis;
+  private async getAuthToken(): Promise<string> {
+    try {
+      const token = await api.getToken();
+      return token || '';
+    } catch {
+      return '';
+    }
   }
   
   // 应用上下文调整
@@ -1817,9 +1839,42 @@ class EmotionService {
     return behaviors;
   }
 
-  async analyzeEmotion(_imageData: ImageData): Promise<EmotionAnalysis> {
-    await this.simulateDelay(1200);
+  async analyzeEmotion(imageData: ImageData): Promise<EmotionAnalysis> {
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = imageData.width;
+      canvas.height = imageData.height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.putImageData(imageData, 0, 0);
+        const blob = await new Promise<Blob>((res, rej) =>
+          canvas.toBlob(b => b ? res(b) : rej(new Error('Canvas toBlob failed')), 'image/jpeg', 0.85)
+        );
+        const formData = new FormData();
+        formData.append('image', blob, 'frame.jpg');
 
+        const token = await this.getAuthToken();
+        const response = await fetch(`${this.API_ENDPOINT}/analyze-image`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+          body: formData,
+        });
+
+        if (response.ok) {
+          const serverResult = await response.json();
+          const analysis: EmotionAnalysis = {
+            ...serverResult.analysis,
+            source: 'image',
+          };
+          this.cacheAnalysis(analysis);
+          return analysis;
+        }
+      }
+    } catch (error) {
+      console.warn('[EmotionService] Backend image analysis unavailable, using local fallback:', error);
+    }
+
+    // 本地降级分析
     const audioFeatures = this.generateSimulatedAudioFeatures();
     const emotionScores = this.calculateEmotionScores(audioFeatures);
     const { primaryEmotion, secondaryEmotion, confidence, reasoning } = this.determinePrimaryEmotion(emotionScores, audioFeatures);
@@ -1832,7 +1887,7 @@ class EmotionService {
       scores: emotionScores,
       confidence,
       confidenceLevel: confidence >= 95 ? 'high' : confidence >= 85 ? 'medium' : 'low',
-      reasoning: ['图像分析模式', ...reasoning],
+      reasoning: ['图像分析模式(本地)', ...reasoning],
       audioFeatures,
       behaviorIndicators,
     };
@@ -1845,43 +1900,60 @@ class EmotionService {
       confidence,
       subEmotions: secondaryEmotion ? [primaryEmotion, secondaryEmotion] : [primaryEmotion],
       translation,
-      context: {
-        timeContext: '刚刚',
-        locationContext: '家中',
-      },
+      context: { timeContext: '刚刚', locationContext: '家中' },
       createdAt: new Date().toISOString(),
       source: 'image',
       detail,
     };
 
-    this.recentAnalyses.unshift(analysis);
+    this.cacheAnalysis(analysis);
     return analysis;
   }
 
   async analyzeImageFile(file: File): Promise<EmotionAnalysis> {
-    await this.simulateDelay(1500);
-    
     const imageFeatures = await this.extractImageFeatures(file);
     
-    // 验证图片特征
     if (!imageFeatures.isValid) {
       return this.createLowConfidenceResult(imageFeatures.invalidReason || '图片无效', 'image');
     }
-    
+
+    // 尝试调用后端 AI 推理服务
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+      formData.append('brightness', String(imageFeatures.brightness));
+      formData.append('colorTone', imageFeatures.colorTone);
+      formData.append('quality', String(imageFeatures.quality));
+
+      const token = await this.getAuthToken();
+      const response = await fetch(`${this.API_ENDPOINT}/analyze-image`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData,
+      });
+
+      if (response.ok) {
+        const serverResult = await response.json();
+        const analysis: EmotionAnalysis = {
+          ...serverResult.analysis,
+          source: 'image',
+        };
+        this.cacheAnalysis(analysis);
+        return analysis;
+      }
+    } catch (error) {
+      console.warn('[EmotionService] Backend image analysis unavailable, using local fallback:', error);
+    }
+
+    // 本地降级分析
     const audioFeatures = this.generateSimulatedAudioFeatures();
     const emotionScores = this.calculateEmotionScores(audioFeatures);
-    
     const adjustedScores = this.adjustScoresForImage(emotionScores, imageFeatures);
-    
     const sortedEmotions = (Object.entries(adjustedScores) as [PrimaryEmotion, number][])
       .sort((a, b) => b[1] - a[1]);
-    
     const primaryEmotion = sortedEmotions[0][0];
     
-    // 根据图片质量计算置信度（确定性算法，不使用随机数）
     let confidence = 95;
-    
-    // 如果图片质量较低，降低置信度
     if (imageFeatures.quality < 60) {
       confidence = Math.max(60, 75 - (60 - imageFeatures.quality));
     } else if (imageFeatures.quality < 80) {
@@ -1891,15 +1963,12 @@ class EmotionService {
     }
     
     const translation = this.selectTranslation(primaryEmotion, adjustedScores);
-    
     const reasoning: string[] = [
-      '图像分析模式',
+      '图像分析模式(本地)',
       `图片亮度: ${imageFeatures.brightness}`,
       `色调特征: ${imageFeatures.colorTone}`,
       `图片质量: ${imageFeatures.quality}%`,
-      '基于视觉特征分析情感状态',
     ];
-    
     const behaviorIndicators = this.identifyBehaviors(primaryEmotion, audioFeatures);
     
     const detail: EmotionAnalysisDetail = {
@@ -1913,7 +1982,6 @@ class EmotionService {
       behaviorIndicators,
     };
     
-    // 基于情感分数计算强度（确定性算法）
     const topScore = sortedEmotions[0][1];
     const intensity = Math.min(100, Math.max(30, Math.floor(topScore * 0.8 + 20)));
     
@@ -1925,30 +1993,35 @@ class EmotionService {
       confidence,
       subEmotions: [primaryEmotion],
       translation,
-      context: {
-        timeContext: '刚刚',
-        locationContext: '家中',
-      },
+      context: { timeContext: '刚刚', locationContext: '家中' },
       createdAt: new Date().toISOString(),
       source: 'image',
       detail,
     };
 
-    this.recentAnalyses.unshift(analysis);
-    if (this.recentAnalyses.length > 50) {
-      this.recentAnalyses.pop();
-    }
-    
-    // 保存到本地存储
-    this.saveAnalyses();
-
+    this.cacheAnalysis(analysis);
     return analysis;
   }
   
   // 动物检测方法
   async detectAnimal(file: File): Promise<AnimalDetectionResult> {
-    await this.simulateDelay(500);
-    
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+      const token = await this.getAuthToken();
+      const response = await fetch(`${this.API_ENDPOINT}/detect-animal`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData,
+      });
+      if (response.ok) {
+        return await response.json();
+      }
+    } catch (error) {
+      console.warn('[EmotionService] Backend animal detection unavailable:', error);
+    }
+
+    // 本地降级：基于图像颜色特征的简单检测
     return new Promise((resolve) => {
       const img = new Image();
       const url = URL.createObjectURL(file);
@@ -2723,11 +2796,6 @@ class EmotionService {
 
   getEmotionConfig(emotion: PrimaryEmotion) {
     return EMOTION_CONFIGS[emotion];
-  }
-
-  private simulateDelay(ms: number): Promise<void> {
-    // 仅用于模拟网络延迟，生产环境应移除
-    return new Promise(resolve => setTimeout(resolve, ms));
   }
 }
 

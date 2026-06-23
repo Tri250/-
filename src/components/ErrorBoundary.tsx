@@ -1,4 +1,5 @@
 import { Component, ReactNode, ErrorInfo } from 'react';
+import { AlertTriangle, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -9,50 +10,96 @@ interface ErrorBoundaryProps {
 interface ErrorBoundaryState {
   hasError: boolean;
   error: Error | null;
+  errorInfo: ErrorInfo | null;
+  showDetails: boolean;
 }
 
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
-    this.state = { hasError: false, error: null };
+    this.state = { hasError: false, error: null, errorInfo: null, showDetails: false };
   }
 
-  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+  static getDerivedStateFromError(error: Error): Partial<ErrorBoundaryState> {
     return { hasError: true, error };
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
+    this.setState({ errorInfo });
+
     console.error('ErrorBoundary caught an error:', error, errorInfo);
-    
+
     if (this.props.onError) {
       this.props.onError(error, errorInfo);
     }
   }
+
+  handleRetry = (): void => {
+    this.setState({ hasError: false, error: null, errorInfo: null, showDetails: false });
+  };
+
+  handleReload = (): void => {
+    window.location.reload();
+  };
+
+  toggleDetails = (): void => {
+    this.setState((prev) => ({ showDetails: !prev.showDetails }));
+  };
 
   render(): ReactNode {
     if (this.state.hasError) {
       if (this.props.fallback) {
         return this.props.fallback;
       }
-      
+
       return (
         <div className="min-h-screen flex items-center justify-center bg-neutral-50 p-4">
-          <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-6 text-center">
+          <div className="max-w-md w-full bg-white rounded-2xl shadow-lg p-8 text-center">
             <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 flex items-center justify-center">
-              <svg className="w-8 h-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
+              <AlertTriangle className="w-8 h-8 text-red-500" />
             </div>
-            <h2 className="text-lg font-semibold text-neutral-800 mb-2">出现了一些问题</h2>
-            <p className="text-neutral-500 text-sm mb-4">
-              应用遇到了一个错误，请尝试刷新页面或重新启动应用。
+            <h2 className="text-xl font-bold text-neutral-800 mb-2">出现了一些问题</h2>
+            <p className="text-neutral-500 text-sm mb-6">
+              应用遇到了一个意外错误，请尝试重试或刷新页面。
             </p>
-            <button
-              onClick={() => window.location.reload()}
-              className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors"
-            >
-              刷新页面
-            </button>
+
+            {this.state.error && (
+              <div className="mb-6">
+                <button
+                  onClick={this.toggleDetails}
+                  className="flex items-center gap-1 mx-auto text-sm text-neutral-400 hover:text-neutral-600 transition-colors"
+                >
+                  {this.state.showDetails ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  错误详情
+                </button>
+                {this.state.showDetails && (
+                  <div className="mt-2 p-3 bg-neutral-50 rounded-xl text-left">
+                    <p className="text-xs text-red-600 font-mono break-all">{this.state.error.message}</p>
+                    {this.state.error.stack && (
+                      <pre className="mt-2 text-xs text-neutral-500 font-mono overflow-x-auto max-h-40 overflow-y-auto">
+                        {this.state.error.stack}
+                      </pre>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                onClick={this.handleRetry}
+                className="flex-1 px-4 py-3 bg-neutral-100 text-neutral-700 rounded-xl font-semibold hover:bg-neutral-200 transition-colors flex items-center justify-center gap-2"
+              >
+                <RefreshCw className="w-5 h-5" />
+                重试
+              </button>
+              <button
+                onClick={this.handleReload}
+                className="flex-1 px-4 py-3 bg-primary-500 text-white rounded-xl font-semibold hover:bg-primary-600 transition-colors"
+              >
+                刷新页面
+              </button>
+            </div>
           </div>
         </div>
       );
@@ -82,7 +129,7 @@ export const withErrorBoundary = <P extends object>(
 
 export const logError = (error: Error, context?: string): void => {
   console.error(`[${context || 'App'}] Error:`, error);
-  
+
   if (typeof window !== 'undefined' && 'localStorage' in window) {
     try {
       const errorLog = JSON.parse(localStorage.getItem('error_log') || '[]');
@@ -92,11 +139,11 @@ export const logError = (error: Error, context?: string): void => {
         stack: error.stack,
         context
       });
-      
+
       if (errorLog.length > 50) {
         errorLog.splice(0, errorLog.length - 50);
       }
-      
+
       localStorage.setItem('error_log', JSON.stringify(errorLog));
     } catch {
       console.warn('Failed to log error to localStorage');

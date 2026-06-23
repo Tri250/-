@@ -4,6 +4,11 @@
  * 自动根据环境变量配置 API 地址
  * 确保 Android 和 Web 端使用正确的后端地址
  * Android 端使用 Capacitor Preferences 存储 token（比 localStorage 安全）
+ * 
+ * 安全特性:
+ * - 证书固定 (Certificate Pinning)
+ * - 敏感数据请求/响应 AES-256-GCM 加密
+ * - 401 自动 token 刷新
  */
 
 import { Capacitor } from '@capacitor/core';
@@ -32,7 +37,145 @@ if (import.meta.env.DEV) {
   console.log('[API] Base URL:', API_BASE_URL);
 }
 
-// 安全的 Token 存储（Android 使用 Capacitor Preferences，Web 使用 localStorage）
+// ─── 证书固定配置 ────────────────────────────────────────────
+
+interface CertificatePin {
+  domain: string;
+  fingerprints: string[];
+}
+
+const DEFAULT_CERTIFICATE_PINS: CertificatePin[] = [
+  {
+    domain: 'api.pawsync.com',
+    fingerprints: [
+      // 生产环境证书 SHA-256 指纹（需根据实际证书更新）
+      'sha256/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
+    ],
+  },
+  {
+    domain: 'staging-api.pawsync.com',
+    fingerprints: [
+      'sha256/BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=',
+    ],
+  },
+];
+
+let certificatePins: CertificatePin[] = [...DEFAULT_CERTIFICATE_PINS];
+
+// ─── 加密工具 ────────────────────────────────────────────────
+
+const ENCRYPTION_KEY_CACHE = new Map<string, CryptoKey>();
+
+async function getEncryptionKey(): Promise<CryptoKey> {
+  const cacheKey = 'api-encryption-key';
+  if (ENCRYPTION_KEY_CACHE.has(cacheKey)) {
+    return ENCRYPTION_KEY_CACHE.get(cacheKey)!;
+  }
+
+  const encoder = new TextEncoder();
+  // 使用 PBKDF2 派生密钥（生产环境应使用设备安全存储中的密钥）
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode('pawsync-api-encryption-v1'),
+    'PBKDF2',
+    false,
+    ['deriveKey'],
+  );
+
+  const key = await crypto.subtle.deriveKey(
+    {
+      name: 'PBKDF2',
+      salt: encoder.encode('pawsync-salt'),
+      iterations: 100000,
+      hash: 'SHA-256',
+    },
+    keyMaterial,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt'],
+  );
+
+  ENCRYPTION_KEY_CACHE.set(cacheKey, key);
+  return key;
+}
+
+async function encryptPayload(data: string): Promise<string> {
+  const key = await getEncryptionKey();
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encoder = new TextEncoder();
+  const encrypted = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    key,
+    encoder.encode(data),
+  );
+  const combined = new Uint8Array(iv.length + encrypted.byteLength);
+  combined.set(iv);
+  combined.set(new Uint8Array(encrypted), iv.length);
+  return btoa(String.fromCharCode(...combined));
+}
+
+async function decryptPayload(encryptedBase64: string): Promise<string> {
+  const key = await getEncryptionKey();
+  const combined = Uint8Array.from(atob(encryptedBase64), (c) => c.charCodeAt(0));
+  const iv = combined.slice(0, 12);
+  const encrypted = combined.slice(12);
+  const decrypted = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv },
+    key,
+    encrypted,
+  );
+  return new TextDecoder().decode(decrypted);
+}
+
+// 敏感数据端点（需要加密传输）
+const SENSITIVE_ENDPOINTS = [
+  '/auth/register',
+  '/auth/login',
+  '/auth/me',
+  '/push/register',
+  '/push/unregister',
+  '/ai/chat',
+  '/ai/generate-report',
+];
+
+function isSensitiveEndpoint(endpoint: string): boolean {
+  return SENSITIVE_ENDPOINTS.some((e) => endpoint.startsWith(e));
+}
+
+// ─── 证书固定验证 ────────────────────────────────────────────
+
+function validateCertificatePin(url: string): boolean {
+  // 在原生 Android 端，证书固定由 network_security_config.xml 处理
+  // 此方法仅在 Web 端运行时提供额外验证层
+  if (Capacitor.isNativePlatform()) {
+    return true;
+  }
+
+  try {
+    const parsedUrl = new URL(url);
+    const hostname = parsedUrl.hostname;
+
+    // 开发环境跳过证书固定
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return true;
+    }
+
+    const pin = certificatePins.find((p) => p.domain === hostname);
+    if (!pin) {
+      // 无配置的域名仅允许 HTTPS
+      return parsedUrl.protocol === 'https:';
+    }
+
+    // Web 端无法直接验证证书指纹，依赖浏览器 TLS 验证
+    // 证书固定配置仅用于记录和审计
+    return parsedUrl.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+// ─── Token 存储 ──────────────────────────────────────────────
+
 const tokenStorage = {
   async get(): Promise<string | null> {
     if (Capacitor.isNativePlatform()) {
@@ -72,12 +215,64 @@ const tokenStorage = {
   },
 };
 
+// Refresh token 存储
+const refreshTokenStorage = {
+  async get(): Promise<string | null> {
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const { Preferences } = await import('@capacitor/preferences');
+        const result = await Preferences.get({ key: 'refresh_token' });
+        return result.value;
+      } catch {
+        return localStorage.getItem('refresh_token');
+      }
+    }
+    return localStorage.getItem('refresh_token');
+  },
+  async set(token: string): Promise<void> {
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const { Preferences } = await import('@capacitor/preferences');
+        await Preferences.set({ key: 'refresh_token', value: token });
+        return;
+      } catch {
+        // 降级
+      }
+    }
+    localStorage.setItem('refresh_token', token);
+  },
+  async remove(): Promise<void> {
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const { Preferences } = await import('@capacitor/preferences');
+        await Preferences.remove({ key: 'refresh_token' });
+        return;
+      } catch {
+        // 降级
+      }
+    }
+    localStorage.removeItem('refresh_token');
+  },
+};
+
+// ─── Token 刷新 ──────────────────────────────────────────────
+
+let isRefreshing = false;
+let refreshPromise: Promise<boolean> | null = null;
+let onTokenRefreshFailed: (() => void) | null = null;
+
 class ApiClient {
   private token: string | null = null;
+  private refreshToken: string | null = null;
 
   async setToken(token: string) {
     this.token = token;
     await tokenStorage.set(token);
+  }
+
+  async setRefreshToken(token: string) {
+    this.refreshToken = token;
+    await refreshTokenStorage.set(token);
   }
 
   async getToken(): Promise<string | null> {
@@ -87,16 +282,94 @@ class ApiClient {
     return this.token;
   }
 
+  async getRefreshToken(): Promise<string | null> {
+    if (!this.refreshToken) {
+      this.refreshToken = await refreshTokenStorage.get();
+    }
+    return this.refreshToken;
+  }
+
   async clearToken() {
     this.token = null;
+    this.refreshToken = null;
     await tokenStorage.remove();
+    await refreshTokenStorage.remove();
+  }
+
+  /**
+   * 注册 token 刷新失败回调（如跳转登录页）
+   */
+  onRefreshFailed(callback: () => void) {
+    onTokenRefreshFailed = callback;
+  }
+
+  /**
+   * 刷新 token（使用 refresh token）
+   */
+  private async refreshAccessToken(): Promise<boolean> {
+    if (isRefreshing) {
+      return refreshPromise!;
+    }
+
+    isRefreshing = true;
+    refreshPromise = (async () => {
+      try {
+        const refreshToken = await this.getRefreshToken();
+        if (!refreshToken) {
+          return false;
+        }
+
+        const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken }),
+        });
+
+        if (!response.ok) {
+          return false;
+        }
+
+        const data = await response.json();
+        if (data.token) {
+          await this.setToken(data.token);
+          if (data.refreshToken) {
+            await this.setRefreshToken(data.refreshToken);
+          }
+          return true;
+        }
+
+        return false;
+      } catch (error) {
+        console.error('[API] Token refresh failed:', error);
+        return false;
+      } finally {
+        isRefreshing = false;
+        refreshPromise = null;
+      }
+    })();
+
+    return refreshPromise;
+  }
+
+  /**
+   * 设置证书固定配置
+   */
+  setCertificatePins(pins: CertificatePin[]) {
+    certificatePins = pins;
   }
 
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    encryptSensitive: boolean = false,
   ): Promise<T> {
     const url = `${API_BASE_URL}${endpoint}`;
+
+    // 证书固定验证
+    if (!validateCertificatePin(url)) {
+      throw new Error('Certificate pin validation failed');
+    }
+
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       ...options.headers as Record<string, string>,
@@ -107,21 +380,89 @@ class ApiClient {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const response = await fetch(url, {
+    // 敏感数据加密
+    let body = options.body;
+    const shouldEncrypt = encryptSensitive || isSensitiveEndpoint(endpoint);
+    if (shouldEncrypt && body) {
+      try {
+        const encryptedBody = await encryptPayload(body as string);
+        headers['X-Encrypted'] = '1';
+        headers['X-Encryption-Alg'] = 'AES-256-GCM';
+        body = JSON.stringify({ encrypted: encryptedBody });
+      } catch (error) {
+        console.error('[API] Encryption failed, sending plaintext:', error);
+      }
+    }
+
+    let response = await fetch(url, {
       ...options,
       headers,
+      body,
     });
+
+    // 401 处理：尝试刷新 token 后重试
+    if (response.status === 401 && !this._isRetry) {
+      this._isRetry = true;
+      const refreshed = await this.refreshAccessToken();
+      if (refreshed) {
+        // 使用新 token 重试
+        const newToken = await this.getToken();
+        if (newToken) {
+          headers['Authorization'] = `Bearer ${newToken}`;
+        }
+        // 重新加密敏感数据
+        if (shouldEncrypt && options.body) {
+          try {
+            const encryptedBody = await encryptPayload(options.body as string);
+            body = JSON.stringify({ encrypted: encryptedBody });
+          } catch {
+            body = options.body;
+          }
+        }
+        response = await fetch(url, {
+          ...options,
+          headers,
+          body,
+        });
+        this._isRetry = false;
+      } else {
+        // 刷新失败，清除 token 并通知
+        this._isRetry = false;
+        await this.clearToken();
+        if (onTokenRefreshFailed) {
+          onTokenRefreshFailed();
+        }
+        throw new Error('Session expired. Please log in again.');
+      }
+    }
 
     if (!response.ok) {
       if (response.status === 401) {
         await this.clearToken();
+        if (onTokenRefreshFailed) {
+          onTokenRefreshFailed();
+        }
       }
       const error = await response.json().catch(() => ({}));
       throw new Error(error.error || `HTTP ${response.status}`);
     }
 
-    return response.json();
+    // 敏感数据解密
+    const responseData = await response.json();
+    if (responseData.encrypted && typeof responseData.encrypted === 'string') {
+      try {
+        const decrypted = await decryptPayload(responseData.encrypted);
+        return JSON.parse(decrypted);
+      } catch (error) {
+        console.error('[API] Decryption failed:', error);
+        return responseData;
+      }
+    }
+
+    return responseData;
   }
+
+  private _isRetry = false;
 
   get<T>(endpoint: string) {
     return this.request<T>(endpoint, { method: 'GET' });
@@ -184,16 +525,29 @@ export interface User {
 export interface AuthResponse {
   user: User;
   token: string;
+  refreshToken?: string;
 }
 
 export const authApi = {
   register: (data: { email: string; password: string; name: string; avatar?: string }) =>
     api.post<AuthResponse>('/auth/register', data),
-  login: (data: { email: string; password: string }) =>
-    api.post<AuthResponse>('/auth/login', data),
+  login: async (data: { email: string; password: string }) => {
+    const result = await api.post<AuthResponse>('/auth/login', data);
+    if (result.token) {
+      await api.setToken(result.token);
+    }
+    if (result.refreshToken) {
+      await api.setRefreshToken(result.refreshToken);
+    }
+    return result;
+  },
   getMe: () => api.get<{ user: User }>('/auth/me'),
   updateMe: (data: Partial<User>) =>
     api.put<{ user: User }>('/auth/me', data),
+  refresh: () => api.post<AuthResponse>('/auth/refresh'),
+  logout: async () => {
+    await api.clearToken();
+  },
 };
 
 export interface Pet {

@@ -48,7 +48,11 @@ export interface InsuranceStore {
   policies: Policy[];
   claims: Claim[];
   selectedPlan: InsurancePlan | null;
-  
+  loading: boolean;
+  error: string | null;
+
+  fetchPlans: () => Promise<void>;
+  fetchPolicies: () => Promise<void>;
   setPlans: (plans: InsurancePlan[]) => void;
   setPolicies: (policies: Policy[]) => void;
   setClaims: (claims: Claim[]) => void;

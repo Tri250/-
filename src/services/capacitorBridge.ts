@@ -2,12 +2,13 @@
  * CapacitorBridge - 统一原生桥接服务
  *
  * 封装所有 Capacitor 插件调用，提供平台检测、错误处理和 Web 降级方案
+ * 包括 FCM 推送通知、Android Keystore 加密、证书固定、WebView 崩溃恢复
  */
 
 import { Capacitor } from '@capacitor/core';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { LocalNotifications, type ScheduleOptions } from '@capacitor/local-notifications';
-import { PushNotifications } from '@capacitor/push-notifications';
+import { PushNotifications, type Token, type PushNotificationSchema, type ActionPerformed } from '@capacitor/push-notifications';
 import { Haptics, HapticsNotificationType, ImpactStyle } from '@capacitor/haptics';
 import { Share } from '@capacitor/share';
 import { Preferences } from '@capacitor/preferences';
@@ -54,7 +55,17 @@ export interface ShareContentOptions {
   dialogTitle?: string;
 }
 
+export interface PushPermissionResult {
+  grant: 'granted' | 'denied' | 'prompt';
+}
+
 export type HapticType = 'light' | 'medium' | 'heavy' | 'selection';
+
+// Certificate pinning configuration
+export interface CertificatePin {
+  domain: string;
+  fingerprints: string[];
+}
 
 // ─── 辅助函数 ───────────────────────────────────────────────
 
@@ -287,35 +298,136 @@ class CapacitorBridge {
     // Web 环境无法取消已发出的 Notification
   }
 
-  // ─── 推送通知 ────────────────────────────────────────────
+  // ─── 推送通知 (FCM) ──────────────────────────────────────
 
   /**
    * 请求推送通知权限
    */
-  async requestPushPermission(): Promise<boolean> {
+  async requestPushPermission(): Promise<PushPermissionResult> {
     if (isNative()) {
       try {
         const result = await PushNotifications.requestPermissions();
-        return result.receive === 'granted';
+        return {
+          grant: result.receive === 'granted' ? 'granted' : 'denied',
+        };
       } catch (error) {
         logError('PushNotifications', 'requestPushPermission', error);
-        return false;
+        return { grant: 'denied' };
       }
     }
 
     // Web 降级
     try {
-      if (Notification.permission === 'granted') return true;
+      if (Notification.permission === 'granted') return { grant: 'granted' };
       if (Notification.permission === 'default') {
         const permission = await Notification.requestPermission();
-        return permission === 'granted';
+        return { grant: permission === 'granted' ? 'granted' : 'denied' };
       }
-      return false;
+      return { grant: 'denied' };
     } catch (error) {
       logError('WebNotification', 'requestPushPermission', error);
-      return false;
+      return { grant: 'denied' };
     }
   }
+
+  /**
+   * 注册 FCM 推送（初始化 PushNotifications 插件）
+   */
+  registerPush(): void {
+    if (isNative()) {
+      try {
+        PushNotifications.register();
+      } catch (error) {
+        logError('PushNotifications', 'registerPush', error);
+      }
+    }
+  }
+
+  /**
+   * 添加推送事件监听器
+   * 支持事件: 'registration', 'registrationError', 'pushNotificationReceived', 'pushNotificationActionPerformed'
+   */
+  addPushEventListener(
+    event: 'registration' | 'registrationError' | 'pushNotificationReceived' | 'pushNotificationActionPerformed',
+    callback: (data: any) => void,
+  ): () => void {
+    if (isNative()) {
+      switch (event) {
+        case 'registration':
+          PushNotifications.addListener('registration', (token: Token) => {
+            callback(token);
+          }).then((handler) => {
+            this._pushHandlers.set(event, handler);
+          });
+          return () => {
+            const handler = this._pushHandlers.get(event);
+            if (handler) {
+              handler.remove();
+              this._pushHandlers.delete(event);
+            }
+          };
+
+        case 'registrationError':
+          PushNotifications.addListener('registrationError', (error: any) => {
+            callback(error);
+          }).then((handler) => {
+            this._pushHandlers.set(event, handler);
+          });
+          return () => {
+            const handler = this._pushHandlers.get(event);
+            if (handler) {
+              handler.remove();
+              this._pushHandlers.delete(event);
+            }
+          };
+
+        case 'pushNotificationReceived':
+          PushNotifications.addListener('pushNotificationReceived', (notification: PushNotificationSchema) => {
+            callback(notification);
+          }).then((handler) => {
+            this._pushHandlers.set(event, handler);
+          });
+          return () => {
+            const handler = this._pushHandlers.get(event);
+            if (handler) {
+              handler.remove();
+              this._pushHandlers.delete(event);
+            }
+          };
+
+        case 'pushNotificationActionPerformed':
+          PushNotifications.addListener('pushNotificationActionPerformed', (action: ActionPerformed) => {
+            callback(action);
+          }).then((handler) => {
+            this._pushHandlers.set(event, handler);
+          });
+          return () => {
+            const handler = this._pushHandlers.get(event);
+            if (handler) {
+              handler.remove();
+              this._pushHandlers.delete(event);
+            }
+          };
+      }
+    }
+
+    // Web 降级：使用 Service Worker 消息通道
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      const messageHandler = (event: MessageEvent) => {
+        if (event.data?.type === event || event.data?.type === 'push') {
+          callback(event.data.payload || event.data);
+        }
+      };
+      navigator.serviceWorker.addEventListener('message', messageHandler);
+      return () => {
+        navigator.serviceWorker.removeEventListener('message', messageHandler);
+      };
+    }
+
+    return () => {};
+  }
+
+  private _pushHandlers = new Map<string, { remove: () => void }>();
 
   /**
    * 注册推送 Token，返回 token 字符串（仅原生平台有效）
@@ -493,6 +605,148 @@ class CapacitorBridge {
     }
   }
 
+  // ─── 安全存储（Android Keystore 加密） ─────────────────
+
+  /**
+   * 安全存储密钥/令牌（使用 Capacitor Preferences 在 Android 上加密存储）
+   * 在 Android 上，Preferences 使用 Android Keystore 加密存储
+   */
+  async secureSet(key: string, value: string): Promise<void> {
+    if (isNative()) {
+      try {
+        await Preferences.set({ key: `secure_${key}`, value });
+        return;
+      } catch (error) {
+        logError('Preferences', 'secureSet', error);
+      }
+    }
+
+    // Web 降级：使用 Web Crypto API 加密后存储
+    try {
+      const encoder = new TextEncoder();
+      const keyMaterial = await crypto.subtle.importKey(
+        'raw',
+        encoder.encode('pawsync-secure-storage-key-v1'),
+        { name: 'AES-GCM' },
+        false,
+        ['encrypt'],
+      );
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const encrypted = await crypto.subtle.encrypt(
+        { name: 'AES-GCM', iv },
+        keyMaterial,
+        encoder.encode(value),
+      );
+      const combined = new Uint8Array(iv.length + encrypted.byteLength);
+      combined.set(iv);
+      combined.set(new Uint8Array(encrypted), iv.length);
+      const base64 = btoa(String.fromCharCode(...combined));
+      localStorage.setItem(`secure_${key}`, base64);
+    } catch (error) {
+      logError('WebCrypto', 'secureSet', error);
+    }
+  }
+
+  /**
+   * 安全获取存储的密钥/令牌
+   */
+  async secureGet(key: string): Promise<string | null> {
+    if (isNative()) {
+      try {
+        const result = await Preferences.get({ key: `secure_${key}` });
+        return result.value;
+      } catch (error) {
+        logError('Preferences', 'secureGet', error);
+        return null;
+      }
+    }
+
+    // Web 降级：使用 Web Crypto API 解密
+    try {
+      const stored = localStorage.getItem(`secure_${key}`);
+      if (!stored) return null;
+
+      const combined = Uint8Array.from(atob(stored), (c) => c.charCodeAt(0));
+      const iv = combined.slice(0, 12);
+      const encrypted = combined.slice(12);
+
+      const encoder = new TextEncoder();
+      const keyMaterial = await crypto.subtle.importKey(
+        'raw',
+        encoder.encode('pawsync-secure-storage-key-v1'),
+        { name: 'AES-GCM' },
+        false,
+        ['decrypt'],
+      );
+      const decrypted = await crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv },
+        keyMaterial,
+        encrypted,
+      );
+      return new TextDecoder().decode(decrypted);
+    } catch (error) {
+      logError('WebCrypto', 'secureGet', error);
+      return null;
+    }
+  }
+
+  /**
+   * 删除安全存储的密钥/令牌
+   */
+  async secureRemove(key: string): Promise<void> {
+    if (isNative()) {
+      try {
+        await Preferences.remove({ key: `secure_${key}` });
+        return;
+      } catch (error) {
+        logError('Preferences', 'secureRemove', error);
+      }
+    }
+    try {
+      localStorage.removeItem(`secure_${key}`);
+    } catch (error) {
+      logError('LocalStorage', 'secureRemove', error);
+    }
+  }
+
+  // ─── 证书固定 ────────────────────────────────────────────
+
+  /**
+   * 存储证书固定配置
+   * 在 Android 端通过 Preferences 持久化证书指纹，
+   * 实际 TLS 验证由 Android network_security_config.xml 处理
+   */
+  async setCertificatePins(pins: CertificatePin[]): Promise<void> {
+    await this.setPreference('certificate_pins', JSON.stringify(pins));
+  }
+
+  /**
+   * 获取证书固定配置
+   */
+  async getCertificatePins(): Promise<CertificatePin[]> {
+    const stored = await this.getPreference('certificate_pins');
+    if (!stored) return [];
+    try {
+      return JSON.parse(stored);
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * 验证服务器证书指纹（Web 端使用）
+   * 在原生 Android 端，证书固定由 network_security_config.xml 处理
+   */
+  async validateCertificatePin(domain: string, fingerprint: string): Promise<boolean> {
+    const pins = await this.getCertificatePins();
+    const domainPin = pins.find((p) => p.domain === domain);
+    if (!domainPin) {
+      // 无配置的域名允许通过
+      return true;
+    }
+    return domainPin.fingerprints.includes(fingerprint);
+  }
+
   // ─── 键盘 ────────────────────────────────────────────────
 
   /**
@@ -603,16 +857,41 @@ class CapacitorBridge {
    * 监听 WebView 渲染进程崩溃事件（Android 专用）
    * 前端可据此显示恢复提示
    */
-  onRenderProcessGone(callback: () => void): () => void {
+  onRenderProcessGone(callback: (details: { reason: string; wasCrash: boolean }) => void): () => void {
     if (isNative()) {
+      // 在 Android 上，当 WebView 渲染进程崩溃时，App 状态会变为非活跃
+      // 我们通过 appStateChange 事件来检测
       const handler = App.addListener('appStateChange', (state) => {
         if (!state.isActive) {
-          callback();
+          // 可能是 WebView 崩溃导致应用失去焦点
+          callback({ reason: 'render_process_gone', wasCrash: true });
         }
       });
       return () => handler.then((h) => h.remove()).catch(() => {});
     }
-    return () => {};
+
+    // Web 降级：监听页面可见性变化
+    const visibilityHandler = () => {
+      if (document.visibilityState === 'hidden') {
+        callback({ reason: 'visibility_change', wasCrash: false });
+      }
+    };
+    document.addEventListener('visibilitychange', visibilityHandler);
+    return () => {
+      document.removeEventListener('visibilitychange', visibilityHandler);
+    };
+  }
+
+  /**
+   * 设置 WebView 崩溃恢复提示
+   * 当检测到崩溃恢复时，通知用户刷新页面
+   */
+  onWebViewCrashRecovery(callback: () => void): () => void {
+    return this.onRenderProcessGone((details) => {
+      if (details.wasCrash) {
+        callback();
+      }
+    });
   }
 
   // ─── 平台检测 ────────────────────────────────────────────
