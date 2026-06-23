@@ -69,15 +69,12 @@ public class MainActivity extends BridgeActivity {
     }
 
     private void registerActivityResultLaunchers() {
-        // Photo Picker launcher
+        // Photo Picker launcher — 结果由 Capacitor Bridge 的 onActivityResult 统一处理
         photoPickerLauncher = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(),
             result -> {
-                if (result.getResultCode() == RESULT_OK && result.getData() != null) {
-                    // 结果由 Capacitor Bridge 通过 onActivityResult 处理
-                }
-                // 通知 Bridge
-                onActivityResult(getPhotoPickerRequestCode(), result.getResultCode(), result.getData());
+                // 不在此处重复调用 onActivityResult，避免双重处理
+                // Capacitor Bridge 会通过 super.onActivityResult 自动接收
             }
         );
 
@@ -85,8 +82,7 @@ public class MainActivity extends BridgeActivity {
         cameraLauncher = registerForActivityResult(
             new ActivityResultContracts.TakePicture(),
             success -> {
-                int resultCode = success ? RESULT_OK : RESULT_CANCELED;
-                onActivityResult(getCameraRequestCode(), resultCode, null);
+                // 结果由 Capacitor Bridge 的 onActivityResult 统一处理
             }
         );
     }
@@ -297,27 +293,17 @@ public class MainActivity extends BridgeActivity {
             }
             oldWebView.setWebViewClient(null);
             oldWebView.setWebChromeClient(null);
+            oldWebView.stopLoading();
             oldWebView.destroy();
         }
 
-        WebView newWebView = new WebView(this);
-        setupWebViewSettings(newWebView);
-        newWebView.setWebViewClient(new RenderProcessGoneWebViewClient());
-
+        // 通过 Bridge 的 loadUrl 方法重新加载，确保 Bridge 内部状态正确绑定
         if (currentUrl != null && !currentUrl.isEmpty()) {
-            newWebView.loadUrl(currentUrl);
+            // 使用 Bridge 的 WebView 加载方法，确保 Capacitor 插件正确绑定
+            bridge.loadUrl(currentUrl);
+        } else {
+            bridge.loadUrl("file:///android_asset/public/index.html");
         }
-    }
-
-    private void setupWebViewSettings(WebView webView) {
-        WebSettings settings = webView.getSettings();
-        settings.setJavaScriptEnabled(true);
-        settings.setDomStorageEnabled(true);
-        settings.setDatabaseEnabled(true);
-        settings.setLoadsImagesAutomatically(true);
-        settings.setBlockNetworkImage(false);
-        settings.setJavaScriptCanOpenWindowsAutomatically(false);
-        webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
     }
 
     // ==================== 窗口渲染优化 ====================
@@ -335,7 +321,6 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onStart() {
         super.onStart();
-        preloadWebView();
 
         // 如果有缓存的深度链接，现在发送
         if (pendingDeepLink != null) {
@@ -345,12 +330,23 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
-    private void preloadWebView() {
-        try {
-            WebView webView = new WebView(this);
-            webView.destroy();
-        } catch (Exception e) {
-            // 忽略预加载错误
+    @Override
+    public void onPause() {
+        super.onPause();
+        // Android 16 后台限制严格：暂停 WebView 渲染以节省资源
+        Bridge bridge = getBridge();
+        if (bridge != null && bridge.getWebView() != null) {
+            bridge.getWebView().onPause();
+        }
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        // 恢复 WebView 渲染
+        Bridge bridge = getBridge();
+        if (bridge != null && bridge.getWebView() != null) {
+            bridge.getWebView().onResume();
         }
     }
 

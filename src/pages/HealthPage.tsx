@@ -6,13 +6,14 @@
 // 描述: 宠物健康监测和护理指导页面
 // ============================================
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Activity, AlertTriangle, Bell, Heart, Moon, Sun, Thermometer, ChevronRight, Shield, Utensils, Scissors, Zap, BookOpen, Star, X, Sparkles, Camera, Brain } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 import { Card } from '../components/ui/Card';
 import { HealthScoreCard } from '../components/HealthScoreCard';
 import { FaceExpressionAnalyzer } from '../components/FaceExpressionAnalyzer';
 import { SmartPredictionCard } from '../components/SmartPredictionCard';
+import { api } from '../lib/api';
 
 const alertTypeConfig = {
   cough: { icon: Activity, label: '咳嗽', color: 'text-yellow-500', bgColor: 'bg-yellow-50' },
@@ -39,26 +40,56 @@ export default function HealthPage() {
   const { healthAlerts, healthScore, currentPet, careTips } = useAppStore();
   const [nightMode, setNightMode] = useState(true);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [healthMetrics, setHealthMetrics] = useState([
+    { label: '心率', value: '--', unit: 'bpm', icon: Heart, color: 'text-red-500', bgColor: 'bg-red-50' },
+    { label: '体温', value: '--', unit: '°C', icon: Thermometer, color: 'text-orange-500', bgColor: 'bg-orange-50' },
+    { label: '活动量', value: '--', unit: '%', icon: Activity, color: 'text-green-500', bgColor: 'bg-green-50' },
+  ]);
+  const [dailyData, setDailyData] = useState<Array<{ time: string; heartRate: number; activity: number }>>([]);
+  const [isLoadingMetrics, setIsLoadingMetrics] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState('--');
   
   // 功能弹窗状态
   const [showHealthScoreModal, setShowHealthScoreModal] = useState(false);
   const [showFaceExpressionModal, setShowFaceExpressionModal] = useState(false);
   const [showSmartPredictionModal, setShowSmartPredictionModal] = useState(false);
 
-  const healthMetrics = [
-    { label: '心率', value: '120', unit: 'bpm', icon: Heart, color: 'text-red-500', bgColor: 'bg-red-50' },
-    { label: '体温', value: '38.2', unit: '°C', icon: Thermometer, color: 'text-orange-500', bgColor: 'bg-orange-50' },
-    { label: '活动量', value: '85', unit: '%', icon: Activity, color: 'text-green-500', bgColor: 'bg-green-50' },
-  ];
+  // 从后端获取真实健康数据
+  useEffect(() => {
+    const fetchHealthData = async () => {
+      if (!currentPet?.id) return;
+      setIsLoadingMetrics(true);
+      try {
+        const res = await api.get<{
+          metrics: Array<{ type: string; value: string; unit: string; timestamp: string }>;
+          timeline: Array<{ time: string; heartRate: number; activity: number }>;
+        }>(`/api/health-records/live?petId=${currentPet.id}`);
+        if (res.metrics) {
+          setHealthMetrics(prev => prev.map(m => {
+            const found = res.metrics?.find((r: { type: string }) => r.type === m.label);
+            return found ? { ...m, value: found.value } : m;
+          }));
+        }
+        if (res.timeline && res.timeline.length > 0) {
+          setDailyData(res.timeline);
+        }
+        const lastMetric = res.metrics?.[0];
+        if (lastMetric?.timestamp) {
+          const diff = Math.floor((Date.now() - new Date(lastMetric.timestamp).getTime()) / 60000);
+          setLastUpdated(diff < 1 ? '刚刚' : `${diff}分钟前`);
+        }
+      } catch (error) {
+        console.error('Failed to fetch health data:', error);
+        // 保持默认值
+      } finally {
+        setIsLoadingMetrics(false);
+      }
+    };
 
-  const dailyData = [
-    { time: '00:00', heartRate: 110, activity: 20 },
-    { time: '04:00', heartRate: 105, activity: 15 },
-    { time: '08:00', heartRate: 125, activity: 70 },
-    { time: '12:00', heartRate: 120, activity: 85 },
-    { time: '16:00', heartRate: 115, activity: 60 },
-    { time: '20:00', heartRate: 118, activity: 45 },
-  ];
+    fetchHealthData();
+    const interval = setInterval(fetchHealthData, 30000); // 30秒轮询
+    return () => clearInterval(interval);
+  }, [currentPet?.id]);
 
   const maxHeartRate = Math.max(...dailyData.map(d => d.heartRate));
   const maxActivity = Math.max(...dailyData.map(d => d.activity));
@@ -90,7 +121,7 @@ export default function HealthPage() {
           </div>
           <div className="flex items-center gap-2 text-sm">
             <span className="w-2 h-2 bg-green-300 rounded-full animate-pulse" />
-            <span className="text-green-100">监测中 · 数据更新于 2分钟前</span>
+            <span className="text-green-100">监测中 · 数据更新于{lastUpdated}</span>
           </div>
         </div>
 

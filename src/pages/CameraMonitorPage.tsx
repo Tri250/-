@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   ChevronLeft,
   Mic,
@@ -24,6 +24,7 @@ import { cameraAdapterService } from '../services/cameraAdapterService';
 import { DevicePairing } from '../components/camera/DevicePairing';
 import { useCameraStore } from '../store/cameraStore';
 import type { CameraDevice } from '../types/camera';
+import { api } from '../lib/api';
 
 interface CameraMonitorPageProps {
   onNavigate: (page: string) => void;
@@ -40,6 +41,16 @@ export default function CameraMonitorPage({ onNavigate }: CameraMonitorPageProps
   const [showCameraList, setShowCameraList] = useState(false);
   const [showPairingModal, setShowPairingModal] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'streaming' | 'error'>('connecting');
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [nightMode, setNightMode] = useState<'auto' | 'on' | 'off' | 'color'>('auto');
+  const [resolution, setResolution] = useState<'1080p' | '720p' | '480p'>('1080p');
+  const [recordMode, setRecordMode] = useState<'motion' | 'continuous' | 'scheduled'>('motion');
+  const [motionSensitivity, setMotionSensitivity] = useState(60);
+  const [soundDetection, setSoundDetection] = useState(true);
+  const [stats, setStats] = useState({ events: 0, petDetections: 0, anomalies: 0 });
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const webrtcRef = useRef<RTCPeerConnection | null>(null);
 
   useEffect(() => {
     const initializeDevices = async () => {
@@ -48,51 +59,155 @@ export default function CameraMonitorPage({ onNavigate }: CameraMonitorPageProps
       if (adapterDevices.length > 0 && devices.length === 0) {
         adapterDevices.forEach(device => addDevice(device));
       }
-      if (devices.length > 0 || adapterDevices.length > 0) {
-        const allDevices = devices.length > 0 ? devices : adapterDevices;
+      const allDevices = devices.length > 0 ? devices : adapterDevices;
+      if (allDevices.length > 0) {
         setSelectedCamera(allDevices[0]);
       }
     };
     initializeDevices();
+    return () => {
+      stopStream();
+    };
   }, []);
 
   useEffect(() => {
     if (selectedCamera) {
-      setConnectionStatus('connecting');
-      const timer = setTimeout(() => {
-        setConnectionStatus(Math.random() > 0.1 ? 'streaming' : 'error');
-        setIsStreaming(Math.random() > 0.1);
-      }, 2000);
-      return () => clearTimeout(timer);
+      connectToCamera(selectedCamera);
     }
   }, [selectedCamera]);
 
-  const handlePTZControl = (direction: 'up' | 'down' | 'left' | 'right') => {
-    console.log(`PTZ ${direction}`);
-  };
-
-  const handleZoom = (delta: number) => {
-    setZoom(prev => Math.min(200, Math.max(50, prev + delta)));
-  };
-
-  const handleRefresh = () => {
+  const connectToCamera = useCallback(async (camera: CameraDevice) => {
     setConnectionStatus('connecting');
-    setTimeout(() => {
-      setConnectionStatus('streaming');
-      setIsStreaming(true);
-    }, 1500);
-  };
+    try {
+      // 通过后端代理发起 RTSP/WebRTC 连接
+      const response = await api.post<{ streamUrl: string; sessionId: string }>(
+        '/api/cameras/connect',
+        { deviceId: camera.id, protocol: 'webrtc' }
+      );
 
-  const handleDevicePaired = async (device: CameraDevice) => {
+      // 建立 WebRTC 连接
+      const pc = new RTCPeerConnection({
+        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+      });
+
+      pc.oniceconnectionstatechange = () => {
+        if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+          setConnectionStatus('streaming');
+          setIsStreaming(true);
+        } else if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected') {
+          setConnectionStatus('error');
+          setIsStreaming(false);
+        }
+      };
+
+      pc.ontrack = (event) => {
+        if (videoRef.current && event.streams[0]) {
+          videoRef.current.srcObject = event.streams[0];
+          streamRef.current = event.streams[0];
+        }
+      };
+
+      webrtcRef.current = pc;
+    } catch (error) {
+      console.error('Camera connection failed:', error);
+      // 降级：尝试直接使用 cameraAdapterService 连接
+      try {
+        const streamUrl = await cameraAdapterService.connect(camera.id);
+        if (streamUrl && videoRef.current) {
+          videoRef.current.src = streamUrl;
+          videoRef.current.play().catch(() => {});
+          setConnectionStatus('streaming');
+          setIsStreaming(true);
+        } else {
+          setConnectionStatus('error');
+        }
+      } catch {
+        setConnectionStatus('error');
+      }
+    }
+  }, []);
+
+  const stopStream = useCallback(() => {
+    if (webrtcRef.current) {
+      webrtcRef.current.close();
+      webrtcRef.current = null;
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+      videoRef.current.src = '';
+    }
+  }, []);
+
+  const handlePTZControl = useCallback(async (direction: 'up' | 'down' | 'left' | 'right') => {
+    if (!selectedCamera) return;
+    try {
+      await cameraAdapterService.ptzControl(selectedCamera.id, direction);
+      await api.post('/api/cameras/ptz', {
+        deviceId: selectedCamera.id,
+        direction,
+      });
+    } catch (error) {
+      console.error(`PTZ ${direction} failed:`, error);
+    }
+  }, [selectedCamera]);
+
+  const handleZoom = useCallback(async (delta: number) => {
+    const newZoom = Math.min(200, Math.max(50, zoom + delta));
+    setZoom(newZoom);
+    if (selectedCamera) {
+      try {
+        await cameraAdapterService.zoomControl(selectedCamera.id, newZoom);
+      } catch (error) {
+        console.error('Zoom control failed:', error);
+      }
+    }
+  }, [selectedCamera, zoom]);
+
+  const handleRefresh = useCallback(() => {
+    stopStream();
+    if (selectedCamera) {
+      connectToCamera(selectedCamera);
+    }
+  }, [selectedCamera, stopStream, connectToCamera]);
+
+  const handleDevicePaired = useCallback(async (device: CameraDevice) => {
     addDevice(device);
     setSelectedCamera(device);
     setShowPairingModal(false);
-    setConnectionStatus('connecting');
-    setTimeout(() => {
-      setConnectionStatus('streaming');
-      setIsStreaming(true);
-    }, 1500);
-  };
+    // 连接会自动通过 useEffect 触发
+  }, [addDevice]);
+
+  const handleFullscreen = useCallback(() => {
+    if (videoRef.current) {
+      if (document.fullscreenElement) {
+        document.exitFullscreen();
+        setIsFullscreen(false);
+      } else {
+        videoRef.current.requestFullscreen().catch(() => {});
+        setIsFullscreen(true);
+      }
+    }
+  }, []);
+
+  const handleSaveSettings = useCallback(async () => {
+    if (!selectedCamera) return;
+    try {
+      await api.put(`/api/cameras/${selectedCamera.id}/settings`, {
+        nightMode,
+        resolution,
+        recordMode,
+        motionSensitivity,
+        soundDetection,
+      });
+      setShowSettings(false);
+    } catch (error) {
+      console.error('Save settings failed:', error);
+    }
+  }, [selectedCamera, nightMode, resolution, recordMode, motionSensitivity, soundDetection]);
 
   return (
     <div className="min-h-screen bg-neutral-900 text-white">
@@ -176,16 +291,14 @@ export default function CameraMonitorPage({ onNavigate }: CameraMonitorPageProps
 
           {connectionStatus === 'streaming' && (
             <div className="absolute inset-0">
-              <div className="w-full h-full bg-gradient-to-br from-neutral-800 to-neutral-900 flex items-center justify-center">
-                <div className="text-center">
-                  <div className="w-24 h-24 mx-auto rounded-full bg-neutral-700/50 flex items-center justify-center mb-4">
-                    <CameraOff className="w-12 h-12 text-neutral-500" />
-                  </div>
-                  <p className="text-neutral-400">实时画面</p>
-                  <p className="text-xs text-neutral-600 mt-1">{selectedCamera?.name}</p>
-                </div>
-              </div>
-              
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted={isMuted}
+                className="w-full h-full object-cover"
+                style={{ backgroundColor: '#1a1a1a' }}
+              />
               {isStreaming && (
                 <div className="absolute top-4 left-4 flex items-center gap-2">
                   <div className="px-3 py-1.5 rounded-full bg-danger-500/80 backdrop-blur-sm">
@@ -329,6 +442,7 @@ export default function CameraMonitorPage({ onNavigate }: CameraMonitorPageProps
           </button>
 
           <button
+            onClick={handleFullscreen}
             className="flex flex-col items-center gap-1.5 px-5 py-3 rounded-xl bg-neutral-800/80 hover:bg-neutral-700/80 transition-all active:scale-95"
             aria-label="全屏"
           >
@@ -434,11 +548,14 @@ export default function CameraMonitorPage({ onNavigate }: CameraMonitorPageProps
               <span className="text-sm text-neutral-200">夜视模式</span>
               <p className="text-xs text-neutral-500">自动调节红外夜视</p>
             </div>
-            <select className="bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-2.5 text-sm text-neutral-200 focus:border-primary-500 focus:outline-none">
-              <option>自动</option>
-              <option>开启</option>
-              <option>关闭</option>
-              <option>彩色夜视</option>
+            <select
+              value={nightMode}
+              onChange={(e) => setNightMode(e.target.value as typeof nightMode)}
+              className="bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-2.5 text-sm text-neutral-200 focus:border-primary-500 focus:outline-none">
+              <option value="auto">自动</option>
+              <option value="on">开启</option>
+              <option value="off">关闭</option>
+              <option value="color">彩色夜视</option>
             </select>
           </div>
           <div className="flex items-center justify-between">
@@ -446,10 +563,13 @@ export default function CameraMonitorPage({ onNavigate }: CameraMonitorPageProps
               <span className="text-sm text-neutral-200">分辨率</span>
               <p className="text-xs text-neutral-500">视频画质设置</p>
             </div>
-            <select className="bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-2.5 text-sm text-neutral-200 focus:border-primary-500 focus:outline-none">
-              <option>1080p</option>
-              <option>720p</option>
-              <option>480p</option>
+            <select
+              value={resolution}
+              onChange={(e) => setResolution(e.target.value as typeof resolution)}
+              className="bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-2.5 text-sm text-neutral-200 focus:border-primary-500 focus:outline-none">
+              <option value="1080p">1080p</option>
+              <option value="720p">720p</option>
+              <option value="480p">480p</option>
             </select>
           </div>
           <div className="flex items-center justify-between">
@@ -457,22 +577,26 @@ export default function CameraMonitorPage({ onNavigate }: CameraMonitorPageProps
               <span className="text-sm text-neutral-200">录制模式</span>
               <p className="text-xs text-neutral-500">视频存储方式</p>
             </div>
-            <select className="bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-2.5 text-sm text-neutral-200 focus:border-primary-500 focus:outline-none">
-              <option>仅移动检测</option>
-              <option>持续录制</option>
-              <option>定时录制</option>
+            <select
+              value={recordMode}
+              onChange={(e) => setRecordMode(e.target.value as typeof recordMode)}
+              className="bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-2.5 text-sm text-neutral-200 focus:border-primary-500 focus:outline-none">
+              <option value="motion">仅移动检测</option>
+              <option value="continuous">持续录制</option>
+              <option value="scheduled">定时录制</option>
             </select>
           </div>
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-sm text-neutral-200">移动检测灵敏度</span>
-              <span className="text-sm text-primary-400 font-medium">60%</span>
+              <span className="text-sm text-primary-400 font-medium">{motionSensitivity}%</span>
             </div>
             <input 
               type="range" 
               min="1" 
-              max="100" 
-              defaultValue="60" 
+              max="100"
+              value={motionSensitivity}
+              onChange={(e) => setMotionSensitivity(Number(e.target.value))}
               className="w-full h-2 bg-neutral-700 rounded-full appearance-none cursor-pointer accent-primary-500"
             />
           </div>
@@ -481,12 +605,17 @@ export default function CameraMonitorPage({ onNavigate }: CameraMonitorPageProps
               <span className="text-sm text-neutral-200">声音检测</span>
               <p className="text-xs text-neutral-500">检测异常声音</p>
             </div>
-            <button className="relative w-14 h-7 rounded-full bg-primary-500 transition-colors">
-              <div className="absolute right-1 top-1 w-5 h-5 rounded-full bg-white shadow-md transition-transform" />
+            <button
+              onClick={() => setSoundDetection(!soundDetection)}
+              className={`relative w-14 h-7 rounded-full transition-colors ${soundDetection ? 'bg-primary-500' : 'bg-neutral-600'}`}
+            >
+              <div className={`absolute top-1 w-5 h-5 rounded-full bg-white shadow-md transition-transform ${soundDetection ? 'right-1' : 'left-1'}`} />
             </button>
           </div>
           <div className="pt-4 border-t border-neutral-700">
-            <button className="w-full py-3 rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 text-white font-medium hover:from-primary-600 hover:to-primary-700 transition-all shadow-lg shadow-primary-500/20">
+            <button
+              onClick={handleSaveSettings}
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 text-white font-medium hover:from-primary-600 hover:to-primary-700 transition-all shadow-lg shadow-primary-500/20">
               保存设置
             </button>
           </div>

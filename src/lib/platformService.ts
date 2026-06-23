@@ -512,10 +512,16 @@ export const KeyboardService = {
     let cleanup: (() => void) | null = null;
     
     if (platformCheck.isNative()) {
-      import('@capacitor/keyboard').then(({ Keyboard }) => {
-        Keyboard.addListener('keyboardDidShow', callback);
-        cleanup = () => Keyboard.removeAllListeners();
-      });
+      try {
+        import('@capacitor/keyboard').then(({ Keyboard }) => {
+          Keyboard.addListener('keyboardDidShow', callback);
+          cleanup = () => { try { Keyboard.removeAllListeners(); } catch {} };
+        }).catch((err) => {
+          console.warn('[Keyboard] Failed to load keyboard plugin:', err);
+        });
+      } catch (err) {
+        console.warn('[Keyboard] Keyboard plugin not available:', err);
+      }
     } else {
       window.addEventListener('keyboardDidShow', callback);
       cleanup = () => window.removeEventListener('keyboardDidShow', callback);
@@ -533,10 +539,16 @@ export const KeyboardService = {
     let cleanup: (() => void) | null = null;
     
     if (platformCheck.isNative()) {
-      import('@capacitor/keyboard').then(({ Keyboard }) => {
-        Keyboard.addListener('keyboardDidHide', callback);
-        cleanup = () => Keyboard.removeAllListeners();
-      });
+      try {
+        import('@capacitor/keyboard').then(({ Keyboard }) => {
+          Keyboard.addListener('keyboardDidHide', callback);
+          cleanup = () => { try { Keyboard.removeAllListeners(); } catch {} };
+        }).catch((err) => {
+          console.warn('[Keyboard] Failed to load keyboard plugin:', err);
+        });
+      } catch (err) {
+        console.warn('[Keyboard] Keyboard plugin not available:', err);
+      }
     } else {
       window.addEventListener('keyboardDidHide', callback);
       cleanup = () => window.removeEventListener('keyboardDidHide', callback);

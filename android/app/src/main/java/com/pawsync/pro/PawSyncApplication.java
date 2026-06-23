@@ -2,6 +2,8 @@ package com.pawsync.pro;
 
 import android.app.Activity;
 import android.app.Application;
+import android.app.ApplicationExitInfo;
+import android.app.ActivityManager;
 import android.content.ComponentCallbacks2;
 import android.content.Context;
 import android.content.res.Configuration;
@@ -12,6 +14,8 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 
 import java.io.File;
+import java.io.InputStream;
+import java.util.List;
 
 public class PawSyncApplication extends Application {
 
@@ -43,6 +47,9 @@ public class PawSyncApplication extends Application {
 
         // 注册 Activity 生命周期回调
         registerActivityLifecycleCallbacks(lifecycleCallbacks);
+
+        // Android 16: 记录上次退出原因，用于崩溃分析
+        logPreviousExitInfo();
     }
 
     // ==================== StrictMode 配置 ====================
@@ -52,13 +59,22 @@ public class PawSyncApplication extends Application {
             return;
         }
 
+        // 使用细粒度检测而非 detectAll()，避免 Android 16 新检查导致的误报
         StrictMode.setThreadPolicy(new StrictMode.ThreadPolicy.Builder()
-            .detectAll()
+            .detectDiskReads()
+            .detectDiskWrites()
+            .detectNetwork()
+            .detectCustomSlowCalls()
             .penaltyLog()
             .build());
 
         StrictMode.setVmPolicy(new StrictMode.VmPolicy.Builder()
-            .detectAll()
+            .detectActivityLeaks()
+            .detectLeakedClosableObjects()
+            .detectLeakedSqlLiteObjects()
+            .detectLeakedRegistrationObjects()
+            .detectFileUriExposure()
+            .detectCleartextNetwork()
             .penaltyLog()
             .build());
     }
@@ -307,6 +323,30 @@ public class PawSyncApplication extends Application {
             return dir.delete();
         } else {
             return dir != null && dir.isFile() && dir.delete();
+        }
+    }
+
+    // ==================== 退出原因分析（Android 16） ====================
+
+    private void logPreviousExitInfo() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+                if (am != null) {
+                    List<ApplicationExitInfo> exitInfos = am.getHistoricalProcessExitReasons(null, 0, 1);
+                    if (exitInfos != null && !exitInfos.isEmpty()) {
+                        ApplicationExitInfo info = exitInfos.get(0);
+                        Log.i(TAG, "Previous exit — reason: " + info.getReason()
+                            + " | status: " + info.getStatus()
+                            + " | timestamp: " + info.getTimestamp()
+                            + " | description: " + info.getDescription()
+                            + " | pss: " + info.getPss() + "KB"
+                            + " | rss: " + info.getRss() + "KB");
+                    }
+                }
+            } catch (Exception e) {
+                Log.w(TAG, "Failed to get previous exit info", e);
+            }
         }
     }
 

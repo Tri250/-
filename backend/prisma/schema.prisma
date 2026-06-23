@@ -3,44 +3,50 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  name      String
-  avatar    String?
-  pets      Pet[]
-  bookmarks ManualBookmark[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String            @id @default(uuid())
+  email          String            @unique
+  password       String
+  name           String
+  avatar         String?
+  phone          String?
+  pets           Pet[]
+  bookmarks      ManualBookmark[]
+  subscriptions  Subscription[]
+  notificationTokens NotificationToken[]
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
 }
 
 model Pet {
-  id             String           @id @default(uuid())
-  userId         String
-  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name           String
-  avatar         String?
-  type           PetType
-  breed          String?
-  gender         PetGender
-  birthday       DateTime?
-  weight         Float?
-  color          String?
+  id              String           @id @default(uuid())
+  userId          String
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name            String
+  avatar          String?
+  type            PetType
+  breed           String?
+  gender          PetGender
+  birthday        DateTime?
+  weight          Float?
+  color           String?
   characteristics String?
-  healthStatus   HealthStatus     @default(GOOD)
-  healthRecords  HealthRecord[]
-  vaccines       PetVaccine[]
-  checkups       PetCheckup[]
-  growthRecords  PetGrowth[]
-  reminders      Reminder[]
-  conversations  AIConversation[]
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
+  healthStatus    HealthStatus     @default(GOOD)
+  healthRecords   HealthRecord[]
+  healthMetrics   HealthMetricsData[]
+  vaccines        PetVaccine[]
+  checkups        PetCheckup[]
+  growthRecords   PetGrowth[]
+  reminders       Reminder[]
+  conversations   AIConversation[]
+  bondScores      BondScore[]
+  emotionAnalyses EmotionAnalysis[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 }
 
 model HealthRecord {
@@ -143,6 +149,116 @@ model ManualBookmark {
   createdAt DateTime      @default(now())
 }
 
+// ==================== 新增模型 ====================
+
+model CameraDevice {
+  id             String        @id @default(uuid())
+  userId         String
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String
+  model          String
+  manufacturer   String?
+  protocol       CameraProtocol @default(RTSP)
+  rtspUrl        String?
+  webrtcUrl      String?
+  streamUrl      String?
+  status         DeviceStatus  @default(OFFLINE)
+  location       String?
+  capabilities   Json          @default("[]")
+  settings       Json          @default("{}")
+  lastOnline     DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+}
+
+model HealthMetricsData {
+  id        String   @id @default(uuid())
+  petId     String
+  pet       Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+  type      String
+  value     String
+  unit      String
+  timestamp DateTime @default(now())
+  source    String   @default("device")
+}
+
+model BondScore {
+  id        String   @id @default(uuid())
+  petId     String
+  pet       Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+  score     Int
+  dimension String
+  note      String?
+  date      DateTime @default(now())
+  createdAt DateTime @default(now())
+}
+
+model EmotionAnalysis {
+  id        String   @id @default(uuid())
+  petId     String
+  pet       Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+  emotion   String
+  confidence Float
+  imageUrl  String?
+  audioUrl  String?
+  details   Json?
+  createdAt DateTime @default(now())
+}
+
+model SmartFeeder {
+  id           String       @id @default(uuid())
+  userId       String
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String
+  deviceType   DeviceType   @default(FEEDER)
+  macAddress   String?
+  bluetoothId  String?
+  status       DeviceStatus @default(OFFLINE)
+  settings     Json         @default("{}")
+  lastOnline   DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+}
+
+model Subscription {
+  id        String           @id @default(uuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan      SubscriptionPlan @default(FREE)
+  status    SubStatus        @default(ACTIVE)
+  startDate DateTime         @default(now())
+  endDate   DateTime?
+  autoRenew Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+}
+
+model InsurancePlan {
+  id          String   @id @default(uuid())
+  name        String
+  provider    String
+  coverage    String
+  price       Float
+  petType     PetType?
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model NotificationToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  platform  String   @default("android")
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ==================== 枚举 ====================
+
 enum PetType {
   DOG
   CAT
@@ -194,4 +310,37 @@ enum ManualCategory {
   BEHAVIOR
   EMERGENCY
   TRAINING
+}
+
+enum CameraProtocol {
+  RTSP
+  ONVIF
+  WEBRTC
+  HLS
+}
+
+enum DeviceStatus {
+  ONLINE
+  OFFLINE
+  CONNECTING
+  ERROR
+}
+
+enum DeviceType {
+  FEEDER
+  FOUNTAIN
+  LASER
+  WEARABLE
+}
+
+enum SubscriptionPlan {
+  FREE
+  PRO
+  PREMIUM
+}
+
+enum SubStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
 }

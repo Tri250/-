@@ -97,7 +97,8 @@ public class ForegroundServiceManager {
     // ==================== 前台服务操作 ====================
 
     /**
-     * 启动前台服务
+     * 启动前台服务并返回 Notification
+     * 调用者需要在 Service.startForeground() 中使用此 Notification
      * @param serviceType 服务类型：CAMERA, MICROPHONE, MEDIA_PLAYBACK, LOCATION
      * @param notificationId 通知 ID
      * @param title 通知标题
@@ -105,6 +106,15 @@ public class ForegroundServiceManager {
      */
     public Notification startForeground(String serviceType, int notificationId,
                                         String title, String content) {
+        return startForeground(serviceType, notificationId, title, content, null);
+    }
+
+    /**
+     * 启动前台服务并返回 Notification（带 Service 引用，Android 16 适配）
+     * @param service 当前 Service 实例（用于 Android 16+ 调用 startForeground）
+     */
+    public Notification startForeground(String serviceType, int notificationId,
+                                        String title, String content, Service service) {
         currentServiceType = serviceType;
         currentNotificationId = notificationId;
 
@@ -114,6 +124,19 @@ public class ForegroundServiceManager {
         }
 
         Notification notification = buildNotification(serviceType, notificationId, title, content);
+
+        // Android 16+ 需要传入 foregroundServiceType 参数
+        if (service != null) {
+            int typeFlags = getForegroundServiceTypeValue(serviceType);
+            if (Build.VERSION.SDK_INT >= 36 && typeFlags != 0) {
+                service.startForeground(notificationId, notification, typeFlags);
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE && typeFlags != 0) {
+                service.startForeground(notificationId, notification, typeFlags);
+            } else {
+                service.startForeground(notificationId, notification);
+            }
+        }
+
         isRunning = true;
         return notification;
     }

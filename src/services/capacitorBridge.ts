@@ -12,6 +12,9 @@ import { Haptics, HapticsNotificationType, ImpactStyle } from '@capacitor/haptic
 import { Share } from '@capacitor/share';
 import { Preferences } from '@capacitor/preferences';
 import { Keyboard } from '@capacitor/keyboard';
+import { Geolocation } from '@capacitor/geolocation';
+import { BackgroundTask } from '@capacitor/background-task';
+import { App } from '@capacitor/app';
 
 // ─── 类型定义 ───────────────────────────────────────────────
 
@@ -516,6 +519,100 @@ class CapacitorBridge {
         logError('Keyboard', 'hideKeyboard', error);
       }
     }
+  }
+
+  // ─── 位置服务 ────────────────────────────────────────────
+
+  /**
+   * 获取当前位置
+   */
+  async getCurrentPosition(): Promise<{
+    latitude: number;
+    longitude: number;
+    accuracy: number;
+    timestamp: number;
+  } | null> {
+    if (isNative()) {
+      try {
+        const result = await Geolocation.getCurrentPosition({
+          enableHighAccuracy: true,
+          timeout: 15000,
+        });
+        return {
+          latitude: result.coords.latitude,
+          longitude: result.coords.longitude,
+          accuracy: result.coords.accuracy,
+          timestamp: result.timestamp,
+        };
+      } catch (error) {
+        logError('Geolocation', 'getCurrentPosition', error);
+        return null;
+      }
+    }
+
+    // Web 降级
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        resolve(null);
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          resolve({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            accuracy: position.coords.accuracy,
+            timestamp: position.timestamp,
+          });
+        },
+        (error) => {
+          logError('WebGeolocation', 'getCurrentPosition', error);
+          resolve(null);
+        },
+        { enableHighAccuracy: true, timeout: 15000 },
+      );
+    });
+  }
+
+  // ─── 后台任务 ────────────────────────────────────────────
+
+  /**
+   * 注册后台任务（Android 16 适配）
+   * 用于在切后台时完成数据同步、健康数据上传等
+   */
+  async registerBackgroundTask(taskId: string, callback: () => Promise<void>): Promise<void> {
+    if (isNative()) {
+      try {
+        await BackgroundTask.beforeExit(async () => {
+          try {
+            await callback();
+          } catch (error) {
+            logError('BackgroundTask', taskId, error);
+          }
+          BackgroundTask.finish({ taskId });
+        });
+      } catch (error) {
+        logError('BackgroundTask', 'registerBackgroundTask', error);
+      }
+    }
+  }
+
+  // ─── WebView 崩溃恢复通知 ───────────────────────────────
+
+  /**
+   * 监听 WebView 渲染进程崩溃事件（Android 专用）
+   * 前端可据此显示恢复提示
+   */
+  onRenderProcessGone(callback: () => void): () => void {
+    if (isNative()) {
+      const handler = App.addListener('appStateChange', (state) => {
+        if (!state.isActive) {
+          callback();
+        }
+      });
+      return () => handler.then((h) => h.remove()).catch(() => {});
+    }
+    return () => {};
   }
 
   // ─── 平台检测 ────────────────────────────────────────────

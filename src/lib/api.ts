@@ -3,17 +3,18 @@
  * 
  * 自动根据环境变量配置 API 地址
  * 确保 Android 和 Web 端使用正确的后端地址
+ * Android 端使用 Capacitor Preferences 存储 token（比 localStorage 安全）
  */
+
+import { Capacitor } from '@capacitor/core';
 
 // 从环境变量获取 API 地址，确保跨平台一致性
 const getApiBaseUrl = (): string => {
-  // 优先使用环境变量
   const envUrl = import.meta.env.VITE_API_URL;
   if (envUrl) {
     return envUrl;
   }
 
-  // 根据环境自动选择
   const mode = import.meta.env.MODE;
   if (mode === 'production') {
     return 'https://api.pawsync.com';
@@ -21,36 +22,74 @@ const getApiBaseUrl = (): string => {
     return 'https://staging-api.pawsync.com';
   }
 
-  // 开发环境默认
   return 'http://localhost:3000/api';
 };
 
 const API_BASE_URL = getApiBaseUrl();
 
-// 开发模式下输出 API 配置信息
 if (import.meta.env.DEV) {
   console.log('[API] Environment:', import.meta.env.MODE);
   console.log('[API] Base URL:', API_BASE_URL);
 }
 
+// 安全的 Token 存储（Android 使用 Capacitor Preferences，Web 使用 localStorage）
+const tokenStorage = {
+  async get(): Promise<string | null> {
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const { Preferences } = await import('@capacitor/preferences');
+        const result = await Preferences.get({ key: 'auth_token' });
+        return result.value;
+      } catch {
+        return localStorage.getItem('auth_token');
+      }
+    }
+    return localStorage.getItem('auth_token');
+  },
+  async set(token: string): Promise<void> {
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const { Preferences } = await import('@capacitor/preferences');
+        await Preferences.set({ key: 'auth_token', value: token });
+        return;
+      } catch {
+        // 降级到 localStorage
+      }
+    }
+    localStorage.setItem('auth_token', token);
+  },
+  async remove(): Promise<void> {
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const { Preferences } = await import('@capacitor/preferences');
+        await Preferences.remove({ key: 'auth_token' });
+        return;
+      } catch {
+        // 降级
+      }
+    }
+    localStorage.removeItem('auth_token');
+  },
+};
+
 class ApiClient {
   private token: string | null = null;
 
-  setToken(token: string) {
+  async setToken(token: string) {
     this.token = token;
-    localStorage.setItem('auth_token', token);
+    await tokenStorage.set(token);
   }
 
-  getToken() {
+  async getToken(): Promise<string | null> {
     if (!this.token) {
-      this.token = localStorage.getItem('auth_token');
+      this.token = await tokenStorage.get();
     }
     return this.token;
   }
 
-  clearToken() {
+  async clearToken() {
     this.token = null;
-    localStorage.removeItem('auth_token');
+    await tokenStorage.remove();
   }
 
   private async request<T>(
@@ -63,8 +102,9 @@ class ApiClient {
       ...options.headers as Record<string, string>,
     };
 
-    if (this.getToken()) {
-      headers['Authorization'] = `Bearer ${this.token}`;
+    const token = await this.getToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
     }
 
     const response = await fetch(url, {
@@ -73,6 +113,9 @@ class ApiClient {
     });
 
     if (!response.ok) {
+      if (response.status === 401) {
+        await this.clearToken();
+      }
       const error = await response.json().catch(() => ({}));
       throw new Error(error.error || `HTTP ${response.status}`);
     }
