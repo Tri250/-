@@ -208,11 +208,12 @@ class SevenLevelAlertService {
   }
 
   // 计算预警等级
-  async calculateAlertLevel(_petId: string): Promise<AlertLevel> {
+  async calculateAlertLevel(petId: string): Promise<AlertLevel> {
     await this.simulateDelay(MOCK_DELAY);
 
     // 模拟基于各种因素计算预警等级
-    const random = Math.random();
+    const seed = this.hashString(petId);
+    const random = (seed % 100) / 100;
     
     if (random < 0.4) return 'L0';
     if (random < 0.6) return 'L1';
@@ -224,14 +225,14 @@ class SevenLevelAlertService {
   }
 
   // 检测24小时异常频率
-  async detect24HourFrequency(_petId: string, _behaviorType: string): Promise<{
+  async detect24HourFrequency(petId: string, behaviorType: string): Promise<{
     count: number;
     level: AlertLevel;
     exceedsThreshold: boolean;
   }> {
     await this.simulateDelay(MOCK_DELAY);
 
-    const count = Math.floor(Math.random() * 5);
+    const count = this.hashString(petId + behaviorType) % 5;
     const exceedsThreshold = count >= 3;
     
     let level: AlertLevel = 'L0';
@@ -242,7 +243,7 @@ class SevenLevelAlertService {
   }
 
   // 检测30天趋势异常
-  async detectTrendAnomaly(_petId: string): Promise<{
+  async detectTrendAnomaly(petId: string): Promise<{
     hasAnomaly: boolean;
     deviation: number;
     level: AlertLevel;
@@ -250,7 +251,7 @@ class SevenLevelAlertService {
   }> {
     await this.simulateDelay(MOCK_DELAY);
 
-    const deviation = 1.5 + Math.random() * 2;
+    const deviation = 1.5 + (this.hashString(petId) % 200) / 100;
     const hasAnomaly = deviation > 2;
     const level = hasAnomaly ? 'L6' : 'L0';
 
@@ -271,7 +272,7 @@ class SevenLevelAlertService {
     const risks = breedSpecificRisks[breed] || [];
     
     // 随机决定是否检测到风险
-    if (risks.length > 0 && Math.random() > 0.7) {
+    if (risks.length > 0 && (this.hashString(petId + breed) % 10) >= 7) {
       return risks.slice(0, 2);
     }
 
@@ -387,6 +388,14 @@ class SevenLevelAlertService {
       acknowledged: false,
       recommendation: '建议查看健康周报，了解详细趋势分析'
     };
+  }
+
+  private hashString(str: string): number {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
+    }
+    return hash;
   }
 
   private simulateDelay(ms: number): Promise<void> {

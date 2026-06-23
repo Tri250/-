@@ -101,7 +101,7 @@ class FaceExpressionService {
         petId: '1',
         timestamp: new Date(Date.now() - i * 7200000).toISOString(),
         expression,
-        confidence: 0.75 + Math.random() * 0.24,
+        confidence: 0.75 + ((i * 7 + 13) % 24) / 100,
         petType: i % 2 === 0 ? 'cat' : 'dog',
         landmarks: this.generateMockLandmarks(),
         features: config.features.slice(0, 2),
@@ -163,7 +163,7 @@ class FaceExpressionService {
     await this.simulateDelay(MOCK_DELAY);
 
     const expressions: FaceExpression[] = ['relaxed', 'happy', 'curious', 'tense', 'pain', 'aggressive'];
-    const expression = expressions[Math.floor(Math.random() * expressions.length)];
+    const expression = expressions[(this.faceAnalyses.length * 7 + 3) % expressions.length];
     const config = expressionConfig[expression];
 
     const analysis: FaceAnalysis = {
@@ -171,10 +171,10 @@ class FaceExpressionService {
       petId: '1',
       timestamp: new Date().toISOString(),
       expression,
-      confidence: 0.7 + Math.random() * 0.29,
+      confidence: 0.7 + ((this.faceAnalyses.length * 13 + 7) % 29) / 100,
       petType,
       landmarks: this.generateMockLandmarks(),
-      features: config.features.slice(0, Math.floor(Math.random() * 2) + 1),
+      features: config.features.slice(0, ((this.faceAnalyses.length * 3 + 1) % 2) + 1),
       description: config.description,
       imageUrl: `https://picsum.photos/seed/${Date.now()}/400/300`
     };
@@ -223,7 +223,7 @@ class FaceExpressionService {
 
     return {
       mouthOpen: Math.min(Math.max(mouthOpen, 0), 1),
-      smiling: width > 0.5 ? 0.7 + Math.random() * 0.3 : Math.random() * 0.5
+      smiling: width > 0.5 ? 0.7 + (landmarks.length * 7 % 30) / 100 : (landmarks.length * 13 % 50) / 100
     };
   }
 
@@ -243,8 +243,8 @@ class FaceExpressionService {
     const positions: Array<'forward' | 'neutral' | 'backward'> = ['forward', 'neutral', 'backward'];
     
     return {
-      leftEarPosition: positions[Math.floor(Math.random() * positions.length)],
-      rightEarPosition: positions[Math.floor(Math.random() * positions.length)]
+      leftEarPosition: positions[landmarks.length % positions.length],
+      rightEarPosition: positions[(landmarks.length + 1) % positions.length]
     };
   }
 

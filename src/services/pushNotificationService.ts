@@ -2,6 +2,28 @@ import type { PushNotification, NotificationConfig, NotificationPriority } from 
 
 const MOCK_DELAY = 500;
 
+// Capacitor Push Notification 插件类型定义
+interface CapacitorPushPlugin {
+  register(): Promise<void>;
+  unregister(): Promise<void>;
+  getDeliveredNotifications(): Promise<{ notifications: Array<{ id: string }> }>;
+  removeAllDeliveredNotifications(): Promise<void>;
+  addEventListener?(event: string, listener: (notification: unknown) => void): void;
+  checkPermissions(): Promise<{ receive: string }>;
+  requestPermissions(): Promise<{ receive: string }>;
+}
+
+// 动态获取Capacitor Push插件（Android原生集成）
+async function getPushPlugin(): Promise<CapacitorPushPlugin | null> {
+  try {
+    const { PushNotifications } = await import('@capacitor/push-notifications');
+    return PushNotifications as unknown as CapacitorPushPlugin;
+  } catch {
+    // Web环境或插件未安装，返回null
+    return null;
+  }
+}
+
 class PushNotificationService {
   private notifications: PushNotification[] = [];
   private config: NotificationConfig = {
@@ -75,6 +97,23 @@ class PushNotificationService {
 
   async initialize(): Promise<void> {
     await this.simulateDelay(MOCK_DELAY);
+    
+    // 尝试初始化Capacitor原生推送
+    const pushPlugin = await getPushPlugin();
+    if (pushPlugin) {
+      try {
+        // 请求权限
+        const permResult = await pushPlugin.requestPermissions();
+        if (permResult.receive === 'granted') {
+          // 注册推送
+          await pushPlugin.register();
+          console.log('Capacitor push notifications registered');
+        }
+      } catch (error) {
+        console.warn('Capacitor push initialization failed, using fallback:', error);
+      }
+    }
+    
     console.log('Push notification service initialized');
   }
 

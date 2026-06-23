@@ -9,6 +9,8 @@
 import { useState, useEffect, Suspense, lazy } from 'react';
 import { Navigation } from './components/Navigation';
 import { HomePage } from './pages/HomePage';
+import { AuthPage } from './pages/AuthPage';
+import { OnboardingPage } from './pages/OnboardingPage';
 import { useAppStore } from './store/appStore';
 import { PawPrint } from 'lucide-react';
 import { useDeviceCapabilities, applyPerformanceClass } from './utils/performanceDetection';
@@ -84,7 +86,9 @@ export default function App() {
     initProgress, 
     initMessage,
     initializeApp,
-    settings
+    settings,
+    isAuthenticated,
+    isOnboardingComplete
   } = useAppStore();
   
   // 检测设备能力
@@ -111,6 +115,16 @@ export default function App() {
 
   if (!isInitialized) {
     return <LoadingScreen progress={initProgress} message={initMessage} />;
+  }
+
+  // 未登录 → 显示认证页面
+  if (!isAuthenticated) {
+    return <AuthPage onSuccess={() => {}} />;
+  }
+
+  // 未完成引导 → 显示引导页面
+  if (!isOnboardingComplete) {
+    return <OnboardingPage onComplete={() => {}} />;
   }
 
   const renderPage = () => {

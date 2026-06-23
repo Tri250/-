@@ -79,7 +79,7 @@ class AudioRecognitionService {
 
     for (let i = 0; i < 10; i++) {
       const emotion = emotions[i % emotions.length];
-      const category = categories[Math.floor(Math.random() * categories.length)];
+      const category = categories[(i * 3 + 2) % categories.length];
       
       this.audioEvents.push({
         id: `audio-event-${i}`,
@@ -87,10 +87,10 @@ class AudioRecognitionService {
         timestamp: new Date(Date.now() - i * 3600000).toISOString(),
         category: category.name,
         categoryIndex: category.index,
-        confidence: 0.6 + Math.random() * 0.35,
+        confidence: 0.6 + (i * 7 + 3) % 10 * 0.035,
         emotion,
-        emotionConfidence: 0.7 + Math.random() * 0.25,
-        duration: `${Math.floor(1 + Math.random() * 5)}秒`,
+        emotionConfidence: 0.7 + (i * 11 + 5) % 10 * 0.025,
+        duration: `${1 + (i * 3 + 7) % 5}秒`,
         description: this.generateDescription(category, emotion),
         audioClipUrl: `/audio/clips/${Date.now() - i * 3600000}.wav`
       });
@@ -131,7 +131,7 @@ class AudioRecognitionService {
 
     const catDescriptions = descriptions[category.name] || descriptions.Meow;
     const emotionDescriptions = catDescriptions[emotion] || catDescriptions.neutral;
-    return emotionDescriptions[Math.floor(Math.random() * emotionDescriptions.length)];
+    return emotionDescriptions[category.index % emotionDescriptions.length];
   }
 
   // 初始化音频识别
@@ -159,15 +159,16 @@ class AudioRecognitionService {
 
   // 模拟音频分析流程
   private async simulateAudioAnalysis(petId: string) {
+    let tick = 0;
     while (this.isListening) {
-      await this.simulateDelay(2000 + Math.random() * 3000);
+      await this.simulateDelay(2000 + (tick * 7 + 3) % 10 * 300);
       
       if (!this.isListening) break;
 
       const categories = Object.values(ANIMAL_SOUND_CATEGORIES).filter(c => c.isAnimal);
-      const category = categories[Math.floor(Math.random() * categories.length)];
+      const category = categories[(tick * 3 + 2) % categories.length];
       const emotions: SoundEmotion[] = ['happy', 'neutral', 'anxious', 'fear', 'pain'];
-      const emotion = emotions[Math.floor(Math.random() * emotions.length)];
+      const emotion = emotions[(tick * 5 + 3) % emotions.length];
 
       const analysis: AudioAnalysis = {
         id: `analysis-${Date.now()}`,
@@ -175,9 +176,9 @@ class AudioRecognitionService {
         timestamp: new Date().toISOString(),
         category: category.name,
         categoryIndex: category.index,
-        confidence: 0.5 + Math.random() * 0.45,
-        rawScores: this.generateMockScores(),
-        duration: Math.random() * 2
+        confidence: 0.5 + (tick * 7 + 3) % 10 * 0.045,
+        rawScores: this.generateMockScores(tick),
+        duration: (tick * 3 + 7) % 10 * 0.2
       };
 
       this.analysisHistory.unshift(analysis);
@@ -190,20 +191,22 @@ class AudioRecognitionService {
         const event = await this.createAudioEvent(petId, category, emotion, analysis.confidence);
         this.notifyEvent(event);
       }
+
+      tick++;
     }
   }
 
   // 生成模拟的YAMNet分数
-  private generateMockScores(): Record<number, number> {
+  private generateMockScores(seed: number = 0): Record<number, number> {
     const scores: Record<number, number> = {};
     const animalIndices = Object.keys(ANIMAL_SOUND_CATEGORIES).map(Number);
     
-    animalIndices.forEach(index => {
-      scores[index] = Math.random() * 0.5;
+    animalIndices.forEach((index, idx) => {
+      scores[index] = (seed * 7 + idx * 13 + 3) % 10 * 0.05;
     });
 
-    const targetIndex = animalIndices[Math.floor(Math.random() * animalIndices.length)];
-    scores[targetIndex] = 0.7 + Math.random() * 0.3;
+    const targetIndex = animalIndices[(seed * 3 + 2) % animalIndices.length];
+    scores[targetIndex] = 0.7 + (seed * 11 + 7) % 10 * 0.03;
 
     return scores;
   }
@@ -215,8 +218,8 @@ class AudioRecognitionService {
     const duration = audioData.length / sampleRate;
     
     const categories = Object.values(ANIMAL_SOUND_CATEGORIES).filter(c => c.isAnimal);
-    const category = categories[Math.floor(Math.random() * categories.length)];
-    const confidence = 0.5 + Math.random() * 0.45;
+    const category = categories[audioData.length % categories.length];
+    const confidence = 0.5 + (audioData.length * 7 + 3) % 10 * 0.045;
 
     const analysis: AudioAnalysis = {
       id: `analysis-${Date.now()}`,
@@ -225,7 +228,7 @@ class AudioRecognitionService {
       category: category.name,
       categoryIndex: category.index,
       confidence,
-      rawScores: this.generateMockScores(),
+      rawScores: this.generateMockScores(audioData.length),
       duration
     };
 
@@ -253,8 +256,8 @@ class AudioRecognitionService {
     };
 
     const possibleEmotions = emotionMap[analysis.category] || ['neutral', 'happy', 'anxious'];
-    const emotion = possibleEmotions[Math.floor(Math.random() * possibleEmotions.length)];
-    const confidence = 0.65 + Math.random() * 0.3;
+    const emotion = possibleEmotions[analysis.categoryIndex % possibleEmotions.length];
+    const confidence = 0.65 + (analysis.categoryIndex * 7 + 3) % 10 * 0.03;
 
     return { emotion, confidence };
   }
@@ -276,8 +279,8 @@ class AudioRecognitionService {
       categoryIndex: category.index,
       confidence,
       emotion,
-      emotionConfidence: 0.7 + Math.random() * 0.25,
-      duration: `${Math.floor(1 + Math.random() * 5)}秒`,
+      emotionConfidence: 0.7 + (category.index * 11 + 5) % 10 * 0.025,
+      duration: `${1 + (category.index * 3 + 7) % 5}秒`,
       description: this.generateDescription(category, emotion),
       audioClipUrl: `/audio/clips/${Date.now()}.wav`
     };

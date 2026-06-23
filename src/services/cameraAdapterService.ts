@@ -319,7 +319,7 @@ class CameraAdapterService {
  const device = this.devices.find(d => d.id === deviceId);
  if (!device)
  return null;
- device.status = Math.random() > 0.15 ? 'online' : 'offline';
+ device.status = (deviceId.charCodeAt(deviceId.length - 1) % 7 !== 0) ? 'online' : 'offline';
  device.lastActive = new Date().toISOString();
  return device;
  }
@@ -333,8 +333,8 @@ class CameraAdapterService {
  if (!device) {
  return { success: false, error: '设备不存在' };
  }
- const latency = 50 + Math.floor(Math.random() * 200);
- const success = Math.random() > 0.1;
+ const latency = 50 + (deviceId.charCodeAt(deviceId.length - 1) * 7 + 13) % 200;
+ const success = deviceId.charCodeAt(deviceId.length - 1) % 10 !== 0;
  return {
  success,
  latency: success ? latency : undefined,

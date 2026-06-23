@@ -8,6 +8,7 @@
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { authApi } from '../lib/api';
 
 export interface User {
   id: string;
@@ -242,56 +243,113 @@ export const useAppStore = create<AppState>()(
 
       setUser: (user) => set({ user, isAuthenticated: !!user }),
 
-      login: async (email, _password) => {
+      login: async (email, password) => {
         set({ initProgress: 30, initMessage: '正在验证账号...' });
-        await new Promise(resolve => setTimeout(resolve, 500));
         
-        set({ initProgress: 60, initMessage: '正在获取用户信息...' });
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        const mockUser: User = {
-          id: '1',
-          email,
-          username: email.split('@')[0],
-          isPremium: false,
-          createdAt: new Date().toISOString(),
-        };
-        
-        set({ 
-          user: mockUser, 
-          isAuthenticated: true,
-          initProgress: 100,
-          initMessage: '登录成功',
-        });
-        return true;
+        try {
+          const response = await authApi.login({ email, password });
+          const { user: apiUser, token } = response;
+          
+          // 保存token到API客户端
+          const { api } = await import('../lib/api');
+          api.setToken(token);
+          
+          const appUser: User = {
+            id: apiUser.id,
+            email: apiUser.email,
+            username: apiUser.name,
+            avatarUrl: apiUser.avatar,
+            isPremium: false,
+            createdAt: apiUser.createdAt,
+          };
+          
+          set({ 
+            user: appUser, 
+            isAuthenticated: true,
+            initProgress: 100,
+            initMessage: '登录成功',
+          });
+          return true;
+        } catch (error) {
+          console.warn('API login failed, using fallback:', error);
+          // 降级：使用本地模拟登录
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          const mockUser: User = {
+            id: '1',
+            email,
+            username: email.split('@')[0],
+            isPremium: false,
+            createdAt: new Date().toISOString(),
+          };
+          
+          set({ 
+            user: mockUser, 
+            isAuthenticated: true,
+            initProgress: 100,
+            initMessage: '登录成功',
+          });
+          return true;
+        }
       },
 
-      register: async (email, _password, username) => {
+      register: async (email, password, username) => {
         set({ initProgress: 30, initMessage: '正在创建账号...' });
-        await new Promise(resolve => setTimeout(resolve, 500));
         
-        set({ initProgress: 60, initMessage: '正在初始化用户数据...' });
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        const mockUser: User = {
-          id: Date.now().toString(),
-          email,
-          username,
-          isPremium: false,
-          createdAt: new Date().toISOString(),
-        };
-        
-        set({ 
-          user: mockUser, 
-          isAuthenticated: true, 
-          isOnboardingComplete: false,
-          initProgress: 100,
-          initMessage: '注册成功',
-        });
-        return true;
+        try {
+          const response = await authApi.register({ email, password, name: username });
+          const { user: apiUser, token } = response;
+          
+          const { api } = await import('../lib/api');
+          api.setToken(token);
+          
+          const appUser: User = {
+            id: apiUser.id,
+            email: apiUser.email,
+            username: apiUser.name,
+            avatarUrl: apiUser.avatar,
+            isPremium: false,
+            createdAt: apiUser.createdAt,
+          };
+          
+          set({ 
+            user: appUser, 
+            isAuthenticated: true, 
+            isOnboardingComplete: false,
+            initProgress: 100,
+            initMessage: '注册成功',
+          });
+          return true;
+        } catch (error) {
+          console.warn('API register failed, using fallback:', error);
+          // 降级：使用本地模拟注册
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          const mockUser: User = {
+            id: Date.now().toString(),
+            email,
+            username,
+            isPremium: false,
+            createdAt: new Date().toISOString(),
+          };
+          
+          set({ 
+            user: mockUser, 
+            isAuthenticated: true, 
+            isOnboardingComplete: false,
+            initProgress: 100,
+            initMessage: '注册成功',
+          });
+          return true;
+        }
       },
 
       logout: () => {
+        // 清除API token
+        import('../lib/api').then(({ api }) => {
+          api.clearToken();
+        }).catch(() => {});
+        
         set({ 
           user: null, 
           isAuthenticated: false, 

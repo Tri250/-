@@ -252,7 +252,12 @@ export const useHealthManualStore = create<HealthManualStore>()(
         
         while (index !== -1) {
           result += text.slice(lastIndex, index);
-          result += `<mark class="bg-yellow-200 px-0.5 rounded">${text.slice(index, index + query.length)}</mark>`;
+          // 安全拼接：对匹配部分进行HTML转义
+          const match = text.slice(index, index + query.length)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+          result += `<mark class="bg-yellow-200 px-0.5 rounded">${match}</mark>`;
           lastIndex = index + query.length;
           index = lowerText.indexOf(lowerQuery, lastIndex);
         }

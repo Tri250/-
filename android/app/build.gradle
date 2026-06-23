@@ -100,8 +100,6 @@ android {
             signingConfig signingConfigs.release
             // Release优化
             renderscriptOptimLevel 3
-            // 启用压缩对齐
-            zipAlignEnabled true
             // 禁用调试信息
             ndk {
                 debugSymbolLevel 'none'

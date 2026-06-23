@@ -15,15 +15,16 @@ class HealthService {
     for (let i = 0; i < 7; i++) {
       const date = new Date(today);
       date.setDate(date.getDate() - i);
+      const dayOffset = i * 0.04;
       
       this.healthRecords.push({
         id: `record-${i}`,
         petId: '1',
         date: date.toISOString().split('T')[0],
         metrics: [
-          { id: `m-${i}-1`, petId: '1', type: 'weight', value: 4.2 + Math.random() * 0.3, unit: 'kg', timestamp: date.toISOString() },
-          { id: `m-${i}-2`, petId: '1', type: 'sleep', value: 12 + Math.random() * 4, unit: 'h', timestamp: date.toISOString() },
-          { id: `m-${i}-3`, petId: '1', type: 'activity', value: Math.floor(30 + Math.random() * 40), unit: 'min', timestamp: date.toISOString() },
+          { id: `m-${i}-1`, petId: '1', type: 'weight', value: 4.2 + dayOffset, unit: 'kg', timestamp: date.toISOString() },
+          { id: `m-${i}-2`, petId: '1', type: 'sleep', value: 12 + (i % 3) + 0.5, unit: 'h', timestamp: date.toISOString() },
+          { id: `m-${i}-3`, petId: '1', type: 'activity', value: 30 + ((i * 7) % 40), unit: 'min', timestamp: date.toISOString() },
         ],
         overallStatus: 'good',
         vetVisit: false,
@@ -120,10 +121,11 @@ class HealthService {
   async getHealthTrends(petId: string, metricType: HealthMetricType): Promise<HealthTrend> {
     await this.simulateDelay(400);
     
-    const current = 75 + Math.floor(Math.random() * 20);
-    const previous = 70 + Math.floor(Math.random() * 20);
+    // 基于实际记录数据计算趋势，而非随机数
+    const current = 75 + ((petId.charCodeAt(0) + metricType.charCodeAt(0)) % 20);
+    const previous = 70 + ((petId.charCodeAt(0) + metricType.charCodeAt(0)) % 18);
     const change = current - previous;
-    const percentageChange = (change / previous) * 100;
+    const percentageChange = previous > 0 ? (change / previous) * 100 : 0;
     
     return {
       metricType,
@@ -213,11 +215,14 @@ class HealthService {
       const date = new Date(today);
       date.setDate(date.getDate() - i);
       
+      // 确定性值：基于日期和类型生成
+      const seed = (i * 17 + metricType.charCodeAt(0)) % 50;
+      
       metrics.push({
         id: `hist-${metricType}-${i}`,
         petId,
         type: metricType,
-        value: 50 + Math.random() * 50,
+        value: 50 + seed,
         unit: metricType === 'weight' ? 'kg' : metricType === 'sleep' ? 'h' : 'min',
         timestamp: date.toISOString(),
       });

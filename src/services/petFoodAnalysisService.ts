@@ -355,12 +355,13 @@ class PetFoodAnalysisService {
   }
 
   private generateNutrientInfo(score: number): NutrientInfo {
+    const s = Math.floor(score);
     if (score >= 85) {
-      return { protein: 38 + Math.random() * 5, fat: 18 + Math.random() * 4, fiber: 3 + Math.random() * 2, moisture: 10 + Math.random() * 3 };
+      return { protein: 38 + (s * 7 + 3) % 5, fat: 18 + (s * 11 + 5) % 4, fiber: 3 + (s * 3 + 7) % 2, moisture: 10 + (s * 13 + 2) % 3 };
     } else if (score >= 70) {
-      return { protein: 32 + Math.random() * 5, fat: 15 + Math.random() * 3, fiber: 4 + Math.random() * 2, moisture: 10 + Math.random() * 2 };
+      return { protein: 32 + (s * 7 + 3) % 5, fat: 15 + (s * 11 + 5) % 3, fiber: 4 + (s * 3 + 7) % 2, moisture: 10 + (s * 13 + 2) % 2 };
     } else {
-      return { protein: 28 + Math.random() * 4, fat: 12 + Math.random() * 3, fiber: 5 + Math.random() * 2, moisture: 11 + Math.random() * 2 };
+      return { protein: 28 + (s * 7 + 3) % 4, fat: 12 + (s * 11 + 5) % 3, fiber: 5 + (s * 3 + 7) % 2, moisture: 11 + (s * 13 + 2) % 2 };
     }
   }
 

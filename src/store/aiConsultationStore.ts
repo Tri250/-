@@ -175,7 +175,7 @@ export const useAIConsultationStore = create<AIConsultationStore>((set, get) => 
   addMessage: (consultationId, message) => {
     const newMessage: AIMessage = {
       ...message,
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+      id: Date.now().toString() + '-' + (consultationId?.length || 0).toString(36),
       createdAt: new Date().toISOString(),
     };
     set((state) => {
@@ -457,7 +457,7 @@ export const useAIConsultationStore = create<AIConsultationStore>((set, get) => 
     
     const newMemory: LongTermMemory = {
       ...memory,
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+      id: Date.now().toString() + '-' + (userId?.length || 0).toString(36),
       createdAt: new Date().toISOString(),
       lastAccessedAt: new Date().toISOString(),
       accessCount: 0,

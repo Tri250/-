@@ -201,7 +201,7 @@ class FusionEngineService {
         petId: '1',
         type: event.type,
         severity: event.severity,
-        confidence: 0.75 + Math.random() * 0.24,
+        confidence: 0.75 + (index * 7 + 13) % 10 * 0.024,
         timestamp: new Date(Date.now() - index * 3600000).toISOString(),
         modalities: ['visual', 'audio'],
         description: config.description,

@@ -562,17 +562,17 @@ class AIHealthAlertService {
       
       data.push({
         date: date.toISOString().split('T')[0],
-        totalMinutes: Math.floor(40 + Math.random() * 60),
+        totalMinutes: 40 + (i * 7 + 3) % 60,
         intensity: {
-          low: 30 + Math.floor(Math.random() * 20),
-          medium: 40 + Math.floor(Math.random() * 20),
-          high: 15 + Math.floor(Math.random() * 15)
+          low: 30 + (i * 3 + 7) % 20,
+          medium: 40 + (i * 5 + 11) % 20,
+          high: 15 + (i * 7 + 13) % 15
         },
         activities: {
-          walking: 15 + Math.floor(Math.random() * 15),
-          running: 10 + Math.floor(Math.random() * 20),
-          playing: 5 + Math.floor(Math.random() * 15),
-          resting: 10 + Math.floor(Math.random() * 10)
+          walking: 15 + (i * 3 + 5) % 15,
+          running: 10 + (i * 7 + 3) % 20,
+          playing: 5 + (i * 11 + 7) % 15,
+          resting: 10 + (i * 13 + 2) % 10
         }
       });
     }
@@ -591,15 +591,15 @@ class AIHealthAlertService {
       const date = new Date(today);
       date.setDate(date.getDate() - i);
       
-      const deepSleep = 25 + Math.floor(Math.random() * 15);
-      const lightSleep = 40 + Math.floor(Math.random() * 15);
-      const rem = 20 + Math.floor(Math.random() * 10);
+      const deepSleep = 25 + (i * 7 + 3) % 15;
+      const lightSleep = 40 + (i * 5 + 11) % 15;
+      const rem = 20 + (i * 3 + 7) % 10;
       const awake = 100 - deepSleep - lightSleep - rem;
       
       data.push({
         date: date.toISOString().split('T')[0],
-        duration: 12 + Math.random() * 4,
-        quality: 75 + Math.floor(Math.random() * 25),
+        duration: 12 + (i * 7 + 3) % 10 * 0.4,
+        quality: 75 + (i * 11 + 5) % 25,
         phases: { deep: deepSleep, light: lightSleep, rem: rem, awake: awake },
         startTime: '22:00',
         endTime: '08:30'
@@ -619,7 +619,7 @@ class AIHealthAlertService {
       const date = new Date(today);
       date.setDate(date.getDate() - i * 30);
       const baseWeight = 4.0;
-      const weightVariation = (i * 0.05) + (Math.random() * 0.1 - 0.05);
+      const weightVariation = (i * 0.05) + ((i * 7 + 3) % 10 * 0.01 - 0.05);
       history.push({
         date: date.toISOString().split('T')[0],
         weight: Math.round((baseWeight + weightVariation) * 100) / 100,

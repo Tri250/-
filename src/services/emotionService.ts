@@ -1817,19 +1817,27 @@ class EmotionService {
     return behaviors;
   }
 
-  async analyzeEmotion(_imageData: ImageData): Promise<EmotionAnalysis> {
+  async analyzeEmotion(imageData: ImageData): Promise<EmotionAnalysis> {
     await this.simulateDelay(1200);
 
-    const audioFeatures = this.generateSimulatedAudioFeatures();
+    // 从图像数据中提取颜色和亮度特征
+    const imageFeatures = this.extractFeaturesFromImageData(imageData);
+    
+    // 基于图像特征生成音频特征代理
+    const audioFeatures = this.generateAudioFeaturesFromImage(imageFeatures);
     const emotionScores = this.calculateEmotionScores(audioFeatures);
-    const { primaryEmotion, secondaryEmotion, confidence, reasoning } = this.determinePrimaryEmotion(emotionScores, audioFeatures);
-    const translation = this.selectTranslation(primaryEmotion, emotionScores);
+    
+    // 根据图像特征调整分数
+    const adjustedScores = this.adjustScoresForImageFeatures(emotionScores, imageFeatures);
+    
+    const { primaryEmotion, secondaryEmotion, confidence, reasoning } = this.determinePrimaryEmotion(adjustedScores, audioFeatures);
+    const translation = this.selectTranslation(primaryEmotion, adjustedScores);
     const behaviorIndicators = this.identifyBehaviors(primaryEmotion, audioFeatures);
 
     const detail: EmotionAnalysisDetail = {
       primaryEmotion,
       secondaryEmotion,
-      scores: emotionScores,
+      scores: adjustedScores,
       confidence,
       confidenceLevel: confidence >= 95 ? 'high' : confidence >= 85 ? 'medium' : 'low',
       reasoning: ['图像分析模式', ...reasoning],
@@ -1841,7 +1849,7 @@ class EmotionService {
       id: `analysis-${Date.now()}`,
       petId: '1',
       primaryEmotion,
-      intensity: this.calculateIntensity(emotionScores, audioFeatures),
+      intensity: this.calculateIntensity(adjustedScores, audioFeatures),
       confidence,
       subEmotions: secondaryEmotion ? [primaryEmotion, secondaryEmotion] : [primaryEmotion],
       translation,
@@ -1855,7 +1863,142 @@ class EmotionService {
     };
 
     this.recentAnalyses.unshift(analysis);
+    if (this.recentAnalyses.length > 50) {
+      this.recentAnalyses.pop();
+    }
+    
+    this.saveAnalyses();
+
     return analysis;
+  }
+  
+  // 从ImageData中提取特征
+  private extractFeaturesFromImageData(imageData: ImageData): {
+    brightness: number;
+    warmth: number;
+    contrast: number;
+    saturation: number;
+    dominantHue: string;
+  } {
+    const data = imageData.data;
+    let totalR = 0, totalG = 0, totalB = 0;
+    let minBrightness = 255, maxBrightness = 0;
+    const pixelCount = data.length / 4;
+    
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      totalR += r;
+      totalG += g;
+      totalB += b;
+      const brightness = (r + g + b) / 3;
+      minBrightness = Math.min(minBrightness, brightness);
+      maxBrightness = Math.max(maxBrightness, brightness);
+    }
+    
+    const avgR = totalR / pixelCount;
+    const avgG = totalG / pixelCount;
+    const avgB = totalB / pixelCount;
+    const avgBrightness = (avgR + avgG + avgB) / 3;
+    const contrast = ((maxBrightness - minBrightness) / 255) * 100;
+    
+    // 饱和度估算
+    const maxC = Math.max(avgR, avgG, avgB);
+    const minC = Math.min(avgR, avgG, avgB);
+    const saturation = maxC > 0 ? ((maxC - minC) / maxC) * 100 : 0;
+    
+    // 主色调
+    let dominantHue = 'neutral';
+    if (avgR > avgG && avgR > avgB) dominantHue = 'warm';
+    else if (avgB > avgR && avgB > avgG) dominantHue = 'cool';
+    else if (avgG > avgR && avgG > avgB) dominantHue = 'natural';
+    
+    return {
+      brightness: avgBrightness,
+      warmth: (avgR - avgB) / 255 * 100 + 50,
+      contrast,
+      saturation,
+      dominantHue,
+    };
+  }
+  
+  // 基于图像特征生成代理音频特征
+  private generateAudioFeaturesFromImage(imageFeatures: ReturnType<EmotionService['extractFeaturesFromImageData']>): AudioFeatures {
+    // 将图像亮度映射到音高，对比度映射到节奏等
+    const pitchMean = 200 + (imageFeatures.brightness / 255) * 800;
+    const tempo = 60 + (imageFeatures.contrast / 100) * 120;
+    
+    return {
+      pitch: {
+        mean: pitchMean,
+        variance: 3000 + imageFeatures.contrast * 50,
+        range: [pitchMean - 100, pitchMean + 100],
+        trend: 'stable',
+        bands: this.getDefaultFrequencyBands(),
+        quartiles: { q1: pitchMean - 50, q3: pitchMean + 50, iqr: 100 },
+        stability: 70 + (imageFeatures.brightness > 100 ? 10 : -10),
+      },
+      intensity: {
+        mean: 0.3 + (imageFeatures.brightness / 255) * 0.4,
+        peak: 0.6 + (imageFeatures.contrast / 100) * 0.3,
+        variance: 0.02,
+        dynamicRange: imageFeatures.contrast * 0.5,
+        envelope: { attack: 5, decay: 10, sustain: 25, release: 15 },
+        contour: 'flat',
+      },
+      frequency: {
+        dominant: pitchMean,
+        range: [pitchMean - 200, pitchMean + 200],
+        harmonics: [pitchMean * 2, pitchMean * 3],
+      },
+      rhythm: {
+        tempo: Math.round(tempo),
+        regularity: 70,
+        pattern: 'steady',
+        complexity: 0.3,
+        syncopation: 0.1,
+        groove: 0.5,
+      },
+      timbre: {
+        brightness: imageFeatures.warmth,
+        warmth: 100 - imageFeatures.warmth,
+        roughness: imageFeatures.saturation * 0.5,
+      },
+      duration: 2.5,
+      quality: Math.min(100, 60 + imageFeatures.contrast * 0.3),
+    };
+  }
+  
+  // 基于图像特征调整情绪分数
+  private adjustScoresForImageFeatures(scores: EmotionScores, imageFeatures: ReturnType<EmotionService['extractFeaturesFromImageData']>): EmotionScores {
+    const adjusted = { ...scores };
+    
+    // 亮度影响：明亮 → 积极，暗淡 → 平静
+    if (imageFeatures.brightness > 180) {
+      adjusted.happy = Math.min(100, adjusted.happy * 1.3);
+      adjusted.excited = Math.min(100, adjusted.excited * 1.2);
+    } else if (imageFeatures.brightness < 80) {
+      adjusted.calm = Math.min(100, adjusted.calm * 1.3);
+      adjusted.safe = Math.min(100, adjusted.safe * 1.2);
+    }
+    
+    // 色调影响
+    if (imageFeatures.dominantHue === 'warm') {
+      adjusted.happy = Math.min(100, adjusted.happy * 1.15);
+      adjusted.excited = Math.min(100, adjusted.excited * 1.1);
+    } else if (imageFeatures.dominantHue === 'cool') {
+      adjusted.curious = Math.min(100, adjusted.curious * 1.2);
+      adjusted.anxious = Math.min(100, adjusted.anxious * 1.1);
+    }
+    
+    // 对比度影响：高对比 → 兴奋/焦虑
+    if (imageFeatures.contrast > 60) {
+      adjusted.excited = Math.min(100, adjusted.excited * 1.15);
+      adjusted.anxious = Math.min(100, adjusted.anxious * 1.1);
+    }
+    
+    return adjusted;
   }
 
   async analyzeImageFile(file: File): Promise<EmotionAnalysis> {

@@ -61,7 +61,7 @@ class RealTimeService {
     await this.simulateDelay(MOCK_DELAY);
     
     this.stats.connected = true;
-    this.stats.signalLatency = 50 + Math.floor(Math.random() * 100);
+    this.stats.signalLatency = 50 + (Date.now() * 7 + 13) % 100;
     
     return {
       success: true
@@ -79,9 +79,9 @@ class RealTimeService {
     await this.simulateDelay(100);
     
     if (this.callState === 'connected') {
-      this.stats.audioBitrate = 48 + Math.floor(Math.random() * 32);
-      this.stats.videoBitrate = 500 + Math.floor(Math.random() * 1000);
-      this.stats.packetLoss = Math.random() * 2;
+      this.stats.audioBitrate = 48 + (Date.now() * 3 + 7) % 32;
+      this.stats.videoBitrate = 500 + (Date.now() * 7 + 13) % 1000;
+      this.stats.packetLoss = (Date.now() * 11 + 3) % 100 * 0.02;
       this.stats.codec = 'VP9';
     }
     
@@ -110,7 +110,7 @@ class RealTimeService {
       },
       participants: ['local', targetId],
       stats: {
-        signalLatency: 40 + Math.floor(Math.random() * 60),
+        signalLatency: 40 + (targetId.charCodeAt(0) * 7 + 3) % 60,
         audioBitrate: 0,
         videoBitrate: 0,
         packetLoss: 0
@@ -127,13 +127,13 @@ class RealTimeService {
     setTimeout(async () => {
       if (session.status === 'connecting') {
         session.status = 'connected';
-        session.stats.signalLatency = 30 + Math.floor(Math.random() * 40);
+        session.stats.signalLatency = 30 + (session.id.charCodeAt(session.id.length - 1) * 7 + 3) % 40;
         this.callState = 'connected';
         
         this.notifyStateChange('connected');
         this.notifySessionChange(session);
       }
-    }, 2000 + Math.random() * 2000);
+    }, 2000 + (session.id.charCodeAt(session.id.length - 1) * 7 + 3) % 10 * 200);
 
     return session;
   }

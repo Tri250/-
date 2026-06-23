@@ -188,8 +188,9 @@ class CloudStorageService {
     }
 
     if (options.tags && options.tags.length > 0) {
+      const filterTags = options.tags;
       filtered = filtered.filter(f => 
-        options.tags!.some(tag => f.tags.includes(tag))
+        filterTags.some(tag => f.tags.includes(tag))
       );
     }
 

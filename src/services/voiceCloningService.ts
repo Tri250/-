@@ -62,7 +62,7 @@ class VoiceCloningService {
       createdAt: new Date().toISOString(),
       isActive: true,
       sampleUrl: `/api/audio/sample/voice-${Date.now()}.mp3`,
-      quality: 0.75 + Math.random() * 0.2
+      quality: 0.75 + (request.petId.charCodeAt(0) * 7 + 3) % 10 * 0.02
     };
 
     this.clonedVoices.push(newVoice);
@@ -122,7 +122,7 @@ class VoiceCloningService {
       voiceId: request.voiceId,
       text,
       audioUrl: `/api/audio/synth/${Date.now()}.mp3`,
-      duration: Math.floor(text.length * 0.15) + Math.floor(Math.random() * 2),
+      duration: Math.floor(text.length * 0.15) + (text.length * 7 + 3) % 2,
       createdAt: new Date().toISOString(),
       status: 'completed'
     };
@@ -187,7 +187,7 @@ class VoiceCloningService {
     await this.simulateDelay(300);
 
     // 模拟质量检测
-    const quality = 0.6 + Math.random() * 0.35;
+    const quality = 0.6 + (_audioData.length * 7 + 3) % 10 * 0.035;
     const recommendations: string[] = [];
 
     if (quality < 0.7) {
@@ -218,9 +218,9 @@ class VoiceCloningService {
     }
 
     // 模拟状态
-    const random = Math.random();
-    if (random < 0.2) return { status: 'pending' };
-    if (random < 0.4) return { status: 'processing', progress: 30 + Math.floor(Math.random() * 40) };
+    const hash = voiceId.charCodeAt(voiceId.length - 1) % 5;
+    if (hash < 1) return { status: 'pending' };
+    if (hash < 2) return { status: 'processing', progress: 30 + (voiceId.charCodeAt(0) * 7 + 3) % 40 };
     return { status: 'completed', progress: 100 };
   }
 

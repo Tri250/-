@@ -84,6 +84,22 @@ class PermissionManager {
         return this.createStatus(type, 'denied');
       }
 
+      if (type === 'storage') {
+        // 存储权限：检查 navigator.storage 是否可用
+        if (navigator.storage && navigator.storage.persisted) {
+          const persisted = await navigator.storage.persisted();
+          return this.createStatus(type, persisted ? 'granted' : 'prompt');
+        }
+        // 降级：检查 localStorage 是否可用
+        try {
+          localStorage.setItem('_perm_test', '1');
+          localStorage.removeItem('_perm_test');
+          return this.createStatus(type, 'granted');
+        } catch {
+          return this.createStatus(type, 'denied');
+        }
+      }
+
       return this.createStatus(type, 'prompt');
     } catch (error) {
       console.warn(`Permission check failed for ${type}:`, error);
@@ -149,6 +165,26 @@ class PermissionManager {
         return false;
       }
 
+      if (type === 'storage') {
+        // 存储权限：尝试请求持久化存储
+        if (navigator.storage && navigator.storage.persist) {
+          try {
+            const persisted = await navigator.storage.persist();
+            return persisted;
+          } catch {
+            // 持久化请求被拒绝，降级检查 localStorage
+          }
+        }
+        // 降级：检查 localStorage 是否可用
+        try {
+          localStorage.setItem('_perm_test', '1');
+          localStorage.removeItem('_perm_test');
+          return true;
+        } catch {
+          return false;
+        }
+      }
+
       return false;
     } catch (error) {
       console.warn(`Permission request failed for ${type}:`, error);
@@ -195,7 +231,7 @@ class PermissionManager {
   }
 
   async checkAllPermissions(): Promise<Map<PermissionType, PermissionStatus>> {
-    const types: PermissionType[] = ['camera', 'microphone', 'location', 'notification'];
+    const types: PermissionType[] = ['camera', 'microphone', 'location', 'storage', 'notification'];
     
     for (const type of types) {
       await this.checkPermission(type);

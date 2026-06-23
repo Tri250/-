@@ -203,14 +203,13 @@ class DataExportManager {
       secureStorage.clear();
       sessionStorage.clear();
       
-      localStorage.removeItem('pawsync_user');
-      localStorage.removeItem('pawsync_pets');
-      localStorage.removeItem('pawsync_analyses');
-      localStorage.removeItem('pawsync_settings');
-      localStorage.removeItem('pawsync_health_alerts');
+      // 清除所有PawSync相关存储（与appStore的persist key匹配）
+      localStorage.removeItem('pawsync-storage');
+      localStorage.removeItem('health-manual-storage');
       
+      // 清除AI记忆存储
       Object.keys(localStorage).forEach(key => {
-        if (key.startsWith('PS_') || key.startsWith('pawsync_')) {
+        if (key.startsWith('PS_') || key.startsWith('pawsync_') || key.startsWith('ai_memory_')) {
           localStorage.removeItem(key);
           deletedItems.push(`本地存储: ${key}`);
         }

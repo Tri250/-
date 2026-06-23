@@ -80,7 +80,12 @@ class AppStateService {
   private onAppPause() {
     const store = useAppStore.getState();
     
-    localStorage.setItem('pawsync-last-pause-time', Date.now().toString());
+    try {
+      localStorage.setItem('pawsync-last-pause-time', Date.now().toString());
+    } catch {
+      // localStorage可能不可用（隐私模式或存储已满）
+      console.warn('Failed to save pause time to localStorage');
+    }
     
     if (store.isRecording) {
       store.setIsRecording(false);

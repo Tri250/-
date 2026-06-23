@@ -62,15 +62,18 @@ class MonitorService {
     await this.simulateDelay(MOCK_DELAY);
     
     const session = this.recordingSessions.find(s => s.id === sessionId);
-    if (session) {
-      session.status = 'completed';
-      session.endTime = new Date().toISOString();
-      session.duration = Math.floor((Date.now() - new Date(session.startTime).getTime()) / 1000);
-      session.fileSize = Math.floor(Math.random() * 100000000);
-      session.fileUrl = `https://example.com/recordings/${sessionId}.mp4`;
+    if (!session) {
+      throw new Error(`Recording session ${sessionId} not found`);
     }
     
-    return session!;
+    session.status = 'completed';
+    session.endTime = new Date().toISOString();
+    session.duration = Math.floor((Date.now() - new Date(session.startTime).getTime()) / 1000);
+    // 基于时长估算文件大小（约1MB/分钟）
+    session.fileSize = session.duration * 1000000 / 60;
+    session.fileUrl = `https://example.com/recordings/${sessionId}.mp4`;
+    
+    return session;
   }
 
   async getRecordingHistory(cameraId: string, limit: number = 20): Promise<RecordingSession[]> {
@@ -89,12 +92,14 @@ class MonitorService {
 
     const mockEvents: SmartEvent[] = [];
     for (let i = 0; i < limit; i++) {
-      const type = eventTypes[Math.floor(Math.random() * eventTypes.length)];
+      // 确定性选择：基于索引循环
+      const type = eventTypes[i % eventTypes.length];
+      const severity = severities[i % severities.length];
       mockEvents.push({
         id: `event-${i}`,
         type,
-        severity: severities[Math.floor(Math.random() * severities.length)],
-        description: this.getEventDescription(type),
+        severity,
+        description: this.getEventDescription(type, i),
         cameraId: `cam-00${(i % 3) + 1}`,
         timestamp: new Date(Date.now() - i * 3600000).toISOString(),
         petId: '1',
@@ -135,7 +140,7 @@ class MonitorService {
     this.eventCallbacks.forEach(cb => cb(event));
   }
 
-  private getEventDescription(type: EventType): string {
+  private getEventDescription(type: EventType, index: number = 0): string {
     const descriptions: Record<EventType, string[]> = {
       behavior: [
         '检测到异常行为：快速移动',
@@ -158,7 +163,7 @@ class MonitorService {
     };
 
     const options = descriptions[type];
-    return options[Math.floor(Math.random() * options.length)];
+    return options[index % options.length];
   }
 
   private simulateDelay(ms: number): Promise<void> {
