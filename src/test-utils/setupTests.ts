@@ -42,3 +42,14 @@ Object.defineProperty(window, 'cancelAnimationFrame', {
   writable: true,
   value: (id: number) => clearTimeout(id),
 });
+
+Object.defineProperty(navigator, 'geolocation', {
+  writable: true,
+  value: {
+    getCurrentPosition: vi.fn().mockImplementation((success, error) => {
+      error?.(new Error('Permission denied'));
+    }),
+    watchPosition: vi.fn(),
+    clearWatch: vi.fn(),
+  },
+});

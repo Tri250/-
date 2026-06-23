@@ -20,7 +20,27 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src')
+      '@': path.resolve(__dirname, './src'),
+      '@capacitor/camera': path.resolve(__dirname, './src/test-utils/capacitorMocks.ts'),
+      '@capacitor/local-notifications': path.resolve(__dirname, './src/test-utils/capacitorMocks.ts'),
+      '@capacitor/geolocation': path.resolve(__dirname, './src/test-utils/capacitorMocks.ts'),
+      '@capacitor/preferences': path.resolve(__dirname, './src/test-utils/capacitorMocks.ts'),
+      '@capacitor/app': path.resolve(__dirname, './src/test-utils/capacitorMocks.ts'),
+      '@capacitor/device': path.resolve(__dirname, './src/test-utils/capacitorMocks.ts'),
+      '@capacitor/biometrics': path.resolve(__dirname, './src/test-utils/capacitorMocks.ts'),
+      '@capacitor/haptics': path.resolve(__dirname, './src/test-utils/capacitorMocks.ts'),
     }
+  },
+  optimizeDeps: {
+    exclude: [
+      '@capacitor/camera',
+      '@capacitor/local-notifications',
+      '@capacitor/geolocation',
+      '@capacitor/preferences',
+      '@capacitor/app',
+      '@capacitor/device',
+      '@capacitor/biometrics',
+      '@capacitor/haptics',
+    ]
   }
 });

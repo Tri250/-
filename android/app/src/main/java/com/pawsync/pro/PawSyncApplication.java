@@ -3,40 +3,73 @@ package com.pawsync.pro;
 import android.app.Application;
 import android.content.Context;
 import android.os.Build;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+
+import java.io.File;
 
 public class PawSyncApplication extends Application {
 
     private static PawSyncApplication instance;
+    private static final long MIN_CLEAR_INTERVAL_MS = 30000;
+    private long lastCacheClearTime = 0;
 
     @Override
     public void onCreate() {
         super.onCreate();
         instance = this;
 
-        // 初始化WebView数据目录（Android 9+）
         initWebViewDataDirectory();
-
-        // 内存优化配置
+        configureWebViewSecurity();
         configureMemoryOptimization();
     }
 
     private void initWebViewDataDirectory() {
-        // Android 9+ 需要设置WebView数据目录
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             try {
-                // 使用Android内置API设置WebView数据目录后缀
-                android.webkit.WebView.setDataDirectorySuffix("pawsync_webview");
+                WebView.setDataDirectorySuffix("pawsync_webview");
             } catch (Exception e) {
                 // 忽略配置错误
             }
         }
     }
 
+    private void configureWebViewSecurity() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                WebView.startSafeBrowsing(this, value -> {
+                    // 安全浏览初始化回调
+                });
+            }
+        } catch (Exception e) {
+            // 忽略安全浏览配置错误
+        }
+    }
+
+    public static void configureWebViewSettings(WebSettings settings) {
+        if (settings == null) {
+            return;
+        }
+
+        try {
+            settings.setAllowFileAccess(false);
+            settings.setAllowContentAccess(true);
+            settings.setAllowFileAccessFromFileURLs(false);
+            settings.setAllowUniversalAccessFromFileURLs(false);
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                settings.setSafeBrowsingEnabled(true);
+            }
+
+            settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
+        } catch (Exception e) {
+            // 忽略配置错误
+        }
+    }
+
     private void configureMemoryOptimization() {
-        // 内存优化：设置线程优先级
         Thread.currentThread().setPriority(Thread.NORM_PRIORITY);
 
-        // 低内存设备优化
         if (isLowMemoryDevice()) {
             System.setProperty("java.util.concurrent.ForkJoinPool.common.parallelism", "2");
         }
@@ -51,43 +84,76 @@ public class PawSyncApplication extends Application {
     @Override
     public void onLowMemory() {
         super.onLowMemory();
-        // 低内存时清理缓存
-        clearCache();
+        clearCacheIfNeeded(true);
+        clearWebViewCache();
     }
 
     @Override
     public void onTrimMemory(int level) {
         super.onTrimMemory(level);
-        // 根据内存压力级别清理资源
+
         switch (level) {
             case TRIM_MEMORY_RUNNING_LOW:
+                clearCacheIfNeeded(false);
+                break;
             case TRIM_MEMORY_RUNNING_CRITICAL:
-                // 运行时内存紧张，清理非关键资源
-                clearCache();
+                clearCacheIfNeeded(true);
+                clearWebViewCache();
                 break;
             case TRIM_MEMORY_UI_HIDDEN:
-                // UI隐藏，可以释放更多资源
-                clearCache();
-                System.gc();
+                clearCacheIfNeeded(false);
                 break;
             case TRIM_MEMORY_MODERATE:
+                clearCacheIfNeeded(false);
+                break;
             case TRIM_MEMORY_COMPLETE:
-                // 内存严重不足，积极清理
-                clearCache();
-                System.gc();
+                clearCacheIfNeeded(true);
+                clearWebViewCache();
                 break;
         }
     }
 
-    private void clearCache() {
+    private void clearCacheIfNeeded(boolean force) {
+        long now = System.currentTimeMillis();
+        if (!force && now - lastCacheClearTime < MIN_CLEAR_INTERVAL_MS) {
+            return;
+        }
+        lastCacheClearTime = now;
+
         try {
-            // 清理应用缓存
-            getCacheDir().deleteOnExit();
+            deleteDir(getCacheDir());
             if (getExternalCacheDir() != null) {
-                getExternalCacheDir().deleteOnExit();
+                deleteDir(getExternalCacheDir());
             }
         } catch (Exception e) {
             // 忽略清理错误
+        }
+    }
+
+    private void clearWebViewCache() {
+        try {
+            WebView webView = new WebView(this);
+            webView.clearCache(true);
+            webView.destroy();
+        } catch (Exception e) {
+            // 忽略WebView缓存清理错误
+        }
+    }
+
+    private boolean deleteDir(File dir) {
+        if (dir != null && dir.isDirectory()) {
+            String[] children = dir.list();
+            if (children != null) {
+                for (String child : children) {
+                    boolean success = deleteDir(new File(dir, child));
+                    if (!success) {
+                        return false;
+                    }
+                }
+            }
+            return dir.delete();
+        } else {
+            return dir != null && dir.isFile() && dir.delete();
         }
     }
 

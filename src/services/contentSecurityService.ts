@@ -17,32 +17,35 @@ export interface HighRiskOperation {
 }
 
 const PROMPT_INJECTION_PATTERNS = [
-  { pattern: /ignore\s+(previous|all|above|below|prior)\s+(instructions|rules|guidelines)/gi, threat: '忽略指令注入', risk: 'critical' },
+  { pattern: /ignore\s+(?:(?:previous|all|above|below|prior|any)\s+)+(?:instructions|rules|guidelines|policies|constraints)/gi, threat: '忽略指令注入', risk: 'critical' },
   { pattern: /system\s*[:：]\s*["']?/gi, threat: '系统角色伪装', risk: 'critical' },
   { pattern: /assistant\s*[:：]\s*["']?/gi, threat: '助手角色伪装', risk: 'critical' },
   { pattern: /you\s+are\s+(now|a|an)\s+/gi, threat: '角色重定义', risk: 'high' },
-  { pattern: /forget\s+(everything|all|previous)/gi, threat: '遗忘指令注入', risk: 'critical' },
-  { pattern: /disregard\s+(all|any|previous)/gi, threat: '忽略指令注入', risk: 'high' },
-  { pattern: /override\s+(settings|rules|instructions)/gi, threat: '覆盖指令注入', risk: 'critical' },
-  { pattern: /bypass\s+(security|filter|rules)/gi, threat: '绕过安全检测', risk: 'critical' },
-  { pattern: /reveal\s+(password|secret|token|key)/gi, threat: '敏感信息泄露请求', risk: 'critical' },
-  { pattern: /show\s+(me\s+)?(the\s+)?(password|secret|token|key|code)/gi, threat: '敏感信息泄露请求', risk: 'critical' },
-  { pattern: /execute\s+(command|code|script)/gi, threat: '代码执行请求', risk: 'critical' },
-  { pattern: /run\s+(command|code|script)/gi, threat: '代码执行请求', risk: 'high' },
+  { pattern: /forget\s+(?:everything|all|previous)/gi, threat: '遗忘指令注入', risk: 'critical' },
+  { pattern: /disregard\s+(?:all|any|previous)/gi, threat: '忽略指令注入', risk: 'high' },
+  { pattern: /override\s+(?:settings|rules|instructions)/gi, threat: '覆盖指令注入', risk: 'critical' },
+  { pattern: /bypass\s+(?:security|filter|rules)/gi, threat: '绕过安全检测', risk: 'critical' },
+  { pattern: /reveal\s+(?:password|secret|token|key)/gi, threat: '敏感信息泄露请求', risk: 'critical' },
+  { pattern: /show\s+(?:me\s+)?(?:the\s+)?(?:password|secret|token|key|code)/gi, threat: '敏感信息泄露请求', risk: 'critical' },
+  { pattern: /execute\s+(?:command|code|script)/gi, threat: '代码执行请求', risk: 'critical' },
+  { pattern: /run\s+(?:command|code|script)/gi, threat: '代码执行请求', risk: 'high' },
+  { pattern: /\{\{[^{}]*\}\}/gi, threat: '模板注入', risk: 'high' },
   { pattern: /\$\{[^}]*\}/gi, threat: '模板注入', risk: 'high' },
   { pattern: /<%[^%]*%>/gi, threat: '服务器端模板注入', risk: 'critical' },
   { pattern: /javascript\s*:/gi, threat: 'JavaScript协议注入', risk: 'critical' },
   { pattern: /data\s*:\s*text\/html/gi, threat: '数据URI注入', risk: 'high' },
   { pattern: /eval\s*\(/gi, threat: '动态代码执行', risk: 'critical' },
   { pattern: /Function\s*\(/gi, threat: '动态函数创建', risk: 'critical' },
-  { pattern: /document\.(write|cookie|location)/gi, threat: 'DOM操作注入', risk: 'high' },
-  { pattern: /window\.(location|eval|open)/gi, threat: '窗口操作注入', risk: 'high' },
+  { pattern: /document\.(?:write|cookie|location)/gi, threat: 'DOM操作注入', risk: 'high' },
+  { pattern: /window\.(?:location|eval|open)/gi, threat: '窗口操作注入', risk: 'high' },
   { pattern: /fetch\s*\(/gi, threat: '网络请求注入', risk: 'medium' },
   { pattern: /axios\s*\(/gi, threat: '网络请求注入', risk: 'medium' },
   { pattern: /http\s*:/gi, threat: 'HTTP协议注入', risk: 'medium' },
   { pattern: /https\s*:/gi, threat: 'HTTPS协议注入', risk: 'medium' },
   { pattern: /file\s*:/gi, threat: '文件协议注入', risk: 'high' },
   { pattern: /about:blank/gi, threat: '空白页面注入', risk: 'low' },
+  { pattern: /<script\b[^>]*>[\s\S]*?<\/script>/gi, threat: '脚本注入', risk: 'critical' },
+  { pattern: /on\w+\s*=/gi, threat: '事件处理器注入', risk: 'high' },
 ];
 
 const VIOLATION_CONTENT_PATTERNS = [
@@ -148,19 +151,14 @@ class ContentSecurityManager {
 
   comprehensiveCheck(input: string): SecurityCheckResult {
     const injectionResult = this.checkPromptInjection(input);
-    const violationResult = this.checkViolationContent(input);
+    const violationInput = injectionResult.sanitizedContent;
+    const violationResult = this.checkViolationContent(violationInput);
 
     const allThreats = [...injectionResult.threats, ...violationResult.threats];
     const maxRisk = this.getHigherRisk(injectionResult.riskLevel, violationResult.riskLevel);
     const blocked = injectionResult.blocked || violationResult.blocked;
 
-    let sanitizedContent = input;
-    if (injectionResult.sanitizedContent !== input) {
-      sanitizedContent = injectionResult.sanitizedContent;
-    }
-    if (violationResult.sanitizedContent !== sanitizedContent) {
-      sanitizedContent = violationResult.sanitizedContent;
-    }
+    const sanitizedContent = violationResult.sanitizedContent;
 
     const blockReason = blocked 
       ? (injectionResult.blockReason || violationResult.blockReason || '内容不安全，已拦截')
