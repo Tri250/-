@@ -1,320 +1,487 @@
-// ============================================
-// PawSync Pro 3.0 - Face Expression Service
-//
-// 作者: 带娃的小陈工
-// 日期: 2026-05-27
-// 描述: 面部表情分析模块 - MediaPipe Face Mesh集成
-// ============================================
+import { databaseService, STORE_NAMES } from './databaseService';
 
-import type { FaceExpression, FaceAnalysis, FacialLandmark, ExpressionConfig } from '../types/face';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.pawsync.com/v1';
 
-const MOCK_DELAY = 800;
+// ─── 表情分析类型定义 ────────────────────────────────────────
 
-// 表情配置
-const expressionConfig: Record<FaceExpression, ExpressionConfig> = {
-  relaxed: {
-    label: '放松',
-    emoji: '😌',
-    color: '#22C55E',
-    description: '面部肌肉放松，表情自然，宠物处于舒适状态',
-    features: ['眼睛自然张开', '嘴巴放松闭合', '耳朵自然下垂']
-  },
-  tense: {
-    label: '紧张',
-    emoji: '😰',
-    color: '#F97316',
-    description: '面部肌肉紧绷，可能感到紧张或不安',
-    features: ['瞳孔收缩', '耳朵向后贴', '身体僵硬']
-  },
-  pain: {
-    label: '痛苦',
-    emoji: '😣',
-    color: '#EF4444',
-    description: '表情痛苦，可能身体不适或受伤',
-    features: ['眯眼', '嘴巴微张', '耳朵下垂']
-  },
-  happy: {
-    label: '开心',
-    emoji: '😸',
-    color: '#10B981',
-    description: '表情愉悦，宠物感到开心满足',
-    features: ['眼睛明亮', '嘴巴张开', '耳朵竖起']
-  },
-  curious: {
-    label: '好奇',
-    emoji: '🤔',
-    color: '#8B5CF6',
-    description: '表情好奇，对周围环境感兴趣',
-    features: ['耳朵向前', '眼睛睁大', '头部抬起']
-  },
-  aggressive: {
-    label: '攻击性',
-    emoji: '😾',
-    color: '#DC2626',
-    description: '表情具有攻击性，可能正在发出警告',
-    features: ['耳朵向后贴', '露出牙齿', '瞳孔放大']
-  }
+export interface ExpressionAnalysisResult {
+  id: string;
+  petId: string;
+  imageUrl?: string;
+  localAnalysis: LocalExpressionResult;
+  remoteAnalysis?: RemoteExpressionResult;
+  combinedResult: CombinedExpressionResult;
+  analyzedAt: string;
+}
+
+export interface LocalExpressionResult {
+  available: boolean;
+  confidence: number;
+  dominantColor: { r: number; g: number; b: number };
+  brightness: number;
+  contrast: number;
+  symmetry: number;
+  edgeDensity: number;
+  colorDistribution: number[];
+  estimatedExpression: string;
+  estimatedEmotion: string;
+  processingTimeMs: number;
+}
+
+export interface RemoteExpressionResult {
+  expression: string;
+  emotion: string;
+  confidence: number;
+  landmarks?: Array<{ x: number; y: number; label: string }>;
+  regions?: Array<{ label: string; bbox: [number, number, number, number]; confidence: number }>;
+  detailedEmotions: Record<string, number>;
+}
+
+export interface CombinedExpressionResult {
+  expression: string;
+  emotion: string;
+  confidence: number;
+  source: 'local' | 'remote' | 'fusion';
+  localConfidence: number;
+  remoteConfidence: number;
+  agreement: boolean;
+}
+
+// ─── 宠物表情映射 ────────────────────────────────────────────
+
+const PET_EXPRESSION_MAP: Record<string, { expression: string; emotion: string; description: string }> = {
+  relaxed: { expression: '放松', emotion: 'calm', description: '面部肌肉放松，眼神平和' },
+  alert: { expression: '警觉', emotion: 'attentive', description: '耳朵竖起，眼神专注' },
+  happy: { expression: '开心', emotion: 'happy', description: '眼睛微眯，嘴角上扬' },
+  anxious: { expression: '焦虑', emotion: 'anxious', description: '耳朵后压，眼神不安' },
+  fearful: { expression: '恐惧', emotion: 'fearful', description: '瞳孔放大，身体紧缩' },
+  aggressive: { expression: '攻击性', emotion: 'angry', description: '呲牙，眼神凶狠' },
+  playful: { expression: '玩耍', emotion: 'excited', description: '眼神明亮，姿态活跃' },
+  pain: { expression: '疼痛', emotion: 'painful', description: '眯眼，面部紧绷' },
+  curious: { expression: '好奇', emotion: 'curious', description: '头部倾斜，眼神探索' },
+  sleepy: { expression: '困倦', emotion: 'tired', description: '眼睛半闭，姿态放松' },
 };
 
-// 动物面部关键点索引映射（简化版，针对猫狗面部特征）
-const _PET_FACE_LANDMARKS = {
-  cat: {
-    leftEye: [33, 133],
-    rightEye: [362, 263],
-    nose: [4],
-    mouth: [61, 291],
-    leftEar: [137, 152],
-    rightEar: [366, 381],
-    whiskerLeft: [123, 147, 162],
-    whiskerRight: [352, 376, 391],
-    jawline: [175, 152, 136, 149]
-  },
-  dog: {
-    leftEye: [33, 133],
-    rightEye: [362, 263],
-    nose: [4],
-    mouth: [61, 291, 0, 17],
-    leftEar: [137, 152],
-    rightEar: [366, 381],
-    snout: [195, 409, 2, 5],
-    eyebrows: [70, 63, 105, 66, 107]
-  }
-};
+export class FaceExpressionService {
+  // ─── 本地图像分析（Canvas + 简单算法） ────────────────────
 
-class FaceExpressionService {
-  private faceAnalyses: FaceAnalysis[] = [];
-  private isAnalyzing = false;
+  private async analyzeImageLocally(imageData: string): Promise<LocalExpressionResult> {
+    const startTime = Date.now();
 
-  constructor() {
-    this.initializeMockData();
-  }
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve(this.createUnavailableLocalResult(startTime));
+            return;
+          }
 
-  private initializeMockData() {
-    const expressions: FaceExpression[] = ['relaxed', 'happy', 'curious', 'relaxed', 'tense'];
-    
-    for (let i = 0; i < 8; i++) {
-      const expression = expressions[i % expressions.length];
-      const config = expressionConfig[expression];
-      
-      this.faceAnalyses.push({
-        id: `face-analysis-${i}`,
-        petId: '1',
-        timestamp: new Date(Date.now() - i * 7200000).toISOString(),
-        expression,
-        confidence: 0.75 + Math.random() * 0.24,
-        petType: i % 2 === 0 ? 'cat' : 'dog',
-        landmarks: this.generateMockLandmarks(),
-        features: config.features.slice(0, 2),
-        description: config.description,
-        imageUrl: `https://picsum.photos/seed/face${i}/400/300`
-      });
-    }
-  }
+          // 缩放到合理大小进行分析
+          const maxSize = 256;
+          const scale = Math.min(maxSize / img.width, maxSize / img.height, 1);
+          canvas.width = Math.floor(img.width * scale);
+          canvas.height = Math.floor(img.height * scale);
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-  private generateMockLandmarks(): FacialLandmark[] {
-    const landmarks: FacialLandmark[] = [];
-    
-    // 眼睛关键点
-    landmarks.push(
-      { x: 0.35, y: 0.42, z: -0.05, name: 'leftEyeInner' },
-      { x: 0.38, y: 0.41, z: -0.06, name: 'leftEyeTop' },
-      { x: 0.41, y: 0.42, z: -0.05, name: 'leftEyeOuter' },
-      { x: 0.38, y: 0.44, z: -0.04, name: 'leftEyeBottom' },
-      { x: 0.62, y: 0.42, z: -0.05, name: 'rightEyeInner' },
-      { x: 0.65, y: 0.41, z: -0.06, name: 'rightEyeTop' },
-      { x: 0.68, y: 0.42, z: -0.05, name: 'rightEyeOuter' },
-      { x: 0.65, y: 0.44, z: -0.04, name: 'rightEyeBottom' }
-    );
+          const imageDataObj = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const data = imageDataObj.data;
+          const pixelCount = canvas.width * canvas.height;
 
-    // 鼻子关键点
-    landmarks.push(
-      { x: 0.5, y: 0.52, z: -0.08, name: 'noseTip' },
-      { x: 0.48, y: 0.5, z: -0.06, name: 'noseLeft' },
-      { x: 0.52, y: 0.5, z: -0.06, name: 'noseRight' }
-    );
+          // 1. 颜色分布分析
+          const colorDistribution = this.analyzeColorDistribution(data, pixelCount);
 
-    // 嘴巴关键点
-    landmarks.push(
-      { x: 0.42, y: 0.62, z: -0.05, name: 'mouthLeft' },
-      { x: 0.5, y: 0.64, z: -0.06, name: 'mouthTop' },
-      { x: 0.58, y: 0.62, z: -0.05, name: 'mouthRight' },
-      { x: 0.5, y: 0.68, z: -0.04, name: 'mouthBottom' }
-    );
+          // 2. 主色调
+          const dominantColor = this.getDominantColor(data, pixelCount);
 
-    // 耳朵关键点
-    landmarks.push(
-      { x: 0.22, y: 0.35, z: -0.15, name: 'leftEarTop' },
-      { x: 0.78, y: 0.35, z: -0.15, name: 'rightEarTop' },
-      { x: 0.25, y: 0.45, z: -0.1, name: 'leftEarBottom' },
-      { x: 0.75, y: 0.45, z: -0.1, name: 'rightEarBottom' }
-    );
+          // 3. 亮度分析
+          const brightness = this.calculateBrightness(data, pixelCount);
 
-    return landmarks;
+          // 4. 对比度分析
+          const contrast = this.calculateContrast(data, pixelCount);
+
+          // 5. 对称性分析
+          const symmetry = this.calculateSymmetry(imageDataObj, canvas.width, canvas.height);
+
+          // 6. 边缘密度分析
+          const edgeDensity = this.calculateEdgeDensity(imageDataObj, canvas.width, canvas.height);
+
+          // 7. 基于以上特征推断表情
+          const { expression, emotion, confidence } = this.inferExpressionFromFeatures({
+            dominantColor,
+            brightness,
+            contrast,
+            symmetry,
+            edgeDensity,
+            colorDistribution,
+          });
+
+          resolve({
+            available: true,
+            confidence,
+            dominantColor,
+            brightness,
+            contrast,
+            symmetry,
+            edgeDensity,
+            colorDistribution,
+            estimatedExpression: expression,
+            estimatedEmotion: emotion,
+            processingTimeMs: Date.now() - startTime,
+          });
+        } catch {
+          resolve(this.createUnavailableLocalResult(startTime));
+        }
+      };
+      img.onerror = () => resolve(this.createUnavailableLocalResult(startTime));
+      img.src = imageData;
+    });
   }
 
-  // 初始化面部分析
-  async initialize(): Promise<void> {
-    await this.simulateDelay(MOCK_DELAY);
-    console.log('Face expression service initialized');
-  }
-
-  // 分析面部图像
-  async analyzeFace(imageData: ImageData, petType: 'cat' | 'dog'): Promise<FaceAnalysis> {
-    await this.simulateDelay(MOCK_DELAY);
-
-    const expressions: FaceExpression[] = ['relaxed', 'happy', 'curious', 'tense', 'pain', 'aggressive'];
-    const expression = expressions[Math.floor(Math.random() * expressions.length)];
-    const config = expressionConfig[expression];
-
-    const analysis: FaceAnalysis = {
-      id: `face-analysis-${Date.now()}`,
-      petId: '1',
-      timestamp: new Date().toISOString(),
-      expression,
-      confidence: 0.7 + Math.random() * 0.29,
-      petType,
-      landmarks: this.generateMockLandmarks(),
-      features: config.features.slice(0, Math.floor(Math.random() * 2) + 1),
-      description: config.description,
-      imageUrl: `https://picsum.photos/seed/${Date.now()}/400/300`
+  private createUnavailableLocalResult(startTime: number): LocalExpressionResult {
+    return {
+      available: false,
+      confidence: 0,
+      dominantColor: { r: 0, g: 0, b: 0 },
+      brightness: 0,
+      contrast: 0,
+      symmetry: 0,
+      edgeDensity: 0,
+      colorDistribution: [],
+      estimatedExpression: 'unknown',
+      estimatedEmotion: 'unknown',
+      processingTimeMs: Date.now() - startTime,
     };
+  }
 
-    this.faceAnalyses.unshift(analysis);
-    if (this.faceAnalyses.length > 50) {
-      this.faceAnalyses.pop();
+  // ─── 颜色分布分析 ──────────────────────────────────────────
+
+  private analyzeColorDistribution(data: Uint8ClampedArray, pixelCount: number): number[] {
+    // 将颜色空间分为8个区间
+    const bins = new Array(8).fill(0);
+
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+
+      // 简单量化到8个颜色区间
+      const bucket = ((r > 128 ? 4 : 0) | (g > 128 ? 2 : 0) | (b > 128 ? 1 : 0));
+      bins[bucket]++;
     }
 
-    return analysis;
+    return bins.map(count => count / pixelCount);
   }
 
-  // 检测眼睛状态
-  private detectEyeState(landmarks: FacialLandmark[]): { leftEyeOpen: number; rightEyeOpen: number } {
-    const leftEyeTop = landmarks.find(l => l.name === 'leftEyeTop');
-    const leftEyeBottom = landmarks.find(l => l.name === 'leftEyeBottom');
-    const rightEyeTop = landmarks.find(l => l.name === 'rightEyeTop');
-    const rightEyeBottom = landmarks.find(l => l.name === 'rightEyeBottom');
-
-    const leftOpen = leftEyeTop && leftEyeBottom 
-      ? Math.abs(leftEyeBottom.y - leftEyeTop.y) * 10 
-      : 0.5;
-    const rightOpen = rightEyeTop && rightEyeBottom 
-      ? Math.abs(rightEyeBottom.y - rightEyeTop.y) * 10 
-      : 0.5;
-
+  private getDominantColor(data: Uint8ClampedArray, pixelCount: number): { r: number; g: number; b: number } {
+    let totalR = 0, totalG = 0, totalB = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      totalR += data[i];
+      totalG += data[i + 1];
+      totalB += data[i + 2];
+    }
     return {
-      leftEyeOpen: Math.min(Math.max(leftOpen, 0), 1),
-      rightEyeOpen: Math.min(Math.max(rightOpen, 0), 1)
+      r: Math.round(totalR / pixelCount),
+      g: Math.round(totalG / pixelCount),
+      b: Math.round(totalB / pixelCount),
     };
   }
 
-  // 检测嘴巴状态
-  private detectMouthState(landmarks: FacialLandmark[]): { mouthOpen: number; smiling: number } {
-    const mouthTop = landmarks.find(l => l.name === 'mouthTop');
-    const mouthBottom = landmarks.find(l => l.name === 'mouthBottom');
-    const mouthLeft = landmarks.find(l => l.name === 'mouthLeft');
-    const mouthRight = landmarks.find(l => l.name === 'mouthRight');
-
-    const mouthOpen = mouthTop && mouthBottom 
-      ? Math.abs(mouthBottom.y - mouthTop.y) * 8 
-      : 0.3;
-    const width = mouthLeft && mouthRight 
-      ? Math.abs(mouthRight.x - mouthLeft.x) * 5 
-      : 0.4;
-
-    return {
-      mouthOpen: Math.min(Math.max(mouthOpen, 0), 1),
-      smiling: width > 0.5 ? 0.7 + Math.random() * 0.3 : Math.random() * 0.5
-    };
+  private calculateBrightness(data: Uint8ClampedArray, pixelCount: number): number {
+    let totalBrightness = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      totalBrightness += (data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
+    }
+    return totalBrightness / pixelCount / 255;
   }
 
-  // 检测耳朵状态
-  private detectEarState(landmarks: FacialLandmark[], _petType: 'cat' | 'dog'): { 
-    leftEarPosition: 'forward' | 'neutral' | 'backward';
-    rightEarPosition: 'forward' | 'neutral' | 'backward';
-  } {
-    const leftEarTop = landmarks.find(l => l.name === 'leftEarTop');
-    const rightEarTop = landmarks.find(l => l.name === 'rightEarTop');
-    const noseTip = landmarks.find(l => l.name === 'noseTip');
+  private calculateContrast(data: Uint8ClampedArray, pixelCount: number): number {
+    const brightnessValues: number[] = [];
+    for (let i = 0; i < data.length; i += 4) {
+      brightnessValues.push(data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
+    }
+    const mean = brightnessValues.reduce((s, v) => s + v, 0) / brightnessValues.length;
+    const variance = brightnessValues.reduce((s, v) => s + (v - mean) ** 2, 0) / brightnessValues.length;
+    return Math.sqrt(variance) / 255;
+  }
 
-    if (!leftEarTop || !rightEarTop || !noseTip) {
-      return { leftEarPosition: 'neutral', rightEarPosition: 'neutral' };
+  // ─── 对称性分析 ────────────────────────────────────────────
+
+  private calculateSymmetry(imageData: ImageData, width: number, height: number): number {
+    const data = imageData.data;
+    const halfWidth = Math.floor(width / 2);
+    let totalDiff = 0;
+    let sampleCount = 0;
+
+    // 采样比较左右对称性
+    const step = Math.max(1, Math.floor(height / 50));
+    for (let y = 0; y < height; y += step) {
+      for (let x = 0; x < halfWidth; x += step) {
+        const leftIdx = (y * width + x) * 4;
+        const rightIdx = (y * width + (width - 1 - x)) * 4;
+
+        const diff = Math.abs(data[leftIdx] - data[rightIdx]) +
+                     Math.abs(data[leftIdx + 1] - data[rightIdx + 1]) +
+                     Math.abs(data[leftIdx + 2] - data[rightIdx + 2]);
+
+        totalDiff += diff / (3 * 255);
+        sampleCount++;
+      }
     }
 
-    const positions: Array<'forward' | 'neutral' | 'backward'> = ['forward', 'neutral', 'backward'];
-    
-    return {
-      leftEarPosition: positions[Math.floor(Math.random() * positions.length)],
-      rightEarPosition: positions[Math.floor(Math.random() * positions.length)]
-    };
+    return sampleCount > 0 ? 1 - totalDiff / sampleCount : 0;
   }
 
-  // 获取面部分析历史
-  async getFaceAnalysisHistory(petId: string, limit: number = 20): Promise<FaceAnalysis[]> {
-    await this.simulateDelay(300);
-    return this.faceAnalyses.filter(a => a.petId === petId).slice(0, limit);
+  // ─── 边缘密度分析 ──────────────────────────────────────────
+
+  private calculateEdgeDensity(imageData: ImageData, width: number, height: number): number {
+    const data = imageData.data;
+    let edgeCount = 0;
+    let totalPixels = 0;
+
+    // Sobel 简化版：只检测水平梯度
+    for (let y = 1; y < height - 1; y += 2) {
+      for (let x = 1; x < width - 1; x += 2) {
+        const idx = (y * width + x) * 4;
+        const leftIdx = (y * width + (x - 1)) * 4;
+        const rightIdx = (y * width + (x + 1)) * 4;
+
+        const gx = Math.abs(
+          (data[rightIdx] + data[rightIdx + 1] + data[rightIdx + 2]) -
+          (data[leftIdx] + data[leftIdx + 1] + data[leftIdx + 2])
+        ) / (3 * 255);
+
+        if (gx > 0.1) edgeCount++;
+        totalPixels++;
+      }
+    }
+
+    return totalPixels > 0 ? edgeCount / totalPixels : 0;
   }
 
-  // 获取表情统计
-  async getExpressionStatistics(petId: string, hours: number = 24): Promise<Record<FaceExpression, number>> {
-    await this.simulateDelay(300);
+  // ─── 基于图像特征推断表情 ──────────────────────────────────
 
-    const result: Record<FaceExpression, number> = {
-      relaxed: 0,
-      tense: 0,
-      pain: 0,
-      happy: 0,
-      curious: 0,
-      aggressive: 0
+  private inferExpressionFromFeatures(features: {
+    dominantColor: { r: number; g: number; b: number };
+    brightness: number;
+    contrast: number;
+    symmetry: number;
+    edgeDensity: number;
+    colorDistribution: number[];
+  }): { expression: string; emotion: string; confidence: number } {
+    const { brightness, contrast, symmetry, edgeDensity } = features;
+
+    // 基于简单规则的推断
+    // 高对称性 + 低边缘密度 → 放松
+    // 高对称性 + 高边缘密度 → 警觉
+    // 低对称性 + 高对比度 → 焦虑/恐惧
+    // 高亮度 + 高对称性 → 开心
+    // 低亮度 + 低对称性 → 疼痛/不适
+
+    let expression = 'relaxed';
+    let emotion = 'calm';
+    let confidence = 0.4;
+
+    if (symmetry > 0.85 && edgeDensity < 0.15) {
+      if (brightness > 0.5) {
+        expression = 'relaxed';
+        emotion = 'calm';
+        confidence = 0.55;
+      } else {
+        expression = 'sleepy';
+        emotion = 'tired';
+        confidence = 0.5;
+      }
+    } else if (symmetry > 0.8 && edgeDensity > 0.2) {
+      expression = 'alert';
+      emotion = 'attentive';
+      confidence = 0.5;
+    } else if (symmetry < 0.7 && contrast > 0.3) {
+      if (brightness < 0.3) {
+        expression = 'fearful';
+        emotion = 'fearful';
+        confidence = 0.45;
+      } else {
+        expression = 'anxious';
+        emotion = 'anxious';
+        confidence = 0.45;
+      }
+    } else if (brightness > 0.6 && symmetry > 0.75) {
+      expression = 'happy';
+      emotion = 'happy';
+      confidence = 0.5;
+    } else if (edgeDensity > 0.3 && contrast > 0.25) {
+      expression = 'playful';
+      emotion = 'excited';
+      confidence = 0.45;
+    } else if (symmetry < 0.65) {
+      expression = 'pain';
+      emotion = 'painful';
+      confidence = 0.4;
+    }
+
+    return { expression, emotion, confidence };
+  }
+
+  // ─── 远程精确分析 API ─────────────────────────────────────
+
+  private async analyzeImageRemotely(
+    imageData: string,
+    petId: string,
+    localResult: LocalExpressionResult,
+  ): Promise<RemoteExpressionResult> {
+    const response = await fetch(`${API_BASE_URL}/ai/analyze-expression`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        image: imageData,
+        petId,
+        localHint: {
+          estimatedExpression: localResult.estimatedExpression,
+          estimatedEmotion: localResult.estimatedEmotion,
+          localConfidence: localResult.confidence,
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Expression analysis API error: ${response.status} ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  // ─── 双层分析：本地快速预筛 + 远程精确分析 ────────────────
+
+  async analyzeExpression(
+    imageData: string,
+    petId: string,
+  ): Promise<ExpressionAnalysisResult> {
+    const id = `expr-${Date.now()}`;
+
+    // 第一层：本地快速分析
+    const localAnalysis = await this.analyzeImageLocally(imageData);
+
+    // 第二层：远程精确分析
+    let remoteAnalysis: RemoteExpressionResult | undefined;
+    try {
+      remoteAnalysis = await this.analyzeImageRemotely(imageData, petId, localAnalysis);
+    } catch {
+      // 远程分析失败，仅使用本地结果
+    }
+
+    // 融合结果
+    const combinedResult = this.combineResults(localAnalysis, remoteAnalysis);
+
+    const result: ExpressionAnalysisResult = {
+      id,
+      petId,
+      imageUrl: imageData.startsWith('data:') ? undefined : imageData,
+      localAnalysis,
+      remoteAnalysis,
+      combinedResult,
+      analyzedAt: new Date().toISOString(),
     };
 
-    const cutoffTime = Date.now() - hours * 3600000;
-    const recentAnalyses = this.faceAnalyses.filter(
-      a => a.petId === petId && new Date(a.timestamp).getTime() > cutoffTime
-    );
-
-    recentAnalyses.forEach(analysis => {
-      result[analysis.expression]++;
+    // 持久化到 databaseService
+    await databaseService.put(STORE_NAMES.EMOTION_ANALYSES, {
+      ...result,
+      source: 'expression_analysis',
     });
 
     return result;
   }
 
-  // 获取表情配置
-  getExpressionConfig(expression: FaceExpression): ExpressionConfig {
-    return expressionConfig[expression];
+  // ─── 结果融合 ──────────────────────────────────────────────
+
+  private combineResults(
+    local: LocalExpressionResult,
+    remote?: RemoteExpressionResult,
+  ): CombinedExpressionResult {
+    if (!remote) {
+      return {
+        expression: local.estimatedExpression,
+        emotion: local.estimatedEmotion,
+        confidence: local.confidence,
+        source: 'local',
+        localConfidence: local.confidence,
+        remoteConfidence: 0,
+        agreement: true,
+      };
+    }
+
+    const localConfidence = local.confidence;
+    const remoteConfidence = remote.confidence;
+
+    // 检查本地和远程结果是否一致
+    const agreement = local.estimatedEmotion === remote.emotion ||
+                     local.estimatedExpression === remote.expression;
+
+    if (agreement) {
+      // 一致时：加权融合，远程权重更高
+      const fusedConfidence = localConfidence * 0.3 + remoteConfidence * 0.7;
+      return {
+        expression: remote.expression,
+        emotion: remote.emotion,
+        confidence: fusedConfidence,
+        source: 'fusion',
+        localConfidence,
+        remoteConfidence,
+        agreement: true,
+      };
+    }
+
+    // 不一致时：以远程结果为主，但降低置信度
+    const penaltyFactor = 0.8;
+    const fusedConfidence = remoteConfidence * penaltyFactor;
+    return {
+      expression: remote.expression,
+      emotion: remote.emotion,
+      confidence: fusedConfidence,
+      source: 'fusion',
+      localConfidence,
+      remoteConfidence,
+      agreement: false,
+    };
   }
 
-  // 获取所有表情类型
-  getExpressionTypes(): FaceExpression[] {
-    return Object.keys(expressionConfig) as FaceExpression[];
+  // ─── 批量分析 ──────────────────────────────────────────────
+
+  async analyzeMultipleExpressions(
+    images: Array<{ data: string; petId: string }>,
+  ): Promise<ExpressionAnalysisResult[]> {
+    const results: ExpressionAnalysisResult[] = [];
+    for (const { data, petId } of images) {
+      const result = await this.analyzeExpression(data, petId);
+      results.push(result);
+    }
+    return results;
   }
 
-  // 根据特征推断表情
-  private inferExpression(
-    eyeState: { leftEyeOpen: number; rightEyeOpen: number },
-    mouthState: { mouthOpen: number; smiling: number },
-    earState: { leftEarPosition: string; rightEarPosition: string }
-  ): FaceExpression {
-    if (mouthState.smiling > 0.6 && eyeState.leftEyeOpen > 0.6) {
-      return 'happy';
+  // ─── 历史记录 ──────────────────────────────────────────────
+
+  async getAnalysisHistory(petId: string, limit: number = 20): Promise<ExpressionAnalysisResult[]> {
+    try {
+      const records = await databaseService.getByIndex<ExpressionAnalysisResult & { source: string }>(
+        STORE_NAMES.EMOTION_ANALYSES,
+        'petId',
+        petId,
+      );
+      return records
+        .filter(r => r.source === 'expression_analysis')
+        .sort((a, b) => new Date(b.analyzedAt).getTime() - new Date(a.analyzedAt).getTime())
+        .slice(0, limit);
+    } catch {
+      return [];
     }
-    if (mouthState.mouthOpen > 0.7 || (earState.leftEarPosition === 'backward' && earState.rightEarPosition === 'backward')) {
-      return 'aggressive';
-    }
-    if (eyeState.leftEyeOpen < 0.3 || eyeState.rightEyeOpen < 0.3) {
-      return 'pain';
-    }
-    if (earState.leftEarPosition === 'forward' || earState.rightEarPosition === 'forward') {
-      return 'curious';
-    }
-    if (earState.leftEarPosition === 'backward' || earState.rightEarPosition === 'backward') {
-      return 'tense';
-    }
-    return 'relaxed';
   }
 
-  private simulateDelay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+  // ─── 表情映射 ──────────────────────────────────────────────
+
+  getExpressionMap(): Record<string, { expression: string; emotion: string; description: string }> {
+    return PET_EXPRESSION_MAP;
   }
 }
 

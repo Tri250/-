@@ -1,231 +1,495 @@
-// ============================================
-// PawSync Pro 3.0 - Voice Cloning Service
-//
-// 作者: 带娃的小陈工
-// 日期: 2026-05-27
-// 描述: 声音克隆引擎（Coqui TTS集成）
-// ============================================
+import type { VoiceProfile, VoiceSynthesisResult, VoiceRecording } from '../types/voice-cloning';
+import { databaseService, STORE_NAMES } from './databaseService';
 
-import type { ClonedVoice, VoiceCloneRequest, VoiceSynthesisRequest, SynthesisResult, VoiceTemplate } from '../types/voice-cloning';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.pawsync.com/v1';
 
-const MOCK_DELAY = 1000;
+// Web Audio API 录音器
+class AudioRecorder {
+  private mediaRecorder: MediaRecorder | null = null;
+  private audioChunks: Blob[] = [];
+  private stream: MediaStream | null = null;
+  private audioContext: AudioContext | null = null;
 
-// 预设语音模板
-const voiceTemplates: VoiceTemplate[] = [
-  { id: 't1', name: '呼叫吃饭', template: '{petName}，来吃饭啦！', category: 'feeding' },
-  { id: 't2', name: '呼叫回家', template: '{petName}，快回来！', category: 'calling' },
-  { id: 't3', name: '安抚安慰', template: '{petName}，别怕，妈妈在这儿。', category: 'comfort' },
-  { id: 't4', name: '表扬鼓励', template: '{petName}真棒！真乖！', category: 'praise' },
-  { id: 't5', name: '睡前晚安', template: '{petName}，晚安啦，做个好梦。', category: 'night' },
-  { id: 't6', name: '日常问候', template: '{petName}，今天过得开心吗？', category: 'greeting' }
-];
+  async startRecording(): Promise<void> {
+    this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    this.audioChunks = [];
 
-// 模拟已克隆的声音数据
-const mockClonedVoices: ClonedVoice[] = [
-  {
-    id: 'voice-1',
-    petId: '1',
-    name: 'Mimi的叫声',
-    description: '从15秒录音克隆',
-    createdAt: new Date(Date.now() - 86400000).toISOString(),
-    isActive: true,
-    sampleUrl: '/api/audio/sample/voice-1.mp3',
-    quality: 0.85
-  },
-  {
-    id: 'voice-2',
-    petId: '1',
-    name: '小旺财的声音',
-    description: '从20秒录音克隆',
-    createdAt: new Date(Date.now() - 172800000).toISOString(),
-    isActive: true,
-    sampleUrl: '/api/audio/sample/voice-2.mp3',
-    quality: 0.78
-  }
-];
+    this.audioContext = new AudioContext();
+    this.mediaRecorder = new MediaRecorder(this.stream, {
+      mimeType: MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm',
+    });
 
-class VoiceCloningService {
-  private clonedVoices: ClonedVoice[] = [...mockClonedVoices];
-  private synthesisHistory: SynthesisResult[] = [];
-
-  constructor() {}
-
-  // 克隆声音
-  async cloneVoice(request: VoiceCloneRequest): Promise<ClonedVoice> {
-    await this.simulateDelay(MOCK_DELAY);
-
-    const newVoice: ClonedVoice = {
-      id: `voice-${Date.now()}`,
-      petId: request.petId,
-      name: request.name || `${request.petName}的声音`,
-      description: `从${request.audioDuration || 15}秒录音克隆`,
-      createdAt: new Date().toISOString(),
-      isActive: true,
-      sampleUrl: `/api/audio/sample/voice-${Date.now()}.mp3`,
-      quality: 0.75 + Math.random() * 0.2
+    this.mediaRecorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        this.audioChunks.push(event.data);
+      }
     };
 
-    this.clonedVoices.push(newVoice);
-    return newVoice;
+    this.mediaRecorder.start(100); // 每100ms收集一次数据
   }
 
-  // 获取宠物的所有克隆声音
-  async getPetVoices(petId: string): Promise<ClonedVoice[]> {
-    await this.simulateDelay(300);
-    return this.clonedVoices.filter(v => v.petId === petId);
+  async stopRecording(): Promise<Blob> {
+    return new Promise((resolve, reject) => {
+      if (!this.mediaRecorder) {
+        reject(new Error('No active recording'));
+        return;
+      }
+
+      this.mediaRecorder.onstop = () => {
+        const blob = new Blob(this.audioChunks, { type: 'audio/webm' });
+        this.cleanup();
+        resolve(blob);
+      };
+
+      this.mediaRecorder.stop();
+    });
   }
 
-  // 获取所有克隆声音
-  async getAllVoices(): Promise<ClonedVoice[]> {
-    await this.simulateDelay(300);
-    return this.clonedVoices;
+  isRecording(): boolean {
+    return this.mediaRecorder?.state === 'recording';
   }
 
-  // 获取单个声音详情
-  async getVoiceById(voiceId: string): Promise<ClonedVoice | null> {
-    await this.simulateDelay(200);
-    return this.clonedVoices.find(v => v.id === voiceId) || null;
+  getAudioLevel(): number {
+    if (!this.stream) return 0;
+    const audioContext = this.audioContext;
+    if (!audioContext) return 0;
+
+    try {
+      const source = audioContext.createMediaStreamSource(this.stream);
+      const analyser = audioContext.createAnalyser();
+      source.connect(analyser);
+      analyser.fftSize = 256;
+
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      analyser.getByteFrequencyData(dataArray);
+
+      const average = dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length;
+      return Math.min(average / 128, 1);
+    } catch {
+      return 0;
+    }
   }
 
-  // 更新声音信息
-  async updateVoice(voiceId: string, updates: Partial<Pick<ClonedVoice, 'name' | 'description' | 'isActive'>>): Promise<ClonedVoice | null> {
-    await this.simulateDelay(200);
-    
-    const index = this.clonedVoices.findIndex(v => v.id === voiceId);
-    if (index === -1) return null;
-
-    this.clonedVoices[index] = { ...this.clonedVoices[index], ...updates };
-    return this.clonedVoices[index];
+  private cleanup(): void {
+    if (this.stream) {
+      this.stream.getTracks().forEach(track => track.stop());
+      this.stream = null;
+    }
+    if (this.audioContext) {
+      this.audioContext.close();
+      this.audioContext = null;
+    }
+    this.mediaRecorder = null;
+    this.audioChunks = [];
   }
 
-  // 删除声音
-  async deleteVoice(voiceId: string): Promise<boolean> {
-    await this.simulateDelay(200);
-    
-    const initialLength = this.clonedVoices.length;
-    this.clonedVoices = this.clonedVoices.filter(v => v.id !== voiceId);
-    return this.clonedVoices.length < initialLength;
+  cancelRecording(): void {
+    if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
+      this.mediaRecorder.stop();
+    }
+    this.cleanup();
+  }
+}
+
+// 声纹特征提取（本地基础分析）
+interface VoiceFeatures {
+  duration: number;
+  averageAmplitude: number;
+  peakAmplitude: number;
+  silenceRatio: number;
+  estimatedPitch: number;
+  energyDistribution: number[];
+}
+
+function extractLocalVoiceFeatures(audioBlob: Blob): Promise<VoiceFeatures> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const audioContext = new AudioContext();
+        const arrayBuffer = reader.result as ArrayBuffer;
+        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+        const channelData = audioBuffer.getChannelData(0);
+        const sampleRate = audioBuffer.sampleRate;
+        const duration = audioBuffer.duration;
+
+        // 计算振幅特征
+        let sumAmplitude = 0;
+        let peakAmplitude = 0;
+        let silenceFrames = 0;
+        const silenceThreshold = 0.01;
+
+        for (let i = 0; i < channelData.length; i++) {
+          const abs = Math.abs(channelData[i]);
+          sumAmplitude += abs;
+          if (abs > peakAmplitude) peakAmplitude = abs;
+          if (abs < silenceThreshold) silenceFrames++;
+        }
+
+        const averageAmplitude = sumAmplitude / channelData.length;
+        const silenceRatio = silenceFrames / channelData.length;
+
+        // 简单基频估计（自相关法）
+        let estimatedPitch = 0;
+        const minPeriod = Math.floor(sampleRate / 500); // 最高500Hz
+        const maxPeriod = Math.floor(sampleRate / 50);  // 最低50Hz
+        let maxCorrelation = 0;
+
+        for (let period = minPeriod; period < maxPeriod && period < channelData.length / 2; period++) {
+          let correlation = 0;
+          const frameSize = Math.min(4096, Math.floor(channelData.length / 2));
+          for (let i = 0; i < frameSize; i++) {
+            correlation += channelData[i] * channelData[i + period];
+          }
+          if (correlation > maxCorrelation) {
+            maxCorrelation = correlation;
+            estimatedPitch = sampleRate / period;
+          }
+        }
+
+        // 能量分布（8个频段）
+        const energyDistribution: number[] = [];
+        const fftSize = 2048;
+        const numBands = 8;
+        const bandSize = Math.floor(fftSize / (2 * numBands));
+
+        // 简化能量分布计算
+        const segmentLength = Math.floor(channelData.length / numBands);
+        for (let band = 0; band < numBands; band++) {
+          let energy = 0;
+          const start = band * segmentLength;
+          const end = Math.min(start + segmentLength, channelData.length);
+          for (let i = start; i < end; i++) {
+            energy += channelData[i] * channelData[i];
+          }
+          energyDistribution.push(energy / (end - start));
+        }
+
+        audioContext.close();
+        resolve({
+          duration,
+          averageAmplitude,
+          peakAmplitude,
+          silenceRatio,
+          estimatedPitch,
+          energyDistribution,
+        });
+      } catch (err) {
+        reject(err);
+      }
+    };
+    reader.onerror = () => reject(new Error('Failed to read audio blob'));
+    reader.readAsArrayBuffer(audioBlob);
+  });
+}
+
+export class VoiceCloningService {
+  private recorder: AudioRecorder = new AudioRecorder();
+  private profiles: Map<string, VoiceProfile> = new Map();
+
+  // ─── 录音控制（Web Audio API） ─────────────────────────────
+
+  async startRecording(): Promise<void> {
+    await this.recorder.startRecording();
   }
 
-  // 合成语音
-  async synthesize(request: VoiceSynthesisRequest): Promise<SynthesisResult> {
-    await this.simulateDelay(MOCK_DELAY);
+  async stopRecording(): Promise<Blob> {
+    return this.recorder.stopRecording();
+  }
 
-    // 替换模板变量
-    let text = request.text;
-    if (request.petName) {
-      text = text.replace(/{petName}/g, request.petName);
+  isRecording(): boolean {
+    return this.recorder.isRecording();
+  }
+
+  getAudioLevel(): number {
+    return this.recorder.getAudioLevel();
+  }
+
+  cancelRecording(): void {
+    this.recorder.cancelRecording();
+  }
+
+  // ─── 声纹创建 API ─────────────────────────────────────────
+
+  async createVoiceProfile(
+    audioBlob: Blob,
+    petId: string,
+    name: string,
+    description?: string,
+  ): Promise<VoiceProfile> {
+    // 本地声纹特征提取
+    const localFeatures = await extractLocalVoiceFeatures(audioBlob);
+
+    // 上传音频到后端创建声纹
+    const formData = new FormData();
+    formData.append('audio', audioBlob, 'voice_sample.webm');
+    formData.append('petId', petId);
+    formData.append('name', name);
+    if (description) formData.append('description', description);
+
+    const response = await fetch(`${API_BASE_URL}/voice/clone`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Voice clone API error: ${response.status} ${response.statusText}`);
     }
 
-    const result: SynthesisResult = {
-      id: `synth-${Date.now()}`,
-      voiceId: request.voiceId,
+    const apiResult = await response.json() as {
+      profileId: string;
+      features: Record<string, number>;
+      quality: number;
+    };
+
+    const profile: VoiceProfile = {
+      id: apiResult.profileId || `voice-${Date.now()}`,
+      petId,
+      name,
+      description: description || '',
+      sampleCount: 1,
+      quality: apiResult.quality || 0.8,
+      localFeatures: {
+        averagePitch: localFeatures.estimatedPitch,
+        averageAmplitude: localFeatures.averageAmplitude,
+        duration: localFeatures.duration,
+        silenceRatio: localFeatures.silenceRatio,
+        energyDistribution: localFeatures.energyDistribution,
+      },
+      serverFeatures: apiResult.features,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    // 持久化到 databaseService
+    await databaseService.put(STORE_NAMES.VOICE_PROFILES, {
+      ...profile,
+      source: 'voice_cloning',
+    });
+
+    this.profiles.set(profile.id, profile);
+    return profile;
+  }
+
+  // ─── 语音合成 API ─────────────────────────────────────────
+
+  async synthesizeVoice(
+    text: string,
+    profileId: string,
+    options?: {
+      speed?: number;
+      pitch?: number;
+      volume?: number;
+      emotion?: 'neutral' | 'happy' | 'sad' | 'urgent';
+    },
+  ): Promise<VoiceSynthesisResult> {
+    const profile = this.profiles.get(profileId) || await this.getVoiceProfile(profileId);
+    if (!profile) {
+      throw new Error(`Voice profile not found: ${profileId}`);
+    }
+
+    const response = await fetch(`${API_BASE_URL}/voice/synthesize`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text,
+        profileId,
+        speed: options?.speed || 1.0,
+        pitch: options?.pitch || 1.0,
+        volume: options?.volume || 1.0,
+        emotion: options?.emotion || 'neutral',
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Voice synthesis API error: ${response.status} ${response.statusText}`);
+    }
+
+    const result = await response.json() as VoiceSynthesisResult;
+
+    // 持久化合成结果
+    await databaseService.put(STORE_NAMES.VOICE_PROFILES, {
+      id: `synthesis-${Date.now()}`,
+      profileId,
       text,
-      audioUrl: `/api/audio/synth/${Date.now()}.mp3`,
-      duration: Math.floor(text.length * 0.15) + Math.floor(Math.random() * 2),
+      result,
       createdAt: new Date().toISOString(),
-      status: 'completed'
-    };
-
-    this.synthesisHistory.unshift(result);
-    if (this.synthesisHistory.length > 50) {
-      this.synthesisHistory.pop();
-    }
+    });
 
     return result;
   }
 
-  // 获取合成历史
-  async getSynthesisHistory(petId?: string): Promise<SynthesisResult[]> {
-    await this.simulateDelay(200);
-    
-    let history = [...this.synthesisHistory];
-    if (petId) {
-      history = history.filter(async (item) => {
-        const voice = await this.getVoiceById(item.voiceId);
-        return voice?.petId === petId;
-      });
+  // ─── 声纹管理 ─────────────────────────────────────────────
+
+  async getVoiceProfile(profileId: string): Promise<VoiceProfile | null> {
+    // 先从内存缓存取
+    if (this.profiles.has(profileId)) {
+      return this.profiles.get(profileId)!;
     }
-    
-    return history.slice(0, 20);
+
+    // 从 databaseService 取
+    try {
+      const record = await databaseService.get<VoiceProfile & { source: string }>(STORE_NAMES.VOICE_PROFILES, profileId);
+      if (record) {
+        this.profiles.set(profileId, record);
+        return record;
+      }
+    } catch {
+      // ignore
+    }
+    return null;
   }
 
-  // 获取语音模板
-  async getVoiceTemplates(category?: string): Promise<VoiceTemplate[]> {
-    await this.simulateDelay(200);
-    
-    if (category) {
-      return voiceTemplates.filter(t => t.category === category);
+  async listVoiceProfiles(petId: string): Promise<VoiceProfile[]> {
+    try {
+      const records = await databaseService.getByIndex<VoiceProfile & { petId: string; source: string }>(
+        STORE_NAMES.VOICE_PROFILES,
+        'petId',
+        petId,
+      );
+      return records.filter(r => r.source === 'voice_cloning');
+    } catch {
+      return [];
     }
-    return voiceTemplates;
   }
 
-  // 添加自定义模板
-  async addVoiceTemplate(template: Omit<VoiceTemplate, 'id'>): Promise<VoiceTemplate> {
-    await this.simulateDelay(200);
+  async deleteVoiceProfile(profileId: string): Promise<void> {
+    this.profiles.delete(profileId);
+    try {
+      await databaseService.delete(STORE_NAMES.VOICE_PROFILES, profileId);
+    } catch {
+      // ignore
+    }
+  }
 
-    const newTemplate: VoiceTemplate = {
-      ...template,
-      id: `template-${Date.now()}`
+  // ─── 添加更多声纹样本 ─────────────────────────────────────
+
+  async addVoiceSample(
+    profileId: string,
+    audioBlob: Blob,
+  ): Promise<VoiceProfile> {
+    const profile = await this.getVoiceProfile(profileId);
+    if (!profile) {
+      throw new Error(`Voice profile not found: ${profileId}`);
+    }
+
+    // 本地特征提取
+    const localFeatures = await extractLocalVoiceFeatures(audioBlob);
+
+    // 上传到后端更新声纹
+    const formData = new FormData();
+    formData.append('audio', audioBlob, 'voice_sample.webm');
+    formData.append('profileId', profileId);
+
+    const response = await fetch(`${API_BASE_URL}/voice/clone`, {
+      method: 'PUT',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Voice clone update API error: ${response.status} ${response.statusText}`);
+    }
+
+    const apiResult = await response.json() as {
+      quality: number;
+      features: Record<string, number>;
     };
 
-    voiceTemplates.push(newTemplate);
-    return newTemplate;
-  }
+    // 更新声纹
+    profile.sampleCount += 1;
+    profile.quality = apiResult.quality || profile.quality;
+    profile.serverFeatures = apiResult.features || profile.serverFeatures;
+    profile.updatedAt = new Date().toISOString();
 
-  // 生成随机语音样本URL
-  generateSampleUrl(): string {
-    return `/api/audio/sample/${Date.now()}.mp3`;
-  }
-
-  // 检查录音质量
-  async checkRecordingQuality(_audioData: Float32Array, _sampleRate: number): Promise<{
-    quality: number;
-    recommendations: string[];
-    isAcceptable: boolean;
-  }> {
-    await this.simulateDelay(300);
-
-    // 模拟质量检测
-    const quality = 0.6 + Math.random() * 0.35;
-    const recommendations: string[] = [];
-
-    if (quality < 0.7) {
-      recommendations.push('录音环境噪音较大，建议在安静环境下重新录制');
+    // 更新本地特征（加权平均）
+    if (profile.localFeatures) {
+      const weight = 1 / profile.sampleCount;
+      profile.localFeatures.averagePitch = profile.localFeatures.averagePitch * (1 - weight) + localFeatures.estimatedPitch * weight;
+      profile.localFeatures.averageAmplitude = profile.localFeatures.averageAmplitude * (1 - weight) + localFeatures.averageAmplitude * weight;
     }
-    if (quality < 0.8) {
-      recommendations.push('建议录制更长时间的音频以提高克隆质量');
+
+    // 持久化
+    await databaseService.put(STORE_NAMES.VOICE_PROFILES, {
+      ...profile,
+      source: 'voice_cloning',
+    });
+
+    this.profiles.set(profileId, profile);
+    return profile;
+  }
+
+  // ─── 录音辅助 ──────────────────────────────────────────────
+
+  async recordVoiceSample(durationMs: number = 5000): Promise<VoiceRecording> {
+    await this.startRecording();
+
+    return new Promise((resolve, reject) => {
+      setTimeout(async () => {
+        try {
+          const blob = await this.stopRecording();
+          const localFeatures = await extractLocalVoiceFeatures(blob);
+
+          const recording: VoiceRecording = {
+            id: `rec-${Date.now()}`,
+            blob,
+            duration: localFeatures.duration,
+            averageAmplitude: localFeatures.averageAmplitude,
+            recordedAt: new Date().toISOString(),
+          };
+
+          resolve(recording);
+        } catch (err) {
+          reject(err);
+        }
+      }, durationMs);
+    });
+  }
+
+  // ─── 音频质量评估 ──────────────────────────────────────────
+
+  async assessRecordingQuality(audioBlob: Blob): Promise<{
+    quality: number;
+    issues: string[];
+    suggestions: string[];
+  }> {
+    const features = await extractLocalVoiceFeatures(audioBlob);
+    const issues: string[] = [];
+    const suggestions: string[] = [];
+    let quality = 1.0;
+
+    if (features.duration < 3) {
+      issues.push('录音时长过短');
+      suggestions.push('建议至少录制3秒以上的语音样本');
+      quality -= 0.3;
+    }
+
+    if (features.silenceRatio > 0.5) {
+      issues.push('录音中静音比例过高');
+      suggestions.push('请在安静环境中录制，确保持续说话');
+      quality -= 0.3;
+    }
+
+    if (features.averageAmplitude < 0.01) {
+      issues.push('录音音量过低');
+      suggestions.push('请靠近麦克风或增大音量');
+      quality -= 0.2;
+    }
+
+    if (features.peakAmplitude > 0.95) {
+      issues.push('录音可能存在削波失真');
+      suggestions.push('请适当降低音量或远离麦克风');
+      quality -= 0.2;
+    }
+
+    if (features.duration < 5) {
+      suggestions.push('建议录制5秒以上以获得更好的声纹质量');
     }
 
     return {
-      quality: Math.round(quality * 100) / 100,
-      recommendations,
-      isAcceptable: quality >= 0.7
+      quality: Math.max(0, Math.min(1, quality)),
+      issues,
+      suggestions,
     };
-  }
-
-  // 获取克隆状态
-  async getCloneStatus(voiceId: string): Promise<{
-    status: 'pending' | 'processing' | 'completed' | 'failed';
-    progress?: number;
-    error?: string;
-  }> {
-    await this.simulateDelay(200);
-
-    const voice = this.clonedVoices.find(v => v.id === voiceId);
-    if (!voice) {
-      return { status: 'failed', error: '声音不存在' };
-    }
-
-    // 模拟状态
-    const random = Math.random();
-    if (random < 0.2) return { status: 'pending' };
-    if (random < 0.4) return { status: 'processing', progress: 30 + Math.floor(Math.random() * 40) };
-    return { status: 'completed', progress: 100 };
-  }
-
-  private simulateDelay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
   }
 }
 

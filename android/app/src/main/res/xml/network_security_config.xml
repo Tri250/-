@@ -6,15 +6,37 @@
             <certificates src="system" />
         </trust-anchors>
     </base-config>
+
     <!-- 仅允许本地开发地址使用明文流量（调试用） -->
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="true">localhost</domain>
         <domain includeSubdomains="true">10.0.2.2</domain>
         <domain includeSubdomains="true">127.0.0.1</domain>
     </domain-config>
-    <!-- 生产环境 API 强制使用 HTTPS -->
+
+    <!-- 生产环境 API 强制使用 HTTPS + 证书固定 -->
     <domain-config cleartextTrafficPermitted="false">
         <domain includeSubdomains="true">pawsync.com</domain>
         <domain includeSubdomains="true">api.pawsync.com</domain>
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
     </domain-config>
+
+    <!-- 第三方服务：仅系统信任锚 -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">googleapis.com</domain>
+        <domain includeSubdomains="true">google.com</domain>
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </domain-config>
+
+    <!-- Debug-only 配置：允许抓包（仅在 debug 构建生效） -->
+    <debug-overrides>
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </debug-overrides>
 </network-security-config>

@@ -1,396 +1,502 @@
-// ============================================
-// PawSync Pro 3.0 - Seven Level Alert Service
-//
-// 作者: 带娃的小陈工
-// 日期: 2026-05-27
-// 描述: 7级健康预警体系（L0-L6）
-// ============================================
+import { databaseService, STORE_NAMES } from './databaseService';
 
-import type { AlertLevel, AlertEvent, BreedSpecificAlert, TrendAlert, AlertConfig } from '../types/seven-level-alert';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.pawsync.com/v1';
 
-const MOCK_DELAY = 400;
+// ─── 七级预警类型定义 ────────────────────────────────────────
 
-// 7级预警配置
-const alertLevelConfig: Record<AlertLevel, AlertConfig> = {
-  L0: {
-    level: 'L0',
-    name: '正常',
-    description: '所有指标正常',
-    color: '#22C55E',
-    bgColor: 'bg-green-50',
-    textColor: 'text-green-700',
-    borderColor: 'border-green-200',
-    icon: '✅',
-    response: '无',
-    notification: false
-  },
-  L1: {
-    level: 'L1',
-    name: '注意',
-    description: '单次轻微异常',
-    color: '#84CC16',
-    bgColor: 'bg-lime-50',
-    textColor: 'text-lime-700',
-    borderColor: 'border-lime-200',
-    icon: '⚠️',
-    response: 'App内提醒',
-    notification: true
-  },
-  L2: {
-    level: 'L2',
-    name: '观察',
-    description: '24小时内同类异常≥3次',
-    color: '#EAB308',
-    bgColor: 'bg-yellow-50',
-    textColor: 'text-yellow-700',
-    borderColor: 'border-yellow-200',
-    icon: '🔶',
-    response: 'Push推送',
-    notification: true
-  },
-  L3: {
-    level: 'L3',
-    name: '预警',
-    description: '融合多模态异常信号持续',
-    color: '#F97316',
-    bgColor: 'bg-orange-50',
-    textColor: 'text-orange-700',
-    borderColor: 'border-orange-200',
-    icon: '🔷',
-    response: '短信+Push',
-    notification: true
-  },
-  L4: {
-    level: 'L4',
-    name: '紧急',
-    description: '明确危险行为',
-    color: '#EF4444',
-    bgColor: 'bg-red-50',
-    textColor: 'text-red-700',
-    borderColor: 'border-red-200',
-    icon: '🚨',
-    response: '电话提醒+SOS',
-    notification: true
-  },
-  L5: {
-    level: 'L5',
-    name: '品种特异',
-    description: '特定品种健康风险',
-    color: '#A855F7',
-    bgColor: 'bg-purple-50',
-    textColor: 'text-purple-700',
-    borderColor: 'border-purple-200',
-    icon: '🔮',
-    response: '针对性提醒',
-    notification: true
-  },
-  L6: {
-    level: 'L6',
-    name: '趋势异常',
-    description: '30天行为趋势偏离基线>2σ',
-    color: '#6366F1',
-    bgColor: 'bg-indigo-50',
-    textColor: 'text-indigo-700',
-    borderColor: 'border-indigo-200',
-    icon: '📊',
-    response: '健康周报提醒',
-    notification: true
-  }
+export type AlertLevel = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+
+export interface AlertRule {
+  id: string;
+  name: string;
+  description: string;
+  level: AlertLevel;
+  category: 'health' | 'emotion' | 'behavior' | 'environment' | 'nutrition';
+  conditions: AlertCondition[];
+  cooldownMinutes: number;
+  enabled: boolean;
+}
+
+export interface AlertCondition {
+  metric: string;
+  operator: '>' | '<' | '>=' | '<=' | '==' | '!=' | 'between' | 'contains';
+  value: number | string | [number, number];
+  weight: number;
+}
+
+export interface AlertRecord {
+  id: string;
+  petId: string;
+  ruleId: string;
+  level: AlertLevel;
+  category: string;
+  title: string;
+  description: string;
+  data: Record<string, unknown>;
+  actionRequired: boolean;
+  actionTaken: boolean;
+  actionDescription?: string;
+  escalatedFrom?: number;
+  createdAt: string;
+  acknowledgedAt?: string;
+  resolvedAt?: string;
+}
+
+export interface HealthDataInput {
+  petId: string;
+  timestamp: string;
+  vitals?: {
+    heartRate?: number;
+    respiratoryRate?: number;
+    temperature?: number;
+    weight?: number;
+    bloodPressure?: { systolic: number; diastolic: number };
+    oxygenSaturation?: number;
+  };
+  behavior?: {
+    activityLevel?: number;
+    appetite?: number;
+    waterIntake?: number;
+    sleepDuration?: number;
+    vocalization?: number;
+    socialInteraction?: number;
+    grooming?: number;
+  };
+  emotion?: {
+    stress?: number;
+    anxiety?: number;
+    happiness?: number;
+    fear?: number;
+    aggression?: number;
+  };
+  symptoms?: string[];
+  environment?: {
+    temperature?: number;
+    humidity?: number;
+    noise?: number;
+  };
+}
+
+// ─── 预警级别配置 ────────────────────────────────────────────
+
+const ALERT_LEVEL_CONFIG: Record<AlertLevel, {
+  name: string;
+  color: string;
+  icon: string;
+  description: string;
+  responseTime: string;
+  autoNotify: boolean;
+}> = {
+  1: { name: '信息', color: '#4CAF50', icon: 'ℹ️', description: '常规信息通知', responseTime: '无需立即响应', autoNotify: false },
+  2: { name: '提示', color: '#8BC34A', icon: '💡', description: '轻微变化提示', responseTime: '24小时内关注', autoNotify: false },
+  3: { name: '注意', color: '#FFC107', icon: '⚠️', description: '需要关注的变化', responseTime: '12小时内关注', autoNotify: false },
+  4: { name: '警告', color: '#FF9800', icon: '🔶', description: '明显异常需处理', responseTime: '6小时内处理', autoNotify: true },
+  5: { name: '严重', color: '#FF5722', icon: '🔴', description: '严重异常需紧急处理', responseTime: '2小时内处理', autoNotify: true },
+  6: { name: '危急', color: '#D32F2F', icon: '🚨', description: '危急状态需立即处理', responseTime: '30分钟内处理', autoNotify: true },
+  7: { name: '紧急', color: '#B71C1C', icon: '🆘', description: '生命威胁需紧急救治', responseTime: '立即处理', autoNotify: true },
 };
 
-// 品种特异风险配置
-const breedSpecificRisks: Record<string, BreedSpecificAlert[]> = {
-  'Scottish Fold': [
-    { breed: 'Scottish Fold', condition: '关节僵硬', description: '折耳猫易患软骨发育不良，需关注关节活动', riskLevel: 'L5', earlySigns: ['跳跃减少', '不愿活动', '肢体僵硬'] },
-    { breed: 'Scottish Fold', condition: '耳部感染', description: '折耳导致耳道狭窄，易发生感染', riskLevel: 'L5', earlySigns: ['频繁抓耳', '耳朵异味', '分泌物'] }
-  ],
-  'Corgi': [
-    { breed: 'Corgi', condition: '腰部异常', description: '柯基易患椎间盘突出，需控制体重', riskLevel: 'L5', earlySigns: ['弓背', '不愿上下楼梯', '后腿无力'] }
-  ],
-  'German Shepherd': [
-    { breed: 'German Shepherd', condition: '髋关节发育不良', description: '德牧易患髋关节问题，需定期检查', riskLevel: 'L5', earlySigns: ['站立困难', '跛行', '活动减少'] }
-  ],
-  'Persian': [
-    { breed: 'Persian', condition: '眼部问题', description: '波斯猫易患泪囊炎和眼睑内翻', riskLevel: 'L5', earlySigns: ['流泪增多', '眼部分泌物', '眯眼'] }
-  ],
-  'French Bulldog': [
-    { breed: 'French Bulldog', condition: '呼吸问题', description: '法斗短鼻导致呼吸困难', riskLevel: 'L5', earlySigns: ['呼吸急促', '张口呼吸', '活动不耐受'] }
-  ],
-  'Golden Retriever': [
-    { breed: 'Golden Retriever', condition: '髋关节发育不良', description: '金毛易患髋关节问题', riskLevel: 'L5', earlySigns: ['跳跃困难', '步态异常', '活动减少'] }
-  ],
-  'British Shorthair': [
-    { breed: 'British Shorthair', condition: '肥胖倾向', description: '英短易肥胖，需控制饮食', riskLevel: 'L5', earlySigns: ['体重过快增长', '活动减少', '食欲亢进'] }
-  ],
-  'Husky': [
-    { breed: 'Husky', condition: '肠胃敏感', description: '哈士奇肠胃敏感，易腹泻', riskLevel: 'L5', earlySigns: ['软便', '腹泻', '食欲波动'] }
-  ]
-};
+// ─── 默认预警规则 ────────────────────────────────────────────
 
-class SevenLevelAlertService {
-  private alertEvents: AlertEvent[] = [];
-  private baselineData: Record<string, number[]> = {};
+const DEFAULT_RULES: AlertRule[] = [
+  // Level 1 - 信息
+  { id: 'info_weight_change', name: '体重轻微变化', description: '体重变化在5%以内', level: 1, category: 'health', conditions: [{ metric: 'vitals.weight', operator: 'between', value: [-5, 5], weight: 1 }], cooldownMinutes: 1440, enabled: true },
+  { id: 'info_appetite_slight', name: '食欲轻微变化', description: '食欲评分轻微下降', level: 1, category: 'nutrition', conditions: [{ metric: 'behavior.appetite', operator: 'between', value: [50, 70], weight: 1 }], cooldownMinutes: 720, enabled: true },
+
+  // Level 2 - 提示
+  { id: 'hint_low_activity', name: '活动量偏低', description: '活动量低于正常范围', level: 2, category: 'behavior', conditions: [{ metric: 'behavior.activityLevel', operator: '<', value: 40, weight: 1 }], cooldownMinutes: 360, enabled: true },
+  { id: 'hint_water_change', name: '饮水量变化', description: '饮水量明显增减', level: 2, category: 'nutrition', conditions: [{ metric: 'behavior.waterIntake', operator: '<', value: 30 }, { metric: 'behavior.waterIntake', operator: '>', value: 90, weight: 1 }], cooldownMinutes: 360, enabled: true },
+
+  // Level 3 - 注意
+  { id: 'notice_elevated_hr', name: '心率偏高', description: '心率超出正常范围', level: 3, category: 'health', conditions: [{ metric: 'vitals.heartRate', operator: '>', value: 160, weight: 1 }], cooldownMinutes: 120, enabled: true },
+  { id: 'notice_low_appetite', name: '食欲明显下降', description: '食欲评分低于50', level: 3, category: 'nutrition', conditions: [{ metric: 'behavior.appetite', operator: '<', value: 50, weight: 1 }], cooldownMinutes: 120, enabled: true },
+  { id: 'notice_stress', name: '压力水平偏高', description: '压力评分持续偏高', level: 3, category: 'emotion', conditions: [{ metric: 'emotion.stress', operator: '>', value: 70, weight: 1 }], cooldownMinutes: 180, enabled: true },
+
+  // Level 4 - 警告
+  { id: 'warning_high_temp', name: '体温偏高', description: '体温超过39.5°C', level: 4, category: 'health', conditions: [{ metric: 'vitals.temperature', operator: '>', value: 39.5, weight: 1 }], cooldownMinutes: 60, enabled: true },
+  { id: 'warning_low_temp', name: '体温偏低', description: '体温低于37°C', level: 4, category: 'health', conditions: [{ metric: 'vitals.temperature', operator: '<', value: 37, weight: 1 }], cooldownMinutes: 60, enabled: true },
+  { id: 'warning_high_resp', name: '呼吸频率偏高', description: '呼吸频率超过40次/分', level: 4, category: 'health', conditions: [{ metric: 'vitals.respiratoryRate', operator: '>', value: 40, weight: 1 }], cooldownMinutes: 60, enabled: true },
+  { id: 'warning_anxiety', name: '焦虑水平偏高', description: '焦虑评分超过70', level: 4, category: 'emotion', conditions: [{ metric: 'emotion.anxiety', operator: '>', value: 70, weight: 1 }], cooldownMinutes: 60, enabled: true },
+
+  // Level 5 - 严重
+  { id: 'severe_very_high_temp', name: '高烧', description: '体温超过40.5°C', level: 5, category: 'health', conditions: [{ metric: 'vitals.temperature', operator: '>', value: 40.5, weight: 1 }], cooldownMinutes: 30, enabled: true },
+  { id: 'severe_very_high_hr', name: '心率严重偏高', description: '心率超过200', level: 5, category: 'health', conditions: [{ metric: 'vitals.heartRate', operator: '>', value: 200, weight: 1 }], cooldownMinutes: 30, enabled: true },
+  { id: 'severe_symptoms', name: '严重症状', description: '出现呕吐、腹泻等严重症状', level: 5, category: 'health', conditions: [{ metric: 'symptoms', operator: 'contains', value: 'vomiting', weight: 0.5 }, { metric: 'symptoms', operator: 'contains', value: 'diarrhea', weight: 0.5 }], cooldownMinutes: 30, enabled: true },
+  { id: 'severe_aggression', name: '攻击性增强', description: '攻击性评分超过80', level: 5, category: 'behavior', conditions: [{ metric: 'emotion.aggression', operator: '>', value: 80, weight: 1 }], cooldownMinutes: 30, enabled: true },
+
+  // Level 6 - 危急
+  { id: 'critical_breathing', name: '呼吸困难', description: '呼吸频率超过60次/分或血氧低于90%', level: 6, category: 'health', conditions: [{ metric: 'vitals.respiratoryRate', operator: '>', value: 60, weight: 0.6 }, { metric: 'vitals.oxygenSaturation', operator: '<', value: 90, weight: 0.4 }], cooldownMinutes: 15, enabled: true },
+  { id: 'critical_bp', name: '血压异常', description: '血压严重异常', level: 6, category: 'health', conditions: [{ metric: 'vitals.bloodPressure.systolic', operator: '>', value: 180, weight: 0.5 }, { metric: 'vitals.bloodPressure.systolic', operator: '<', value: 80, weight: 0.5 }], cooldownMinutes: 15, enabled: true },
+
+  // Level 7 - 紧急
+  { id: 'emergency_cardiac', name: '心脏骤停风险', description: '心率超过250或低于40', level: 7, category: 'health', conditions: [{ metric: 'vitals.heartRate', operator: '>', value: 250, weight: 0.5 }, { metric: 'vitals.heartRate', operator: '<', value: 40, weight: 0.5 }], cooldownMinutes: 5, enabled: true },
+  { id: 'emergency_oxygen', name: '严重缺氧', description: '血氧饱和度低于80%', level: 7, category: 'health', conditions: [{ metric: 'vitals.oxygenSaturation', operator: '<', value: 80, weight: 1 }], cooldownMinutes: 5, enabled: true },
+  { id: 'emergency_temp', name: '致命体温', description: '体温超过42°C或低于35°C', level: 7, category: 'health', conditions: [{ metric: 'vitals.temperature', operator: '>', value: 42, weight: 0.5 }, { metric: 'vitals.temperature', operator: '<', value: 35, weight: 0.5 }], cooldownMinutes: 5, enabled: true },
+];
+
+export class SevenLevelAlertService {
+  private rules: Map<string, AlertRule> = new Map();
+  private activeAlerts: Map<string, AlertRecord> = new Map();
+  private alertHistory: AlertRecord[] = [];
+  private escalationTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
+  private lastTriggerTime: Map<string, number> = new Map();
 
   constructor() {
-    this.initializeMockData();
+    // 加载默认规则
+    for (const rule of DEFAULT_RULES) {
+      this.rules.set(rule.id, rule);
+    }
   }
 
-  private initializeMockData() {
-    const levels: AlertLevel[] = ['L1', 'L2', 'L3', 'L5', 'L6'];
-    
-    levels.forEach((level, index) => {
-      const config = alertLevelConfig[level];
-      this.alertEvents.push({
-        id: `alert-${level}-${index}`,
-        petId: '1',
-        level,
-        title: this.generateAlertTitle(level),
-        description: config.description,
-        timestamp: new Date(Date.now() - index * 7200000).toISOString(),
-        severity: this.getSeverity(level),
-        acknowledged: index > 2,
-        details: this.generateAlertDetails(level),
-        recommendation: this.generateRecommendation(level)
-      });
-    });
+  // ─── 规则管理 ──────────────────────────────────────────────
+
+  getRules(): AlertRule[] {
+    return Array.from(this.rules.values());
   }
 
-  private generateAlertTitle(level: AlertLevel): string {
-    const titles: Record<AlertLevel, string> = {
-      L0: '健康状态良好',
-      L1: '轻微异常提醒',
-      L2: '需密切观察',
-      L3: '健康预警',
-      L4: '紧急警报',
-      L5: '品种特异风险提醒',
-      L6: '趋势异常提醒'
-    };
-    return titles[level];
+  getRule(ruleId: string): AlertRule | undefined {
+    return this.rules.get(ruleId);
   }
 
-  private generateAlertDetails(level: AlertLevel): string {
-    const details: Record<AlertLevel, string> = {
-      L0: '所有健康指标正常，宠物状态良好',
-      L1: '检测到单次轻微异常行为，建议继续观察',
-      L2: '24小时内同类异常已发生3次以上，需要关注',
-      L3: '多模态融合检测到持续异常信号，建议加强监控',
-      L4: '检测到明确危险行为，请立即关注宠物状况',
-      L5: '检测到与品种相关的健康风险迹象',
-      L6: '30天行为趋势分析显示偏离正常基线超过2σ'
-    };
-    return details[level];
+  addRule(rule: AlertRule): void {
+    this.rules.set(rule.id, rule);
   }
 
-  private generateRecommendation(level: AlertLevel): string {
-    const recommendations: Record<AlertLevel, string> = {
-      L0: '继续保持当前护理方式',
-      L1: '继续观察，记录异常发生频率',
-      L2: '增加观察频率，记录详细情况',
-      L3: '建议尽快联系兽医进行检查',
-      L4: '立即就医！情况紧急',
-      L5: '建议进行针对性体检，关注相关风险点',
-      L6: '查看健康周报，了解详细趋势分析'
-    };
-    return recommendations[level];
+  updateRule(ruleId: string, updates: Partial<AlertRule>): void {
+    const existing = this.rules.get(ruleId);
+    if (existing) {
+      this.rules.set(ruleId, { ...existing, ...updates });
+    }
   }
 
-  private getSeverity(level: AlertLevel): 'low' | 'medium' | 'high' | 'critical' {
-    const severityMap: Record<AlertLevel, 'low' | 'medium' | 'high' | 'critical'> = {
-      L0: 'low',
-      L1: 'low',
-      L2: 'medium',
-      L3: 'high',
-      L4: 'critical',
-      L5: 'medium',
-      L6: 'medium'
-    };
-    return severityMap[level];
+  deleteRule(ruleId: string): void {
+    this.rules.delete(ruleId);
   }
 
-  // 计算预警等级
-  async calculateAlertLevel(_petId: string): Promise<AlertLevel> {
-    await this.simulateDelay(MOCK_DELAY);
-
-    // 模拟基于各种因素计算预警等级
-    const random = Math.random();
-    
-    if (random < 0.4) return 'L0';
-    if (random < 0.6) return 'L1';
-    if (random < 0.75) return 'L2';
-    if (random < 0.85) return 'L3';
-    if (random < 0.92) return 'L5';
-    if (random < 0.98) return 'L6';
-    return 'L4';
+  getLevelConfig(level: AlertLevel) {
+    return ALERT_LEVEL_CONFIG[level];
   }
 
-  // 检测24小时异常频率
-  async detect24HourFrequency(_petId: string, _behaviorType: string): Promise<{
-    count: number;
-    level: AlertLevel;
-    exceedsThreshold: boolean;
-  }> {
-    await this.simulateDelay(MOCK_DELAY);
+  // ─── 核心评估引擎 ─────────────────────────────────────────
 
-    const count = Math.floor(Math.random() * 5);
-    const exceedsThreshold = count >= 3;
-    
-    let level: AlertLevel = 'L0';
-    if (count === 1) level = 'L1';
-    else if (count >= 3) level = 'L2';
+  evaluateHealthData(data: HealthDataInput): AlertRecord[] {
+    const triggeredAlerts: AlertRecord[] = [];
 
-    return { count, level, exceedsThreshold };
-  }
+    for (const rule of this.rules.values()) {
+      if (!rule.enabled) continue;
 
-  // 检测30天趋势异常
-  async detectTrendAnomaly(_petId: string): Promise<{
-    hasAnomaly: boolean;
-    deviation: number;
-    level: AlertLevel;
-    metrics: Array<{ name: string; deviation: number; baseline: number; current: number }>;
-  }> {
-    await this.simulateDelay(MOCK_DELAY);
+      // 冷却期检查
+      const lastTrigger = this.lastTriggerTime.get(rule.id) || 0;
+      if (Date.now() - lastTrigger < rule.cooldownMinutes * 60 * 1000) continue;
 
-    const deviation = 1.5 + Math.random() * 2;
-    const hasAnomaly = deviation > 2;
-    const level = hasAnomaly ? 'L6' : 'L0';
-
-    const metrics = [
-      { name: '活动量', deviation: deviation * 0.8, baseline: 50, current: 50 + deviation * 8 },
-      { name: '睡眠质量', deviation: deviation * 0.6, baseline: 85, current: 85 + deviation * 3 },
-      { name: '饮水量', deviation: deviation * 1.2, baseline: 280, current: 280 + deviation * 20 },
-      { name: '进食规律', deviation: deviation * 0.7, baseline: 3, current: 3 + deviation * 0.5 }
-    ];
-
-    return { hasAnomaly, deviation, level, metrics };
-  }
-
-  // 检测品种特异风险
-  async detectBreedSpecificRisk(petId: string, breed: string): Promise<BreedSpecificAlert[]> {
-    await this.simulateDelay(MOCK_DELAY);
-
-    const risks = breedSpecificRisks[breed] || [];
-    
-    // 随机决定是否检测到风险
-    if (risks.length > 0 && Math.random() > 0.7) {
-      return risks.slice(0, 2);
+      // 评估条件
+      const matchResult = this.evaluateConditions(rule.conditions, data);
+      if (matchResult.matched) {
+        const alert = this.createAlert(data.petId, rule, matchResult.matchedConditions, data);
+        triggeredAlerts.push(alert);
+        this.lastTriggerTime.set(rule.id, Date.now());
+      }
     }
 
-    return [];
-  }
+    // 综合评估：多个低级预警可能升级
+    const escalatedAlerts = this.checkEscalation(data.petId, triggeredAlerts);
+    triggeredAlerts.push(...escalatedAlerts);
 
-  // 获取当前预警状态
-  async getCurrentAlertLevel(petId: string): Promise<{
-    level: AlertLevel;
-    config: AlertConfig;
-    events: AlertEvent[];
-  }> {
-    await this.simulateDelay(MOCK_DELAY);
-
-    const level = await this.calculateAlertLevel(petId);
-    const config = alertLevelConfig[level];
-    const events = this.alertEvents.filter(e => e.petId === petId);
-
-    return { level, config, events };
-  }
-
-  // 获取预警事件列表
-  async getAlertEvents(petId: string, level?: AlertLevel): Promise<AlertEvent[]> {
-    await this.simulateDelay(300);
-    
-    let events = this.alertEvents.filter(e => e.petId === petId);
-    if (level) {
-      events = events.filter(e => e.level === level);
+    // 持久化所有预警
+    for (const alert of triggeredAlerts) {
+      this.activeAlerts.set(alert.id, alert);
+      this.alertHistory.push(alert);
+      this.persistAlert(alert);
     }
-    
-    return events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-  }
 
-  // 确认预警
-  async acknowledgeAlert(alertId: string): Promise<boolean> {
-    await this.simulateDelay(200);
-    
-    const alert = this.alertEvents.find(a => a.id === alertId);
-    if (alert) {
-      alert.acknowledged = true;
-      alert.acknowledgedAt = new Date().toISOString();
-      return true;
+    // 高级别自动推送通知
+    for (const alert of triggeredAlerts) {
+      if (ALERT_LEVEL_CONFIG[alert.level].autoNotify) {
+        this.sendNotification(alert);
+      }
     }
-    return false;
+
+    return triggeredAlerts;
   }
 
-  // 创建预警事件
-  async createAlertEvent(
+  private evaluateConditions(
+    conditions: AlertCondition[],
+    data: HealthDataInput,
+  ): { matched: boolean; matchedConditions: string[]; totalWeight: number } {
+    const matchedConditions: string[] = [];
+    let totalWeight = 0;
+    let matchedWeight = 0;
+
+    for (const condition of conditions) {
+      totalWeight += condition.weight;
+      const value = this.getNestedValue(data, condition.metric);
+
+      if (value !== undefined && value !== null) {
+        const isMatch = this.evaluateCondition(condition, value);
+        if (isMatch) {
+          matchedConditions.push(condition.metric);
+          matchedWeight += condition.weight;
+        }
+      }
+    }
+
+    // 如果所有条件都匹配（权重100%），或者部分条件匹配且权重超过50%
+    return {
+      matched: totalWeight > 0 && matchedWeight / totalWeight >= 0.5,
+      matchedConditions,
+      totalWeight: matchedWeight,
+    };
+  }
+
+  private evaluateCondition(condition: AlertCondition, value: unknown): boolean {
+    const numValue = typeof value === 'number' ? value : parseFloat(String(value));
+
+    switch (condition.operator) {
+      case '>': return !isNaN(numValue) && numValue > (condition.value as number);
+      case '<': return !isNaN(numValue) && numValue < (condition.value as number);
+      case '>=': return !isNaN(numValue) && numValue >= (condition.value as number);
+      case '<=': return !isNaN(numValue) && numValue <= (condition.value as number);
+      case '==': return value === condition.value;
+      case '!=': return value !== condition.value;
+      case 'between': {
+        const [min, max] = condition.value as [number, number];
+        return !isNaN(numValue) && numValue >= min && numValue <= max;
+      }
+      case 'contains': {
+        const arr = value as string | string[];
+        const target = String(condition.value);
+        if (Array.isArray(arr)) return arr.includes(target);
+        return String(arr).includes(target);
+      }
+      default: return false;
+    }
+  }
+
+  private getNestedValue(obj: unknown, path: string): unknown {
+    const keys = path.split('.');
+    let current: unknown = obj;
+    for (const key of keys) {
+      if (current === null || current === undefined) return undefined;
+      current = (current as Record<string, unknown>)[key];
+    }
+    return current;
+  }
+
+  // ─── 预警创建 ──────────────────────────────────────────────
+
+  private createAlert(
     petId: string,
-    level: AlertLevel,
-    title: string,
-    description: string,
-    details: string,
-    recommendation: string
-  ): Promise<AlertEvent> {
-    await this.simulateDelay(300);
-
-    const event: AlertEvent = {
-      id: `alert-${Date.now()}`,
+    rule: AlertRule,
+    matchedConditions: string[],
+    data: HealthDataInput,
+  ): AlertRecord {
+    const levelConfig = ALERT_LEVEL_CONFIG[rule.level];
+    return {
+      id: `alert-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       petId,
-      level,
-      title,
-      description,
-      timestamp: new Date().toISOString(),
-      severity: this.getSeverity(level),
-      acknowledged: false,
-      details,
-      recommendation
+      ruleId: rule.id,
+      level: rule.level,
+      category: rule.category,
+      title: `${levelConfig.icon} [Level ${rule.level}] ${rule.name}`,
+      description: `${rule.description}\n触发条件：${matchedConditions.join('、')}\n建议响应时间：${levelConfig.responseTime}`,
+      data: data as unknown as Record<string, unknown>,
+      actionRequired: rule.level >= 4,
+      actionTaken: false,
+      createdAt: new Date().toISOString(),
     };
+  }
 
-    this.alertEvents.unshift(event);
-    if (this.alertEvents.length > 100) {
-      this.alertEvents.pop();
+  // ─── 升级机制 ──────────────────────────────────────────────
+
+  private checkEscalation(petId: string, newAlerts: AlertRecord[]): AlertRecord[] {
+    const escalatedAlerts: AlertRecord[] = [];
+
+    // 获取该宠物当前活跃的预警
+    const activeForPet = Array.from(this.activeAlerts.values())
+      .filter(a => a.petId === petId && !a.resolvedAt);
+
+    // 统计各级别数量
+    const levelCounts: Partial<Record<AlertLevel, number>> = {};
+    for (const alert of [...activeForPet, ...newAlerts]) {
+      levelCounts[alert.level] = (levelCounts[alert.level] || 0) + 1;
     }
 
-    return event;
+    // 规则：3个Level 3 = 升级到 Level 4
+    if ((levelCounts[3] || 0) >= 3 && !activeForPet.some(a => a.level >= 4)) {
+      escalatedAlerts.push(this.createEscalatedAlert(petId, 4, '多个注意级别预警同时触发，自动升级为警告'));
+    }
+
+    // 规则：2个Level 4 = 升级到 Level 5
+    if ((levelCounts[4] || 0) >= 2 && !activeForPet.some(a => a.level >= 5)) {
+      escalatedAlerts.push(this.createEscalatedAlert(petId, 5, '多个警告级别预警同时触发，自动升级为严重'));
+    }
+
+    // 规则：2个Level 5 = 升级到 Level 6
+    if ((levelCounts[5] || 0) >= 2 && !activeForPet.some(a => a.level >= 6)) {
+      escalatedAlerts.push(this.createEscalatedAlert(petId, 6, '多个严重级别预警同时触发，自动升级为危急'));
+    }
+
+    // 规则：持续异常超过30分钟自动升级一级
+    const thirtyMinAgo = Date.now() - 30 * 60 * 1000;
+    for (const alert of activeForPet) {
+      if (alert.level < 7 && new Date(alert.createdAt).getTime() < thirtyMinAgo && !alert.escalatedFrom) {
+        const newLevel = Math.min(alert.level + 1, 7) as AlertLevel;
+        escalatedAlerts.push(this.createEscalatedAlert(petId, newLevel, `预警持续30分钟未处理，从Level ${alert.level}自动升级到Level ${newLevel}`));
+      }
+    }
+
+    return escalatedAlerts;
   }
 
-  // 获取预警等级配置
-  getAlertLevelConfig(level: AlertLevel): AlertConfig {
-    return alertLevelConfig[level];
+  private createEscalatedAlert(petId: string, level: AlertLevel, reason: string): AlertRecord {
+    const levelConfig = ALERT_LEVEL_CONFIG[level];
+    return {
+      id: `alert-esc-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      petId,
+      ruleId: 'escalation',
+      level,
+      category: 'health',
+      title: `${levelConfig.icon} [Level ${level}] 自动升级预警`,
+      description: `${reason}\n建议响应时间：${levelConfig.responseTime}`,
+      data: { reason },
+      actionRequired: level >= 4,
+      actionTaken: false,
+      escalatedFrom: level - 1,
+      createdAt: new Date().toISOString(),
+    };
   }
 
-  // 获取所有预警等级
-  getAllAlertLevels(): AlertLevel[] {
-    return ['L0', 'L1', 'L2', 'L3', 'L4', 'L5', 'L6'];
+  // ─── 通知推送 ──────────────────────────────────────────────
+
+  private async sendNotification(alert: AlertRecord): Promise<void> {
+    try {
+      // 使用 Capacitor Push Notification 或 Local Notification
+      const { LocalNotifications } = await import('@capacitor/local-notifications');
+
+      await LocalNotifications.schedule({
+        notifications: [{
+          title: alert.title,
+          body: alert.description.substring(0, 200),
+          id: Date.now(),
+          schedule: { at: new Date(Date.now() + 1000) },
+          sound: alert.level >= 6 ? 'alert_urgent.wav' : undefined,
+          extra: { alertId: alert.id, level: alert.level },
+        }],
+      });
+    } catch {
+      // Capacitor 不可用时静默处理
+      console.warn(`[SevenLevelAlert] Level ${alert.level} alert: ${alert.title}`);
+    }
   }
 
-  // 获取品种风险配置
-  getBreedSpecificRisks(breed: string): BreedSpecificAlert[] {
-    return breedSpecificRisks[breed] || [];
+  // ─── 预警操作 ──────────────────────────────────────────────
+
+  async acknowledgeAlert(alertId: string): Promise<void> {
+    const alert = this.activeAlerts.get(alertId);
+    if (alert) {
+      alert.acknowledgedAt = new Date().toISOString();
+      await this.persistAlert(alert);
+    }
   }
 
-  // 获取所有品种风险
-  getAllBreedRisks(): Record<string, BreedSpecificAlert[]> {
-    return breedSpecificRisks;
+  async resolveAlert(alertId: string, actionDescription?: string): Promise<void> {
+    const alert = this.activeAlerts.get(alertId);
+    if (alert) {
+      alert.resolvedAt = new Date().toISOString();
+      alert.actionTaken = true;
+      alert.actionDescription = actionDescription;
+      this.activeAlerts.delete(alertId);
+
+      // 清除升级定时器
+      const timer = this.escalationTimers.get(alertId);
+      if (timer) {
+        clearTimeout(timer);
+        this.escalationTimers.delete(alertId);
+      }
+
+      await this.persistAlert(alert);
+    }
   }
 
-  // 获取趋势预警
-  async getTrendAlert(petId: string): Promise<TrendAlert | null> {
-    await this.simulateDelay(MOCK_DELAY);
+  getActiveAlerts(petId?: string): AlertRecord[] {
+    const alerts = Array.from(this.activeAlerts.values());
+    if (petId) return alerts.filter(a => a.petId === petId);
+    return alerts;
+  }
 
-    const result = await this.detectTrendAnomaly(petId);
-    if (!result.hasAnomaly) return null;
+  getAlertHistory(petId?: string, limit: number = 50): AlertRecord[] {
+    let history = [...this.alertHistory];
+    if (petId) history = history.filter(a => a.petId === petId);
+    return history
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, limit);
+  }
+
+  // ─── 综合评估 ──────────────────────────────────────────────
+
+  getOverallStatus(petId: string): {
+    currentLevel: AlertLevel;
+    activeAlertCount: number;
+    highestActiveLevel: AlertLevel;
+    recentTrend: 'improving' | 'stable' | 'worsening';
+    summary: string;
+  } {
+    const activeAlerts = this.getActiveAlerts(petId);
+    const highestActiveLevel = activeAlerts.reduce<AlertLevel>((max, a) => Math.max(max, a.level), 1 as AlertLevel);
+
+    // 趋势分析：比较最近1小时和之前1小时的预警级别
+    const now = Date.now();
+    const oneHourAgo = now - 60 * 60 * 1000;
+    const twoHoursAgo = now - 2 * 60 * 60 * 1000;
+
+    const recentAlerts = this.alertHistory.filter(a => new Date(a.createdAt).getTime() > oneHourAgo);
+    const olderAlerts = this.alertHistory.filter(a => {
+      const t = new Date(a.createdAt).getTime();
+      return t > twoHoursAgo && t <= oneHourAgo;
+    });
+
+    const recentAvg = recentAlerts.length > 0 ? recentAlerts.reduce((s, a) => s + a.level, 0) / recentAlerts.length : 1;
+    const olderAvg = olderAlerts.length > 0 ? olderAlerts.reduce((s, a) => s + a.level, 0) / olderAlerts.length : 1;
+
+    let trend: 'improving' | 'stable' | 'worsening';
+    if (recentAvg < olderAvg - 0.5) trend = 'improving';
+    else if (recentAvg > olderAvg + 0.5) trend = 'worsening';
+    else trend = 'stable';
+
+    const levelConfig = ALERT_LEVEL_CONFIG[highestActiveLevel];
+    let summary = `当前最高预警级别：Level ${highestActiveLevel}（${levelConfig.name}）`;
+    if (activeAlerts.length > 0) {
+      summary += `，共 ${activeAlerts.length} 条活跃预警`;
+    }
+    if (trend === 'worsening') summary += '，趋势恶化';
+    else if (trend === 'improving') summary += '，趋势好转';
 
     return {
-      id: `trend-${Date.now()}`,
-      petId,
-      level: 'L6',
-      deviation: result.deviation,
-      metrics: result.metrics,
-      timestamp: new Date().toISOString(),
-      acknowledged: false,
-      recommendation: '建议查看健康周报，了解详细趋势分析'
+      currentLevel: highestActiveLevel,
+      activeAlertCount: activeAlerts.length,
+      highestActiveLevel,
+      recentTrend: trend,
+      summary,
     };
   }
 
-  private simulateDelay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+  // ─── 持久化 ────────────────────────────────────────────────
+
+  private async persistAlert(alert: AlertRecord): Promise<void> {
+    try {
+      await databaseService.put(STORE_NAMES.ALERT_RECORDS, alert);
+    } catch {
+      // 持久化失败不影响主流程
+    }
+  }
+
+  async loadAlertHistory(petId: string): Promise<void> {
+    try {
+      const records = await databaseService.getByIndex<AlertRecord>(STORE_NAMES.ALERT_RECORDS, 'petId', petId);
+      this.alertHistory = records.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    } catch {
+      // 加载失败使用空历史
+    }
   }
 }
 

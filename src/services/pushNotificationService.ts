@@ -1,9 +1,30 @@
 import type { PushNotification, NotificationConfig, NotificationPriority } from '../types/push';
+import { capacitorBridge } from './capacitorBridge';
+import { databaseService } from './databaseService';
 
-const MOCK_DELAY = 500;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.pawsync.com/v1';
+
+async function fetchWithRetry(url: string, options: RequestInit, retries = 3): Promise<Response> {
+  let lastError: Error | null = null;
+  for (let i = 0; i < retries; i++) {
+    try {
+      const response = await fetch(url, options);
+      if (response.ok) return response;
+      if (response.status >= 400 && response.status < 500) {
+        throw new Error(`Client error ${response.status}: ${response.statusText}`);
+      }
+      lastError = new Error(`Server error ${response.status}: ${response.statusText}`);
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+    }
+    if (i < retries - 1) {
+      await new Promise((r) => setTimeout(r, 1000 * (i + 1)));
+    }
+  }
+  throw lastError || new Error('Request failed after retries');
+}
 
 class PushNotificationService {
-  private notifications: PushNotification[] = [];
   private config: NotificationConfig = {
     enabled: true,
     sound: true,
@@ -15,83 +36,142 @@ class PushNotificationService {
       security: { enabled: true, priority: 'critical' },
       reminder: { enabled: true, priority: 'normal' },
       promotion: { enabled: false, priority: 'low' },
-    }
+    },
   };
   private deviceToken: string | null = null;
-  private tokenUpdatedAt: string | null = null;
   private listeners: Array<(notification: PushNotification) => void> = [];
-
-  constructor() {
-    this.initializeMockData();
-  }
-
-  private initializeMockData() {
-    const mockNotifications: PushNotification[] = [
-      {
-        id: 'push-1',
-        title: '宠物行为异常提醒',
-        body: '检测到猫咪频繁舔舐腹部，请关注',
-        type: 'health',
-        priority: 'high',
-        timestamp: new Date(Date.now() - 1800000).toISOString(),
-        read: false,
-        data: {
-          petId: '1',
-          action: 'view-alert',
-          alertId: 'alert-123'
-        }
-      },
-      {
-        id: 'push-2',
-        title: '疫苗接种提醒',
-        body: '糖糖的狂犬疫苗还有30天到期',
-        type: 'reminder',
-        priority: 'normal',
-        timestamp: new Date(Date.now() - 86400000).toISOString(),
-        read: true,
-        data: {
-          petId: '1',
-          action: 'view-vaccination',
-          vaccineId: 'vaccine-456'
-        }
-      },
-      {
-        id: 'push-3',
-        title: '监控异常通知',
-        body: '检测到花园摄像头离线',
-        type: 'security',
-        priority: 'critical',
-        timestamp: new Date(Date.now() - 3600000).toISOString(),
-        read: false,
-        data: {
-          petId: '1',
-          action: 'view-camera',
-          cameraId: 'cam-3'
-        }
-      }
-    ];
-    this.notifications = mockNotifications;
-  }
+  private initialized = false;
 
   async initialize(): Promise<void> {
-    await this.simulateDelay(MOCK_DELAY);
-    console.log('Push notification service initialized');
+    if (this.initialized) return;
+
+    try {
+      // Load persisted config
+      const savedConfig = await databaseService.getConfig<NotificationConfig>('notification_config');
+      if (savedConfig) {
+        this.config = savedConfig;
+      }
+
+      // Load persisted token
+      const savedToken = await databaseService.getConfig<string>('push_device_token');
+      if (savedToken) {
+        this.deviceToken = savedToken;
+      }
+
+      // Request push notification permission
+      const permissionResult = await capacitorBridge.requestPushPermission();
+      if (permissionResult.grant !== 'granted') {
+        console.warn('Push notification permission not granted');
+        this.initialized = true;
+        return;
+      }
+
+      // Register for push notifications
+      capacitorBridge.registerPush();
+
+      // Listen for registration token
+      capacitorBridge.addPushEventListener('registration', (token) => {
+        this.deviceToken = token.value;
+        this.registerToken(token.value);
+      });
+
+      // Listen for registration errors
+      capacitorBridge.addPushEventListener('registrationError', (error) => {
+        console.error('Push notification registration error:', error.error);
+      });
+
+      // Listen for push notifications received while app is in foreground
+      capacitorBridge.addPushEventListener('pushNotificationReceived', (notification) => {
+        const pushNotif: PushNotification = {
+          id: notification.id || `push-${Date.now()}`,
+          title: notification.title || '',
+          body: notification.body || '',
+          type: 'reminder',
+          priority: 'normal',
+          timestamp: new Date().toISOString(),
+          read: false,
+          data: notification.data,
+        };
+        this.saveNotification(pushNotif);
+        this.notifyListeners(pushNotif);
+      });
+
+      // Listen for push notification action (tap)
+      capacitorBridge.addPushEventListener('pushNotificationActionPerformed', (action) => {
+        const notification = action.notification;
+        const pushNotif: PushNotification = {
+          id: notification.id || `push-${Date.now()}`,
+          title: notification.title || '',
+          body: notification.body || '',
+          type: 'reminder',
+          priority: 'normal',
+          timestamp: new Date().toISOString(),
+          read: false,
+          data: notification.data,
+        };
+        this.saveNotification(pushNotif);
+        this.notifyListeners(pushNotif);
+      });
+
+      this.initialized = true;
+    } catch (err) {
+      console.error('Failed to initialize push notification service:', err);
+      this.initialized = true;
+    }
+  }
+
+  private async saveNotification(notification: PushNotification): Promise<void> {
+    try {
+      await databaseService.put(databaseService.STORES.notifications, notification);
+    } catch (err) {
+      console.error('Failed to save notification to IndexedDB:', err);
+    }
   }
 
   async registerToken(token: string): Promise<{ success: boolean; message: string }> {
-    await this.simulateDelay(MOCK_DELAY);
-    this.deviceToken = token;
-    this.tokenUpdatedAt = new Date().toISOString();
-    return {
-      success: true,
-      message: 'Token registered successfully'
-    };
+    try {
+      const response = await fetchWithRetry(`${API_BASE_URL}/push/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, platform: 'android' }),
+      });
+
+      const result = await response.json();
+      this.deviceToken = token;
+      await databaseService.setConfig('push_device_token', token);
+
+      return {
+        success: true,
+        message: result.message || 'Token registered successfully',
+      };
+    } catch (err) {
+      console.error('Failed to register push token:', err);
+      return {
+        success: false,
+        message: err instanceof Error ? err.message : 'Token registration failed',
+      };
+    }
   }
 
   async unregisterToken(): Promise<void> {
-    await this.simulateDelay(200);
+    if (!this.deviceToken) return;
+
+    try {
+      await fetchWithRetry(`${API_BASE_URL}/push/unregister`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: this.deviceToken }),
+      });
+    } catch (err) {
+      console.error('Failed to unregister push token:', err);
+    }
+
     this.deviceToken = null;
-    this.tokenUpdatedAt = null;
+    try {
+      await databaseService.setConfig('push_device_token', null as any);
+    } catch (err) {
+      console.error('Failed to clear persisted token:', err);
+    }
   }
 
   async getToken(): Promise<string | null> {
@@ -99,30 +179,52 @@ class PushNotificationService {
   }
 
   async getNotifications(limit: number = 20): Promise<PushNotification[]> {
-    await this.simulateDelay(300);
-    return [...this.notifications].sort((a, b) => 
-      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-    ).slice(0, limit);
+    try {
+      const all = await databaseService.getAll<PushNotification>(databaseService.STORES.notifications);
+      return all
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+        .slice(0, limit);
+    } catch (err) {
+      console.error('Failed to load notifications from IndexedDB:', err);
+      return [];
+    }
   }
 
   async getUnreadCount(): Promise<number> {
-    await this.simulateDelay(100);
-    return this.notifications.filter(n => !n.read).length;
+    try {
+      const all = await databaseService.getAll<PushNotification>(databaseService.STORES.notifications);
+      return all.filter((n) => !n.read).length;
+    } catch (err) {
+      console.error('Failed to count unread notifications:', err);
+      return 0;
+    }
   }
 
   async markAsRead(notificationId: string): Promise<boolean> {
-    await this.simulateDelay(100);
-    const notification = this.notifications.find(n => n.id === notificationId);
-    if (notification) {
+    try {
+      const notification = await databaseService.get<PushNotification>(
+        databaseService.STORES.notifications,
+        notificationId,
+      );
+      if (!notification) return false;
+
       notification.read = true;
+      await databaseService.put(databaseService.STORES.notifications, notification);
       return true;
+    } catch (err) {
+      console.error('Failed to mark notification as read:', err);
+      return false;
     }
-    return false;
   }
 
   async markAllAsRead(): Promise<void> {
-    await this.simulateDelay(100);
-    this.notifications.forEach(n => n.read = true);
+    try {
+      const all = await databaseService.getAll<PushNotification>(databaseService.STORES.notifications);
+      const updated = all.map((n) => ({ ...n, read: true }));
+      await databaseService.putMany(databaseService.STORES.notifications, updated);
+    } catch (err) {
+      console.error('Failed to mark all notifications as read:', err);
+    }
   }
 
   async sendNotification(
@@ -132,56 +234,79 @@ class PushNotificationService {
       type?: 'health' | 'security' | 'reminder' | 'promotion';
       priority?: NotificationPriority;
       data?: Record<string, string>;
-    } = {}
+    } = {},
   ): Promise<PushNotification> {
-    await this.simulateDelay(MOCK_DELAY);
-
     const notification: PushNotification = {
-      id: `push-${Date.now()}`,
+      id: `push-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       title,
       body,
       type: options.type || 'reminder',
       priority: options.priority || this.config.categories[options.type || 'reminder']?.priority || 'normal',
       timestamp: new Date().toISOString(),
       read: false,
-      data: options.data
+      data: options.data,
     };
 
-    this.notifications.unshift(notification);
-    if (this.notifications.length > 100) {
-      this.notifications.pop();
+    // Schedule local notification via Capacitor plugin
+    try {
+      await capacitorBridge.scheduleNotification({
+        notifications: [
+          {
+            title,
+            body,
+            id: Date.now(),
+            schedule: { at: new Date(Date.now() + 100) },
+            sound: this.config.sound ? undefined : undefined,
+            attachments: undefined,
+            extra: options.data,
+          },
+        ],
+      });
+    } catch (err) {
+      console.error('Failed to schedule local notification:', err);
     }
 
+    // Persist to IndexedDB
+    await this.saveNotification(notification);
+
+    // Notify in-app listeners
     this.notifyListeners(notification);
 
     return notification;
   }
 
   async getConfig(): Promise<NotificationConfig> {
-    await this.simulateDelay(100);
     return { ...this.config };
   }
 
   async updateConfig(updates: Partial<NotificationConfig>): Promise<NotificationConfig> {
-    await this.simulateDelay(200);
     this.config = { ...this.config, ...updates };
-    
+
     if (updates.categories) {
       this.config.categories = { ...this.config.categories, ...updates.categories };
+    }
+
+    try {
+      await databaseService.setConfig('notification_config', this.config);
+    } catch (err) {
+      console.error('Failed to persist notification config:', err);
     }
 
     return { ...this.config };
   }
 
   async getCategoryStatus(category: keyof NotificationConfig['categories']): Promise<boolean> {
-    await this.simulateDelay(50);
     return this.config.categories[category]?.enabled ?? true;
   }
 
   async setCategoryStatus(category: keyof NotificationConfig['categories'], enabled: boolean): Promise<void> {
-    await this.simulateDelay(100);
     if (this.config.categories[category]) {
       this.config.categories[category].enabled = enabled;
+      try {
+        await databaseService.setConfig('notification_config', this.config);
+      } catch (err) {
+        console.error('Failed to persist category status:', err);
+      }
     }
   }
 
@@ -196,11 +321,7 @@ class PushNotificationService {
   }
 
   private notifyListeners(notification: PushNotification) {
-    this.listeners.forEach(listener => listener(notification));
-  }
-
-  private simulateDelay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    this.listeners.forEach((listener) => listener(notification));
   }
 }
 

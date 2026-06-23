@@ -1,391 +1,364 @@
-// ============================================
-// PawSync Pro 3.0 - Pet Food Analysis Service
-//
-// 作者: 带娃的小陈工
-// 日期: 2026-05-27
-// 描述: 宠粮成分分析服务（OCR+成分数据库+规则引擎）
-// ============================================
+import type { FoodAnalysisResult, NutrientInfo, FoodSafetyRating } from '../types/pet-food';
+import { databaseService, STORE_NAMES } from './databaseService';
 
-import type { FoodAnalysisResult, Ingredient, RiskLevel, NutrientInfo, AnalysisWarning, ProductInfo } from '../types/pet-food';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.pawsync.com/v1';
 
-const MOCK_DELAY = 500;
+// 条形码扫描结果
+interface BarcodeScanResult {
+  barcode: string;
+  format: string;
+  bounds?: { x: number; y: number; width: number; height: number };
+}
 
-// 风险成分列表
-const RISK_INGREDIENTS = {
-  preservatives: ['BHA', 'BHT', 'TBHQ', '乙氧基喹啉', '没食子酸丙酯'],
-  artificialColors: ['诱惑红', '柠檬黄', '日落黄', '亮蓝', '赤藓红', '人工色素'],
-  carrageenan: ['卡拉胶'],
-  sweeteners: ['蔗糖', '果糖', '玉米糖浆', '葡萄糖浆', '甜蜜素', '阿斯巴甜'],
-  fillers: ['玉米', '小麦', '大豆', '大米糠', '麦麸'],
-  byProducts: ['肉粉', '肉骨粉', '家禽副产品', '动物副产品']
+// 营养素参考值
+const NUTRIENT_REFERENCES: Record<string, { name: string; unit: string; dailyValueDog: number; dailyValueCat: number }> = {
+  protein: { name: '蛋白质', unit: 'g', dailyValueDog: 25, dailyValueCat: 30 },
+  fat: { name: '脂肪', unit: 'g', dailyValueDog: 14, dailyValueCat: 9 },
+  fiber: { name: '纤维', unit: 'g', dailyValueDog: 4, dailyValueCat: 2 },
+  moisture: { name: '水分', unit: 'g', dailyValueDog: 0, dailyValueCat: 0 },
+  ash: { name: '灰分', unit: 'g', dailyValueDog: 0, dailyValueCat: 0 },
+  calcium: { name: '钙', unit: 'mg', dailyValueDog: 500, dailyValueCat: 400 },
+  phosphorus: { name: '磷', unit: 'mg', dailyValueDog: 400, dailyValueCat: 350 },
+  vitamin_a: { name: '维生素A', unit: 'IU', dailyValueDog: 5000, dailyValueCat: 7500 },
+  vitamin_d: { name: '维生素D', unit: 'IU', dailyValueDog: 500, dailyValueCat: 500 },
+  vitamin_e: { name: '维生素E', unit: 'IU', dailyValueDog: 30, dailyValueCat: 30 },
+  taurine: { name: '牛磺酸', unit: 'mg', dailyValueDog: 0, dailyValueCat: 250 },
+  omega3: { name: 'Omega-3', unit: 'mg', dailyValueDog: 150, dailyValueCat: 100 },
+  omega6: { name: 'Omega-6', unit: 'mg', dailyValueDog: 2000, dailyValueCat: 1500 },
 };
 
-// 优质蛋白质来源
-const HIGH_QUALITY_PROTEINS = [
-  '鸡肉', '鸡胸肉', '鸡里脊', '火鸡肉', '鸭肉', '牛肉', '牛腱肉',
-  '三文鱼', '鳕鱼', '金枪鱼', '羊肉', '鹿肉', '兔肉', '猪肉',
-  '鲜鸡肉', '新鲜鸡肉', '去骨鸡肉', '整鸡'
-];
-
-// 国产宠粮数据库（模拟）
-const petFoodDatabase: Record<string, ProductInfo> = {
-  '渴望六种鱼': {
-    brand: 'Orijen',
-    name: '渴望六种鱼',
-    species: 'cat',
-    ingredients: ['新鲜三文鱼', '新鲜鳕鱼', '新鲜比目鱼', '新鲜鲭鱼', '新鲜沙丁鱼', '新鲜鳟鱼', '鱼粉', '木薯', '豌豆', '鹰嘴豆'],
-    nutrientInfo: { protein: 40, fat: 20, fiber: 4, moisture: 12 },
-    rating: 4.8,
-    isAAFCOCompliant: true,
-    description: '加拿大进口，六种深海鱼配方'
-  },
-  '皇家室内成猫粮': {
-    brand: 'Royal Canin',
-    name: '皇家室内成猫粮',
-    species: 'cat',
-    ingredients: ['鸡肉粉', '糙米', '玉米', '小麦', '鸡肉脂肪', '甜菜粕', '天然香料'],
-    nutrientInfo: { protein: 30, fat: 15, fiber: 7, moisture: 10 },
-    rating: 3.8,
-    isAAFCOCompliant: true,
-    description: '专为室内猫设计，控制毛球'
-  },
-  '渴望鸡肉': {
-    brand: 'Orijen',
-    name: '渴望鸡肉',
-    species: 'dog',
-    ingredients: ['新鲜鸡肉', '新鲜火鸡肉', '新鲜鸡肝', '新鲜鸡心', '三文鱼', '鸡骨', '南瓜', '胡萝卜', '菠菜'],
-    nutrientInfo: { protein: 38, fat: 18, fiber: 3, moisture: 12 },
-    rating: 4.9,
-    isAAFCOCompliant: true,
-    description: '加拿大进口，高肉含量配方'
-  },
-  '爱肯拿鸭肉梨': {
-    brand: 'Acana',
-    name: '爱肯拿鸭肉梨',
-    species: 'dog',
-    ingredients: ['新鲜鸭肉', '新鲜梨', '新鲜南瓜', '豌豆', '扁豆', '鸭肉粉', '三文鱼油', '鸡脂肪'],
-    nutrientInfo: { protein: 30, fat: 15, fiber: 5, moisture: 12 },
-    rating: 4.7,
-    isAAFCOCompliant: true,
-    description: '低敏配方，适合敏感肠胃'
-  },
-  '麦富迪鲜肉倍护': {
-    brand: 'Myfoodie',
-    name: '麦富迪鲜肉倍护',
-    species: 'cat',
-    ingredients: ['鲜鸡肉', '鸡肉粉', '三文鱼', '糙米', '玉米', '鸡肉油', '蛋黄粉'],
-    nutrientInfo: { protein: 32, fat: 18, fiber: 3, moisture: 10 },
-    rating: 4.0,
-    isAAFCOCompliant: true,
-    description: '国产优质猫粮，鲜肉配方'
-  },
-  '伯纳天纯无谷': {
-    brand: 'Pure&Natural',
-    name: '伯纳天纯无谷',
-    species: 'dog',
-    ingredients: ['鸡肉', '鱼肉', '马铃薯', '红薯', '豌豆', '鸡油', '三文鱼油'],
-    nutrientInfo: { protein: 30, fat: 16, fiber: 4, moisture: 10 },
-    rating: 4.2,
-    isAAFCOCompliant: true,
-    description: '无谷物配方，适合敏感体质'
-  }
+// 有毒食物数据库
+const TOXIC_FOODS: Record<string, { name: string; toxicity: 'low' | 'moderate' | 'high' | 'severe'; symptoms: string[]; treatment: string }> = {
+  chocolate: { name: '巧克力', toxicity: 'severe', symptoms: ['呕吐', '腹泻', '心跳加速', '震颤', '癫痫', '死亡'], treatment: '立即就医，诱导呕吐' },
+  onion: { name: '洋葱', toxicity: 'high', symptoms: ['溶血性贫血', '虚弱', '呼吸急促', '红尿'], treatment: '立即就医，输血可能必要' },
+  garlic: { name: '大蒜', toxicity: 'high', symptoms: ['溶血性贫血', '虚弱', '呼吸急促'], treatment: '立即就医' },
+  grape: { name: '葡萄/葡萄干', toxicity: 'severe', symptoms: ['肾衰竭', '呕吐', '腹泻', '食欲不振'], treatment: '立即就医，监测肾功能' },
+  xylitol: { name: '木糖醇', toxicity: 'severe', symptoms: ['低血糖', '肝衰竭', '呕吐', '癫痫'], treatment: '紧急就医，监测血糖和肝功能' },
+  avocado: { name: '牛油果', toxicity: 'moderate', symptoms: ['呕吐', '腹泻', '心肌损伤'], treatment: '就医观察' },
+  macadamia: { name: '夏威夷果', toxicity: 'moderate', symptoms: ['虚弱', '呕吐', '发烧', '震颤'], treatment: '就医，通常预后良好' },
+  alcohol: { name: '酒精', toxicity: 'severe', symptoms: ['昏迷', '呼吸抑制', '酸中毒', '死亡'], treatment: '紧急就医' },
+  caffeine: { name: '咖啡因', toxicity: 'high', symptoms: ['心跳加速', '震颤', '癫痫', '死亡'], treatment: '立即就医' },
+  raw_dough: { name: '生面团', toxicity: 'moderate', symptoms: ['腹胀', '酒精中毒', '呼吸困难'], treatment: '就医观察' },
+  bones: { name: '煮熟的骨头', toxicity: 'moderate', symptoms: ['消化道穿孔', '梗阻', '出血'], treatment: '立即就医，可能需要手术' },
 };
 
-class PetFoodAnalysisService {
-  private ingredientCache: Record<string, FoodAnalysisResult> = {};
+export class PetFoodAnalysisService {
+  // ─── 条形码扫描（Capacitor Camera 条码检测） ──────────────
 
-  constructor() {}
+  async scanBarcode(imageData: string): Promise<BarcodeScanResult | null> {
+    try {
+      // 使用 Capacitor Camera 的条码检测
+      const { BarcodeScanner } = await import('@capacitor-mlkit/barcode-scanning');
 
-  // 模拟OCR识别配料表
-  async extractIngredientsFromImage(_imageBase64: string): Promise<string> {
-    await this.simulateDelay(MOCK_DELAY);
+      const result = await BarcodeScanner.readBarcodesFromImage({
+        image: imageData,
+      });
 
-    const mockIngredients = [
-      '鸡肉粉 30%',
-      '三文鱼粉 20%',
-      '玉米',
-      '小麦',
-      '鸡油',
-      '天然香料',
-      '维生素A',
-      '维生素D3',
-      '牛磺酸',
-      'BHT防腐剂'
-    ];
-
-    return mockIngredients.join('、');
-  }
-
-  // NER提取成分关键词
-  extractIngredientKeywords(text: string): Ingredient[] {
-    const keywords: Ingredient[] = [];
-    const textLower = text.toLowerCase();
-
-    // 提取蛋白质来源
-    HIGH_QUALITY_PROTEINS.forEach(protein => {
-      if (textLower.includes(protein.toLowerCase())) {
-        keywords.push({ name: protein, category: 'protein', isHighQuality: true });
+      if (result.barcodes && result.barcodes.length > 0) {
+        const barcode = result.barcodes[0];
+        return {
+          barcode: barcode.displayValue || barcode.rawValue || '',
+          format: barcode.format || 'unknown',
+          bounds: barcode.cornerPoints ? {
+            x: Math.min(...barcode.cornerPoints.map(p => p.x)),
+            y: Math.min(...barcode.cornerPoints.map(p => p.y)),
+            width: Math.max(...barcode.cornerPoints.map(p => p.x)) - Math.min(...barcode.cornerPoints.map(p => p.x)),
+            height: Math.max(...barcode.cornerPoints.map(p => p.y)) - Math.min(...barcode.cornerPoints.map(p => p.y)),
+          } : undefined,
+        };
       }
-    });
-
-    // 检测风险成分
-    Object.entries(RISK_INGREDIENTS).forEach(([category, ingredients]) => {
-      ingredients.forEach(ingredient => {
-        if (textLower.includes(ingredient.toLowerCase())) {
-          keywords.push({
-            name: ingredient,
-            category: category as 'preservatives' | 'artificialColors' | 'carrageenan' | 'sweeteners' | 'fillers' | 'byProducts',
-            isHighQuality: false,
-            isRisk: true
-          });
-        }
-      });
-    });
-
-    // 提取数字和百分比
-    const percentageRegex = /(\d+\.?\d*)%/g;
-    let match;
-    while ((match = percentageRegex.exec(text)) !== null) {
-      keywords.push({
-        name: match[0],
-        category: 'percentage',
-        isHighQuality: false,
-        value: parseFloat(match[1])
-      });
+    } catch {
+      // Capacitor ML Kit 不可用，尝试使用 Canvas 分析
+      return this.localBarcodeDetection(imageData);
     }
-
-    return keywords;
+    return null;
   }
 
-  // 分析配料表
-  async analyzeIngredients(
-    ingredientsText: string,
-    petProfile?: { species: 'cat' | 'dog'; allergies?: string[] }
+  private async localBarcodeDetection(_imageData: string): Promise<BarcodeScanResult | null> {
+    // 简单的本地条码检测 - 实际项目中需要更复杂的图像处理
+    // 这里返回 null 表示无法本地检测，需要用户手动输入
+    return null;
+  }
+
+  // ─── 食品分析 API ─────────────────────────────────────────
+
+  async analyzeFood(
+    imageData: string,
+    petId: string,
+    petType: 'dog' | 'cat',
+    barcode?: string,
   ): Promise<FoodAnalysisResult> {
-    await this.simulateDelay(MOCK_DELAY);
-
-    const keywords = this.extractIngredientKeywords(ingredientsText);
-    const warnings: AnalysisWarning[] = [];
-    const positivePoints: string[] = [];
-
-    // 分析动物蛋白排名
-    const proteinIngredients = keywords.filter(k => k.category === 'protein');
-    const hasHighQualityProtein = proteinIngredients.some(p => p.isHighQuality);
-    
-    if (hasHighQualityProtein && ingredientsText.split('、')[0].includes('鸡肉')) {
-      positivePoints.push('主要成分是优质动物蛋白');
-    } else if (!hasHighQualityProtein) {
-      warnings.push({
-        level: 'warning' as RiskLevel,
-        title: '蛋白质来源',
-        description: '未检测到优质动物蛋白作为主要成分',
-        recommendation: '建议选择以鲜肉为主要成分的猫粮'
-      });
-    }
-
-    // 检测风险成分
-    const riskIngredients = keywords.filter(k => k.isRisk);
-    riskIngredients.forEach(ingredient => {
-      warnings.push({
-        level: this.getRiskLevel(ingredient.category),
-        title: this.getRiskTitle(ingredient.category),
-        description: `检测到${ingredient.name}，这是一种${this.getRiskDescription(ingredient.category)}`,
-        recommendation: this.getRiskRecommendation(ingredient.category)
-      });
+    const response = await fetch(`${API_BASE_URL}/food/analyze`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        image: imageData,
+        petId,
+        petType,
+        barcode,
+      }),
     });
 
-    // 谷物含量评估
-    const fillerIngredients = keywords.filter(k => k.category === 'fillers');
-    if (fillerIngredients.length >= 2) {
-      warnings.push({
-        level: 'warning',
-        title: '谷物含量偏高',
-        description: `检测到${fillerIngredients.map(f => f.name).join('、')}等谷物成分`,
-        recommendation: '如果宠物有过敏倾向，建议选择无谷配方'
-      });
+    if (!response.ok) {
+      throw new Error(`Food analysis API error: ${response.status} ${response.statusText}`);
     }
 
-    // 与宠物档案交叉比对
-    if (petProfile?.allergies) {
-      petProfile.allergies.forEach(allergy => {
-        if (ingredientsText.toLowerCase().includes(allergy.toLowerCase())) {
-          warnings.push({
-            level: 'danger',
-            title: '过敏原警告',
-            description: `检测到宠物过敏成分：${allergy}`,
-            recommendation: '请避免使用含有此成分的宠粮'
-          });
+    const result = await response.json() as FoodAnalysisResult;
+
+    // 持久化到 databaseService
+    await databaseService.put(STORE_NAMES.PET_FOOD_ANALYSES, {
+      ...result,
+      petId,
+      source: 'food_analysis',
+    });
+
+    return result;
+  }
+
+  // ─── 营养数据库查询 ───────────────────────────────────────
+
+  async queryFoodDatabase(
+    query: string,
+    petType?: 'dog' | 'cat',
+  ): Promise<Array<{ name: string; brand?: string; barcode?: string; nutrients: NutrientInfo }>> {
+    const params = new URLSearchParams({ q: query });
+    if (petType) params.set('petType', petType);
+
+    const response = await fetch(`${API_BASE_URL}/food/database?${params}`);
+
+    if (!response.ok) {
+      throw new Error(`Food database API error: ${response.status} ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  // ─── 有毒食物检测 ─────────────────────────────────────────
+
+  checkToxicIngredients(ingredients: string[]): {
+    toxicItems: Array<{ name: string; toxicity: string; symptoms: string[]; treatment: string }>;
+    isSafe: boolean;
+    highestToxicity: 'none' | 'low' | 'moderate' | 'high' | 'severe';
+  } {
+    const toxicItems: Array<{ name: string; toxicity: string; symptoms: string[]; treatment: string }> = [];
+    let highestToxicity: 'none' | 'low' | 'moderate' | 'high' | 'severe' = 'none';
+    const toxicityOrder: Array<'low' | 'moderate' | 'high' | 'severe'> = ['low', 'moderate', 'high', 'severe'];
+
+    const ingredientsLower = ingredients.map(i => i.toLowerCase());
+
+    for (const [key, toxicFood] of Object.entries(TOXIC_FOODS)) {
+      const keywords = [key, toxicFood.name, ...toxicFood.name.split('/')];
+      const found = keywords.some(kw => ingredientsLower.some(i => i.includes(kw.toLowerCase())));
+
+      if (found) {
+        toxicItems.push(toxicFood);
+        const currentIdx = toxicityOrder.indexOf(toxicFood.toxicity);
+        const highestIdx = toxicityOrder.indexOf(highestToxicity);
+        if (currentIdx > highestIdx) {
+          highestToxicity = toxicFood.toxicity;
         }
-      });
+      }
     }
-
-    // 计算综合评分
-    const score = this.calculateScore(warnings, positivePoints);
-
-    // 查找相似产品
-    const similarProducts = this.findSimilarProducts(keywords, petProfile?.species);
 
     return {
-      id: `analysis-${Date.now()}`,
-      ingredientsText,
-      extractedIngredients: keywords,
-      warnings,
-      positivePoints,
-      overallScore: score,
-      nutrientInfo: this.generateNutrientInfo(score),
-      similarProducts,
-      createdAt: new Date().toISOString(),
-      species: petProfile?.species || 'cat'
+      toxicItems,
+      isSafe: toxicItems.length === 0,
+      highestToxicity: highestToxicity === 'none' ? 'none' : highestToxicity,
     };
   }
 
-  // 搜索宠粮产品
-  async searchProducts(query: string, species?: 'cat' | 'dog'): Promise<ProductInfo[]> {
-    await this.simulateDelay(300);
+  // ─── 营养评估 ─────────────────────────────────────────────
 
-    let results = Object.values(petFoodDatabase);
-    
-    if (species) {
-      results = results.filter(p => p.species === species);
+  evaluateNutrition(
+    nutrients: NutrientInfo,
+    petType: 'dog' | 'cat',
+    petAge?: number,
+    petWeight?: number,
+  ): {
+    score: number;
+    assessment: string;
+    deficiencies: string[];
+    excesses: string[];
+    recommendations: string[];
+  } {
+    const deficiencies: string[] = [];
+    const excesses: string[] = [];
+    const recommendations: string[] = [];
+    let score = 100;
+
+    for (const [key, ref] of Object.entries(NUTRIENT_REFERENCES)) {
+      const value = nutrients[key as keyof NutrientInfo];
+      if (value === undefined || value === null) continue;
+
+      const dailyValue = petType === 'cat' ? ref.dailyValueCat : ref.dailyValueDog;
+      if (dailyValue === 0) continue;
+
+      const ratio = (value as number) / dailyValue;
+
+      if (ratio < 0.7) {
+        deficiencies.push(`${ref.name}含量不足（${value}${ref.unit}，建议${dailyValue}${ref.unit}）`);
+        score -= 10;
+        recommendations.push(`增加${ref.name}摄入，建议每日${dailyValue}${ref.unit}以上`);
+      } else if (ratio > 2.0) {
+        excesses.push(`${ref.name}含量过高（${value}${ref.unit}，建议不超过${dailyValue * 2}${ref.unit}）`);
+        score -= 8;
+        recommendations.push(`减少${ref.name}摄入，避免过量`);
+      }
     }
-    
-    if (query) {
-      const queryLower = query.toLowerCase();
-      results = results.filter(p => 
-        p.name.toLowerCase().includes(queryLower) || 
-        p.brand.toLowerCase().includes(queryLower)
+
+    // 特殊检查
+    if (petType === 'cat') {
+      const taurine = nutrients.taurine;
+      if (taurine !== undefined && taurine < 200) {
+        deficiencies.push('牛磺酸含量不足（猫必需，建议250mg以上）');
+        score -= 15;
+        recommendations.push('猫咪必须摄入充足的牛磺酸，建议选择含牛磺酸的猫粮');
+      }
+    }
+
+    if (petWeight && petAge) {
+      const isSenior = petAge > (petType === 'cat' ? 10 : 7);
+      if (isSenior && nutrients.protein && nutrients.protein < 20) {
+        recommendations.push('老年宠物建议适当增加优质蛋白质摄入');
+      }
+      const isPuppy = petAge < 1;
+      if (isPuppy && nutrients.protein && nutrients.protein < 25) {
+        deficiencies.push('幼宠需要更高蛋白质含量');
+        score -= 10;
+        recommendations.push('幼宠建议蛋白质含量25%以上');
+      }
+    }
+
+    let assessment = '';
+    if (score >= 90) assessment = '营养均衡，品质优良';
+    else if (score >= 75) assessment = '营养基本均衡，部分指标需关注';
+    else if (score >= 60) assessment = '营养不够均衡，建议调整饮食';
+    else assessment = '营养严重不均衡，建议更换食品';
+
+    return {
+      score: Math.max(0, Math.min(100, score)),
+      assessment,
+      deficiencies,
+      excesses,
+      recommendations,
+    };
+  }
+
+  // ─── 安全评级 ──────────────────────────────────────────────
+
+  rateFoodSafety(
+    ingredients: string[],
+    nutrients: NutrientInfo,
+    petType: 'dog' | 'cat',
+  ): FoodSafetyRating {
+    const toxicCheck = this.checkToxicIngredients(ingredients);
+
+    let safetyScore = 100;
+
+    // 有毒成分扣分
+    if (toxicCheck.highestToxicity === 'severe') safetyScore -= 80;
+    else if (toxicCheck.highestToxicity === 'high') safetyScore -= 50;
+    else if (toxicCheck.highestToxicity === 'moderate') safetyScore -= 30;
+    else if (toxicCheck.highestToxicity === 'low') safetyScore -= 10;
+
+    // 添加剂扣分
+    const artificialPreservatives = ['BHA', 'BHT', '乙氧基喹啉', '亚硝酸钠'];
+    const artificialColors = ['红色40号', '黄色5号', '黄色6号', '蓝色2号'];
+    const ingredientsStr = ingredients.join(' ');
+
+    for (const preservative of artificialPreservatives) {
+      if (ingredientsStr.includes(preservative)) safetyScore -= 5;
+    }
+    for (const color of artificialColors) {
+      if (ingredientsStr.includes(color)) safetyScore -= 3;
+    }
+
+    safetyScore = Math.max(0, Math.min(100, safetyScore));
+
+    let rating: 'excellent' | 'good' | 'fair' | 'poor' | 'dangerous';
+    if (safetyScore >= 90) rating = 'excellent';
+    else if (safetyScore >= 75) rating = 'good';
+    else if (safetyScore >= 60) rating = 'fair';
+    else if (safetyScore >= 40) rating = 'poor';
+    else rating = 'dangerous';
+
+    return {
+      rating,
+      score: safetyScore,
+      toxicIngredients: toxicCheck.toxicItems.map(t => t.name),
+      warnings: toxicCheck.toxicItems.map(t => `${t.name}：${t.symptoms.join('、')}`),
+    };
+  }
+
+  // ─── 条码扫描 + 分析组合 ──────────────────────────────────
+
+  async scanAndAnalyze(
+    imageData: string,
+    petId: string,
+    petType: 'dog' | 'cat',
+  ): Promise<FoodAnalysisResult> {
+    // 先尝试扫描条形码
+    const barcode = await this.scanBarcode(imageData);
+
+    // 如果有条形码，先查询数据库
+    if (barcode?.barcode) {
+      try {
+        const dbResults = await this.queryFoodDatabase(barcode.barcode, petType);
+        if (dbResults.length > 0) {
+          // 数据库有记录，用数据库数据 + 图片分析
+          const result = await this.analyzeFood(imageData, petId, petType, barcode.barcode);
+          return result;
+        }
+      } catch {
+        // 数据库查询失败，继续走图片分析
+      }
+    }
+
+    // 直接走图片分析
+    return this.analyzeFood(imageData, petId, petType, barcode?.barcode);
+  }
+
+  // ─── 历史记录 ──────────────────────────────────────────────
+
+  async getAnalysisHistory(petId: string, limit: number = 20): Promise<FoodAnalysisResult[]> {
+    try {
+      const records = await databaseService.getByIndex<FoodAnalysisResult & { petId: string; source: string }>(
+        STORE_NAMES.PET_FOOD_ANALYSES,
+        'petId',
+        petId,
       );
-    }
-
-    return results;
-  }
-
-  // 获取产品详情
-  async getProductDetails(productName: string): Promise<ProductInfo | null> {
-    await this.simulateDelay(200);
-    return petFoodDatabase[productName] || null;
-  }
-
-  // 获取所有产品
-  async getAllProducts(species?: 'cat' | 'dog'): Promise<ProductInfo[]> {
-    await this.simulateDelay(200);
-    
-    let results = Object.values(petFoodDatabase);
-    if (species) {
-      results = results.filter(p => p.species === species);
-    }
-    
-    return results;
-  }
-
-  // 分析产品
-  async analyzeProduct(productName: string, petProfile?: { species: 'cat' | 'dog'; allergies?: string[] }): Promise<FoodAnalysisResult | null> {
-    await this.simulateDelay(MOCK_DELAY);
-
-    const product = petFoodDatabase[productName];
-    if (!product) return null;
-
-    const ingredientsText = product.ingredients.join('、');
-    return this.analyzeIngredients(ingredientsText, petProfile);
-  }
-
-  private getRiskLevel(category: string): RiskLevel {
-    const riskMap: Record<string, RiskLevel> = {
-      preservatives: 'danger',
-      artificialColors: 'danger',
-      carrageenan: 'warning',
-      sweeteners: 'warning',
-      fillers: 'info',
-      byProducts: 'info'
-    };
-    return riskMap[category] || 'info';
-  }
-
-  private getRiskTitle(category: string): string {
-    const titleMap: Record<string, string> = {
-      preservatives: '人工防腐剂',
-      artificialColors: '人工色素',
-      carrageenan: '卡拉胶',
-      sweeteners: '添加糖',
-      fillers: '填充物',
-      byProducts: '副产品'
-    };
-    return titleMap[category] || category;
-  }
-
-  private getRiskDescription(category: string): string {
-    const descMap: Record<string, string> = {
-      preservatives: '人工防腐剂，长期摄入可能对健康造成影响',
-      artificialColors: '人工色素，可能引起过敏反应',
-      carrageenan: '增稠剂，部分研究认为可能引发肠道炎症',
-      sweeteners: '添加糖，可能导致肥胖和糖尿病',
-      fillers: '廉价填充物，营养价值较低',
-      byProducts: '动物副产品，质量参差不齐'
-    };
-    return descMap[category] || '需要关注的成分';
-  }
-
-  private getRiskRecommendation(category: string): string {
-    const recMap: Record<string, string> = {
-      preservatives: '建议选择使用天然防腐剂如维生素E的产品',
-      artificialColors: '建议选择无人工色素的产品',
-      carrageenan: '如果宠物有肠胃敏感，建议避免',
-      sweeteners: '建议选择低糖或无糖配方',
-      fillers: '建议选择以肉类为主要成分的产品',
-      byProducts: '建议选择明确标注肉类来源的产品'
-    };
-    return recMap[category] || '建议关注成分表';
-  }
-
-  private calculateScore(warnings: AnalysisWarning[], positivePoints: string[]): number {
-    let score = 70;
-
-    // 根据警告扣分
-    warnings.forEach(warning => {
-      if (warning.level === 'danger') score -= 15;
-      else if (warning.level === 'warning') score -= 8;
-      else score -= 3;
-    });
-
-    // 根据优点加分
-    score += positivePoints.length * 5;
-
-    // 限制分数范围
-    return Math.max(0, Math.min(100, score));
-  }
-
-  private generateNutrientInfo(score: number): NutrientInfo {
-    if (score >= 85) {
-      return { protein: 38 + Math.random() * 5, fat: 18 + Math.random() * 4, fiber: 3 + Math.random() * 2, moisture: 10 + Math.random() * 3 };
-    } else if (score >= 70) {
-      return { protein: 32 + Math.random() * 5, fat: 15 + Math.random() * 3, fiber: 4 + Math.random() * 2, moisture: 10 + Math.random() * 2 };
-    } else {
-      return { protein: 28 + Math.random() * 4, fat: 12 + Math.random() * 3, fiber: 5 + Math.random() * 2, moisture: 11 + Math.random() * 2 };
+      return records
+        .filter(r => r.source === 'food_analysis')
+        .sort((a, b) => new Date(b.analyzedAt || '').getTime() - new Date(a.analyzedAt || '').getTime())
+        .slice(0, limit);
+    } catch {
+      return [];
     }
   }
 
-  private findSimilarProducts(keywords: Ingredient[], species?: 'cat' | 'dog'): ProductInfo[] {
-    let results = Object.values(petFoodDatabase);
-    
-    if (species) {
-      results = results.filter(p => p.species === species);
-    }
+  // ─── 获取有毒食物列表 ─────────────────────────────────────
 
-    // 根据蛋白质成分匹配
-    const proteinKeywords = keywords.filter(k => k.category === 'protein');
-    if (proteinKeywords.length > 0) {
-      results = results.filter(p => {
-        return proteinKeywords.some(pk => 
-          p.ingredients.some(ing => ing.includes(pk.name))
-        );
-      });
-    }
-
-    return results.slice(0, 3);
+  getToxicFoodList(): Array<{ key: string; name: string; toxicity: string; symptoms: string[] }> {
+    return Object.entries(TOXIC_FOODS).map(([key, food]) => ({
+      key,
+      name: food.name,
+      toxicity: food.toxicity,
+      symptoms: food.symptoms,
+    }));
   }
 
-  private simulateDelay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+  // ─── 获取营养素参考值 ─────────────────────────────────────
+
+  getNutrientReferences(petType: 'dog' | 'cat'): Record<string, { name: string; unit: string; dailyValue: number }> {
+    const result: Record<string, { name: string; unit: string; dailyValue: number }> = {};
+    for (const [key, ref] of Object.entries(NUTRIENT_REFERENCES)) {
+      result[key] = {
+        name: ref.name,
+        unit: ref.unit,
+        dailyValue: petType === 'cat' ? ref.dailyValueCat : ref.dailyValueDog,
+      };
+    }
+    return result;
   }
 }
 

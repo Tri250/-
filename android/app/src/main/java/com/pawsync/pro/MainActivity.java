@@ -1,14 +1,26 @@
 package com.pawsync.pro;
 
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.content.res.Configuration;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.MediaStore;
 import android.view.View;
-import android.webkit.WebView;
+import android.view.ViewGroup;
+import android.webkit.RenderProcessGoneDetail;
 import android.webkit.WebSettings;
+import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.graphics.Color;
 import android.widget.Toast;
+
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.NonNull;
 import androidx.core.splashscreen.SplashScreen;
 
 import com.getcapacitor.BridgeActivity;
@@ -27,23 +39,175 @@ public class MainActivity extends BridgeActivity {
     private Handler mainHandler;
     private boolean isRecovering = false;
 
+    // Activity Result Launchers
+    private ActivityResultLauncher<Intent> photoPickerLauncher;
+    private ActivityResultLauncher<Uri> cameraLauncher;
+
+    // Deep link callback
+    private String pendingDeepLink;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         mainHandler = new Handler(Looper.getMainLooper());
 
         SplashScreen splashScreen = SplashScreen.installSplashScreen(this);
-
         splashScreen.setOnExitAnimationListener(splashScreenView -> {
             splashScreenView.remove();
         });
-
         splashScreen.setKeepOnScreenCondition(() -> false);
+
+        // 注册 Activity Result Launchers（必须在 super.onCreate 之前）
+        registerActivityResultLaunchers();
 
         super.onCreate(savedInstanceState);
 
         optimizeWindowRendering();
         setupRenderProcessGoneHandler();
+
+        // 处理启动 Intent（深度链接）
+        handleIntent(getIntent());
     }
+
+    private void registerActivityResultLaunchers() {
+        // Photo Picker launcher
+        photoPickerLauncher = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(),
+            result -> {
+                if (result.getResultCode() == RESULT_OK && result.getData() != null) {
+                    // 结果由 Capacitor Bridge 通过 onActivityResult 处理
+                }
+                // 通知 Bridge
+                onActivityResult(getPhotoPickerRequestCode(), result.getResultCode(), result.getData());
+            }
+        );
+
+        // Camera launcher
+        cameraLauncher = registerForActivityResult(
+            new ActivityResultContracts.TakePicture(),
+            success -> {
+                int resultCode = success ? RESULT_OK : RESULT_CANCELED;
+                onActivityResult(getCameraRequestCode(), resultCode, null);
+            }
+        );
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+
+        // 转发权限结果给 Capacitor Bridge
+        Bridge bridge = getBridge();
+        if (bridge != null) {
+            bridge.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        // 转发结果给 Capacitor Bridge
+        Bridge bridge = getBridge();
+        if (bridge != null) {
+            bridge.onActivityResult(requestCode, resultCode, data);
+        }
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        handleIntent(intent);
+
+        // 通知 Capacitor Bridge 新 Intent
+        Bridge bridge = getBridge();
+        if (bridge != null) {
+            bridge.onNewIntent(intent);
+        }
+    }
+
+    @Override
+    public void onConfigurationChanged(@NonNull Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+
+        // 通知 WebView 深色模式变化等配置更改
+        Bridge bridge = getBridge();
+        if (bridge != null && bridge.getWebView() != null) {
+            WebView webView = bridge.getWebView();
+            WebSettings settings = webView.getSettings();
+
+            int nightMode = newConfig.uiMode & Configuration.UI_MODE_NIGHT_MASK;
+            if (nightMode == Configuration.UI_MODE_NIGHT_YES) {
+                // 深色模式 - WebView 会根据媒体查询自动适配
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    // Android 10+ WebView 自动处理 prefers-color-scheme
+                }
+            }
+        }
+    }
+
+    // ==================== 深度链接处理 ====================
+
+    private void handleIntent(Intent intent) {
+        if (intent == null) {
+            return;
+        }
+
+        String action = intent.getAction();
+        Uri data = intent.getData();
+
+        if (Intent.ACTION_VIEW.equals(action) && data != null) {
+            String deepLinkUrl = data.toString();
+
+            // 处理自定义 scheme: com.pawsync.pro://
+            if (data.getScheme() != null && data.getScheme().equals("com.pawsync.pro")) {
+                notifyDeepLink(deepLinkUrl);
+                return;
+            }
+
+            // 处理 https://pawsync.com App Links
+            if (data.getScheme() != null && data.getScheme().equals("https")
+                && data.getHost() != null
+                && (data.getHost().equals("pawsync.com") || data.getHost().equals("www.pawsync.com"))) {
+                notifyDeepLink(deepLinkUrl);
+                return;
+            }
+        }
+    }
+
+    private void notifyDeepLink(String url) {
+        Bridge bridge = getBridge();
+        if (bridge != null) {
+            // 通过 JS 接口通知前端
+            bridge.evalJs("window.dispatchEvent(new CustomEvent('deepLink', { detail: { url: '" + url + "' } }))", null);
+        } else {
+            // Bridge 尚未就绪，缓存深度链接
+            pendingDeepLink = url;
+        }
+    }
+
+    // ==================== 图片选择方法 ====================
+
+    public void launchPhotoPicker(Intent intent) {
+        if (photoPickerLauncher != null) {
+            photoPickerLauncher.launch(intent);
+        }
+    }
+
+    public void launchCamera(Uri imageUri) {
+        if (cameraLauncher != null) {
+            cameraLauncher.launch(imageUri);
+        }
+    }
+
+    private int getPhotoPickerRequestCode() {
+        return 1001;
+    }
+
+    private int getCameraRequestCode() {
+        return 1002;
+    }
+
+    // ==================== WebView 崩溃恢复 ====================
 
     private void setupRenderProcessGoneHandler() {
         Bridge bridge = getBridge();
@@ -55,13 +219,13 @@ public class MainActivity extends BridgeActivity {
 
     private class RenderProcessGoneWebViewClient extends WebViewClient {
         @Override
-        public boolean onRenderProcessGone(WebView view, android.webkit.RenderProcessGoneDetail detail) {
+        public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
             handleRenderProcessGone(detail);
             return true;
         }
     }
 
-    private void handleRenderProcessGone(android.webkit.RenderProcessGoneDetail detail) {
+    private void handleRenderProcessGone(RenderProcessGoneDetail detail) {
         long now = System.currentTimeMillis();
         crashTimestamps.add(now);
 
@@ -126,6 +290,14 @@ public class MainActivity extends BridgeActivity {
         WebView oldWebView = bridge.getWebView();
         if (oldWebView != null) {
             currentUrl = oldWebView.getUrl();
+
+            // 修复内存泄漏：移除所有 views 和 callbacks
+            if (oldWebView.getParent() instanceof ViewGroup) {
+                ((ViewGroup) oldWebView.getParent()).removeAllViews();
+            }
+            oldWebView.setWebViewClient(null);
+            oldWebView.setWebChromeClient(null);
+            oldWebView.destroy();
         }
 
         WebView newWebView = new WebView(this);
@@ -144,10 +316,11 @@ public class MainActivity extends BridgeActivity {
         settings.setDatabaseEnabled(true);
         settings.setLoadsImagesAutomatically(true);
         settings.setBlockNetworkImage(false);
-        settings.setEnableSmoothTransition(true);
         settings.setJavaScriptCanOpenWindowsAutomatically(false);
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
     }
+
+    // ==================== 窗口渲染优化 ====================
 
     private void optimizeWindowRendering() {
         getWindow().setFlags(
@@ -163,6 +336,13 @@ public class MainActivity extends BridgeActivity {
     public void onStart() {
         super.onStart();
         preloadWebView();
+
+        // 如果有缓存的深度链接，现在发送
+        if (pendingDeepLink != null) {
+            String link = pendingDeepLink;
+            pendingDeepLink = null;
+            notifyDeepLink(link);
+        }
     }
 
     private void preloadWebView() {
@@ -189,7 +369,6 @@ public class MainActivity extends BridgeActivity {
 
             webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
 
-            settings.setEnableSmoothTransition(true);
             settings.setLoadsImagesAutomatically(true);
             settings.setBlockNetworkImage(false);
 
@@ -199,5 +378,26 @@ public class MainActivity extends BridgeActivity {
             settings.setJavaScriptEnabled(true);
             settings.setJavaScriptCanOpenWindowsAutomatically(false);
         }
+    }
+
+    @Override
+    protected void onDestroy() {
+        // 清理 WebView 防止内存泄漏
+        Bridge bridge = getBridge();
+        if (bridge != null && bridge.getWebView() != null) {
+            WebView webView = bridge.getWebView();
+            webView.stopLoading();
+            webView.setWebViewClient(null);
+            webView.setWebChromeClient(null);
+            if (webView.getParent() instanceof ViewGroup) {
+                ((ViewGroup) webView.getParent()).removeAllViews();
+            }
+        }
+
+        if (mainHandler != null) {
+            mainHandler.removeCallbacksAndMessages(null);
+        }
+
+        super.onDestroy();
     }
 }

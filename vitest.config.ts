@@ -29,6 +29,10 @@ export default defineConfig({
       '@capacitor/device': path.resolve(__dirname, './src/test-utils/capacitorMocks.ts'),
       '@capacitor/biometrics': path.resolve(__dirname, './src/test-utils/capacitorMocks.ts'),
       '@capacitor/haptics': path.resolve(__dirname, './src/test-utils/capacitorMocks.ts'),
+      '@capacitor/push-notifications': path.resolve(__dirname, './src/test-utils/capacitorMocks.ts'),
+      '@capacitor/share': path.resolve(__dirname, './src/test-utils/capacitorMocks.ts'),
+      '@capacitor/keyboard': path.resolve(__dirname, './src/test-utils/capacitorMocks.ts'),
+      '@capacitor/core': path.resolve(__dirname, './src/test-utils/capacitorMocks.ts'),
     }
   },
   optimizeDeps: {
@@ -41,6 +45,10 @@ export default defineConfig({
       '@capacitor/device',
       '@capacitor/biometrics',
       '@capacitor/haptics',
+      '@capacitor/push-notifications',
+      '@capacitor/share',
+      '@capacitor/keyboard',
+      '@capacitor/core',
     ]
   }
 });
