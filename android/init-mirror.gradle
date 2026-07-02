@@ -1,0 +1,40 @@
+allprojects {
+    buildscript {
+        repositories {
+            clear()
+            maven { url 'https://mirrors.cloud.tencent.com/nexus/repository/maven-public/' }
+            maven { url 'https://maven.aliyun.com/repository/google' }
+            maven { url 'https://maven.aliyun.com/repository/public' }
+            maven { url 'https://repo.huaweicloud.com/repository/maven/' }
+        }
+    }
+    repositories {
+        clear()
+        maven { url 'https://mirrors.cloud.tencent.com/nexus/repository/maven-public/' }
+        maven { url 'https://maven.aliyun.com/repository/google' }
+        maven { url 'https://maven.aliyun.com/repository/public' }
+        maven { url 'https://repo.huaweicloud.com/repository/maven/' }
+    }
+}
+
+gradle.settingsEvaluated { settings ->
+    settings.pluginManagement {
+        repositories {
+            clear()
+            maven { url 'https://mirrors.cloud.tencent.com/nexus/repository/maven-public/' }
+            maven { url 'https://mirrors.cloud.tencent.com/nexus/repository/gradle-plugins/' }
+            maven { url 'https://maven.aliyun.com/repository/google' }
+            maven { url 'https://maven.aliyun.com/repository/public' }
+            maven { url 'https://repo.huaweicloud.com/repository/maven/' }
+        }
+    }
+    settings.dependencyResolutionManagement {
+        repositories {
+            clear()
+            maven { url 'https://mirrors.cloud.tencent.com/nexus/repository/maven-public/' }
+            maven { url 'https://maven.aliyun.com/repository/google' }
+            maven { url 'https://maven.aliyun.com/repository/public' }
+            maven { url 'https://repo.huaweicloud.com/repository/maven/' }
+        }
+    }
+}

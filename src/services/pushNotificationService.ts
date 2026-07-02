@@ -47,15 +47,21 @@ class PushNotificationService {
 
     try {
       // Load persisted config
-      const savedConfig = await databaseService.getConfig<NotificationConfig>('notification_config');
-      if (savedConfig) {
-        this.config = savedConfig;
+      const savedConfig = await databaseService.get<{ key: string; value: NotificationConfig }>(
+        STORE_NAMES.APP_SETTINGS,
+        'notification_config',
+      );
+      if (savedConfig?.value) {
+        this.config = savedConfig.value;
       }
 
       // Load persisted token
-      const savedToken = await databaseService.getConfig<string>('push_device_token');
-      if (savedToken) {
-        this.deviceToken = savedToken;
+      const savedToken = await databaseService.get<{ key: string; value: string }>(
+        STORE_NAMES.APP_SETTINGS,
+        'push_device_token',
+      );
+      if (savedToken?.value) {
+        this.deviceToken = savedToken.value;
       }
 
       // Request push notification permission
@@ -122,7 +128,7 @@ class PushNotificationService {
 
   private async saveNotification(notification: PushNotification): Promise<void> {
     try {
-      await databaseService.put(databaseService.STORES.notifications, notification);
+      await databaseService.put(STORE_NAMES.NOTIFICATIONS, notification);
     } catch (err) {
       console.error('Failed to save notification to IndexedDB:', err);
     }
@@ -138,7 +144,7 @@ class PushNotificationService {
 
       const result = await response.json();
       this.deviceToken = token;
-      await databaseService.setConfig('push_device_token', token);
+      await databaseService.put(STORE_NAMES.APP_SETTINGS, { key: 'push_device_token', value: token });
 
       return {
         success: true,
@@ -168,7 +174,7 @@ class PushNotificationService {
 
     this.deviceToken = null;
     try {
-      await databaseService.setConfig('push_device_token', null as any);
+      await databaseService.put(STORE_NAMES.APP_SETTINGS, { key: 'push_device_token', value: null });
     } catch (err) {
       console.error('Failed to clear persisted token:', err);
     }
@@ -180,7 +186,7 @@ class PushNotificationService {
 
   async getNotifications(limit: number = 20): Promise<PushNotification[]> {
     try {
-      const all = await databaseService.getAll<PushNotification>(databaseService.STORES.notifications);
+      const all = await databaseService.getAll<PushNotification>(STORE_NAMES.NOTIFICATIONS);
       return all
         .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
         .slice(0, limit);
@@ -192,7 +198,7 @@ class PushNotificationService {
 
   async getUnreadCount(): Promise<number> {
     try {
-      const all = await databaseService.getAll<PushNotification>(databaseService.STORES.notifications);
+      const all = await databaseService.getAll<PushNotification>(STORE_NAMES.NOTIFICATIONS);
       return all.filter((n) => !n.read).length;
     } catch (err) {
       console.error('Failed to count unread notifications:', err);
@@ -203,13 +209,13 @@ class PushNotificationService {
   async markAsRead(notificationId: string): Promise<boolean> {
     try {
       const notification = await databaseService.get<PushNotification>(
-        databaseService.STORES.notifications,
+        STORE_NAMES.NOTIFICATIONS,
         notificationId,
       );
       if (!notification) return false;
 
       notification.read = true;
-      await databaseService.put(databaseService.STORES.notifications, notification);
+      await databaseService.put(STORE_NAMES.NOTIFICATIONS, notification);
       return true;
     } catch (err) {
       console.error('Failed to mark notification as read:', err);
@@ -219,9 +225,9 @@ class PushNotificationService {
 
   async markAllAsRead(): Promise<void> {
     try {
-      const all = await databaseService.getAll<PushNotification>(databaseService.STORES.notifications);
+      const all = await databaseService.getAll<PushNotification>(STORE_NAMES.NOTIFICATIONS);
       const updated = all.map((n) => ({ ...n, read: true }));
-      await databaseService.putMany(databaseService.STORES.notifications, updated);
+      await databaseService.putMany(STORE_NAMES.NOTIFICATIONS, updated);
     } catch (err) {
       console.error('Failed to mark all notifications as read:', err);
     }
@@ -287,7 +293,7 @@ class PushNotificationService {
     }
 
     try {
-      await databaseService.setConfig('notification_config', this.config);
+      await databaseService.put(STORE_NAMES.APP_SETTINGS, { key: 'notification_config', value: this.config });
     } catch (err) {
       console.error('Failed to persist notification config:', err);
     }
@@ -303,7 +309,7 @@ class PushNotificationService {
     if (this.config.categories[category]) {
       this.config.categories[category].enabled = enabled;
       try {
-        await databaseService.setConfig('notification_config', this.config);
+        await databaseService.put(STORE_NAMES.APP_SETTINGS, { key: 'notification_config', value: this.config });
       } catch (err) {
         console.error('Failed to persist category status:', err);
       }

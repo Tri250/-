@@ -12,6 +12,7 @@ export default defineConfig(({ mode }) => {
       sourcemap: 'hidden',
       outDir: 'dist',
       rollupOptions: {
+        external: ['@capacitor/biometrics'],
         output: {
           manualChunks: {
             'react-vendor': ['react', 'react-dom', 'react-router-dom'],

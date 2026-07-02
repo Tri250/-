@@ -1,6 +1,6 @@
 import type { CameraDevice, DeviceConfig, StreamOptions, DeviceCapability, PairingProgress, BrandInfo, CameraCapability, CameraSettings, CameraBrand } from '../types/camera';
 import { capacitorBridge } from './capacitorBridge';
-import { databaseService } from './databaseService';
+import { databaseService, STORE_NAMES } from './databaseService';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.pawsync.com/v1';
 
@@ -106,7 +106,7 @@ class CameraManager {
 
   private async loadFromDB() {
     try {
-      const saved = await databaseService.getAll<CameraDevice>(databaseService.STORES.cameras);
+      const saved = await databaseService.getAll<CameraDevice>(STORE_NAMES.CAMERA_DEVICES);
       this.devices = saved;
     } catch (err) {
       console.error('Failed to load devices from IndexedDB:', err);
@@ -123,7 +123,7 @@ class CameraManager {
 
   private async persistDevice(device: CameraDevice) {
     try {
-      await databaseService.put(databaseService.STORES.cameras, device);
+      await databaseService.put(STORE_NAMES.CAMERA_DEVICES, device);
     } catch (err) {
       console.error('Failed to persist device:', err);
     }
@@ -131,7 +131,7 @@ class CameraManager {
 
   private async removePersistedDevice(deviceId: string) {
     try {
-      await databaseService.delete(databaseService.STORES.cameras, deviceId);
+      await databaseService.delete(STORE_NAMES.CAMERA_DEVICES, deviceId);
     } catch (err) {
       console.error('Failed to remove device from IndexedDB:', err);
     }

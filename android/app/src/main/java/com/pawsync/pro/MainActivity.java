@@ -94,23 +94,13 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-
-        // 转发权限结果给 Capacitor Bridge
-        Bridge bridge = getBridge();
-        if (bridge != null) {
-            bridge.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        }
+        // Capacitor BridgeActivity 已自动转发权限结果给 Bridge
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-
-        // 转发结果给 Capacitor Bridge
-        Bridge bridge = getBridge();
-        if (bridge != null) {
-            bridge.onActivityResult(requestCode, resultCode, data);
-        }
+        // Capacitor BridgeActivity 已自动转发 Activity 结果给 Bridge
     }
 
     @Override
@@ -180,7 +170,7 @@ public class MainActivity extends BridgeActivity {
             // 对 URL 中的单引号与反斜杠进行转义，避免注入或事件解析失败
             String safeUrl = url.replace("\\", "\\\\").replace("'", "\\'");
             String js = "window.dispatchEvent(new CustomEvent('deepLink', { detail: { url: '" + safeUrl + "' } }))";
-            bridge.evalJs(js, null);
+            bridge.eval(js, null);
         } else {
             // Bridge 尚未就绪，缓存深度链接
             pendingDeepLink = url;
@@ -332,7 +322,7 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
-    protected void onDestroy() {
+    public void onDestroy() {
         // 清理 WebView 防止内存泄漏
         Bridge bridge = getBridge();
         if (bridge != null && bridge.getWebView() != null) {

@@ -1,5 +1,5 @@
 import type { LiveMonitoring, SmartEvent, RecordingSession, StreamConfig, EventType, EventSeverity } from '../types/monitor';
-import { databaseService, STORES } from './databaseService';
+import { databaseService, STORE_NAMES } from './databaseService';
 
 // ==================== 运动检测配置 ====================
 
@@ -195,7 +195,7 @@ class MonitorService {
     };
 
     // 保存录制会话到 IndexedDB
-    await databaseService.put(STORES.RECORDING_SESSIONS, recordingSession);
+    await databaseService.put(STORE_NAMES.RECORDING_SESSIONS, recordingSession);
 
     // 获取视频流并创建 MediaRecorder
     try {
@@ -230,7 +230,7 @@ class MonitorService {
       session.activeSessionId = sessionId;
     } catch (error) {
       recordingSession.status = 'failed';
-      await databaseService.put(STORES.RECORDING_SESSIONS, recordingSession);
+      await databaseService.put(STORE_NAMES.RECORDING_SESSIONS, recordingSession);
       throw error;
     }
 
@@ -241,7 +241,7 @@ class MonitorService {
 
   async stopRecording(sessionId: string): Promise<RecordingSession> {
     // 从 IndexedDB 查找录制会话
-    const recordingSession = await databaseService.get<RecordingSession>(STORES.RECORDING_SESSIONS, sessionId);
+    const recordingSession = await databaseService.get<RecordingSession>(STORE_NAMES.RECORDING_SESSIONS, sessionId);
     if (!recordingSession) {
       throw new Error(`录制会话不存在: ${sessionId}`);
     }
@@ -292,7 +292,7 @@ class MonitorService {
     }
 
     // 更新 IndexedDB
-    await databaseService.put(STORES.RECORDING_SESSIONS, recordingSession);
+    await databaseService.put(STORE_NAMES.RECORDING_SESSIONS, recordingSession);
 
     return recordingSession;
   }
@@ -301,7 +301,7 @@ class MonitorService {
 
   async getRecordingHistory(cameraId: string, limit: number = 20): Promise<RecordingSession[]> {
     const allSessions = await databaseService.getByIndex<RecordingSession>(
-      STORES.RECORDING_SESSIONS,
+      STORE_NAMES.RECORDING_SESSIONS,
       'cameraId',
       cameraId
     );
@@ -314,18 +314,18 @@ class MonitorService {
   // ==================== 事件管理 ====================
 
   async getAllEvents(limit: number = 50): Promise<SmartEvent[]> {
-    const events = await databaseService.getAll<SmartEvent>(STORES.EVENTS);
+    const events = await databaseService.getAll<SmartEvent>(STORE_NAMES.EVENTS);
     return events
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
       .slice(0, limit);
   }
 
   async acknowledgeEvent(eventId: string): Promise<boolean> {
-    const event = await databaseService.get<SmartEvent>(STORES.EVENTS, eventId);
+    const event = await databaseService.get<SmartEvent>(STORE_NAMES.EVENTS, eventId);
     if (!event) return false;
 
     event.acknowledged = true;
-    await databaseService.put(STORES.EVENTS, event);
+    await databaseService.put(STORE_NAMES.EVENTS, event);
     return true;
   }
 
@@ -806,11 +806,11 @@ class MonitorService {
   }
 
   private async handleRecordingError(session: MonitoringSession, sessionId: string): Promise<void> {
-    const recordingSession = await databaseService.get<RecordingSession>(STORES.RECORDING_SESSIONS, sessionId);
+    const recordingSession = await databaseService.get<RecordingSession>(STORE_NAMES.RECORDING_SESSIONS, sessionId);
     if (recordingSession) {
       recordingSession.status = 'failed';
       recordingSession.endTime = new Date().toISOString();
-      await databaseService.put(STORES.RECORDING_SESSIONS, recordingSession);
+      await databaseService.put(STORE_NAMES.RECORDING_SESSIONS, recordingSession);
     }
 
     session.isRecording = false;
@@ -845,7 +845,7 @@ class MonitorService {
 
       if (result.success && result.file) {
         session.fileUrl = result.file.url;
-        await databaseService.put(STORES.RECORDING_SESSIONS, session);
+        await databaseService.put(STORE_NAMES.RECORDING_SESSIONS, session);
       }
     } catch (error) {
       console.error('录制文件上传失败:', error);
@@ -856,7 +856,7 @@ class MonitorService {
 
   private emitEvent(event: SmartEvent): void {
     // 持久化事件
-    databaseService.put(STORES.EVENTS, event).catch(() => {});
+    databaseService.put(STORE_NAMES.EVENTS, event).catch(() => {});
 
     // 通知回调
     this.eventCallbacks.forEach(cb => {

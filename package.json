@@ -1,6 +1,6 @@
 {
   "name": "爪爪连心❤️",
-  "version": "1.0.0",
+  "version": "1.6.8",
   "private": true,
   "author": "带娃的小陈工",
   "description": "爪爪连心❤️ - AI驱动的宠物情感翻译与健康监测应用",
@@ -17,9 +17,12 @@
   },
   "dependencies": {
     "@capacitor/android": "^8.3.4",
+    "@capacitor/app": "^8.1.0",
     "@capacitor/camera": "^8.0.0",
     "@capacitor/cli": "^8.3.4",
     "@capacitor/core": "^8.3.4",
+    "@capacitor/device": "^8.0.2",
+    "@capacitor/geolocation": "^8.2.0",
     "@capacitor/haptics": "^8.0.2",
     "@capacitor/keyboard": "^8.0.3",
     "@capacitor/local-notifications": "^8.2.0",
