@@ -3,6 +3,7 @@ package com.pawsync.pro;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
@@ -16,6 +17,8 @@ import androidx.core.content.ContextCompat;
 public class PermissionHelper {
 
     private static final String TAG = "PermissionHelper";
+    private static final String PREFS_NAME = "pawsync_permission_prefs";
+    private static final String KEY_REQUESTED_PREFIX = "permission_requested_";
 
     // 权限状态常量
     public static final int PERMISSION_GRANTED = 0;
@@ -24,10 +27,12 @@ public class PermissionHelper {
 
     private final Activity activity;
     private final Context context;
+    private final SharedPreferences permissionPrefs;
 
     public PermissionHelper(Activity activity) {
         this.activity = activity;
         this.context = activity.getApplicationContext();
+        this.permissionPrefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
     }
 
     // ==================== 权限检查 ====================
@@ -47,8 +52,9 @@ public class PermissionHelper {
             return PERMISSION_GRANTED;
         }
 
-        if (!shouldShowRequestPermissionRationale(permission)) {
-            // 用户选择了"不再询问"
+        // 仅当曾经请求过且不再显示 rationale 时，才判定为永久拒绝
+        boolean hasRequestedBefore = permissionPrefs.getBoolean(KEY_REQUESTED_PREFIX + permission, false);
+        if (hasRequestedBefore && !shouldShowRequestPermissionRationale(permission)) {
             return PERMISSION_DENIED_DO_NOT_ASK_AGAIN;
         }
 
@@ -86,6 +92,7 @@ public class PermissionHelper {
         if (permission == null || permission.isEmpty()) {
             return;
         }
+        markPermissionRequested(permission);
         ActivityCompat.requestPermissions(activity, new String[]{permission}, requestCode);
     }
 
@@ -98,7 +105,22 @@ public class PermissionHelper {
         if (permissions == null || permissions.length == 0) {
             return;
         }
+        for (String permission : permissions) {
+            markPermissionRequested(permission);
+        }
         ActivityCompat.requestPermissions(activity, permissions, requestCode);
+    }
+
+    /**
+     * 标记权限已发起过请求，用于准确判断永久拒绝状态
+     */
+    private void markPermissionRequested(String permission) {
+        if (permission == null || permission.isEmpty()) {
+            return;
+        }
+        permissionPrefs.edit()
+            .putBoolean(KEY_REQUESTED_PREFIX + permission, true)
+            .apply();
     }
 
     /**
@@ -115,15 +137,12 @@ public class PermissionHelper {
     /**
      * 获取适配当前 Android 版本的图片读取权限
      * Android 13+: READ_MEDIA_IMAGES
-     * Android 14+ 部分媒体: READ_MEDIA_VISUAL_USER_SELECTED
+     * Android 14+ 部分媒体: READ_MEDIA_VISUAL_USER_SELECTED（作为 READ_MEDIA_IMAGES 的补充）
      * Android 12 及以下: READ_EXTERNAL_STORAGE
      */
     public String getReadImagesPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            // Android 14+: 优先请求部分媒体权限
-            return android.Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED;
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            // Android 13
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            // Android 13+
             return android.Manifest.permission.READ_MEDIA_IMAGES;
         } else {
             return android.Manifest.permission.READ_EXTERNAL_STORAGE;

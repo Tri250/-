@@ -100,7 +100,9 @@ public class PhotoPickerHelper {
         } else if (PICK_TYPE_VIDEO.equals(type)) {
             intent.setType("video/*");
         } else {
-            intent.setType("image/*,video/*");
+            // ACTION_PICK 不支持逗号分隔的 MIME，需使用 EXTRA_MIME_TYPES
+            intent.setType("*/*");
+            intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"image/*", "video/*"});
         }
 
         if (maxItems > 1) {

@@ -105,7 +105,7 @@ const DEFAULT_RULES: AlertRule[] = [
 
   // Level 2 - 提示
   { id: 'hint_low_activity', name: '活动量偏低', description: '活动量低于正常范围', level: 2, category: 'behavior', conditions: [{ metric: 'behavior.activityLevel', operator: '<', value: 40, weight: 1 }], cooldownMinutes: 360, enabled: true },
-  { id: 'hint_water_change', name: '饮水量变化', description: '饮水量明显增减', level: 2, category: 'nutrition', conditions: [{ metric: 'behavior.waterIntake', operator: '<', value: 30 }, { metric: 'behavior.waterIntake', operator: '>', value: 90, weight: 1 }], cooldownMinutes: 360, enabled: true },
+  { id: 'hint_water_change', name: '饮水量变化', description: '饮水量明显增减', level: 2, category: 'nutrition', conditions: [{ metric: 'behavior.waterIntake', operator: '<', value: 30, weight: 0.5 }, { metric: 'behavior.waterIntake', operator: '>', value: 90, weight: 0.5 }], cooldownMinutes: 360, enabled: true },
 
   // Level 3 - 注意
   { id: 'notice_elevated_hr', name: '心率偏高', description: '心率超出正常范围', level: 3, category: 'health', conditions: [{ metric: 'vitals.heartRate', operator: '>', value: 160, weight: 1 }], cooldownMinutes: 120, enabled: true },
@@ -442,7 +442,10 @@ export class SevenLevelAlertService {
     summary: string;
   } {
     const activeAlerts = this.getActiveAlerts(petId);
-    const highestActiveLevel = activeAlerts.reduce<AlertLevel>((max, a) => Math.max(max, a.level), 1 as AlertLevel);
+    const highestActiveLevel = activeAlerts.reduce<AlertLevel>(
+      (max, a) => Math.max(max, a.level) as AlertLevel,
+      1 as AlertLevel,
+    );
 
     // 趋势分析：比较最近1小时和之前1小时的预警级别
     const now = Date.now();

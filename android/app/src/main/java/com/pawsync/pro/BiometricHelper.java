@@ -11,7 +11,6 @@ import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentActivity;
 
 import javax.crypto.Cipher;
-import javax.crypto.CryptoObject;
 
 public class BiometricHelper {
 
@@ -41,9 +40,9 @@ public class BiometricHelper {
      */
     public int canAuthenticate() {
         BiometricManager biometricManager = BiometricManager.from(activity);
+        // 与 authenticate() 使用一致的认证器集合（不含 DEVICE_CREDENTIAL，因为当前实现会设置取消按钮）
         return biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG
-            | BiometricManager.Authenticators.BIOMETRIC_WEAK
-            | BiometricManager.Authenticators.DEVICE_CREDENTIAL);
+            | BiometricManager.Authenticators.BIOMETRIC_WEAK);
     }
 
     /**

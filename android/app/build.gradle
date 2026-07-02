@@ -49,11 +49,8 @@ android {
             useSupportLibrary = true
         }
 
-        aaptOptions {
-             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
-        }
     }
-    
+
     buildFeatures {
         buildConfig = true
     }
@@ -87,10 +84,9 @@ android {
         debug {
             debuggable true
             minifyEnabled false
-            testCoverageEnabled true
+            enableUnitTestCoverage true
+            enableAndroidTestCoverage true
             signingConfig signingConfigs.debug
-            // Debug优化
-            renderscriptOptimLevel 3
         }
         release {
             debuggable false
@@ -98,8 +94,6 @@ android {
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
             signingConfig signingConfigs.release
-            // Release优化
-            renderscriptOptimLevel 3
             // 启用压缩对齐
             zipAlignEnabled true
             // 禁用调试信息
@@ -138,18 +132,23 @@ jacoco {
 
 tasks.register('testCoverage', JacocoReport) {
     dependsOn 'testDebugUnitTest'
-    
+
     reports {
         xml.required = true
         html.required = true
     }
-    
+
     def fileFilter = ['**/R.class', '**/R$*.class', '**/BuildConfig.*', '**/Manifest*.*']
     def debugTree = fileTree(dir: "${buildDir}/intermediates/javac/debug/classes", excludes: fileFilter)
-    
+
     sourceDirectories.setFrom(files(['src/main/java']))
     classDirectories.setFrom(files([debugTree]))
-    executionData.setFrom(files("${buildDir}/jacoco/testDebugUnitTest.exec"))
+    // AGP 8.x 开启 enableUnitTestCoverage 后，Jacoco exec 文件路径变更
+    def coverageExec = file("${buildDir}/outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec")
+    if (!coverageExec.exists()) {
+        coverageExec = file("${buildDir}/jacoco/testDebugUnitTest.exec")
+    }
+    executionData.setFrom(files(coverageExec))
 }
 
 apply from: 'capacitor.build.gradle'

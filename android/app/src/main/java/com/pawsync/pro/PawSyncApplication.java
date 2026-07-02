@@ -135,7 +135,8 @@ public class PawSyncApplication extends Application {
 
         @Override
         public void onActivityCreated(Activity activity, android.os.Bundle savedInstanceState) {
-            activityCount++;
+            // activityCount 仅在 onActivityStarted/onActivityStopped 中维护，
+            // 避免创建/销毁周期导致计数错误
         }
 
         @Override
@@ -193,15 +194,12 @@ public class PawSyncApplication extends Application {
 
     private void clearWebViewCacheOnBackground() {
         try {
-            // 使用应用上下文清理缓存，而不是创建新 WebView
-            File cacheDir = getCacheDir();
-            if (cacheDir != null) {
-                deleteDir(cacheDir);
-            }
+            // 仅清理 WebView 私有目录，避免删除整个应用缓存
             File webviewCache = getDir("webview", MODE_PRIVATE);
             if (webviewCache != null) {
                 deleteDir(webviewCache);
             }
+            clearWebViewCache();
         } catch (Exception e) {
             Log.w(TAG, "Failed to clear WebView cache on background", e);
         }
@@ -239,6 +237,10 @@ public class PawSyncApplication extends Application {
                 clearCacheIfNeeded(true);
                 clearWebViewCache();
                 break;
+            default:
+                // 其他级别按需轻量清理
+                clearCacheIfNeeded(false);
+                break;
         }
     }
 
@@ -252,10 +254,11 @@ public class PawSyncApplication extends Application {
         lastCacheClearTime = now;
 
         try {
-            deleteDir(getCacheDir());
+            // 仅清理外部缓存与 WebView 相关缓存，避免删除整个内部缓存目录导致运行中异常
             if (getExternalCacheDir() != null) {
                 deleteDir(getExternalCacheDir());
             }
+            clearWebViewCache();
         } catch (Exception e) {
             Log.w(TAG, "Failed to clear cache", e);
         }

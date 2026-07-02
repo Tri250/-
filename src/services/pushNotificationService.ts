@@ -1,6 +1,6 @@
 import type { PushNotification, NotificationConfig, NotificationPriority } from '../types/push';
 import { capacitorBridge } from './capacitorBridge';
-import { databaseService } from './databaseService';
+import { databaseService, STORE_NAMES } from './databaseService';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.pawsync.com/v1';
 

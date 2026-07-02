@@ -386,11 +386,11 @@ function analyzeImage(
       throw new Error('Invalid image data');
     }
 
-    const { sampleStep = 4, detectFaces = true } = options;
+    const { sampleStep = 4, detectFaces: shouldDetectFaces = true } = options;
 
     const colorFeatures = analyzeColorFeatures(imageData, sampleStep);
     const textureFeatures = analyzeTextureFeatures(imageData, sampleStep);
-    const faceDetectionResult = detectFaces ? detectFaces(imageData) : {
+    const faceDetectionResult = shouldDetectFaces ? detectFaces(imageData) : {
       hasFace: false,
       confidence: 0,
       faceCount: 0,

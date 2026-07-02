@@ -1681,7 +1681,10 @@ interface BiometryInfo {
 }
 
 export const biometricAuth = {
-  _capacitorPlugin: null as any,
+  _capacitorPlugin: null as unknown as {
+    isAvailable: () => Promise<{ available?: boolean }>;
+    verify: (options: { reason: string; allowDeviceCredential?: boolean }) => Promise<{ verified?: boolean; success?: boolean }>;
+  } | null,
   _webAuthnAvailable: false,
   _initialized: false,
 
@@ -1691,11 +1694,13 @@ export const biometricAuth = {
     this._webAuthnAvailable = !!(navigator.credentials && window.PublicKeyCredential);
 
     try {
+      // @ts-expect-error 未安装官方 Capacitor 生物识别插件，按需动态加载；失败时回退 WebAuthn
       const capacitorBiometrics = await import(/* @vite-ignore */ '@capacitor/biometrics');
       if (capacitorBiometrics?.Biometrics) {
         this._capacitorPlugin = capacitorBiometrics.Biometrics;
       }
     } catch {
+      // 插件未安装或不可用，使用 WebAuthn 回退
     }
 
     this._initialized = true;
@@ -1769,10 +1774,11 @@ export const biometricAuth = {
           reason,
           allowDeviceCredential: allowPinFallback,
         });
+        const verified = result?.verified ?? result?.success ?? false;
         return {
-          success: result?.verified || false,
-          method: result?.verified ? 'biometric' : 'none',
-          error: result?.verified ? undefined : '认证失败',
+          success: verified,
+          method: verified ? 'biometric' : 'none',
+          error: verified ? undefined : '认证失败',
         };
       } catch (error: any) {
         if (allowPinFallback) {
@@ -1793,6 +1799,7 @@ export const biometricAuth = {
           return webAuthnResult;
         }
       } catch {
+        // WebAuthn 不可用或失败，继续走 PIN 回退
       }
     }
 
@@ -1856,11 +1863,12 @@ export const biometricAuth = {
       const stored = await secureStorage.get<string[]>('webauthn_credentials', true, false);
       return stored || [];
     } catch {
+      // 读取已存储凭证失败，视为无凭证
       return [];
     }
   },
 
-  _pinFallback: async function (reason: string): Promise<BiometricAuthResult> {
+  _pinFallback: async function (_reason: string): Promise<BiometricAuthResult> {
     try {
       const storedPin = await secureStorage.get<string>('app_pin', true, true);
       if (!storedPin) {
@@ -1914,8 +1922,9 @@ export const biometricAuth = {
       };
 
       const credential = await navigator.credentials.create({ publicKey });
-      if (credential && (credential as any).rawId) {
-        const credentialId = bufferToBase64(new Uint8Array((credential as any).rawId));
+      const rawId = credential ? (credential as { rawId?: ArrayBuffer }).rawId : undefined;
+      if (rawId) {
+        const credentialId = bufferToBase64(new Uint8Array(rawId));
         const existingIds = await this._getStoredCredentialIds();
         if (!existingIds.includes(credentialId)) {
           existingIds.push(credentialId);
@@ -2237,6 +2246,7 @@ export const dataPrivacyManager = {
       const dbs = await indexedDB.databases();
       totalSize += dbs.length * 1024;
     } catch {
+      // indexedDB 统计失败，忽略
     }
 
     return {
@@ -2279,6 +2289,7 @@ export const dataPrivacyManager = {
             healthData[key] = data;
           }
         } catch {
+          // 读取单条健康数据失败，跳过
         }
       }
     }
@@ -2298,6 +2309,7 @@ export const dataPrivacyManager = {
             settings[key] = data;
           }
         } catch {
+          // 读取单条设置失败，跳过
         }
       }
     }
@@ -2464,11 +2476,11 @@ export const dataPrivacyManager = {
         success: true,
         deletedCategories,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       return {
         success: false,
         deletedCategories,
-        error: error?.message || '删除数据时发生错误',
+        error: error instanceof Error ? error.message : '删除数据时发生错误',
       };
     }
   },
@@ -2687,7 +2699,7 @@ export const injectionDetection = {
     let sanitized = input
       .replace(/\.\.\//g, '')
       .replace(/\.\.\\/g, '')
-      .replace(/%2e%2e%2f/gi, '')
+      .replace(new RegExp('%2e%2e%2f', 'gi'), '')
       .replace(/%2e%2e/gi, '')
       .replace(/^[\/\\]/, '')
       .replace(/^[a-zA-Z]:\\/, '');
@@ -2775,7 +2787,7 @@ export const contentSecurityManager = {
     ];
 
     let maxLevel: 'safe' | 'low' | 'medium' | 'high' | 'critical' = 'safe';
-    const levelOrder = ['safe', 'low', 'medium', 'high', 'critical'];
+    const levelOrder: ('safe' | 'low' | 'medium' | 'high' | 'critical')[] = ['safe', 'low', 'medium', 'high', 'critical'];
 
     for (const { name, pattern, level } of patterns) {
       const detected = pattern.test(input);
@@ -2849,12 +2861,24 @@ export const contentSecurityManager = {
     recommendations: string[];
   } {
     const xssResult = xssProtection.containsMaliciousScript(input);
-    const injectionResult = injectionDetection.scanAll(input);
+    const injectionScans = injectionDetection.scanAll(input);
     const promptResult = this.checkPromptInjection(input);
+
+    // 聚合注入扫描结果
+    const injectionThreats = injectionScans
+      .filter(r => r.detected)
+      .map(r => r.type);
+    const injectionRiskLevel = injectionScans.reduce<'safe' | 'low' | 'medium' | 'high'>(
+      (max, r) => {
+        const order = ['safe', 'low', 'medium', 'high'];
+        return order.indexOf(r.severity) > order.indexOf(max) ? r.severity : max;
+      },
+      'safe',
+    );
 
     const allThreats = [
       ...(xssResult ? ['xss'] : []),
-      ...injectionResult.threats,
+      ...injectionThreats,
       ...promptResult.threats,
     ];
 
@@ -2862,10 +2886,10 @@ export const contentSecurityManager = {
     if (xssResult) {
       sanitized = xssProtection.sanitizeDangerousContent(sanitized);
     }
-    if (injectionResult.threats.includes('sql')) {
+    if (injectionThreats.includes('sql_injection')) {
       sanitized = injectionDetection.sanitizeForSql(sanitized);
     }
-    if (injectionResult.threats.includes('path')) {
+    if (injectionThreats.includes('path_traversal')) {
       sanitized = injectionDetection.sanitizePath(sanitized);
     }
     sanitized = sanitized.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '[REDACTED]');
@@ -2880,15 +2904,15 @@ export const contentSecurityManager = {
     const levelOrder = ['safe', 'low', 'medium', 'high', 'critical'];
     const maxRisk = [
       xssResult ? 'high' : 'safe',
-      injectionResult.riskLevel,
+      injectionRiskLevel,
       promptResult.riskLevel,
-    ].reduce((max, curr) => 
+    ].reduce((max, curr) =>
       levelOrder.indexOf(curr) > levelOrder.indexOf(max) ? curr : max
     , 'safe');
 
     const recommendations: string[] = [];
     if (xssResult) recommendations.push('内容包含XSS风险，已清理危险标签');
-    if (injectionResult.threats.length > 0) recommendations.push('内容包含注入风险，已进行安全处理');
+    if (injectionThreats.length > 0) recommendations.push('内容包含注入风险，已进行安全处理');
     if (promptResult.threats.length > 0) recommendations.push('内容包含提示注入风险，请谨慎处理');
 
     return {

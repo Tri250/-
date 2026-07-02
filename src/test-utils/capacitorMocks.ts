@@ -1,3 +1,5 @@
+import { vi } from 'vitest';
+
 export const Camera = {
   checkPermissions: vi.fn(),
   requestPermissions: vi.fn(),

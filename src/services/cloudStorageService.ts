@@ -1,5 +1,5 @@
 import type { UploadResult, CloudFile, StorageConfig, UploadProgress } from '../types/cloud';
-import { databaseService, STORES } from './databaseService';
+import { databaseService, STORE_NAMES } from './databaseService';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.pawsync.com/v1';
 
@@ -51,7 +51,7 @@ class CloudStorageService {
   private offlineProcessing = false;
 
   async initialize(): Promise<void> {
-    await databaseService.getDB();
+    await databaseService.init();
     this.processOfflineQueue();
   }
 
@@ -158,7 +158,7 @@ class CloudStorageService {
         },
       };
 
-      await databaseService.put(STORES.FILES, cloudFile);
+      await databaseService.put(STORE_NAMES.FILES, cloudFile);
 
       this.notifyProgress(uploadId, {
         id: uploadId,
@@ -414,7 +414,7 @@ class CloudStorageService {
   // ==================== 文件读取 ====================
 
   async getFile(fileId: string): Promise<CloudFile | null> {
-    const file = await databaseService.get<CloudFile>(STORES.FILES, fileId);
+    const file = await databaseService.get<CloudFile>(STORE_NAMES.FILES, fileId);
     return file ?? null;
   }
 
@@ -427,7 +427,7 @@ class CloudStorageService {
       offset?: number;
     } = {}
   ): Promise<CloudFile[]> {
-    let files = await databaseService.getAll<CloudFile>(STORES.FILES);
+    let files = await databaseService.getAll<CloudFile>(STORE_NAMES.FILES);
 
     if (options.petId) {
       files = files.filter(f => f.metadata?.petId === options.petId);
@@ -468,11 +468,11 @@ class CloudStorageService {
         return { success: false, error: data.message || `删除失败: HTTP ${response.status}` };
       }
 
-      await databaseService.delete(STORES.FILES, fileId);
+      await databaseService.delete(STORE_NAMES.FILES, fileId);
       return { success: true };
     } catch (error) {
       // 网络失败时仍删除本地记录，标记为待同步
-      await databaseService.delete(STORES.FILES, fileId);
+      await databaseService.delete(STORE_NAMES.FILES, fileId);
       return {
         success: true,
         error: '本地已删除，云端删除将在网络恢复后同步',
@@ -483,7 +483,7 @@ class CloudStorageService {
   // ==================== 文件 URL ====================
 
   async getFileUrl(fileId: string, options?: { thumbnail?: boolean }): Promise<string | null> {
-    const file = await databaseService.get<CloudFile>(STORES.FILES, fileId);
+    const file = await databaseService.get<CloudFile>(STORE_NAMES.FILES, fileId);
     if (!file) return null;
 
     const targetUrl = options?.thumbnail ? (file.thumbnailUrl || file.url) : file.url;
@@ -514,7 +514,7 @@ class CloudStorageService {
       return await response.json();
     } catch {
       // 离线时从本地计算
-      const files = await databaseService.getAll<CloudFile>(STORES.FILES);
+      const files = await databaseService.getAll<CloudFile>(STORE_NAMES.FILES);
       const used = files.reduce((sum, f) => sum + f.size, 0);
       const limit = 50 * 1024 * 1024 * 1024;
       return {
@@ -643,7 +643,7 @@ class CloudStorageService {
         createdAt: new Date().toISOString(),
         retryCount: 0,
       };
-      await databaseService.put(STORES.OFFLINE_QUEUE, item);
+      await databaseService.put(STORE_NAMES.OFFLINE_QUEUE, item);
     } catch {
       // 离线队列入队失败不影响主流程
     }
@@ -654,7 +654,7 @@ class CloudStorageService {
     this.offlineProcessing = true;
 
     try {
-      const items = await databaseService.getAll<OfflineQueueItem>(STORES.OFFLINE_QUEUE);
+      const items = await databaseService.getAll<OfflineQueueItem>(STORE_NAMES.OFFLINE_QUEUE);
 
       for (const item of items) {
         if (!navigator.onLine) break;
@@ -668,7 +668,7 @@ class CloudStorageService {
             );
             const result = await this.uploadFile(file, item.data.options);
             if (result.success && item.id) {
-              await databaseService.delete(STORES.OFFLINE_QUEUE, item.id);
+              await databaseService.delete(STORE_NAMES.OFFLINE_QUEUE, item.id);
             }
           }
         } catch {
@@ -676,9 +676,9 @@ class CloudStorageService {
           if (item.id) {
             item.retryCount += 1;
             if (item.retryCount >= 5) {
-              await databaseService.delete(STORES.OFFLINE_QUEUE, item.id);
+              await databaseService.delete(STORE_NAMES.OFFLINE_QUEUE, item.id);
             } else {
-              await databaseService.put(STORES.OFFLINE_QUEUE, item);
+              await databaseService.put(STORE_NAMES.OFFLINE_QUEUE, item);
             }
           }
         }

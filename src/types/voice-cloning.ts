@@ -46,6 +46,45 @@ export interface SynthesisResult {
   status: 'pending' | 'processing' | 'completed' | 'failed';
 }
 
+// 声纹档案
+export interface VoiceProfile {
+  id: string;
+  petId: string;
+  name: string;
+  description: string;
+  sampleCount: number;
+  quality: number;
+  localFeatures?: {
+    averagePitch: number;
+    averageAmplitude: number;
+    duration: number;
+    silenceRatio: number;
+    energyDistribution: number[];
+  };
+  serverFeatures?: Record<string, number>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// 语音合成结果
+export interface VoiceSynthesisResult {
+  id: string;
+  audioUrl?: string;
+  audioBase64?: string;
+  duration?: number;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  error?: string;
+}
+
+// 录音记录
+export interface VoiceRecording {
+  id: string;
+  blob: Blob;
+  duration: number;
+  averageAmplitude: number;
+  recordedAt: string;
+}
+
 // 语音模板
 export interface VoiceTemplate {
   id: string;

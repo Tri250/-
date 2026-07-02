@@ -8,7 +8,6 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.provider.MediaStore;
 import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.RenderProcessGoneDetail;
@@ -16,6 +15,7 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.graphics.Color;
+import android.util.Log;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -177,8 +177,10 @@ public class MainActivity extends BridgeActivity {
     private void notifyDeepLink(String url) {
         Bridge bridge = getBridge();
         if (bridge != null) {
-            // 通过 JS 接口通知前端
-            bridge.evalJs("window.dispatchEvent(new CustomEvent('deepLink', { detail: { url: '" + url + "' } }))", null);
+            // 对 URL 中的单引号与反斜杠进行转义，避免注入或事件解析失败
+            String safeUrl = url.replace("\\", "\\\\").replace("'", "\\'");
+            String js = "window.dispatchEvent(new CustomEvent('deepLink', { detail: { url: '" + safeUrl + "' } }))";
+            bridge.evalJs(js, null);
         } else {
             // Bridge 尚未就绪，缓存深度链接
             pendingDeepLink = url;
@@ -251,73 +253,22 @@ public class MainActivity extends BridgeActivity {
     }
 
     private void reloadWebViewDelayed(long delayMs) {
-        if (isRecovering) {
+        if (isRecovering || isFinishing() || isDestroyed()) {
             return;
         }
         isRecovering = true;
 
         mainHandler.postDelayed(() -> {
             try {
-                Bridge bridge = getBridge();
-                if (bridge != null) {
-                    WebView oldWebView = bridge.getWebView();
-                    if (oldWebView != null) {
-                        oldWebView.stopLoading();
-                        oldWebView.destroy();
-                    }
-
-                    recreateBridgeWebView();
+                if (!isFinishing() && !isDestroyed()) {
+                    recreate();
                 }
             } catch (Exception e) {
-                try {
-                    recreate();
-                } catch (Exception ex) {
-                    // 忽略
-                }
+                Log.w("MainActivity", "Failed to recreate activity after render process gone", e);
             } finally {
                 isRecovering = false;
             }
         }, delayMs);
-    }
-
-    private void recreateBridgeWebView() {
-        Bridge bridge = getBridge();
-        if (bridge == null) {
-            return;
-        }
-
-        String currentUrl = null;
-        WebView oldWebView = bridge.getWebView();
-        if (oldWebView != null) {
-            currentUrl = oldWebView.getUrl();
-
-            // 修复内存泄漏：移除所有 views 和 callbacks
-            if (oldWebView.getParent() instanceof ViewGroup) {
-                ((ViewGroup) oldWebView.getParent()).removeAllViews();
-            }
-            oldWebView.setWebViewClient(null);
-            oldWebView.setWebChromeClient(null);
-            oldWebView.destroy();
-        }
-
-        WebView newWebView = new WebView(this);
-        setupWebViewSettings(newWebView);
-        newWebView.setWebViewClient(new RenderProcessGoneWebViewClient());
-
-        if (currentUrl != null && !currentUrl.isEmpty()) {
-            newWebView.loadUrl(currentUrl);
-        }
-    }
-
-    private void setupWebViewSettings(WebView webView) {
-        WebSettings settings = webView.getSettings();
-        settings.setJavaScriptEnabled(true);
-        settings.setDomStorageEnabled(true);
-        settings.setDatabaseEnabled(true);
-        settings.setLoadsImagesAutomatically(true);
-        settings.setBlockNetworkImage(false);
-        settings.setJavaScriptCanOpenWindowsAutomatically(false);
-        webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
     }
 
     // ==================== 窗口渲染优化 ====================

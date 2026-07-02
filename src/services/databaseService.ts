@@ -26,6 +26,8 @@ export const STORE_NAMES = {
   PET_FOOD_ANALYSES: 'pet_food_analyses',
   ALERT_RECORDS: 'alert_records',
   FUSION_RESULTS: 'fusion_results',
+  OFFLINE_QUEUE: 'offline_queue',
+  EVENTS: 'events',
 } as const;
 
 export type StoreName = (typeof STORE_NAMES)[keyof typeof STORE_NAMES];
@@ -179,6 +181,24 @@ const STORE_DEFINITIONS: StoreDefinition[] = [
       { name: 'source', keyPath: 'source' },
     ],
   },
+  {
+    name: STORE_NAMES.OFFLINE_QUEUE,
+    keyPath: 'id',
+    indexes: [
+      { name: 'type', keyPath: 'type' },
+      { name: 'createdAt', keyPath: 'createdAt' },
+    ],
+  },
+  {
+    name: STORE_NAMES.EVENTS,
+    keyPath: 'id',
+    indexes: [
+      { name: 'cameraId', keyPath: 'cameraId' },
+      { name: 'type', keyPath: 'type' },
+      { name: 'timestamp', keyPath: 'timestamp' },
+      { name: 'acknowledged', keyPath: 'acknowledged' },
+    ],
+  },
 ];
 
 // ─── 内存降级存储 ───────────────────────────────────────────
@@ -258,7 +278,7 @@ class InMemoryStore {
 // ─── DatabaseService 类 ─────────────────────────────────────
 
 const DB_NAME = 'pawsync-pro-db';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 class DatabaseService {
   private db: IDBDatabase | null = null;
