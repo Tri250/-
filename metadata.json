@@ -1,0 +1,6 @@
+{
+  "name": "Android Battery Master (安卓电池管家)",
+  "description": "专业的安卓电池充放电监测与健康诊断工具，精准显示实时电流、电压、衰减容量、设计容量、健康度及满电截止校准。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

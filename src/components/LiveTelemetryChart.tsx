@@ -1,0 +1,218 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import { useState } from 'react';
+import { TelemetryPoint } from '../types/battery';
+import { Activity, Zap, Thermometer, Gauge } from 'lucide-react';
+
+interface LiveTelemetryChartProps {
+  history: TelemetryPoint[];
+  currentVoltage: number;
+  currentCurrent: number;
+  currentTemp: number;
+}
+
+export function LiveTelemetryChart({
+  history,
+  currentVoltage,
+  currentCurrent,
+  currentTemp,
+}: LiveTelemetryChartProps) {
+  const [activeMetric, setActiveMetric] = useState<'current' | 'voltage' | 'temperature'>('current');
+
+  if (history.length < 2) {
+    return (
+      <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 text-center text-xs text-slate-500">
+        <Activity className="w-6 h-6 mx-auto mb-2 text-slate-400 animate-spin" />
+        正在采集实时充放电波形数据...
+      </div>
+    );
+  }
+
+  // Determine bounds based on active metric
+  let values: number[] = [];
+  let unit = '';
+  let color = '';
+  let title = '';
+
+  if (activeMetric === 'current') {
+    values = history.map((h) => h.current);
+    unit = 'mA';
+    color = '#10b981'; // emerald-500
+    title = '实时瞬时电流波形';
+  } else if (activeMetric === 'voltage') {
+    values = history.map((h) => h.voltage);
+    unit = 'mV';
+    color = '#38bdf8'; // sky-400
+    title = '电池电芯端电压';
+  } else {
+    values = history.map((h) => h.temperature);
+    unit = '°C';
+    color = '#f59e0b'; // amber-500
+    title = '电池传感器温度';
+  }
+
+  const minVal = Math.min(...values);
+  const maxVal = Math.max(...values);
+  const range = maxVal === minVal ? 1 : maxVal - minVal;
+
+  const width = 600;
+  const height = 180;
+  const paddingX = 20;
+  const paddingY = 24;
+
+  const points = values.map((val, idx) => {
+    const x = paddingX + (idx / (values.length - 1)) * (width - paddingX * 2);
+    const y = height - paddingY - ((val - minVal) / range) * (height - paddingY * 2);
+    return `${x},${y}`;
+  });
+
+  const pathD = `M ${points.join(' L ')}`;
+  const areaD = `M ${paddingX},${height - paddingY} L ${points.join(' L ')} L ${width - paddingX},${height - paddingY} Z`;
+
+  return (
+    <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-sm">
+      {/* Title & Metric Switcher Tabs */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <Activity className="w-4 h-4 text-emerald-500" />
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+              {title}
+            </h3>
+          </div>
+          <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            采样周期 1.5 秒 · 实时动态波形记录
+          </div>
+        </div>
+
+        {/* Metric Segmented Control Buttons */}
+        <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-800 rounded-xl gap-1">
+          <button
+            onClick={() => setActiveMetric('current')}
+            className={`min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+              activeMetric === 'current'
+                ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <Zap className="w-3.5 h-3.5" />
+            电流 (mA)
+          </button>
+          <button
+            onClick={() => setActiveMetric('voltage')}
+            className={`min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+              activeMetric === 'voltage'
+                ? 'bg-white dark:bg-slate-900 text-sky-600 dark:text-sky-400 shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <Gauge className="w-3.5 h-3.5" />
+            电压 (mV)
+          </button>
+          <button
+            onClick={() => setActiveMetric('temperature')}
+            className={`min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+              activeMetric === 'temperature'
+                ? 'bg-white dark:bg-slate-900 text-amber-600 dark:text-amber-400 shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <Thermometer className="w-3.5 h-3.5" />
+            温度 (°C)
+          </button>
+        </div>
+      </div>
+
+      {/* Real-time stats strip */}
+      <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950/40 text-xs text-slate-600 dark:text-slate-300 mb-3 font-mono tabular-nums">
+        <div>
+          <span className="text-slate-400">最新:</span>{' '}
+          <strong className="text-slate-900 dark:text-white font-bold">
+            {values[values.length - 1]} {unit}
+          </strong>
+        </div>
+        <div>
+          <span className="text-slate-400">区间最小:</span> {minVal} {unit}
+        </div>
+        <div>
+          <span className="text-slate-400">区间最大:</span> {maxVal} {unit}
+        </div>
+      </div>
+
+      {/* SVG Canvas */}
+      <div className="w-full overflow-hidden">
+        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-44 overflow-visible">
+          <defs>
+            <linearGradient id="curveGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={color} stopOpacity="0.25" />
+              <stop offset="100%" stopColor={color} stopOpacity="0.0" />
+            </linearGradient>
+          </defs>
+
+          {/* Horizontal Reference Gridlines */}
+          <line
+            x1={paddingX}
+            y1={paddingY}
+            x2={width - paddingX}
+            y2={paddingY}
+            stroke="currentColor"
+            strokeDasharray="4 4"
+            className="text-slate-200 dark:text-slate-800"
+          />
+          <line
+            x1={paddingX}
+            y1={height / 2}
+            x2={width - paddingX}
+            y2={height / 2}
+            stroke="currentColor"
+            strokeDasharray="4 4"
+            className="text-slate-200 dark:text-slate-800"
+          />
+          <line
+            x1={paddingX}
+            y1={height - paddingY}
+            x2={width - paddingX}
+            y2={height - paddingY}
+            stroke="currentColor"
+            className="text-slate-200 dark:text-slate-800"
+          />
+
+          {/* Area Fill */}
+          <path d={areaD} fill="url(#curveGradient)" />
+
+          {/* Main Stroke */}
+          <path
+            d={pathD}
+            fill="none"
+            stroke={color}
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+
+          {/* Latest Data Point Dot */}
+          {points.length > 0 && (
+            <circle
+              cx={points[points.length - 1].split(',')[0]}
+              cy={points[points.length - 1].split(',')[1]}
+              r="4.5"
+              fill={color}
+              stroke="#ffffff"
+              strokeWidth="2"
+            />
+          )}
+        </svg>
+      </div>
+
+      {/* Time axis footer */}
+      <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono mt-1 px-2">
+        <span>30 秒前</span>
+        <span>15 秒前</span>
+        <span>当前 (实时)</span>
+      </div>
+    </div>
+  );
+}
