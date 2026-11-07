@@ -37,6 +37,8 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
 
       - name: Accept Android SDK Licenses
         run: |
@@ -46,19 +48,27 @@ jobs:
             yes | $ANDROID_HOME/tools/bin/sdkmanager --licenses || true
           fi
 
-      - name: Ensure Gradle Wrapper Executable
+      - name: Validate or Regenerate Gradle Wrapper
         run: |
           cd android
-          chmod +x gradlew
+          # Test if the jar has valid Main-Class manifest
+          NEED_WRAPPER=false
           if [ ! -f "gradle/wrapper/gradle-wrapper.jar" ]; then
-            echo "Downloading missing gradle-wrapper.jar..."
-            curl -Lo gradle/wrapper/gradle-wrapper.jar https://raw.githubusercontent.com/gradle/gradle/v8.7.0/gradle/wrapper/gradle-wrapper.jar
+            NEED_WRAPPER=true
+          elif ! unzip -q -c gradle/wrapper/gradle-wrapper.jar META-INF/MANIFEST.MF 2>/dev/null | grep -q "Main-Class"; then
+            echo "Warning: gradle-wrapper.jar is missing Main-Class attribute, regenerating..."
+            NEED_WRAPPER=true
           fi
+
+          if [ "$NEED_WRAPPER" = true ]; then
+            gradle wrapper --gradle-version 8.7
+          fi
+          chmod +x gradlew
 
       - name: Build Debug APK
         run: |
           cd android
-          ./gradlew assembleDebug --stacktrace --no-daemon
+          ./gradlew assembleDebug --stacktrace --no-daemon || gradle assembleDebug --stacktrace --no-daemon
 
       - name: Locate Generated APK
         id: find_apk
