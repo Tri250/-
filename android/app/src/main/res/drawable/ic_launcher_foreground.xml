@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Battery Outer Shell -->
+    <path
+        android:strokeColor="#10B981"
+        android:strokeWidth="3.5"
+        android:fillColor="#00000000"
+        android:pathData="M38,34 H70 A5,5 0 0 1 75,39 V77 A5,5 0 0 1 70,82 H38 A5,5 0 0 1 33,77 V39 A5,5 0 0 1 38,34 Z"/>
+    <!-- Battery Anode Cap -->
+    <path
+        android:fillColor="#10B981"
+        android:pathData="M47,28 H61 V32 H47 Z"/>
+    <!-- Energy Lightning Bolt -->
+    <path
+        android:fillColor="#34D399"
+        android:pathData="M56,42 L44,57 H53 L51,72 L64,55 H55 Z"/>
+</vector>

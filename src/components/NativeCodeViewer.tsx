@@ -304,43 +304,77 @@ fun BatteryScreen(viewModel: BatteryViewModel) {
     name: 'AndroidManifest.xml',
     path: 'android/app/src/main/AndroidManifest.xml',
     language: 'xml',
-    description: '系统权限与广播配置：BATTERY_STATS、前台监测服务与 ACTION_BATTERY_CHANGED',
+    description: '系统权限与应用组件配置：BATTERY_STATS、应用图标与暗黑主题',
     code: `<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     package="com.battery.master">
 
-    <uses-permission android:name="android.permission.BATTERY_STATS" />
+    <!-- Permissions for Battery Monitoring -->
+    <uses-permission android:name="android.permission.BATTERY_STATS" tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <application
         android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
-        android:theme="@style/Theme.AndroidBatteryMaster">
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.AndroidBatteryMaster"
+        tools:targetApi="34">
 
         <activity
             android:name=".MainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:label="@string/app_name"
+            android:theme="@style/Theme.AndroidBatteryMaster">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
-        <service
-            android:name=".service.BatteryMonitorService"
-            android:foregroundServiceType="specialUse" />
-
-        <receiver android:name=".receiver.BatteryBroadcastReceiver">
-            <intent-filter>
-                <action android:name="android.intent.action.BATTERY_CHANGED" />
-                <action android:name="android.intent.action.ACTION_POWER_CONNECTED" />
-                <action android:name="android.intent.action.ACTION_POWER_DISCONNECTED" />
-            </intent-filter>
-        </receiver>
-
     </application>
+
 </manifest>`,
+  },
+  {
+    id: 'res_themes',
+    name: 'themes.xml & strings.xml',
+    path: 'android/app/src/main/res/values/',
+    language: 'xml',
+    description: 'Android 资源配置：暗黑赛博朋克主题、应用名与自适应图标规则',
+    code: `<!-- res/values/themes.xml -->
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.AndroidBatteryMaster" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">#020617</item>
+        <item name="android:navigationBarColor">#020617</item>
+        <item name="android:windowBackground">#020617</item>
+    </style>
+</resources>
+
+<!-- res/values/strings.xml -->
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">电池大师</string>
+</resources>
+
+<!-- res/xml/backup_rules.xml -->
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+</full-backup-content>
+
+<!-- res/xml/data_extraction_rules.xml -->
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <cloud-backup><exclude path="." /></cloud-backup>
+    <device-transfer><exclude path="." /></device-transfer>
+</data-extraction-rules>`,
   },
   {
     id: 'gradle',
