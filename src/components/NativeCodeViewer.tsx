@@ -116,9 +116,9 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
 import android.os.Build
-import com.battery.master.model.BatteryHealthQualityEnum
-import com.battery.master.model.BatteryInfo
-import com.battery.master.model.BatteryStatusEnum
+import com.battery.master.data.BatteryHealthQuality
+import com.battery.master.data.BatteryState
+import com.battery.master.data.BatteryStatus
 import java.io.File
 import kotlin.math.abs
 
@@ -211,18 +211,18 @@ class BatteryHardwareReader(private val context: Context) {
 
         val powerWatts = (voltageMv.toFloat() * abs(currentNowMa)) / 1_000_000f
 
-        return BatteryInfo(
+        return BatteryState(
             healthPercentage = healthPercentage,
             remainingCapacityMah = remainingCapacityMah,
             currentCapacityMah = currentCapacityMah,
             designCapacityMah = designCapacityMah,
             percentage = percentage,
-            status = if (isFullChargeConditionMet) BatteryStatusEnum.FULL else status,
+            status = if (isFullChargeConditionMet) BatteryStatus.FULL else status,
             temperatureCelsius = temperatureCelsius,
             healthQuality = healthQuality,
             voltageMv = voltageMv,
             cycleCount = cycleCount,
-            currentNowMa = currentNowMa,
+            currentMa = currentNowMa,
             fullChargeCapacityMah = if (isFullChargeConditionMet) currentCapacityMah else lastRecordedFullCapacity,
             isFullChargeConditionMet = isFullChargeConditionMet,
             powerWatts = powerWatts

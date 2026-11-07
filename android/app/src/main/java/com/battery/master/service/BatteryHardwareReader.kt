@@ -5,9 +5,9 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
 import android.os.Build
-import com.battery.master.model.BatteryHealthQualityEnum
-import com.battery.master.model.BatteryInfo
-import com.battery.master.model.BatteryStatusEnum
+import com.battery.master.data.BatteryHealthQuality
+import com.battery.master.data.BatteryState
+import com.battery.master.data.BatteryStatus
 import java.io.File
 import kotlin.math.abs
 
@@ -28,7 +28,7 @@ class BatteryHardwareReader(private val context: Context) {
     /**
      * 读取最新的电池遥测数据
      */
-    fun readBatteryTelemetry(): BatteryInfo {
+    fun readBatteryTelemetry(): BatteryState {
         val intentFilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
         val batteryIntent: Intent? = context.registerReceiver(null, intentFilter)
 
@@ -44,11 +44,11 @@ class BatteryHardwareReader(private val context: Context) {
         // 6. 电池状态 (充电中、放电中、已充满、未充电)
         val statusInt = batteryIntent?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
         val status = when (statusInt) {
-            BatteryManager.BATTERY_STATUS_CHARGING -> BatteryStatusEnum.CHARGING
-            BatteryManager.BATTERY_STATUS_DISCHARGING -> BatteryStatusEnum.DISCHARGING
-            BatteryManager.BATTERY_STATUS_FULL -> BatteryStatusEnum.FULL
-            BatteryManager.BATTERY_STATUS_NOT_CHARGING -> BatteryStatusEnum.NOT_CHARGING
-            else -> BatteryStatusEnum.DISCHARGING
+            BatteryManager.BATTERY_STATUS_CHARGING -> BatteryStatus.CHARGING
+            BatteryManager.BATTERY_STATUS_DISCHARGING -> BatteryStatus.DISCHARGING
+            BatteryManager.BATTERY_STATUS_FULL -> BatteryStatus.FULL
+            BatteryManager.BATTERY_STATUS_NOT_CHARGING -> BatteryStatus.NOT_CHARGING
+            else -> BatteryStatus.DISCHARGING
         }
 
         // 7. 电池温度：当前电池温度（摄氏度 ℃）
@@ -58,11 +58,11 @@ class BatteryHardwareReader(private val context: Context) {
         // 8. 电池健康状况 (良好、过热、损坏、超压、未知)
         val healthInt = batteryIntent?.getIntExtra(BatteryManager.EXTRA_HEALTH, -1) ?: -1
         val healthQuality = when (healthInt) {
-            BatteryManager.BATTERY_HEALTH_GOOD -> BatteryHealthQualityEnum.GOOD
-            BatteryManager.BATTERY_HEALTH_OVERHEAT -> BatteryHealthQualityEnum.OVERHEAT
-            BatteryManager.BATTERY_HEALTH_DEAD -> BatteryHealthQualityEnum.DEAD
-            BatteryManager.BATTERY_HEALTH_OVER_VOLTAGE -> BatteryHealthQualityEnum.OVER_VOLTAGE
-            else -> BatteryHealthQualityEnum.UNKNOWN
+            BatteryManager.BATTERY_HEALTH_GOOD -> BatteryHealthQuality.GOOD
+            BatteryManager.BATTERY_HEALTH_OVERHEAT -> BatteryHealthQuality.OVERHEAT
+            BatteryManager.BATTERY_HEALTH_DEAD -> BatteryHealthQuality.DEAD
+            BatteryManager.BATTERY_HEALTH_OVER_VOLTAGE -> BatteryHealthQuality.OVER_VOLTAGE
+            else -> BatteryHealthQuality.UNKNOWN
         }
 
         // 9. 电压：当前电池电压（毫伏 mV）
@@ -90,7 +90,6 @@ class BatteryHardwareReader(private val context: Context) {
         }
 
         // 3. 电池当前容量（衰减后的容量 mAh）
-        // 尝试从系统库仑计读取最大可用容量，或结合循环衰减估算
         val chargeCounterUah = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER)
         var currentCapacityMah = (designCapacityMah * 0.92f).toInt()
         val sysfsMaxCapacityUah = readSysfsInt("/sys/class/power_supply/battery/charge_full")
@@ -118,18 +117,18 @@ class BatteryHardwareReader(private val context: Context) {
         // 计算瞬时功率 (W = V * I)
         val powerWatts = (voltageMv.toFloat() * abs(currentNowMa)) / 1_000_000f
 
-        return BatteryInfo(
+        return BatteryState(
             healthPercentage = healthPercentage,
             remainingCapacityMah = remainingCapacityMah,
             currentCapacityMah = currentCapacityMah,
             designCapacityMah = designCapacityMah,
             percentage = percentage,
-            status = if (isFullChargeConditionMet) BatteryStatusEnum.FULL else status,
+            status = if (isFullChargeConditionMet) BatteryStatus.FULL else status,
             temperatureCelsius = temperatureCelsius,
             healthQuality = healthQuality,
             voltageMv = voltageMv,
             cycleCount = cycleCount,
-            currentNowMa = currentNowMa,
+            currentMa = currentNowMa,
             fullChargeCapacityMah = if (isFullChargeConditionMet) currentCapacityMah else lastRecordedFullCapacity,
             isFullChargeConditionMet = isFullChargeConditionMet,
             powerWatts = powerWatts

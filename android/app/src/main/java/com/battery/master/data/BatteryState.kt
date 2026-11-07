@@ -44,6 +44,12 @@ data class BatteryState(
     // 满足 100% 且电流 0-25mA 充满条件的判定时间戳
     val lastFullChargeTimestamp: Long? = null,
 
+    // 功率 (W)
+    val powerWatts: Float = 0.0f,
+
+    // 是否符合充满判定标准
+    val isFullChargeConditionMet: Boolean = false,
+
     // ===== 硬件信息汇总 =====
     val socModel: String = "Qualcomm Snapdragon 8 Gen 3",
     val pmicModel: String = "Qualcomm PM8550B Dual-Phase",
@@ -53,7 +59,10 @@ data class BatteryState(
     val halVersion: String = "Android 15 Battery AIDL 2.0",
     val cellStructure: String = "高能比单电芯堆叠架构",
     val thermalThrottlingState: String = "正常供电 (无节流)"
-)
+) {
+    // 别名兼容
+    val currentNowMa: Int get() = currentMa
+}
 
 enum class BatteryStatus(val label: String) {
     CHARGING("充电中"),

@@ -59,12 +59,12 @@ class BatteryReceiver(
         val currentUa = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)
         val currentMa = currentUa / 1000
 
-        // 10. 循环计数 (Android 14+ API 34 支持直接获取，低版本读取 sysfs)
+        // 10. 循环计数 (Android 14+ API 34 支持直接从 Intent EXTRA_CYCLE_COUNT 获取，或读取 sysfs)
         var cycleCount = 0
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             try {
-                cycleCount = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CYCLE_COUNT)
-            } catch (_: Exception) {}
+                cycleCount = intent.getIntExtra(BatteryManager.EXTRA_CYCLE_COUNT, -1)
+            } catch (e: Exception) {}
         }
         if (cycleCount <= 0) {
             cycleCount = readSysfsInt("/sys/class/power_supply/battery/cycle_count") ?: 268
@@ -121,7 +121,7 @@ class BatteryReceiver(
         return try {
             val file = File(path)
             if (file.exists()) file.readText().trim().toIntOrNull() else null
-        } catch (_: Exception) {
+        } catch (e: Exception) {
             null
         }
     }
@@ -135,7 +135,7 @@ class BatteryReceiver(
             val getBatteryCapacityMethod = powerProfileClass.getMethod("getBatteryCapacity")
             val capacity = getBatteryCapacityMethod.invoke(powerProfile) as? Double
             if (capacity != null && capacity > 0) return capacity.toInt()
-        } catch (_: Exception) {}
+        } catch (e: Exception) {}
 
         // 备用读取 sysfs
         val sysfsDesign = readSysfsInt("/sys/class/power_supply/battery/charge_full_design")
