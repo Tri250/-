@@ -386,6 +386,23 @@ dependencies {
     implementation(libs.androidx.core.ktx)
 }`,
   },
+  {
+    id: 'gradle_properties',
+    name: 'gradle.properties',
+    path: 'android/gradle.properties',
+    language: 'properties',
+    description: '全局 Gradle 属性配置：开启 android.useAndroidX 与 JVM 编译优化',
+    code: `# Project-wide Gradle settings.
+# Enable AndroidX support for libraries and dependencies (required by AndroidX and Jetpack Compose)
+android.useAndroidX=true
+android.nonTransitiveRClass=true
+
+# JVM memory configuration for Gradle daemon
+org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+
+# Kotlin style
+kotlin.code.style=official`,
+  },
 ];
 
 export function NativeCodeViewer() {
