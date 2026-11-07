@@ -16,6 +16,10 @@ on:
 permissions:
   contents: write
 
+env:
+  ANDROID_HOME: /usr/local/lib/android/sdk
+  ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+
 jobs:
   build:
     name: Build Android APK
@@ -30,32 +34,39 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
-          cache: 'gradle'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
 
-      - name: Prepare Gradle Wrapper
+      - name: Accept Android SDK Licenses
         run: |
-          if [ -d "android" ]; then
-            cd android
+          if [ -d "$ANDROID_HOME/cmdline-tools/latest/bin" ]; then
+            yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          elif [ -d "$ANDROID_HOME/tools/bin" ]; then
+            yes | $ANDROID_HOME/tools/bin/sdkmanager --licenses || true
           fi
-          if [ ! -f "gradlew" ]; then
-            gradle wrapper --gradle-version 8.7
-          fi
+
+      - name: Ensure Gradle Wrapper Executable
+        run: |
+          cd android
           chmod +x gradlew
+          if [ ! -f "gradle/wrapper/gradle-wrapper.jar" ]; then
+            echo "Downloading missing gradle-wrapper.jar..."
+            curl -Lo gradle/wrapper/gradle-wrapper.jar https://raw.githubusercontent.com/gradle/gradle/v8.7.0/gradle/wrapper/gradle-wrapper.jar
+          fi
 
       - name: Build Debug APK
         run: |
-          if [ -d "android" ]; then
-            cd android
-          fi
-          ./gradlew assembleDebug --stacktrace
+          cd android
+          ./gradlew assembleDebug --stacktrace --no-daemon
 
       - name: Locate Generated APK
         id: find_apk
         run: |
-          APK_PATH=$(find . -name "*.apk" | head -n 1)
+          APK_PATH=$(find android/app/build/outputs/apk/debug -name "*.apk" | head -n 1)
+          if [ -z "$APK_PATH" ]; then
+            APK_PATH=$(find . -name "*.apk" | head -n 1)
+          fi
           echo "Found APK at: $APK_PATH"
           echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
 
