@@ -145,14 +145,14 @@ export default function App() {
           {/* Android Native HAL Subsystem Status Tag */}
           <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-mono font-bold bg-cyan-950/80 text-cyan-300 border border-cyan-500/40 shadow-sm shadow-cyan-950/40">
             <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-            <span>Android Native HAL v2 (已连接驱动)</span>
+            <span>Android 仿真 HAL · 演示数据</span>
           </div>
 
           {/* Native Code Quick Button */}
           <button
-            onClick={() => setActiveTab('native')}
+            onClick={() => setActiveTab('hub')}
             className={`min-h-[38px] px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all flex items-center gap-1.5 ${
-              activeTab === 'native'
+              activeTab === 'hub'
                 ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
                 : 'border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
             }`}

@@ -5,6 +5,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.getValue
@@ -15,6 +17,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.battery.master.data.BatteryHealthQuality
@@ -36,6 +40,9 @@ fun BatteryScreen(
 
     // 指标 04 设计容量校准对话框开关 (激活 ViewModel.setDesignCapacity)
     var showDesignCapacityDialog by remember { mutableStateOf(false) }
+
+    // 一键模拟充满保持期剩余秒数 (0 = 无模拟，UI 倒计时反馈)
+    val simulationRemainingSec by viewModel.simulationRemainingSec.collectAsState()
 
     Scaffold(
         containerColor = Color(0xFF030712), // Deep Cyber AMOLED Black
@@ -94,7 +101,11 @@ fun BatteryScreen(
 
             // 3. 特性 12 充满判定卡片 (100% 且 0-25 mA)
             item {
-                FullChargeConditionCard(state, onTriggerTest = { viewModel.triggerFullChargeSimulation() })
+                FullChargeConditionCard(
+                    state,
+                    simulationRemainingSec = simulationRemainingSec,
+                    onTriggerTest = { viewModel.triggerFullChargeSimulation() }
+                )
             }
 
             // 4. 12 项充放电指标卡片网格列表
@@ -261,6 +272,23 @@ fun BatteryScreen(
         // 指标 04 设计容量校准对话框 (激活 ViewModel.setDesignCapacity)
         if (showDesignCapacityDialog) {
             var capacityInput by remember { mutableStateOf(state.designCapacityMah.toString()) }
+            var inputError by remember { mutableStateOf<String?>(null) }
+
+            // 校验并提交：空值/0/超范围均给出可见错误反馈，不再静默失败
+            val submitCalibration: () -> Unit = {
+                val parsed = capacityInput.toIntOrNull()
+                inputError = when {
+                    capacityInput.isBlank() -> "请输入容量数值"
+                    parsed == null || parsed <= 0 -> "容量必须为大于 0 的整数"
+                    parsed > 20000 -> "容量超出合理范围 (最大 20000 mAh)"
+                    else -> null
+                }
+                if (inputError == null && parsed != null) {
+                    viewModel.setDesignCapacity(parsed)
+                    showDesignCapacityDialog = false
+                }
+            }
+
             AlertDialog(
                 onDismissRequest = { showDesignCapacityDialog = false },
                 title = { Text("校准设计容量 (指标 04)") },
@@ -269,24 +297,37 @@ fun BatteryScreen(
                         value = capacityInput,
                         onValueChange = { input ->
                             capacityInput = input.filter { it.isDigit() }.take(5)
+                            inputError = null
                         },
                         label = { Text("出厂设计容量 (mAh)") },
                         singleLine = true,
+                        isError = inputError != null,
+                        supportingText = {
+                            inputError?.let { err ->
+                                Text(err, fontSize = 11.sp, color = Color(0xFFFB7185))
+                            }
+                        },
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Number,
+                            imeAction = ImeAction.Done
+                        ),
+                        keyboardActions = KeyboardActions(onDone = { submitCalibration() }),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = Color.White,
                             unfocusedTextColor = Color(0xFFE2E8F0),
                             focusedBorderColor = Color(0xFF06B6D4),
                             unfocusedBorderColor = Color(0xFF334155),
                             focusedLabelColor = Color(0xFF06B6D4),
-                            unfocusedLabelColor = Color(0xFF64748B)
+                            unfocusedLabelColor = Color(0xFF64748B),
+                            errorBorderColor = Color(0xFFFB7185),
+                            errorLabelColor = Color(0xFFFB7185)
                         )
                     )
                 },
                 confirmButton = {
-                    TextButton(onClick = {
-                        capacityInput.toIntOrNull()?.let { viewModel.setDesignCapacity(it) }
-                        showDesignCapacityDialog = false
-                    }) { Text("确定", color = Color(0xFF34D399)) }
+                    TextButton(onClick = submitCalibration) {
+                        Text("确定", color = Color(0xFF34D399))
+                    }
                 },
                 dismissButton = {
                     TextButton(onClick = { showDesignCapacityDialog = false }) {
@@ -494,8 +535,14 @@ fun HardwareItem(modifier: Modifier = Modifier, label: String, value: String) {
  * 特性 12 充满判定卡片
  */
 @Composable
-fun FullChargeConditionCard(state: BatteryState, onTriggerTest: () -> Unit) {
-    val isFullMet = state.percentage == 100 && (state.currentMa in 0..25)
+fun FullChargeConditionCard(
+    state: BatteryState,
+    simulationRemainingSec: Long,
+    onTriggerTest: () -> Unit
+) {
+    // 直接消费 State.isFullChargeConditionMet (双通道单一数据源，不本地重算)
+    val isFullMet = state.isFullChargeConditionMet
+    val isSimulating = simulationRemainingSec > 0
 
     Card(
         modifier = Modifier
@@ -560,10 +607,23 @@ fun FullChargeConditionCard(state: BatteryState, onTriggerTest: () -> Unit) {
 
             Button(
                 onClick = onTriggerTest,
+                enabled = !isSimulating,
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF047857))
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (isSimulating) Color(0xFF334155) else Color(0xFF047857),
+                    disabledContainerColor = Color(0xFF1E293B),
+                    disabledContentColor = Color(0xFF94A3B8)
+                )
             ) {
-                Text("一键模拟完全充满 (100% + 16mA)", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    text = if (isSimulating) {
+                        "模拟保持中 (${simulationRemainingSec}s) · 结束后自动恢复真实遥测"
+                    } else {
+                        "一键模拟完全充满 (100% + 16mA)"
+                    },
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
     }

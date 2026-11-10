@@ -219,14 +219,14 @@ export function HardwareSimulationLab({
           </div>
           <input
             type="range"
-            min="1"
+            min="0"
             max="100"
             value={percentage}
             onChange={(e) => onUpdatePercentage(parseInt(e.target.value, 10))}
             className="w-full accent-emerald-500 cursor-pointer"
           />
           <div className="flex justify-between text-[10px] text-slate-400 mt-0.5 font-mono">
-            <span>1% (濒临关机)</span>
+            <span>0% (濒临关机)</span>
             <span>50%</span>
             <span>100% (满电)</span>
           </div>
@@ -347,7 +347,7 @@ export function HardwareSimulationLab({
           </div>
           <input
             type="range"
-            min="10"
+            min="0"
             max="55"
             step="0.5"
             value={temperature}
@@ -355,7 +355,7 @@ export function HardwareSimulationLab({
             className="w-full accent-amber-500 cursor-pointer"
           />
           <div className="flex justify-between text-[10px] text-slate-400 mt-0.5 font-mono">
-            <span>10°C (低温)</span>
+            <span>0°C (过冷保护)</span>
             <span>32°C (正常)</span>
             <span>45°C+ (过热预警)</span>
           </div>

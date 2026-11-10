@@ -33,6 +33,10 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
     // 一键模拟充满后的保持期 (毫秒)：期间不覆盖模拟数据，15 秒后恢复真实遥测
     private var simulationHoldUntilMs = 0L
 
+    // 模拟保持期剩余秒数 (供 UI 显示倒计时反馈，0 表示无模拟)
+    private val _simulationRemainingSec = MutableStateFlow(0L)
+    val simulationRemainingSec: StateFlow<Long> = _simulationRemainingSec.asStateFlow()
+
     init {
         ContextCompat.registerReceiver(
             application,
@@ -41,6 +45,21 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
             ContextCompat.RECEIVER_NOT_EXPORTED
         )
         startTelemetryPolling()
+        startSimulationCountdown()
+    }
+
+    /**
+     * 模拟保持期倒计时：每 250ms 刷新剩余秒数，让用户明确感知
+     * "模拟数据生效中、N 秒后恢复真实遥测"，避免误以为界面卡死
+     */
+    private fun startSimulationCountdown() {
+        viewModelScope.launch {
+            while (isActive) {
+                val remainingMs = simulationHoldUntilMs - System.currentTimeMillis()
+                _simulationRemainingSec.value = if (remainingMs > 0) (remainingMs + 999) / 1000 else 0L
+                delay(250)
+            }
+        }
     }
 
     override fun onCleared() {
