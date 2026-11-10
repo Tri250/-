@@ -37,6 +37,7 @@ interface HardwareSimulationLabProps {
   onSetStatus: (val: BatteryStatus) => void;
   onUpdateHealthQuality: (val: BatteryHealthQuality) => void;
   onUpdateCurrentCapacity: (val: number) => void;
+  onUpdateDesignCapacity: (val: number) => void;
   onUpdateCycleCount: (val: number) => void;
   onToggleSound: () => void;
   onToggleLiveTelemetry: () => void;
@@ -63,6 +64,7 @@ export function HardwareSimulationLab({
   onSetStatus,
   onUpdateHealthQuality,
   onUpdateCurrentCapacity,
+  onUpdateDesignCapacity,
   onUpdateCycleCount,
   onToggleSound,
   onToggleLiveTelemetry,
@@ -301,6 +303,37 @@ export function HardwareSimulationLab({
           </div>
         </div>
 
+        {/* Design Capacity (4. 电池出厂设计容量) */}
+        <div>
+          <div className="flex items-center justify-between text-xs mb-1">
+            <span className="font-semibold text-slate-700 dark:text-slate-300">
+              4. 电池出厂设计容量 (mAh)
+            </span>
+            <span className="font-mono font-bold text-slate-900 dark:text-white tabular-nums">
+              {designCapacity} mAh
+            </span>
+          </div>
+          <input
+            type="range"
+            min="1000"
+            max="15000"
+            step="100"
+            value={designCapacity}
+            onChange={(e) => {
+              const val = parseInt(e.target.value, 10);
+              onUpdateDesignCapacity(val);
+              // 同步钳制当前容量，避免衰减容量超出新设计容量导致健康度 > 100%
+              if (currentCapacity > val) onUpdateCurrentCapacity(val);
+            }}
+            className="w-full accent-sky-500 cursor-pointer"
+          />
+          <div className="flex justify-between text-[10px] text-slate-400 mt-0.5 font-mono">
+            <span>1000 mAh (小容量)</span>
+            <span>5000 mAh (主流)</span>
+            <span>15000 mAh (平板级)</span>
+          </div>
+        </div>
+
         {/* Cycle Count (10. 循环计数) */}
         <div>
           <div className="flex items-center justify-between text-xs mb-1">
@@ -377,6 +410,38 @@ export function HardwareSimulationLab({
             <span>32°C (正常)</span>
             <span>45°C+ (过热预警)</span>
           </div>
+        </div>
+      </div>
+
+      {/* 6. 电池状态强制切换 (激活 onSetStatus 全量枚举入口) */}
+      <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+        <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
+          6. 电池状态强制切换 (Android BatteryManager Status)
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {(
+            [
+              { id: 'charging', label: '充电中', color: 'text-emerald-700 border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 dark:text-emerald-300', ring: 'ring-emerald-500' },
+              { id: 'discharging', label: '放电中', color: 'text-sky-700 border-sky-300 bg-sky-50 dark:bg-sky-950/40 dark:text-sky-300', ring: 'ring-sky-500' },
+              { id: 'full', label: '已充满', color: 'text-teal-700 border-teal-300 bg-teal-50 dark:bg-teal-950/40 dark:text-teal-300', ring: 'ring-teal-500' },
+              { id: 'not_charging', label: '未充电', color: 'text-slate-700 border-slate-300 bg-slate-50 dark:bg-slate-800 dark:text-slate-300', ring: 'ring-slate-400' },
+            ] as const
+          ).map((item) => {
+            const isSelected = status === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => onSetStatus(item.id)}
+                className={`min-h-[44px] px-3.5 py-1.5 rounded-xl border text-xs font-semibold transition-all ${
+                  isSelected
+                    ? `${item.color} ring-2 ${item.ring} shadow-sm`
+                    : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+                }`}
+              >
+                {item.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 

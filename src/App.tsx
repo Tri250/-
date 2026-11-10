@@ -11,6 +11,8 @@ import {
   Sun,
   Smartphone,
   Code2,
+  Pause,
+  Play,
 } from 'lucide-react';
 import { useBatteryMonitor } from './hooks/useBatteryMonitor';
 import { AndroidStatusBar } from './components/AndroidStatusBar';
@@ -303,6 +305,7 @@ export default function App() {
                       variant: state.percentage <= 20 ? 'danger' : 'good',
                     }}
                     hint="当前电量百分比 × 实际可用容量"
+                    onClick={() => setActiveTab('telemetry')}
                   />
 
                   {/* 3. 电池当前容量 (衰减后的容量) */}
@@ -317,6 +320,7 @@ export default function App() {
                       variant: 'neutral',
                     }}
                     hint="随充放电循环逐步衰减的物理容量"
+                    onClick={() => setActiveTab('lab')}
                   />
 
                   {/* 4. 电池设计容量 (出厂容量) */}
@@ -331,6 +335,7 @@ export default function App() {
                       variant: 'neutral',
                     }}
                     hint="制造商出厂铭牌额定容量"
+                    onClick={() => setActiveTab('lab')}
                   />
 
                   {/* 5. 电量：当前电池电量的百分比 */}
@@ -345,6 +350,7 @@ export default function App() {
                       variant: state.percentage > 20 ? 'good' : 'danger',
                     }}
                     hint="Android BatteryManager.EXTRA_LEVEL"
+                    onClick={() => setActiveTab('lab')}
                   />
 
                   {/* 6. 电池状态 */}
@@ -366,6 +372,7 @@ export default function App() {
                       variant: statusMap[state.status].variant,
                     }}
                     hint="充电中 / 放电中 / 已充满 / 未充电"
+                    onClick={() => setActiveTab('lab')}
                   />
 
                   {/* 7. 电池温度 */}
@@ -380,6 +387,7 @@ export default function App() {
                       variant: tempAssessment.variant,
                     }}
                     hint="内嵌 NTC 热敏电阻传感器测温"
+                    onClick={() => setActiveTab('lab')}
                   />
 
                   {/* 8. 电池健康状况 */}
@@ -408,6 +416,7 @@ export default function App() {
                       variant: state.voltage >= 4500 ? 'danger' : 'info',
                     }}
                     hint="电芯两极实时电势差"
+                    onClick={() => setActiveTab('lab')}
                   />
 
                   {/* 10. 循环计数 */}
@@ -422,6 +431,7 @@ export default function App() {
                       variant: state.cycleCount < 500 ? 'good' : 'warning',
                     }}
                     hint="累积充入 100% 额定电量折算 1 次"
+                    onClick={() => setActiveTab('lab')}
                   />
 
                   {/* 11. 瞬时电流 */}
@@ -436,6 +446,7 @@ export default function App() {
                       variant: state.current > 0 ? 'good' : 'info',
                     }}
                     hint="实时流经采样电阻的充放电流"
+                    onClick={() => setActiveTab('lab')}
                   />
 
                   {/* 12. 完全充满时的容量 (Card Preview) */}
@@ -480,13 +491,33 @@ export default function App() {
             {/* TAB 2: 充放电图表 (TELEMETRY) */}
             {activeTab === 'telemetry' && (
               <div className="space-y-4">
-                <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80">
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                    高频硬件遥测分析
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    实时捕获充放电电流（mA）、电芯端电压（mV）及热敏传感器温度曲线
-                  </p>
+                <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                      高频硬件遥测分析
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      实时捕获充放电电流（mA）、电芯端电压（mV）及热敏传感器温度曲线
+                    </p>
+                  </div>
+                  {/* 遥测暂停/恢复入口 (复用 isLiveTelemetryRunning 全局开关) */}
+                  <button
+                    onClick={() => setIsLiveTelemetryRunning(!isLiveTelemetryRunning)}
+                    className="min-h-[44px] shrink-0 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5 transition-colors"
+                    title={isLiveTelemetryRunning ? '暂停实时遥测采集，便于固定波形观察' : '恢复实时遥测采集'}
+                  >
+                    {isLiveTelemetryRunning ? (
+                      <>
+                        <Pause className="w-4 h-4 text-amber-500" />
+                        <span>暂停遥测</span>
+                      </>
+                    ) : (
+                      <>
+                        <Play className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                        <span>恢复遥测</span>
+                      </>
+                    )}
+                  </button>
                 </div>
 
                 {/* Real-time Graph */}
@@ -563,6 +594,19 @@ export default function App() {
                   healthQuality={state.healthQuality}
                 />
 
+                {/* Quick Shortcut to Lab (极端健康状态模拟入口) */}
+                <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800/60 flex items-center justify-between gap-3">
+                  <div className="text-xs text-slate-600 dark:text-slate-300">
+                    想模拟过热、超压、损坏等极端健康状态？
+                  </div>
+                  <button
+                    onClick={() => setActiveTab('lab')}
+                    className="min-h-[40px] shrink-0 px-3 py-1.5 rounded-lg bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold transition-colors"
+                  >
+                    前往实验室模拟
+                  </button>
+                </div>
+
                 {/* Calibration Details Table */}
                 <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80">
                   <h4 className="text-xs font-bold text-slate-900 dark:text-white mb-2">
@@ -606,6 +650,7 @@ export default function App() {
                   onSetStatus={setStatus}
                   onUpdateHealthQuality={updateHealthQuality}
                   onUpdateCurrentCapacity={updateCurrentCapacity}
+                  onUpdateDesignCapacity={updateDesignCapacity}
                   onUpdateCycleCount={updateCycleCount}
                   onToggleSound={() => setSoundEnabled(!soundEnabled)}
                   onToggleLiveTelemetry={() => setIsLiveTelemetryRunning(!isLiveTelemetryRunning)}
