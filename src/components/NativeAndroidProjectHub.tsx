@@ -24,7 +24,7 @@ export function NativeAndroidProjectHub() {
       name: 'BatteryReceiver.kt',
       path: 'app/src/main/java/com/battery/master/receiver/BatteryReceiver.kt',
       language: 'kotlin',
-      description: '核心广播接收器：监听 ACTION_BATTERY_CHANGED 并严谨判定特性 12（100% 且电流 0-25mA）',
+      description: '核心广播接收器：监听 ACTION_BATTERY_CHANGED 并严谨判定特性 12（100% 且电流 0-25 mA）',
       code: `package com.battery.master.receiver
 
 import android.content.BroadcastReceiver
@@ -210,7 +210,7 @@ data class BatteryState(
     // 仅当电量为 100% 且电流在 0-25 mA 之间时，才视为电池充满并记录
     val fullChargeCapacityMah: Int? = null,
 
-    // 满足 100% 且电流 0-25mA 充满条件的判定时间戳
+    // 满足 100% 且电流 0-25 mA 充满条件的判定时间戳
     val lastFullChargeTimestamp: Long? = null,
 
     // 功率 (W)
@@ -578,7 +578,7 @@ dependencies {
           </div>
           <div className="p-2 rounded-lg bg-slate-800/60 border border-slate-700/60">
             <span className="text-slate-400">特性12判定:</span>
-            <div className="font-mono text-emerald-300 font-semibold truncate">100% & 0-25mA</div>
+            <div className="font-mono text-emerald-300 font-semibold truncate">100% &amp; 0-25 mA</div>
           </div>
         </div>
       </div>

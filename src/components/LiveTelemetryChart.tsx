@@ -135,7 +135,7 @@ export function LiveTelemetryChart({
       </div>
 
       {/* Real-time stats strip */}
-      <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950/40 text-xs text-slate-600 dark:text-slate-300 mb-3 font-mono tabular-nums">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950/40 text-xs text-slate-600 dark:text-slate-300 mb-3 font-mono tabular-nums">
         <div>
           <span className="text-slate-400">最新:</span>{' '}
           <strong className="text-slate-900 dark:text-white font-bold">

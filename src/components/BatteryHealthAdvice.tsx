@@ -141,7 +141,7 @@ export function BatteryHealthAdvice({
             满电校准机制
           </div>
           <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-            定期充至 100% 并在 0~25mA 保持 15 分钟，帮助芯片重置库仑计基准。
+            定期充至 100% 并在 0~25 mA 保持 15 分钟，帮助芯片重置库仑计基准。
           </div>
         </div>
       </div>

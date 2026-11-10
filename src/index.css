@@ -1,15 +1,25 @@
 @import "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *));
 
+/*
+ * 主题字体令牌 (Tailwind v4 @theme)
+ * 注意：必须通过 --font-* 主题变量定义，
+ * 直接写 .font-mono { } 会被 Tailwind 工具类层的 font-mono{font-family:var(--font-mono)} 覆盖而失效。
+ * 拉丁字体之后显式声明中文字体回退：Google Fonts 不可达（境内网络）时
+ * 回退至系统中文字体，避免落入通用 monospace 导致中文渲染为宋体、与无衬线界面割裂。
+ */
+@theme {
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'PingFang SC', 'HarmonyOS Sans SC', 'MiSans', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;
+  --font-mono: 'JetBrains Mono', 'PingFang SC', 'HarmonyOS Sans SC', 'MiSans', 'Microsoft YaHei',
+    'Noto Sans CJK SC', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
 @layer base {
   body {
-    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-  }
-
-  .font-mono {
-    font-family: 'JetBrains Mono', monospace;
   }
 }
 
@@ -27,4 +37,16 @@
 }
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(148, 163, 184, 0.5);
+}
+
+/* 无障碍：尊重系统"减弱动态效果"偏好，停用脉冲/旋转/过渡动画 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

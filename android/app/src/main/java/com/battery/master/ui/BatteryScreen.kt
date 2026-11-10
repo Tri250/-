@@ -258,7 +258,7 @@ fun BatteryScreen(
                         title = "完全充满容量",
                         value = if (state.fullChargeCapacityMah != null) "${state.fullChargeCapacityMah}" else "—",
                         unit = if (state.fullChargeCapacityMah != null) "mAh" else "",
-                        sub = if (state.isFullChargeConditionMet) "已满足 100% & 0-25mA" else "详见上方充满判定卡",
+                        sub = if (state.isFullChargeConditionMet) "已满足 100% & 0-25 mA" else "详见上方充满判定卡",
                         accentColor = Color(0xFF34D399)
                     )
                 }
@@ -568,7 +568,7 @@ fun FullChargeConditionCard(
                     color = Color.White
                 )
                 Text(
-                    text = if (isFullMet) "已达充满判定 (100% & 0-25mA)" else "等待条件满足",
+                    text = if (isFullMet) "已达充满判定 (100% & 0-25 mA)" else "等待条件满足",
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace,

@@ -270,9 +270,9 @@ export function HardwareSimulationLab({
             className="w-full accent-emerald-500 cursor-pointer"
           />
           <div className="flex justify-between text-[10px] text-slate-400 mt-0.5 font-mono">
-            <span>-2000mA (大放电)</span>
-            <span>0-25mA (满电截止)</span>
-            <span>+6000mA (超级闪充)</span>
+            <span>-2000 mA (大放电)</span>
+            <span>0-25 mA (满电截止)</span>
+            <span>+6000 mA (超级闪充)</span>
           </div>
         </div>
 
@@ -347,9 +347,9 @@ export function HardwareSimulationLab({
             className="w-full accent-sky-500 cursor-pointer"
           />
           <div className="flex justify-between text-[10px] text-slate-400 mt-0.5 font-mono">
-            <span>3500mV (放电截止)</span>
-            <span>3850mV (标称电压)</span>
-            <span>4450mV (满电高压)</span>
+            <span>3500 mV (放电截止)</span>
+            <span>3850 mV (标称电压)</span>
+            <span>4450 mV (满电高压)</span>
           </div>
         </div>
 

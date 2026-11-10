@@ -101,7 +101,7 @@ export function FullChargeCalibrationCard({
                 </>
               ) : (
                 <span className="text-sm font-mono font-medium text-slate-500 py-1">
-                  [ 待触发：未达100%或电流不在0-25mA，暂不显示 ]
+                  [ 待触发：未达 100% 或电流不在 0-25 mA，暂不显示 ]
                 </span>
               )}
             </div>
@@ -124,7 +124,7 @@ export function FullChargeCalibrationCard({
             className="min-h-[44px] px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 active:scale-95 text-white text-xs font-bold tracking-wider uppercase transition-all flex items-center justify-center gap-1.5 shadow-md shadow-emerald-950/40 whitespace-nowrap"
           >
             <Sparkles className="w-4 h-4 fill-white text-white" />
-            一键进入充满状态 (100% + 16mA)
+            一键进入充满状态 (100% + 16 mA)
           </button>
         </div>
       </div>
@@ -207,7 +207,7 @@ export function FullChargeCalibrationCard({
         <HelpCircle className="w-3.5 h-3.5 mt-0.5 text-cyan-400 shrink-0" />
         <p>
           <strong className="text-slate-300">Android HAL 原生规范：</strong>
-          在恒压（CV）阶段充电电流降至 25mA 截止门限时，PMIC 电量计校准并写回满电寄存器。
+          在恒压（CV）阶段充电电流降至 25 mA 截止门限时，PMIC 电量计校准并写回满电寄存器。
         </p>
       </div>
     </div>

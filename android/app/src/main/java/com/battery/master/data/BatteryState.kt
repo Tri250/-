@@ -41,7 +41,7 @@ data class BatteryState(
     // 仅当电量为 100% 且电流在 0-25 mA 之间时，才视为电池充满并记录
     val fullChargeCapacityMah: Int? = null,
 
-    // 满足 100% 且电流 0-25mA 充满条件的判定时间戳
+    // 满足 100% 且电流 0-25 mA 充满条件的判定时间戳
     val lastFullChargeTimestamp: Long? = null,
 
     // 功率 (W)

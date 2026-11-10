@@ -80,7 +80,7 @@ export default function App() {
   > = {
     good: { label: '良好 (Good)', variant: 'good' },
     overheat: { label: '过热 (Overheat)', variant: 'warning' },
-    dead: { label: '损坏 (Dead/Cold)', variant: 'danger' },
+    dead: { label: '损坏 (Dead/Failed)', variant: 'danger' },
     over_voltage: { label: '超压 (Over Voltage)', variant: 'danger' },
     unknown: { label: '未知 (Unknown)', variant: 'neutral' },
   };
@@ -95,10 +95,10 @@ export default function App() {
 
   // Temperature band assessment (Requirement 7)
   const getTempAssessment = (temp: number) => {
-    if (temp > 45) return { text: '严重发热 (>45°C)', variant: 'danger' as const };
-    if (temp >= 38) return { text: '偏热预警 (38-45°C)', variant: 'warning' as const };
-    if (temp <= 0) return { text: '过冷保护 (<0°C)', variant: 'danger' as const };
-    return { text: '温度正常 (25-37°C)', variant: 'good' as const };
+    if (temp > 45) return { text: '严重发热 (>45 °C)', variant: 'danger' as const };
+    if (temp >= 38) return { text: '偏热预警 (38-45 °C)', variant: 'warning' as const };
+    if (temp <= 0) return { text: '过冷保护 (≤0 °C)', variant: 'danger' as const };
+    return { text: '温度正常', variant: 'good' as const };
   };
 
   const tempAssessment = getTempAssessment(state.temperature);
@@ -267,7 +267,7 @@ export default function App() {
                 {/* Section Header: 12 Core Battery Metrics Breakdown */}
                 <div className="flex items-center justify-between pt-1">
                   <h2 className="text-xs font-bold text-slate-700 dark:text-slate-300 tracking-wide uppercase">
-                    12项电池充放电指标详情
+                    12 项电池充放电指标详情
                   </h2>
                   <span className="text-[10px] text-slate-400 font-mono">
                     实时库仑计遥测
@@ -446,8 +446,8 @@ export default function App() {
                     unit={state.fullChargeCapacity ? 'mAh' : ''}
                     subValue={
                       state.percentage === 100 && state.current >= 0 && state.current <= 25
-                        ? '已满足 100% & 0-25mA 锁定'
-                        : '充至100%且电流0-25mA时记录'
+                        ? '已满足 100% & 0-25 mA 锁定'
+                        : '充至 100% 且电流 0-25 mA 时记录'
                     }
                     badge={{
                       text:
@@ -459,7 +459,7 @@ export default function App() {
                           ? 'good'
                           : 'warning',
                     }}
-                    hint="特性12：仅当100%且电流0-25mA时视为充满"
+                    hint="特性 12：仅当 100% 且电流 0-25 mA 时视为充满"
                     onClick={() => setActiveTab('health')}
                   />
                 </div>

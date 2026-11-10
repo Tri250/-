@@ -312,7 +312,7 @@ fun BatteryScreen(viewModel: BatteryViewModel) {
             HeroBatteryCard(batteryInfo)
             FullChargeConditionCard(batteryInfo)
 
-            Text("12项充放电指标全量监测", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            Text("12 项充放电核心指标详情", fontWeight = FontWeight.Bold, fontSize = 14.sp)
             MetricItemCard("01", "电池健康度", "%.1f%%".format(batteryInfo.healthPercentage), "当前容量 / 出厂设计")
             MetricItemCard("02", "剩余电量", "\${batteryInfo.remainingCapacityMah} mAh", "当前可用电荷量")
             MetricItemCard("03", "电池当前容量", "\${batteryInfo.currentCapacityMah} mAh", "衰减后最大可用容量")
@@ -324,7 +324,7 @@ fun BatteryScreen(viewModel: BatteryViewModel) {
             MetricItemCard("09", "电压", "\${batteryInfo.voltageMv} mV", "电芯端两极电压")
             MetricItemCard("10", "循环计数", "\${batteryInfo.cycleCount} 次", "充放电周期计数")
             MetricItemCard("11", "瞬时电流", "\${batteryInfo.currentNowMa} mA", "功率 %.2f W".format(batteryInfo.powerWatts))
-            MetricItemCard("12", "完全充满时的容量", batteryInfo.fullChargeCapacityMah?.let { "\$it mAh" } ?: "未充满不显示", "100% 且 0-25mA 锁定")
+            MetricItemCard("12", "完全充满时的容量", batteryInfo.fullChargeCapacityMah?.let { "\$it mAh" } ?: "未充满不显示", "100% 且 0-25 mA 锁定")
         }
     }
 }`,
@@ -514,7 +514,7 @@ export function NativeCodeViewer() {
             <br />
             ↓ <code className="text-sky-600 dark:text-sky-400">Intent.ACTION_BATTERY_CHANGED</code> + <code className="text-sky-600 dark:text-sky-400">BatteryManager</code>
             <br />
-            ↓ <code className="text-amber-600 dark:text-amber-400">BatteryHardwareReader.kt</code> (100% & 0-25mA 充满判定)
+            ↓ <code className="text-amber-600 dark:text-amber-400">BatteryHardwareReader.kt</code> (100% & 0-25 mA 充满判定)
             <br />
             ↓ <code className="text-purple-600 dark:text-purple-400">BatteryScreen.kt</code> (Jetpack Compose Material 3 渲染)
           </div>
