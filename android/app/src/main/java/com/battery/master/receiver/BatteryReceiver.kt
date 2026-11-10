@@ -8,13 +8,16 @@ import android.os.Build
 import com.battery.master.data.BatteryHealthQuality
 import com.battery.master.data.BatteryState
 import com.battery.master.data.BatteryStatus
-import java.io.File
+import com.battery.master.service.BatteryHardwareReader
+import com.battery.master.service.BatterySysfs
 
 /**
  * 监听 Android 底层硬件广播 ACTION_BATTERY_CHANGED
  * 提取电压、温度、瞬时电流、健康状态并根据条件 12 判定完全充满
+ * 设计容量等配置共享 BatteryHardwareReader 单一数据源，避免双通道数据不一致
  */
 class BatteryReceiver(
+    private val reader: BatteryHardwareReader,
     private val onBatteryUpdate: (BatteryState) -> Unit
 ) : BroadcastReceiver() {
 
@@ -55,9 +58,9 @@ class BatteryReceiver(
         // 9. 电压：毫伏 (mV)
         val voltageMv = intent.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 0)
 
-        // 11. 瞬时电流 (mA)：BATTERY_PROPERTY_CURRENT_NOW 返回的是微安 (uA)
+        // 11. 瞬时电流 (mA)：BATTERY_PROPERTY_CURRENT_NOW 规范返回微安 (μA)，需归一化
         val currentUa = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)
-        val currentMa = currentUa / 1000
+        val currentMa = BatterySysfs.normalizeCurrentToMilliAmps(currentUa)
 
         // 10. 循环计数 (Android 14+ API 34 支持直接从 Intent EXTRA_CYCLE_COUNT 获取，或读取 sysfs)
         var cycleCount = 0
@@ -67,14 +70,15 @@ class BatteryReceiver(
             } catch (e: Exception) {}
         }
         if (cycleCount <= 0) {
-            cycleCount = readSysfsInt("/sys/class/power_supply/battery/cycle_count") ?: 268
+            cycleCount = BatterySysfs.readInt("/sys/class/power_supply/battery/cycle_count") ?: 0
         }
 
-        // 4. 电池出厂设计容量 (从系统 PowerProfile 或 sysfs 读取)
-        val designCapacityMah = getDesignCapacity(context)
+        // 4. 电池出厂设计容量 (共享 Reader 单一数据源：PowerProfile -> sysfs -> 5000mAh)
+        val designCapacityMah = reader.designCapacityMah
 
         // 3. 电池当前容量 (衰减后容量，从 sysfs charge_full 读取或由电量计芯片校准)
-        val currentCapacityMah = readSysfsInt("/sys/class/power_supply/battery/charge_full")?.div(1000)
+        val currentCapacityMah = BatterySysfs.readInt("/sys/class/power_supply/battery/charge_full")?.div(1000)
+            ?.takeIf { it > 0 }
             ?: (designCapacityMah * 0.92f).toInt()
 
         // 2. 剩余电量 (mAh)
@@ -98,6 +102,9 @@ class BatteryReceiver(
             null
         }
 
+        // 动态解析硬件信息摘要 (真实可读字段 + 诚实未上报标注)
+        val hardware = HardwareInfoResolver.resolve(temperatureCelsius, cycleCount)
+
         val updatedState = BatteryState(
             healthPercentage = healthPercentage,
             remainingCapacityMah = remainingCapacityMah,
@@ -111,36 +118,17 @@ class BatteryReceiver(
             cycleCount = cycleCount,
             currentMa = currentMa,
             fullChargeCapacityMah = fullChargeCapacityMah,
-            lastFullChargeTimestamp = if (isFullCriteriaMet) System.currentTimeMillis() else null
+            lastFullChargeTimestamp = if (isFullCriteriaMet) System.currentTimeMillis() else null,
+            socModel = hardware.socModel,
+            pmicModel = hardware.pmicModel,
+            batteryChemistry = hardware.batteryChemistry,
+            fastChargeProtocol = hardware.fastChargeProtocol,
+            internalResistanceMohm = hardware.internalResistanceMohm,
+            halVersion = hardware.halVersion,
+            cellStructure = hardware.cellStructure,
+            thermalThrottlingState = hardware.thermalThrottlingState
         )
 
         onBatteryUpdate(updatedState)
-    }
-
-    private fun readSysfsInt(path: String): Int? {
-        return try {
-            val file = File(path)
-            if (file.exists()) file.readText().trim().toIntOrNull() else null
-        } catch (e: Exception) {
-            null
-        }
-    }
-
-    private fun getDesignCapacity(context: Context): Int {
-        // 尝试通过反射读取 com.android.internal.os.PowerProfile
-        try {
-            val powerProfileClass = Class.forName("com.android.internal.os.PowerProfile")
-            val constructor = powerProfileClass.getConstructor(Context::class.java)
-            val powerProfile = constructor.newInstance(context)
-            val getBatteryCapacityMethod = powerProfileClass.getMethod("getBatteryCapacity")
-            val capacity = getBatteryCapacityMethod.invoke(powerProfile) as? Double
-            if (capacity != null && capacity > 0) return capacity.toInt()
-        } catch (e: Exception) {}
-
-        // 备用读取 sysfs
-        val sysfsDesign = readSysfsInt("/sys/class/power_supply/battery/charge_full_design")
-        if (sysfsDesign != null && sysfsDesign > 0) return sysfsDesign / 1000
-
-        return 5000 // 默认主流 5000mAh
     }
 }

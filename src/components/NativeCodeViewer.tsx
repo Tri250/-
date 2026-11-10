@@ -114,12 +114,13 @@ jobs:
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.SharedPreferences
 import android.os.BatteryManager
 import android.os.Build
 import com.battery.master.data.BatteryHealthQuality
 import com.battery.master.data.BatteryState
 import com.battery.master.data.BatteryStatus
-import java.io.File
+import com.battery.master.service.BatterySysfs
 import kotlin.math.abs
 
 /**
@@ -129,10 +130,22 @@ import kotlin.math.abs
 class BatteryHardwareReader(private val context: Context) {
 
     private val batteryManager = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
-    var designCapacityMah: Int = 5000
-    private var lastRecordedFullCapacity: Int? = null
+    private val prefs: SharedPreferences =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
-    fun readBatteryTelemetry(): BatteryInfo {
+    var designCapacityMah: Int = 5000
+    private var lastRecordedFullCapacity: Int? =
+        prefs.getInt(KEY_LAST_FULL_CAPACITY, 0).takeIf { it > 0 }
+    private var lastFullChargeTimestamp: Long? =
+        prefs.getLong(KEY_LAST_FULL_TIMESTAMP, 0L).takeIf { it > 0 }
+
+    companion object {
+        private const val PREFS_NAME = "battery_master_prefs"
+        private const val KEY_LAST_FULL_CAPACITY = "last_full_charge_capacity"
+        private const val KEY_LAST_FULL_TIMESTAMP = "last_full_charge_timestamp"
+    }
+
+    fun readBatteryTelemetry(): BatteryState {
         val intentFilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
         val batteryIntent: Intent? = context.registerReceiver(null, intentFilter)
 
@@ -145,11 +158,11 @@ class BatteryHardwareReader(private val context: Context) {
         // 6. 电池状态 (充电中、放电中、已充满、未充电)
         val statusInt = batteryIntent?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
         val status = when (statusInt) {
-            BatteryManager.BATTERY_STATUS_CHARGING -> BatteryStatusEnum.CHARGING
-            BatteryManager.BATTERY_STATUS_DISCHARGING -> BatteryStatusEnum.DISCHARGING
-            BatteryManager.BATTERY_STATUS_FULL -> BatteryStatusEnum.FULL
-            BatteryManager.BATTERY_STATUS_NOT_CHARGING -> BatteryStatusEnum.NOT_CHARGING
-            else -> BatteryStatusEnum.DISCHARGING
+            BatteryManager.BATTERY_STATUS_CHARGING -> BatteryStatus.CHARGING
+            BatteryManager.BATTERY_STATUS_DISCHARGING -> BatteryStatus.DISCHARGING
+            BatteryManager.BATTERY_STATUS_FULL -> BatteryStatus.FULL
+            BatteryManager.BATTERY_STATUS_NOT_CHARGING -> BatteryStatus.NOT_CHARGING
+            else -> BatteryStatus.DISCHARGING
         }
 
         // 7. 电池温度：当前电池温度 (摄氏度 ℃)
@@ -159,35 +172,36 @@ class BatteryHardwareReader(private val context: Context) {
         // 8. 电池健康：(良好、过热、损坏、超压、未知)
         val healthInt = batteryIntent?.getIntExtra(BatteryManager.EXTRA_HEALTH, -1) ?: -1
         val healthQuality = when (healthInt) {
-            BatteryManager.BATTERY_HEALTH_GOOD -> BatteryHealthQualityEnum.GOOD
-            BatteryManager.BATTERY_HEALTH_OVERHEAT -> BatteryHealthQualityEnum.OVERHEAT
-            BatteryManager.BATTERY_HEALTH_DEAD -> BatteryHealthQualityEnum.DEAD
-            BatteryManager.BATTERY_HEALTH_OVER_VOLTAGE -> BatteryHealthQualityEnum.OVER_VOLTAGE
-            else -> BatteryHealthQualityEnum.UNKNOWN
+            BatteryManager.BATTERY_HEALTH_GOOD -> BatteryHealthQuality.GOOD
+            BatteryManager.BATTERY_HEALTH_OVERHEAT -> BatteryHealthQuality.OVERHEAT
+            BatteryManager.BATTERY_HEALTH_DEAD -> BatteryHealthQuality.DEAD
+            BatteryManager.BATTERY_HEALTH_OVER_VOLTAGE -> BatteryHealthQuality.OVER_VOLTAGE
+            else -> BatteryHealthQuality.UNKNOWN
         }
 
         // 9. 电压：当前电池电压 (毫伏 mV)
         val voltageMv = batteryIntent?.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 4000) ?: 4000
 
-        // 11. 瞬时电流：当前电池的瞬时电流 (毫安 mA)
+        // 11. 瞬时电流：BATTERY_PROPERTY_CURRENT_NOW 规范返回微安 (uA)，
+        //     部分旧内核返回毫安 (mA)，统一归一化为 mA (正为充电，负为放电)
         var currentMicroAmp = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)
         if (currentMicroAmp == Int.MIN_VALUE) {
-            currentMicroAmp = readSysfsInt("/sys/class/power_supply/battery/current_now") ?: 0
+            currentMicroAmp = BatterySysfs.readInt("/sys/class/power_supply/battery/current_now") ?: 0
         }
-        val currentNowMa = if (abs(currentMicroAmp) > 20000) currentMicroAmp / 1000 else currentMicroAmp
+        val currentNowMa = BatterySysfs.normalizeCurrentToMilliAmps(currentMicroAmp)
 
         // 10. 循环计数：电池充放电的次数
         var cycleCount = if (Build.VERSION.SDK_INT >= 34) {
             batteryIntent?.getIntExtra(BatteryManager.EXTRA_CYCLE_COUNT, 0) ?: 0
         } else 0
         if (cycleCount <= 0) {
-            cycleCount = readSysfsInt("/sys/class/power_supply/battery/cycle_count") ?: 268
+            cycleCount = BatterySysfs.readInt("/sys/class/power_supply/battery/cycle_count") ?: 0
         }
 
         // 3. 电池当前容量 (衰减后的容量 mAh)
         val chargeCounterUah = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER)
         var currentCapacityMah = (designCapacityMah * 0.92f).toInt()
-        val sysfsMaxCapacityUah = readSysfsInt("/sys/class/power_supply/battery/charge_full")
+        val sysfsMaxCapacityUah = BatterySysfs.readInt("/sys/class/power_supply/battery/charge_full")
         if (sysfsMaxCapacityUah != null && sysfsMaxCapacityUah > 0) {
             currentCapacityMah = sysfsMaxCapacityUah / 1000
         }
@@ -206,10 +220,13 @@ class BatteryHardwareReader(private val context: Context) {
         // 关键判定：仅当电量为 100% 且电流在 0-25 mA 之间时，才视为电池充满
         val isFullChargeConditionMet = (percentage == 100 && currentNowMa in 0..25)
         if (isFullChargeConditionMet) {
-            lastRecordedFullCapacity = currentCapacityMah
+            persistFullChargeCapacity(currentCapacityMah, System.currentTimeMillis())
         }
 
         val powerWatts = (voltageMv.toFloat() * abs(currentNowMa)) / 1_000_000f
+
+        // 动态解析硬件信息摘要 (真实可读字段 + 诚实未上报标注)
+        val hardware = HardwareInfoResolver.resolve(temperatureCelsius, cycleCount)
 
         return BatteryState(
             healthPercentage = healthPercentage,
@@ -225,15 +242,28 @@ class BatteryHardwareReader(private val context: Context) {
             currentMa = currentNowMa,
             fullChargeCapacityMah = if (isFullChargeConditionMet) currentCapacityMah else lastRecordedFullCapacity,
             isFullChargeConditionMet = isFullChargeConditionMet,
-            powerWatts = powerWatts
+            powerWatts = powerWatts,
+            socModel = hardware.socModel,
+            pmicModel = hardware.pmicModel,
+            batteryChemistry = hardware.batteryChemistry,
+            fastChargeProtocol = hardware.fastChargeProtocol,
+            internalResistanceMohm = hardware.internalResistanceMohm,
+            halVersion = hardware.halVersion,
+            cellStructure = hardware.cellStructure,
+            thermalThrottlingState = hardware.thermalThrottlingState
         )
     }
 
-    private fun readSysfsInt(path: String): Int? {
-        return try {
-            val file = File(path)
-            if (file.exists() && file.canRead()) file.readText().trim().toIntOrNull() else null
-        } catch (e: Exception) { null }
+    /**
+     * 持久化指标 12 的充满锁定容量与时间戳 (供 ViewModel 模拟充满时调用)
+     */
+    fun persistFullChargeCapacity(capacityMah: Int, timestampMs: Long) {
+        lastRecordedFullCapacity = capacityMah
+        lastFullChargeTimestamp = timestampMs
+        prefs.edit()
+            .putInt(KEY_LAST_FULL_CAPACITY, capacityMah)
+            .putLong(KEY_LAST_FULL_TIMESTAMP, timestampMs)
+            .apply()
     }
 }`,
   },
@@ -242,7 +272,7 @@ class BatteryHardwareReader(private val context: Context) {
     name: 'BatteryScreen.kt (Compose UI)',
     path: 'android/app/src/main/java/com/battery/master/ui/BatteryScreen.kt',
     language: 'kotlin',
-    description: 'Jetpack Compose Material 3 原生界面实现：包含圆环卡片、12项指标列表及充满判定卡片',
+    description: 'Jetpack Compose 原生界面（结构节选）：12 项指标卡片与充满判定卡片',
     code: `package com.battery.master.ui
 
 import androidx.compose.foundation.layout.*
@@ -304,17 +334,14 @@ fun BatteryScreen(viewModel: BatteryViewModel) {
     name: 'AndroidManifest.xml',
     path: 'android/app/src/main/AndroidManifest.xml',
     language: 'xml',
-    description: '系统权限与应用组件配置：BATTERY_STATS、应用图标与暗黑主题',
+    description: '应用清单配置：零运行时权限（公开 Battery API 免权限）、应用图标与暗黑主题',
     code: `<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
-    package="com.battery.master">
+    xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Permissions for Battery Monitoring -->
-    <uses-permission android:name="android.permission.BATTERY_STATS" tools:ignore="ProtectedPermissions" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- 公开电池读取 API (BatteryManager 属性 / 粘性广播) 无需任何运行时权限。
+         原先声明的 BATTERY_STATS / FOREGROUND_SERVICE / POST_NOTIFICATIONS / WAKE_LOCK
+         均为未使用权限，已移除以通过严格 lint 与应用商店合规审查 -->
 
     <application
         android:allowBackup="true"
@@ -413,11 +440,15 @@ android {
 }
 
 dependencies {
-    implementation(platform(libs.androidx.compose.bom))
-    implementation(libs.androidx.material3)
-    implementation(libs.androidx.activity.compose)
-    implementation(libs.androidx.lifecycle.viewmodel.compose)
-    implementation(libs.androidx.core.ktx)
+    implementation(platform("androidx.compose:compose-bom:2024.10.01"))
+    implementation("androidx.activity:activity-compose:1.9.3")
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.ui:ui-graphics")
+    implementation("androidx.compose.ui:ui-tooling-preview")
+    implementation("androidx.compose.material3:material3")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
+    implementation("androidx.core:core-ktx:1.15.0")
 }`,
   },
   {

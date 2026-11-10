@@ -5,21 +5,11 @@
 
 import { useState, useEffect } from 'react';
 import {
-  Battery,
   Zap,
-  Gauge,
-  Thermometer,
-  ShieldAlert,
-  RotateCcw,
   Sparkles,
   Moon,
   Sun,
   Smartphone,
-  Cpu,
-  Layers,
-  CheckCircle2,
-  AlertTriangle,
-  Info,
   Code2,
 } from 'lucide-react';
 import { useBatteryMonitor } from './hooks/useBatteryMonitor';
@@ -33,6 +23,7 @@ import { HardwareSimulationLab } from './components/HardwareSimulationLab';
 import { BatteryHealthAdvice } from './components/BatteryHealthAdvice';
 import { AndroidNavBar, NavTabId } from './components/AndroidNavBar';
 import { NativeCodeViewer } from './components/NativeCodeViewer';
+import { NativeAndroidProjectHub } from './components/NativeAndroidProjectHub';
 import { HardwareSummaryBar } from './components/HardwareSummaryBar';
 
 export default function App() {
@@ -55,18 +46,15 @@ export default function App() {
     setVoltage,
     setTemperature,
     setStatus,
+    isLiveTelemetryRunning,
+    setIsLiveTelemetryRunning,
   } = useBatteryMonitor();
 
   // Navigation tab state
   const [activeTab, setActiveTab] = useState<NavTabId>('overview');
 
   // Theme mode: light or dark (defaults to dark for authentic Android AMOLED style)
-  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      return document.documentElement.classList.contains('dark') || true;
-    }
-    return true;
-  });
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(true);
 
   // Desktop view toggle: phone frame or expanded wide layout
   const [isPhoneFrameMode, setIsPhoneFrameMode] = useState<boolean>(true);
@@ -108,6 +96,25 @@ export default function App() {
   };
 
   const tempAssessment = getTempAssessment(state.temperature);
+
+  // 续航预估：放电时按实时电流折算，其余场景按 450mA 平均负载估算 (Requirement 5)
+  const runtimeHours = (
+    state.remainingCapacity /
+    (state.status === 'discharging' && state.current < 0 ? Math.abs(state.current) : 450)
+  ).toFixed(1);
+
+  // 重置实验室：恢复当前选中机型的出厂默认 12 项指标
+  const resetLab = () => {
+    updateDesignCapacity(selectedDevice.designCapacity);
+    updateCurrentCapacity(Math.round(selectedDevice.designCapacity * 0.92));
+    updateCycleCount(0);
+    updatePercentage(78);
+    updateCurrent(-420);
+    setVoltage(4150);
+    setTemperature(32.5);
+    setStatus('discharging');
+    updateHealthQuality('good');
+  };
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-[#07090e] text-slate-900 dark:text-slate-100 transition-colors flex flex-col items-center">
@@ -318,7 +325,7 @@ export default function App() {
                     title="电量百分比"
                     value={state.percentage}
                     unit="%"
-                    subValue={`续航预估: ~${((state.remainingCapacity / 450)).toFixed(1)} 小时`}
+                    subValue={`续航预估: ~${runtimeHours} 小时`}
                     badge={{
                       text: `${state.percentage}%`,
                       variant: state.percentage > 20 ? 'good' : 'danger',
@@ -331,7 +338,15 @@ export default function App() {
                     metricNumber={6}
                     title="电池状态"
                     value={statusMap[state.status].label}
-                    subValue={state.status === 'charging' ? `+${state.current} mA 充电中` : '设备独立运行'}
+                    subValue={
+                      state.status === 'charging'
+                        ? `+${state.current} mA 恒流注入`
+                        : state.status === 'discharging'
+                        ? `${state.current} mA 负载放电`
+                        : state.status === 'full'
+                        ? '涓流截止 · 浮充保持'
+                        : '设备独立运行'
+                    }
                     badge={{
                       text: statusMap[state.status].label,
                       variant: statusMap[state.status].variant,
@@ -485,7 +500,13 @@ export default function App() {
                     <div className="text-xl font-bold font-mono text-slate-900 dark:text-white mt-1">
                       {state.temperature} °C
                     </div>
-                    <div className={`text-[11px] mt-1 font-medium ${tempAssessment.variant === 'good' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                    <div className={`text-[11px] mt-1 font-medium ${
+                      tempAssessment.variant === 'good'
+                        ? 'text-emerald-600'
+                        : tempAssessment.variant === 'warning'
+                        ? 'text-amber-600'
+                        : 'text-rose-600'
+                    }`}>
                       {tempAssessment.text}
                     </div>
                   </div>
@@ -563,6 +584,7 @@ export default function App() {
                   designCapacity={state.designCapacity}
                   cycleCount={state.cycleCount}
                   soundEnabled={soundEnabled}
+                  isLiveTelemetryRunning={isLiveTelemetryRunning}
                   onUpdatePercentage={updatePercentage}
                   onUpdateCurrent={updateCurrent}
                   onSetVoltage={setVoltage}
@@ -572,6 +594,8 @@ export default function App() {
                   onUpdateCurrentCapacity={updateCurrentCapacity}
                   onUpdateCycleCount={updateCycleCount}
                   onToggleSound={() => setSoundEnabled(!soundEnabled)}
+                  onToggleLiveTelemetry={() => setIsLiveTelemetryRunning(!isLiveTelemetryRunning)}
+                  onResetLab={resetLab}
                   onTriggerFullChargeTest={triggerFullChargeTest}
                 />
               </div>
@@ -581,6 +605,13 @@ export default function App() {
             {activeTab === 'native' && (
               <div className="space-y-4">
                 <NativeCodeViewer />
+              </div>
+            )}
+
+            {/* TAB 6: Android 原生工程总览 (PROJECT HUB) */}
+            {activeTab === 'hub' && (
+              <div className="space-y-4">
+                <NativeAndroidProjectHub />
               </div>
             )}
           </div>

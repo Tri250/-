@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { LayoutGrid, Activity, HeartPulse, Wrench, Code2 } from 'lucide-react';
+import { LayoutGrid, Activity, HeartPulse, Wrench, Code2, FolderTree } from 'lucide-react';
 
-export type NavTabId = 'overview' | 'telemetry' | 'health' | 'lab' | 'native';
+export type NavTabId = 'overview' | 'telemetry' | 'health' | 'lab' | 'native' | 'hub';
 
 interface AndroidNavBarProps {
   activeTab: NavTabId;
@@ -19,11 +19,12 @@ export function AndroidNavBar({ activeTab, onChangeTab }: AndroidNavBarProps) {
     { id: 'health' as const, label: '健康与充满', icon: HeartPulse },
     { id: 'lab' as const, label: '硬件实验', icon: Wrench },
     { id: 'native' as const, label: '原生源码', icon: Code2 },
+    { id: 'hub' as const, label: '原生工程', icon: FolderTree },
   ];
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800/80">
-      <div className="max-w-md mx-auto grid grid-cols-5 items-center h-16 px-1">
+      <div className="max-w-md mx-auto grid grid-cols-6 items-center h-16 px-1">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;

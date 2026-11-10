@@ -51,13 +51,14 @@ data class BatteryState(
     val isFullChargeConditionMet: Boolean = false,
 
     // ===== 硬件信息汇总 =====
-    val socModel: String = "Qualcomm Snapdragon 8 Gen 3",
-    val pmicModel: String = "Qualcomm PM8550B Dual-Phase",
-    val batteryChemistry: String = "硅碳负极锂电池 (4.50V 高压)",
-    val fastChargeProtocol: String = "UFCS 融合快充 / USB PD 3.1 PPS",
-    val internalResistanceMohm: Float = 14.8f,
-    val halVersion: String = "Android 15 Battery AIDL 2.0",
-    val cellStructure: String = "高能比单电芯堆叠架构",
+    // 默认值保持诚实中性；实际值由 HardwareInfoResolver 在采集层动态填充
+    val socModel: String = "系统未上报",
+    val pmicModel: String = "系统未上报",
+    val batteryChemistry: String = "锂离子电池 (体系未上报)",
+    val fastChargeProtocol: String = "系统未上报",
+    val internalResistanceMohm: Float = 0f,
+    val halVersion: String = "Android Battery HAL",
+    val cellStructure: String = "系统未上报",
     val thermalThrottlingState: String = "正常供电 (无节流)"
 ) {
     // 别名兼容

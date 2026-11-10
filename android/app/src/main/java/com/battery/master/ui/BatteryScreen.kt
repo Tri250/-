@@ -20,15 +20,22 @@ import androidx.compose.ui.unit.sp
 import com.battery.master.data.BatteryHealthQuality
 import com.battery.master.data.BatteryState
 import com.battery.master.data.BatteryStatus
+import com.battery.master.model.BatteryInfo
 import com.battery.master.viewmodel.BatteryViewModel
-import kotlin.math.abs
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BatteryScreen(
     viewModel: BatteryViewModel
 ) {
-    val state by viewModel.batteryState.collectAsState()
+    // 经 BatteryInfo (BatteryState 业务别名) 消费 ViewModel 兼容别名 batteryInfo
+    val state: BatteryInfo by viewModel.batteryInfo.collectAsState()
+
+    // 指标 04 设计容量校准对话框开关 (激活 ViewModel.setDesignCapacity)
+    var showDesignCapacityDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         containerColor = Color(0xFF030712), // Deep Cyber AMOLED Black
@@ -82,7 +89,7 @@ fun BatteryScreen(
 
             // 2. 硬件信息汇总栏 (Hardware Information Summary Bar)
             item {
-                HardwareSummaryCard(state)
+                HardwareSummaryCard(state, onCalibrateDesignCapacity = { showDesignCapacityDialog = true })
             }
 
             // 3. 特性 12 充满判定卡片 (100% 且 0-25 mA)
@@ -152,12 +159,42 @@ fun BatteryScreen(
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     CyberMetricCardItem(
                         modifier = Modifier.weight(1f),
+                        number = "05",
+                        title = "电量百分比",
+                        value = "${state.percentage}",
+                        unit = "%",
+                        sub = "系统广播 EXTRA_LEVEL/SCALE",
+                        accentColor = Color(0xFF10B981)
+                    )
+                    CyberMetricCardItem(
+                        modifier = Modifier.weight(1f),
+                        number = "06",
+                        title = "电池状态",
+                        value = state.status.label,
+                        sub = "Battery Status",
+                        accentColor = Color(0xFF38BDF8)
+                    )
+                }
+            }
+
+            item {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    CyberMetricCardItem(
+                        modifier = Modifier.weight(1f),
                         number = "07",
                         title = "电池温度",
                         value = "${state.temperatureCelsius}",
                         unit = "°C",
-                        sub = if (state.temperatureCelsius > 42) "发热预警" else "温度平稳",
-                        accentColor = if (state.temperatureCelsius > 42) Color(0xFFF43F5E) else Color(0xFFF59E0B)
+                        sub = when {
+                            state.temperatureCelsius > 42 -> "高温发热预警"
+                            state.temperatureCelsius <= 0 -> "低温报警 (<0°C)"
+                            else -> "温度平稳"
+                        },
+                        accentColor = if (state.temperatureCelsius > 42 || state.temperatureCelsius <= 0) {
+                            Color(0xFFF43F5E)
+                        } else {
+                            Color(0xFFF59E0B)
+                        }
                     )
                     CyberMetricCardItem(
                         modifier = Modifier.weight(1f),
@@ -185,9 +222,9 @@ fun BatteryScreen(
                         modifier = Modifier.weight(1f),
                         number = "10",
                         title = "充放电循环",
-                        value = "${state.cycleCount}",
-                        unit = "次",
-                        sub = "Cycle Count",
+                        value = if (state.cycleCount > 0) "${state.cycleCount}" else "—",
+                        unit = if (state.cycleCount > 0) "次" else "",
+                        sub = if (state.cycleCount > 0) "Cycle Count" else "系统未上报循环数据",
                         accentColor = Color(0xFF14B8A6)
                     )
                 }
@@ -201,16 +238,17 @@ fun BatteryScreen(
                         title = "瞬时电流",
                         value = "${if (state.currentMa > 0) "+${state.currentMa}" else state.currentMa}",
                         unit = "mA",
-                        sub = "功率 ${(Math.abs(state.voltageMv * state.currentMa) / 1000000f)} W",
+                        sub = "功率 ${String.format("%.2f", state.powerWatts)} W",
                         accentColor = if (state.currentMa > 0) Color(0xFF10B981) else Color(0xFF06B6D4)
                     )
                     CyberMetricCardItem(
                         modifier = Modifier.weight(1f),
-                        number = "06",
-                        title = "电池状态",
-                        value = state.status.label,
-                        sub = "Battery Status",
-                        accentColor = Color(0xFF38BDF8)
+                        number = "12",
+                        title = "完全充满容量",
+                        value = if (state.fullChargeCapacityMah != null) "${state.fullChargeCapacityMah}" else "—",
+                        unit = if (state.fullChargeCapacityMah != null) "mAh" else "",
+                        sub = if (state.isFullChargeConditionMet) "已满足 100% & 0-25mA" else "详见上方充满判定卡",
+                        accentColor = Color(0xFF34D399)
                     )
                 }
             }
@@ -218,6 +256,46 @@ fun BatteryScreen(
             item {
                 Spacer(modifier = Modifier.height(28.dp))
             }
+        }
+
+        // 指标 04 设计容量校准对话框 (激活 ViewModel.setDesignCapacity)
+        if (showDesignCapacityDialog) {
+            var capacityInput by remember { mutableStateOf(state.designCapacityMah.toString()) }
+            AlertDialog(
+                onDismissRequest = { showDesignCapacityDialog = false },
+                title = { Text("校准设计容量 (指标 04)") },
+                text = {
+                    OutlinedTextField(
+                        value = capacityInput,
+                        onValueChange = { input ->
+                            capacityInput = input.filter { it.isDigit() }.take(5)
+                        },
+                        label = { Text("出厂设计容量 (mAh)") },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color(0xFFE2E8F0),
+                            focusedBorderColor = Color(0xFF06B6D4),
+                            unfocusedBorderColor = Color(0xFF334155),
+                            focusedLabelColor = Color(0xFF06B6D4),
+                            unfocusedLabelColor = Color(0xFF64748B)
+                        )
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        capacityInput.toIntOrNull()?.let { viewModel.setDesignCapacity(it) }
+                        showDesignCapacityDialog = false
+                    }) { Text("确定", color = Color(0xFF34D399)) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDesignCapacityDialog = false }) {
+                        Text("取消", color = Color(0xFF94A3B8))
+                    }
+                },
+                containerColor = Color(0xFF0F172A),
+                titleContentColor = Color.White
+            )
         }
     }
 }
@@ -282,8 +360,8 @@ fun CyberHeroBatteryCard(state: BatteryState) {
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // 11. 瞬时电流与功率
-            val powerW = (Math.abs(state.voltageMv * state.currentMa) / 1000000f)
+            // 11. 瞬时电流与功率 (直接消费 State.powerWatts，统一数据源)
+            val powerW = state.powerWatts
             Surface(
                 shape = RoundedCornerShape(8.dp),
                 color = Color(0xFF020617),
@@ -306,7 +384,7 @@ fun CyberHeroBatteryCard(state: BatteryState) {
  * 硬件信息汇总栏 (Hardware Information Summary Bar)
  */
 @Composable
-fun HardwareSummaryCard(state: BatteryState) {
+fun HardwareSummaryCard(state: BatteryState, onCalibrateDesignCapacity: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -364,6 +442,26 @@ fun HardwareSummaryCard(state: BatteryState) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 HardwareItem(modifier = Modifier.weight(1f), label = "化学材料体系", value = state.batteryChemistry)
                 HardwareItem(modifier = Modifier.weight(1f), label = "AIDL 规范", value = state.halVersion)
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // 电芯结构 (激活 BatteryState.cellStructure：Resolver 采集 -> State 承载 -> UI 消费)
+            HardwareItem(modifier = Modifier.fillMaxWidth(), label = "电芯结构", value = state.cellStructure)
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // 指标 04 用户校准入口 (激活 ViewModel.setDesignCapacity，与 Web 端自定义容量对等)
+            OutlinedButton(
+                onClick = onCalibrateDesignCapacity,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF06B6D4))
+            ) {
+                Text(
+                    text = "校准设计容量 (当前 ${state.designCapacityMah} mAh)",
+                    fontSize = 11.sp,
+                    fontFamily = FontFamily.Monospace
+                )
             }
         }
     }
@@ -444,6 +542,19 @@ fun FullChargeConditionCard(state: BatteryState, onTriggerTest: () -> Unit) {
                 fontFamily = FontFamily.Monospace,
                 color = if (state.fullChargeCapacityMah != null) Color(0xFF34D399) else Color(0xFF64748B)
             )
+
+            // 上次充满锁定时间 (激活 lastFullChargeTimestamp：持久化值跨重启回显)
+            state.lastFullChargeTimestamp?.let { timestamp ->
+                Text(
+                    text = "上次锁定: " + SimpleDateFormat(
+                        "yyyy-MM-dd HH:mm:ss",
+                        Locale.getDefault()
+                    ).format(Date(timestamp)),
+                    fontSize = 10.sp,
+                    fontFamily = FontFamily.Monospace,
+                    color = Color(0xFF64748B)
+                )
+            }
 
             Spacer(modifier = Modifier.height(10.dp))
 

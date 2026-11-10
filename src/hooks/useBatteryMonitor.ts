@@ -15,13 +15,6 @@ import {
 import { POPULAR_ANDROID_DEVICES } from '../data/devicePresets';
 import { playPlugInSound, playFullChargeChime, playWarningBeep } from '../utils/soundEffects';
 
-interface WebBatteryManager extends EventTarget {
-  charging: boolean;
-  chargingTime: number;
-  dischargingTime: number;
-  level: number;
-}
-
 export function useBatteryMonitor() {
   // Current selected device preset
   const [selectedDevice, setSelectedDevice] = useState<DevicePreset>(POPULAR_ANDROID_DEVICES[0]);
@@ -39,7 +32,7 @@ export function useBatteryMonitor() {
   const [voltage, setVoltage] = useState<number>(4180); // mV
   const [temperature, setTemperature] = useState<number>(33.6); // °C
   const [healthQuality, setHealthQuality] = useState<BatteryHealthQuality>('good');
-  const [cycleCount, setCycleCount] = useState<number>(268);
+  const [cycleCount, setCycleCount] = useState<number>(0);
 
   // Requirement 12: Full Charge Capacity (only displayed when 100% and current in 0-25mA)
   const [fullChargeCapacity, setFullChargeCapacity] = useState<number | null>(null);
@@ -62,10 +55,9 @@ export function useBatteryMonitor() {
     const currentRatio = currentCapacity / (designCapacity || 5000);
     const newCurrentCap = Math.round(device.designCapacity * Math.min(1, Math.max(0.7, currentRatio)));
     setCurrentCapacity(newCurrentCap);
-    if (fullChargeCapacity) {
-      setFullChargeCapacity(Math.round(newCurrentCap * 0.995));
-    }
-  }, [currentCapacity, designCapacity, fullChargeCapacity]);
+    // 切换机型后旧的充满锁定值不再适用，需重新测量 (指标 12)
+    setFullChargeCapacity(null);
+  }, [currentCapacity, designCapacity]);
 
   // Derived Thermal Throttling State based on cell temperature
   const thermalThrottlingState: 'NORMAL' | 'LIGHT_THROTTLE' | 'HEAVY_THROTTLE' =
@@ -80,6 +72,9 @@ export function useBatteryMonitor() {
     ).toFixed(1)
   );
 
+  // 遥测心跳计数器：驱动充放电进度按节拍推进 (指标 5)
+  const tickRef = useRef<number>(0);
+
   // Check and process requirement 12 condition
   // "仅当电量为 100% 且电流在 0-25 mA 之间时，才视为电池充满并显示完全充满时的容量"
   const prevFullMetRef = useRef<boolean>(false);
@@ -87,12 +82,13 @@ export function useBatteryMonitor() {
     const isCriteriaMet = percentage === 100 && current >= 0 && current <= 25;
 
     if (isCriteriaMet) {
-      // Calibrated full charge capacity
-      const estimatedFullCap = Math.round(currentCapacity * 0.996 + (Math.random() * 8 - 4));
-      setFullChargeCapacity(estimatedFullCap);
       setStatus('full');
 
+      // 仅在条件首次满足的瞬间计算并锁定一次容量，
+      // 涓流区间内电流波动 (5-24mA) 不再触发重复随机抖动 (Requirement 12)
       if (!prevFullMetRef.current) {
+        const estimatedFullCap = Math.round(currentCapacity * 0.996 + (Math.random() * 8 - 4));
+        setFullChargeCapacity(estimatedFullCap);
         if (soundEnabled) playFullChargeChime();
         setLastFullChargeRecord({
           timestamp: Date.now(),
@@ -115,8 +111,27 @@ export function useBatteryMonitor() {
     if (!isLiveTelemetryRunning) return;
 
     const interval = setInterval(() => {
+      tickRef.current += 1;
+
+      // 指标 5 进度推进：充电 +1% / 3 秒，放电 -1% / 4.5 秒 (实时仿真闭环)
+      if (status === 'charging' && percentage < 100 && tickRef.current % 2 === 0) {
+        setPercentage((prev) => Math.min(100, Math.round(prev) + 1));
+      }
+      if (status === 'discharging' && percentage > 0 && tickRef.current % 3 === 0) {
+        setPercentage((prev) => Math.max(0, Math.round(prev) - 1));
+      }
+      // 放电至 0% 后自动进入未充电状态 (电量耗尽保护)
+      if (status === 'discharging' && percentage <= 1) {
+        setPercentage(0);
+        setStatus('not_charging');
+        setCurrent(0);
+      }
+
       // Current fluctuation
       setCurrent((prevCurrent) => {
+        // 电量耗尽保护：0% 或即将耗尽且非充电状态时电流必须为 0，
+        // 避免与上方 setCurrent(0) 竞争导致"未充电"状态仍显示负电流
+        if (percentage <= 1 && status !== 'charging') return 0;
         if (percentage === 100 && prevCurrent >= 0 && prevCurrent <= 25) {
           // Keep in trickle band (10 - 24 mA)
           return Math.max(5, Math.min(24, Math.round(prevCurrent + (Math.random() * 4 - 2))));
@@ -126,8 +141,9 @@ export function useBatteryMonitor() {
           let targetCurrent = 2200;
           if (percentage > 90) targetCurrent = 800;
           if (percentage >= 98) targetCurrent = 200;
+          if (percentage >= 100) targetCurrent = 15; // 满电 CV 截止：电流自然衰减进入 0-25mA 涓流区间
           const delta = (Math.random() * 60 - 30);
-          return Math.max(50, Math.round(prevCurrent * 0.9 + targetCurrent * 0.1 + delta));
+          return Math.max(0, Math.round(prevCurrent * 0.9 + targetCurrent * 0.1 + delta));
         } else if (status === 'discharging') {
           // Discharge load (-250mA to -850mA)
           const delta = (Math.random() * 40 - 20);

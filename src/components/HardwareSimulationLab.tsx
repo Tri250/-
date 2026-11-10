@@ -13,6 +13,8 @@ import {
   RotateCcw,
   Volume2,
   VolumeX,
+  Pause,
+  Play,
 } from 'lucide-react';
 import { BatteryHealthQuality, BatteryStatus } from '../types/battery';
 
@@ -27,6 +29,7 @@ interface HardwareSimulationLabProps {
   designCapacity: number;
   cycleCount: number;
   soundEnabled: boolean;
+  isLiveTelemetryRunning: boolean;
   onUpdatePercentage: (val: number) => void;
   onUpdateCurrent: (val: number) => void;
   onSetVoltage: (val: number) => void;
@@ -36,6 +39,8 @@ interface HardwareSimulationLabProps {
   onUpdateCurrentCapacity: (val: number) => void;
   onUpdateCycleCount: (val: number) => void;
   onToggleSound: () => void;
+  onToggleLiveTelemetry: () => void;
+  onResetLab: () => void;
   onTriggerFullChargeTest: () => void;
 }
 
@@ -50,6 +55,7 @@ export function HardwareSimulationLab({
   designCapacity,
   cycleCount,
   soundEnabled,
+  isLiveTelemetryRunning,
   onUpdatePercentage,
   onUpdateCurrent,
   onSetVoltage,
@@ -59,6 +65,8 @@ export function HardwareSimulationLab({
   onUpdateCurrentCapacity,
   onUpdateCycleCount,
   onToggleSound,
+  onToggleLiveTelemetry,
+  onResetLab,
   onTriggerFullChargeTest,
 }: HardwareSimulationLabProps) {
   return (
@@ -78,6 +86,25 @@ export function HardwareSimulationLab({
             </div>
           </div>
         </div>
+
+        {/* Live telemetry pause/resume toggle (激活 isLiveTelemetryRunning 遥测开关) */}
+        <button
+          onClick={onToggleLiveTelemetry}
+          className="min-h-[44px] px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5"
+          title={isLiveTelemetryRunning ? '暂停实时遥测循环，便于固定参数实验' : '恢复实时遥测循环'}
+        >
+          {isLiveTelemetryRunning ? (
+            <>
+              <Pause className="w-4 h-4 text-amber-500" />
+              <span>遥测 运行中</span>
+            </>
+          ) : (
+            <>
+              <Play className="w-4 h-4 text-slate-400" />
+              <span>遥测 已暂停</span>
+            </>
+          )}
+        </button>
 
         {/* Sound toggle */}
         <button
@@ -366,6 +393,18 @@ export function HardwareSimulationLab({
             );
           })}
         </div>
+      </div>
+
+      {/* 重置实验室参数 (激活 RotateCcw：恢复当前机型默认 12 项指标) */}
+      <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+        <button
+          onClick={onResetLab}
+          className="min-h-[44px] w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center gap-1.5"
+          title="恢复当前机型的出厂默认 12 项指标参数"
+        >
+          <RotateCcw className="w-3.5 h-3.5" />
+          重置实验室参数
+        </button>
       </div>
     </div>
   );
