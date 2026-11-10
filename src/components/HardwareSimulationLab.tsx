@@ -69,6 +69,14 @@ export function HardwareSimulationLab({
   onResetLab,
   onTriggerFullChargeTest,
 }: HardwareSimulationLabProps) {
+  // 当前电池状态标签 (激活 status props)
+  const statusLabels: Record<BatteryStatus, { text: string; className: string }> = {
+    charging: { text: '充电中', className: 'text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-800' },
+    discharging: { text: '放电中', className: 'text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/60 border-sky-300 dark:border-sky-800' },
+    full: { text: '已充满', className: 'text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/60 border-teal-300 dark:border-teal-800' },
+    not_charging: { text: '未充电', className: 'text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700' },
+  };
+
   return (
     <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800/90 shadow-sm space-y-5">
       {/* Title */}
@@ -128,8 +136,18 @@ export function HardwareSimulationLab({
 
       {/* Quick Scenario Buttons */}
       <div>
-        <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
-          一键工作场景模拟
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+            一键工作场景模拟
+          </div>
+          {/* 当前电池状态芯片 (消费 status props) */}
+          <span
+            className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border flex items-center gap-1.5 ${statusLabels[status].className}`}
+            title="当前电源子系统状态"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70" />
+            当前状态: {statusLabels[status].text}
+          </span>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {/* 1. Feature 12 Full Charge Trigger */}
@@ -370,11 +388,11 @@ export function HardwareSimulationLab({
         <div className="flex flex-wrap gap-2">
           {(
             [
-              { id: 'good', label: '良好 (Good)', color: 'text-emerald-700 border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 dark:text-emerald-300' },
-              { id: 'overheat', label: '过热 (Overheat)', color: 'text-amber-700 border-amber-300 bg-amber-50 dark:bg-amber-950/40 dark:text-amber-300' },
-              { id: 'dead', label: '损坏 (Dead/Failed)', color: 'text-rose-700 border-rose-300 bg-rose-50 dark:bg-rose-950/40 dark:text-rose-300' },
-              { id: 'over_voltage', label: '超压 (Over Voltage)', color: 'text-purple-700 border-purple-300 bg-purple-50 dark:bg-purple-950/40 dark:text-purple-300' },
-              { id: 'unknown', label: '未知 (Unknown)', color: 'text-slate-700 border-slate-300 bg-slate-50 dark:bg-slate-800 dark:text-slate-300' },
+              { id: 'good', label: '良好 (Good)', color: 'text-emerald-700 border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 dark:text-emerald-300', ring: 'ring-emerald-500' },
+              { id: 'overheat', label: '过热 (Overheat)', color: 'text-amber-700 border-amber-300 bg-amber-50 dark:bg-amber-950/40 dark:text-amber-300', ring: 'ring-amber-500' },
+              { id: 'dead', label: '损坏 (Dead/Failed)', color: 'text-rose-700 border-rose-300 bg-rose-50 dark:bg-rose-950/40 dark:text-rose-300', ring: 'ring-rose-500' },
+              { id: 'over_voltage', label: '超压 (Over Voltage)', color: 'text-purple-700 border-purple-300 bg-purple-50 dark:bg-purple-950/40 dark:text-purple-300', ring: 'ring-purple-500' },
+              { id: 'unknown', label: '未知 (Unknown)', color: 'text-slate-700 border-slate-300 bg-slate-50 dark:bg-slate-800 dark:text-slate-300', ring: 'ring-slate-400' },
             ] as const
           ).map((item) => {
             const isSelected = healthQuality === item.id;
@@ -384,7 +402,7 @@ export function HardwareSimulationLab({
                 onClick={() => onUpdateHealthQuality(item.id)}
                 className={`min-h-[44px] px-3.5 py-1.5 rounded-xl border text-xs font-semibold transition-all ${
                   isSelected
-                    ? `${item.color} ring-2 ring-emerald-500 shadow-sm`
+                    ? `${item.color} ring-2 ${item.ring} shadow-sm`
                     : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
                 }`}
               >

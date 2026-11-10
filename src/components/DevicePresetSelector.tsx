@@ -4,7 +4,7 @@
  */
 
 import { useState } from 'react';
-import { Smartphone, Check, Settings2, Sliders } from 'lucide-react';
+import { Smartphone, Check, Sliders, AlertTriangle } from 'lucide-react';
 import { DevicePreset } from '../types/battery';
 import { POPULAR_ANDROID_DEVICES } from '../data/devicePresets';
 
@@ -23,27 +23,39 @@ export function DevicePresetSelector({
 }: DevicePresetSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [customInput, setCustomInput] = useState(designCapacity.toString());
+  const [capacityError, setCapacityError] = useState<string | null>(null);
 
   const handleApplyCustom = (e: React.FormEvent) => {
     e.preventDefault();
-    const val = parseInt(customInput, 10);
-    if (!isNaN(val) && val >= 1000 && val <= 15000) {
-      onUpdateDesignCapacity(val);
-      onSelectDevice({
-        id: 'custom-' + Date.now(),
-        name: `自定义机型 (${val} mAh)`,
-        brand: '自定义',
-        designCapacity: val,
-        fastChargeWattage: 65,
-        batteryChemistry: '定制高密度锂聚合物电芯',
-        socModel: '自定义 ARM64 SoC',
-        pmicModel: '智能可编程 PMIC 控制器',
-        fastChargeProtocol: 'UFCS 融合快充 / USB PD 3.0',
-        internalResistanceMohm: 14.5,
-        cellStructure: '标准动力电芯单电芯封装',
-      });
-      setIsOpen(false);
+    if (customInput.trim() === '') {
+      setCapacityError('请输入自定义出厂设计容量 (mAh)');
+      return;
     }
+    const val = parseInt(customInput, 10);
+    if (isNaN(val) || val <= 0) {
+      setCapacityError('容量必须为大于 0 的整数');
+      return;
+    }
+    if (val < 1000 || val > 15000) {
+      setCapacityError(`容量需在 1000 ~ 15000 mAh 之间 (当前输入 ${val})`);
+      return;
+    }
+    setCapacityError(null);
+    onUpdateDesignCapacity(val);
+    onSelectDevice({
+      id: 'custom-' + Date.now(),
+      name: `自定义机型 (${val} mAh)`,
+      brand: '自定义',
+      designCapacity: val,
+      fastChargeWattage: 65,
+      batteryChemistry: '定制高密度锂聚合物电芯',
+      socModel: '自定义 ARM64 SoC',
+      pmicModel: '智能可编程 PMIC 控制器',
+      fastChargeProtocol: 'UFCS 融合快充 / USB PD 3.0',
+      internalResistanceMohm: 14.5,
+      cellStructure: '标准动力电芯单电芯封装',
+    });
+    setIsOpen(false);
   };
 
   return (
@@ -91,6 +103,7 @@ export function DevicePresetSelector({
                   onClick={() => {
                     onSelectDevice(device);
                     setCustomInput(device.designCapacity.toString());
+                    setCapacityError(null);
                     setIsOpen(false);
                   }}
                   className={`min-h-[44px] p-2.5 rounded-xl text-left border transition-all flex items-center justify-between ${
@@ -124,9 +137,16 @@ export function DevicePresetSelector({
                 min="1000"
                 max="15000"
                 value={customInput}
-                onChange={(e) => setCustomInput(e.target.value)}
+                onChange={(e) => {
+                  setCustomInput(e.target.value);
+                  if (capacityError) setCapacityError(null);
+                }}
                 placeholder="输入自定义出厂设计容量 (mAh)"
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className={`w-full px-3 py-2 rounded-xl border bg-slate-50 dark:bg-slate-800 text-xs text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 ${
+                  capacityError
+                    ? 'border-rose-400 dark:border-rose-500 focus:ring-rose-500'
+                    : 'border-slate-200 dark:border-slate-700 focus:ring-emerald-500'
+                }`}
               />
               <span className="absolute right-3 top-2.5 text-xs text-slate-400 font-mono">
                 mAh
@@ -139,6 +159,14 @@ export function DevicePresetSelector({
               保存自定义容量
             </button>
           </form>
+
+          {/* 自定义容量校验反馈 */}
+          {capacityError && (
+            <p className="text-[11px] text-rose-500 dark:text-rose-400 font-medium flex items-center gap-1.5 -mt-1">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+              {capacityError}
+            </p>
+          )}
         </div>
       )}
     </div>

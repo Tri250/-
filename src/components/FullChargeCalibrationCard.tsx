@@ -107,6 +107,17 @@ export function FullChargeCalibrationCard({
             </div>
           </div>
 
+          {/* Live Capacity Readout (激活 currentCapacity) */}
+          <div className="mt-3 pt-2.5 border-t border-slate-800/60 flex items-center justify-between text-[11px] font-mono">
+            <span className="text-slate-500">当前实时容量 (电量计采样)</span>
+            <span className="text-cyan-300 font-bold">
+              {currentCapacity.toLocaleString()} mAh
+              <span className="text-slate-500 font-normal ml-1.5">
+                / 出厂设计 {designCapacity.toLocaleString()} mAh
+              </span>
+            </span>
+          </div>
+
           {/* Quick Simulation Trigger Button */}
           <button
             onClick={onTriggerTest}

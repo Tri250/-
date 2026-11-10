@@ -58,6 +58,14 @@ export function LiveTelemetryChart({
   const maxVal = Math.max(...values);
   const range = maxVal === minVal ? 1 : maxVal - minVal;
 
+  // 实时读数：直接采用当前传感器值 (激活 currentVoltage / currentCurrent / currentTemp)
+  const latestValue =
+    activeMetric === 'current'
+      ? currentCurrent
+      : activeMetric === 'voltage'
+      ? currentVoltage
+      : currentTemp;
+
   const width = 600;
   const height = 180;
   const paddingX = 20;
@@ -131,7 +139,7 @@ export function LiveTelemetryChart({
         <div>
           <span className="text-slate-400">最新:</span>{' '}
           <strong className="text-slate-900 dark:text-white font-bold">
-            {values[values.length - 1]} {unit}
+            {latestValue} {unit}
           </strong>
         </div>
         <div>

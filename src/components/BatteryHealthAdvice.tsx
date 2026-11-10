@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { ShieldCheck, AlertTriangle, Lightbulb, BatteryCharging, HeartPulse } from 'lucide-react';
+import { ShieldCheck, AlertTriangle, Lightbulb, BatteryCharging, HeartPulse, Thermometer, RefreshCw } from 'lucide-react';
 
 interface BatteryHealthAdviceProps {
   healthPercentage: number;
@@ -72,6 +72,38 @@ export function BatteryHealthAdvice({
             }`}
             style={{ width: `${Math.min(100, healthPercentage)}%` }}
           />
+        </div>
+      </div>
+
+      {/* Live Cycle Count & Temperature Readout (激活 cycleCount / temperature props) */}
+      <div className="grid grid-cols-2 gap-2.5">
+        <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950/40 border border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
+          <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+            <RefreshCw className="w-3.5 h-3.5 text-sky-500" />
+            循环计数
+          </div>
+          <span className="font-mono text-xs font-bold text-slate-900 dark:text-white tabular-nums">
+            {cycleCount} 次
+          </span>
+        </div>
+        <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950/40 border border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
+          <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+            <Thermometer className="w-3.5 h-3.5 text-amber-500" />
+            当前温度
+          </div>
+          <span
+            className={`font-mono text-xs font-bold tabular-nums ${
+              temperature > 45
+                ? 'text-rose-600 dark:text-rose-400'
+                : temperature >= 38
+                ? 'text-amber-600 dark:text-amber-400'
+                : temperature <= 0
+                ? 'text-sky-600 dark:text-sky-400'
+                : 'text-emerald-600 dark:text-emerald-400'
+            }`}
+          >
+            {temperature} °C
+          </span>
         </div>
       </div>
 
