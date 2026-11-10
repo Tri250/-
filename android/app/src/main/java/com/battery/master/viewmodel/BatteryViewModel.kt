@@ -1,6 +1,7 @@
 package com.battery.master.viewmodel
 
 import android.app.Application
+import android.content.Intent
 import android.content.IntentFilter
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
