@@ -11,6 +11,7 @@ import com.battery.master.data.BatteryStatus
 import com.battery.master.service.BatteryHardwareReader
 import com.battery.master.service.BatterySysfs
 import com.battery.master.service.HardwareInfoResolver
+import kotlin.math.abs
 
 /**
  * 监听 Android 底层硬件广播 ACTION_BATTERY_CHANGED
@@ -27,10 +28,14 @@ class BatteryReceiver(
 
         val batteryManager = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
 
-        // 5. 电量百分比 (0 - 100)
+        // 5. 电量百分比 (0 - 100) (extras 缺失时回退 CAPACITY 属性，与轮询通道一致)
         val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
         val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
-        val percentage = if (level >= 0 && scale > 0) (level * 100 / scale) else 0
+        var percentage = if (level >= 0 && scale > 0) (level * 100 / scale) else 0
+        if (percentage == 0) {
+            val capacityProp = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+            if (capacityProp in 0..100) percentage = capacityProp
+        }
 
         // 6. 电池状态
         val rawStatus = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
@@ -42,8 +47,8 @@ class BatteryReceiver(
             else -> BatteryStatus.NOT_CHARGING
         }
 
-        // 7. 电池温度：EXTRA_TEMPERATURE 返回的是 0.1 摄氏度
-        val rawTemp = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0)
+        // 7. 电池温度：EXTRA_TEMPERATURE 返回的是 0.1 摄氏度 (默认 25.0℃，与轮询通道一致)
+        val rawTemp = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 250)
         val temperatureCelsius = rawTemp / 10.0f
 
         // 8. 电池健康状况
@@ -56,8 +61,8 @@ class BatteryReceiver(
             else -> BatteryHealthQuality.UNKNOWN
         }
 
-        // 9. 电压：毫伏 (mV)
-        val voltageMv = intent.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 0)
+        // 9. 电压：毫伏 (mV) (默认 4000mV，与轮询通道一致)
+        val voltageMv = intent.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 4000)
 
         // 11. 瞬时电流 (mA)：BATTERY_PROPERTY_CURRENT_NOW 规范返回微安 (μA)，需归一化
         val currentUa = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)
@@ -85,7 +90,7 @@ class BatteryReceiver(
         // 2. 剩余电量 (mAh)
         // 从 BATTERY_PROPERTY_CHARGE_COUNTER 获取 (uAh -> mAh)，或由百分比折算
         val chargeCounterUah = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER)
-        val remainingCapacityMah = if (chargeCounterUah > 0) {
+        val remainingCapacityMah = if (chargeCounterUah > 0 && chargeCounterUah != Int.MIN_VALUE) {
             chargeCounterUah / 1000
         } else {
             (currentCapacityMah * (percentage / 100.0f)).toInt()
@@ -96,12 +101,12 @@ class BatteryReceiver(
 
         // 12. 完全充满时的容量：估算完全充满时的容量 (mAh)
         // 核心规则：仅当电量为 100% 且电流在 0-25 mA 之间时，才视为电池充满
+        // 与轮询通道共享锁定逻辑：满足则锁定+持久化，未满足保留上次锁定值不抹除
         val isFullCriteriaMet = percentage == 100 && (currentMa in 0..25)
-        val fullChargeCapacityMah = if (isFullCriteriaMet) {
-            currentCapacityMah
-        } else {
-            null
-        }
+        val fullChargeCapacityMah = reader.lockFullChargeIfCriteriaMet(currentCapacityMah, percentage, currentMa)
+
+        // 瞬时功率 (W = V × I)：与轮询通道一致，始终计算
+        val powerWatts = (voltageMv.toFloat() * abs(currentMa)) / 1_000_000f
 
         // 动态解析硬件信息摘要 (真实可读字段 + 诚实未上报标注)
         val hardware = HardwareInfoResolver.resolve(temperatureCelsius, cycleCount)
@@ -119,7 +124,9 @@ class BatteryReceiver(
             cycleCount = cycleCount,
             currentMa = currentMa,
             fullChargeCapacityMah = fullChargeCapacityMah,
-            lastFullChargeTimestamp = if (isFullCriteriaMet) System.currentTimeMillis() else null,
+            lastFullChargeTimestamp = reader.lastFullChargeTimestamp,
+            powerWatts = powerWatts,
+            isFullChargeConditionMet = isFullCriteriaMet,
             socModel = hardware.socModel,
             pmicModel = hardware.pmicModel,
             batteryChemistry = hardware.batteryChemistry,

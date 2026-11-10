@@ -29,8 +29,8 @@ class BatteryHardwareReader(private val context: Context) {
     private var lastRecordedFullCapacity: Int? =
         prefs.getInt(KEY_LAST_FULL_CAPACITY, -1).takeIf { it > 0 }
 
-    // 上一次满足充满判定条件的时间戳
-    private var lastFullChargeTimestamp: Long? =
+    // 上一次满足充满判定条件的时间戳 (广播通道共享读取，与锁定容量同源)
+    var lastFullChargeTimestamp: Long? =
         prefs.getLong(KEY_LAST_FULL_TIMESTAMP, -1L).takeIf { it > 0 }
 
     /**
@@ -58,7 +58,7 @@ class BatteryHardwareReader(private val context: Context) {
             BatteryManager.BATTERY_STATUS_DISCHARGING -> BatteryStatus.DISCHARGING
             BatteryManager.BATTERY_STATUS_FULL -> BatteryStatus.FULL
             BatteryManager.BATTERY_STATUS_NOT_CHARGING -> BatteryStatus.NOT_CHARGING
-            else -> BatteryStatus.DISCHARGING
+            else -> BatteryStatus.NOT_CHARGING
         }
 
         // 7. 电池温度：当前电池温度（摄氏度 ℃）
@@ -114,10 +114,7 @@ class BatteryHardwareReader(private val context: Context) {
         // 12. 完全充满时的容量：估算的电池完全充满时的容量（毫安时）
         // 核心规则：仅当电量为 100% 且电流在 0-25 mA 之间时，才视为电池充满
         val isFullChargeConditionMet = (percentage == 100 && currentNowMa in 0..25)
-        if (isFullChargeConditionMet) {
-            lastRecordedFullCapacity = currentCapacityMah
-            persistFullChargeCapacity(currentCapacityMah, System.currentTimeMillis())
-        }
+        val fullChargeCapacityMah = lockFullChargeIfCriteriaMet(currentCapacityMah, percentage, currentNowMa)
 
         // 计算瞬时功率 (W = V * I)
         val powerWatts = (voltageMv.toFloat() * abs(currentNowMa)) / 1_000_000f
@@ -137,7 +134,7 @@ class BatteryHardwareReader(private val context: Context) {
             voltageMv = voltageMv,
             cycleCount = cycleCount,
             currentMa = currentNowMa,
-            fullChargeCapacityMah = if (isFullChargeConditionMet) currentCapacityMah else lastRecordedFullCapacity,
+            fullChargeCapacityMah = fullChargeCapacityMah,
             lastFullChargeTimestamp = lastFullChargeTimestamp,
             isFullChargeConditionMet = isFullChargeConditionMet,
             powerWatts = powerWatts,
@@ -162,6 +159,21 @@ class BatteryHardwareReader(private val context: Context) {
             .putInt(KEY_LAST_FULL_CAPACITY, capacityMah)
             .putLong(KEY_LAST_FULL_TIMESTAMP, timestampMs)
             .apply()
+    }
+
+    /**
+     * 特性 12 共享判定：仅当 percentage == 100 且 currentNow ∈ [0, 25] mA 时，
+     * 锁定并持久化完全充满容量（同步刷新内存锁定时间戳）；
+     * 未满足条件时保留上次锁定值，不因通道切换而丢失。
+     * 轮询通道 (readBatteryTelemetry) 与广播通道 (BatteryReceiver) 共用，
+     * 保证两通道指标 12 语义完全一致。
+     */
+    fun lockFullChargeIfCriteriaMet(currentCapacityMah: Int, percentage: Int, currentNowMa: Int): Int? {
+        if (percentage == 100 && currentNowMa in 0..25) {
+            persistFullChargeCapacity(currentCapacityMah, System.currentTimeMillis())
+            return currentCapacityMah
+        }
+        return lastRecordedFullCapacity
     }
 
     /**
