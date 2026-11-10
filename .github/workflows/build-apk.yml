@@ -245,5 +245,10 @@ jobs:
           generate_release_notes: true
           draft: false
           prerelease: false
+          fail_on_unmatched_files: true
+          files: |
+            artifacts/*.apk
+            artifacts/*.zip
+            artifacts/SHA256SUMS.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
