@@ -6,3 +6,8 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Gradle 构建缓存与本地 SDK 配置（不应进入版本库）
+.gradle/
+android/.gradle/
+local.properties
