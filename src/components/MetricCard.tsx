@@ -42,6 +42,18 @@ export function MetricCard({
   return (
     <div
       onClick={onClick}
+      onKeyDown={
+        onClick
+          ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onClick();
+              }
+            }
+          : undefined
+      }
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
       className={`group relative overflow-hidden p-3.5 sm:p-4 rounded-2xl bg-gradient-to-b from-slate-900/90 to-slate-950/90 border border-slate-800/90 hover:border-cyan-500/40 shadow-md shadow-black/20 backdrop-blur-md transition-all ${
         onClick ? 'cursor-pointer hover:shadow-cyan-950/20 hover:-translate-y-0.5 active:scale-[0.98]' : ''
       }`}

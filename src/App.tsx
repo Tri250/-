@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Zap,
   Sparkles,
@@ -52,6 +52,12 @@ export default function App() {
 
   // Navigation tab state
   const [activeTab, setActiveTab] = useState<NavTabId>('overview');
+
+  // Tab 视图滚动容器：切换 Tab 时复位到顶部，避免残留上一视图滚动位置
+  const tabBodyRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    tabBodyRef.current?.scrollTo({ top: 0 });
+  }, [activeTab]);
 
   // Theme mode: light or dark (defaults to dark for authentic Android AMOLED style)
   const [isDarkMode, setIsDarkMode] = useState<boolean>(true);
@@ -183,8 +189,8 @@ export default function App() {
         <div
           className={`w-full transition-all duration-300 ${
             isPhoneFrameMode
-              ? 'max-w-[430px] rounded-[42px] border-[6px] border-slate-800/80 dark:border-slate-700/80 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.3)] bg-slate-50 dark:bg-slate-950 overflow-hidden relative'
-              : 'max-w-5xl rounded-3xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-4 sm:p-6'
+              ? 'max-w-[430px] rounded-[42px] border-[6px] border-slate-800/80 dark:border-slate-700/80 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.3)] bg-slate-50 dark:bg-slate-950 overflow-hidden relative flex flex-col h-[92vh] max-h-[900px]'
+              : 'max-w-5xl rounded-3xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 relative flex flex-col h-[calc(100vh-32px)]'
           }`}
         >
           {/* Android Status Bar (Always present in mobile/phone frame mode) */}
@@ -209,6 +215,14 @@ export default function App() {
             {/* Feature 12 Quick Status Chip */}
             <div
               onClick={() => setActiveTab('health')}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setActiveTab('health');
+                }
+              }}
+              role="button"
+              tabIndex={0}
               className={`cursor-pointer px-2.5 py-1 rounded-lg text-[10px] font-semibold border transition-all flex items-center gap-1 ${
                 state.percentage === 100 && state.current >= 0 && state.current <= 25
                   ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300'
@@ -221,7 +235,7 @@ export default function App() {
           </div>
 
           {/* Scrollable Tab Views Body (with bottom padding for Android gesture nav bar) */}
-          <div className="p-4 pb-28 space-y-4 max-h-[calc(100vh-140px)] overflow-y-auto">
+          <div ref={tabBodyRef} className="flex-1 min-h-0 p-4 pb-28 space-y-4 overflow-y-auto">
             {/* TAB 1: 状态总览 (OVERVIEW) */}
             {activeTab === 'overview' && (
               <div className="space-y-4">

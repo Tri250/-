@@ -23,7 +23,7 @@ export function AndroidNavBar({ activeTab, onChangeTab }: AndroidNavBarProps) {
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800/80">
+    <div className="shrink-0 w-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800/80">
       <div className="max-w-md mx-auto grid grid-cols-6 items-center h-16 px-1">
         {tabs.map((tab) => {
           const Icon = tab.icon;
