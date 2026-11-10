@@ -10,6 +10,7 @@ import com.battery.master.data.BatteryState
 import com.battery.master.data.BatteryStatus
 import com.battery.master.service.BatteryHardwareReader
 import com.battery.master.service.BatterySysfs
+import com.battery.master.service.HardwareInfoResolver
 
 /**
  * 监听 Android 底层硬件广播 ACTION_BATTERY_CHANGED
