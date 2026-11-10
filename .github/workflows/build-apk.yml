@@ -27,9 +27,8 @@ env:
 
 jobs:
   # ============================================================
-  # Android 原生端：编译 Debug APK + 安装属性自检（aapt2 badging）
-  # release 构建需签名密钥，CI 不持有，故产物为 debug 签名 APK，可直接安装；
-  # 版本号见 app/build.gradle.kts
+  # Android 原生端：编译 Release APK（R8 混淆 + 资源收缩 + 正式签名）+ 安装属性自检
+  # 签名密钥经 GitHub Secrets 注入（KEYSTORE_BASE64 等），缺失时回退 debug 签名
   # ============================================================
   android:
     name: Android APK 构建
@@ -59,20 +58,44 @@ jobs:
             yes | $ANDROID_HOME/tools/bin/sdkmanager --licenses > /dev/null 2>&1 || true
           fi
 
+      # 解码 release 签名密钥（GitHub Secrets 注入）；未配置时回退 debug 签名
+      - name: Decode Release Keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > "$GITHUB_WORKSPACE/release.keystore"
+            echo "KEYSTORE_FILE=$GITHUB_WORKSPACE/release.keystore" >> "$GITHUB_ENV"
+            echo "KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+            echo "KEY_ALIAS=$KEY_ALIAS" >> "$GITHUB_ENV"
+            echo "KEY_PASSWORD=$KEY_PASSWORD" >> "$GITHUB_ENV"
+            echo "keystore_available=true" >> "$GITHUB_ENV"
+            echo "Release keystore decoded."
+          else
+            echo "keystore_available=false" >> "$GITHUB_ENV"
+            echo "::warning::KEYSTORE_BASE64 secret not set, falling back to debug signing"
+          fi
+
       - name: Ensure Gradle Wrapper Executable
         run: |
           cd android
           chmod +x gradlew
 
-      - name: Build Debug APK
+      - name: Build Release APK (R8 minified + signed)
         run: |
           cd android
-          ./gradlew assembleDebug --stacktrace --no-daemon || gradle assembleDebug --stacktrace --no-daemon
+          ./gradlew assembleRelease --stacktrace --no-daemon || gradle assembleRelease --stacktrace --no-daemon
 
       - name: Locate Generated APK
         id: find_apk
         run: |
-          APK_PATH=$(find android/app/build/outputs/apk/debug -name "*.apk" | head -n 1)
+          APK_PATH=$(find android/app/build/outputs/apk/release -name "*.apk" 2>/dev/null | head -n 1)
+          if [ -z "$APK_PATH" ]; then
+            APK_PATH=$(find android/app/build/outputs/apk/debug -name "*.apk" 2>/dev/null | head -n 1)
+          fi
           if [ -z "$APK_PATH" ]; then
             APK_PATH=$(find . -name "*.apk" | head -n 1)
           fi
@@ -102,14 +125,28 @@ jobs:
           grep -q "application-label:'电池大师'" apk-badging.txt || { echo "::error::Unexpected app label"; exit 1; }
           echo "APK install metadata verified."
 
+      # 签名校验：正式签名构建必须通过 apksigner verify，防止未签名/损坏包发布
+      - name: Verify APK Signature (apksigner)
+        if: env.keystore_available == 'true'
+        run: |
+          APK_PATH="${{ steps.find_apk.outputs.apk_path }}"
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n 1)
+          if [ -z "$APKSIGNER" ]; then
+            echo "::warning::apksigner not found, skipping signature verification"
+            exit 0
+          fi
+          "$APKSIGNER" verify --verbose "$APK_PATH" | head -n 10 || { echo "::error::APK signature verification failed"; exit 1; }
+          echo "APK signature verified."
+
       # 版本化命名：从 build.gradle.kts 解析 versionName，产物文件名携带版本，便于安装与归档
       - name: Rename APK with Version Name
         id: rename_apk
         run: |
           VERSION_NAME=$(grep -m1 'versionName' android/app/build.gradle.kts | sed -E "s/.*\"([^\"]+)\".*/\1/")
           if [ -z "$VERSION_NAME" ]; then VERSION_NAME="1.0.0"; fi
+          if [ "${{ env.keystore_available }}" = "true" ]; then SUFFIX="release"; else SUFFIX="debug"; fi
           APK_PATH="${{ steps.find_apk.outputs.apk_path }}"
-          NEW_NAME="Android-Battery-Master-v${VERSION_NAME}-debug.apk"
+          NEW_NAME="Android-Battery-Master-v${VERSION_NAME}-${SUFFIX}.apk"
           mv "$APK_PATH" "$NEW_NAME"
           echo "version_name=$VERSION_NAME" >> $GITHUB_OUTPUT
           echo "renamed_apk=$NEW_NAME" >> $GITHUB_OUTPUT
@@ -117,7 +154,7 @@ jobs:
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Android-Battery-Master-Debug-APK
+          name: Android-Battery-Master-APK
           path: ${{ steps.rename_apk.outputs.renamed_apk }}
           retention-days: 30
 
@@ -188,7 +225,7 @@ jobs:
       - name: Download Android APK
         uses: actions/download-artifact@v4
         with:
-          name: Android-Battery-Master-Debug-APK
+          name: Android-Battery-Master-APK
           path: artifacts/
 
       - name: Download Web Demo
@@ -216,7 +253,7 @@ jobs:
             ### 发布资产
             | 资产 | 说明 |
             | --- | --- |
-            | `Android-Battery-Master-v1.0.0-debug.apk` | Android 原生 APK（Debug 签名，可直接安装） |
+            | `Android-Battery-Master-v1.0.0-release.apk` | Android 原生 APK（**正式 Release 签名**，R8 混淆 + 资源收缩，可直接安装） |
             | `web-demo-dist.zip` | Web 演示端静态产物（解压后任意静态服务器托管，或直接用浏览器打开 `index.html`） |
             | `SHA256SUMS.txt` | 全部资产 SHA256 校验和 |
 

@@ -4,6 +4,14 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+// 签名参数由 CI 通过环境变量注入（GitHub Secrets），本地构建同样可注入；
+// 缺失时回退 debug 签名，保证流水线与本地开发始终可产出可安装 APK
+val releaseKeystoreFile = System.getenv("KEYSTORE_FILE")
+val releaseKeystorePass = System.getenv("KEYSTORE_PASSWORD")
+val releaseKeyPass = System.getenv("KEY_PASSWORD")
+val hasReleaseSigning = releaseKeystoreFile != null &&
+    releaseKeystorePass != null && releaseKeyPass != null
+
 android {
     namespace = "com.battery.master"
     compileSdk = 35
@@ -18,13 +26,31 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = file(releaseKeystoreFile as String)
+                storePassword = releaseKeystorePass
+                keyAlias = "battery-master"
+                keyPassword = releaseKeyPass
+            }
+        }
+    }
+
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // 正式发布：R8 全量混淆 + 资源收缩，压缩包体并移除未引用代码/资源
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = if (hasReleaseSigning) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
     }
     compileOptions {
