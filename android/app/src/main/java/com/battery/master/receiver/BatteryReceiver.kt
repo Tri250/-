@@ -26,7 +26,8 @@ class BatteryReceiver(
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Intent.ACTION_BATTERY_CHANGED) return
 
-        val batteryManager = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+        // 安全转换：极端场景下系统服务异常返回时静默丢弃本次广播，轮询通道继续兜底
+        val batteryManager = context.getSystemService(Context.BATTERY_SERVICE) as? BatteryManager ?: return
 
         // 5. 电量百分比 (0 - 100) (extras 缺失时回退 CAPACITY 属性，与轮询通道一致)
         val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)

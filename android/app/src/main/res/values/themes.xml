@@ -2,8 +2,9 @@
 <resources>
     <!-- Dark Cyberpunk Theme for Battery Master -->
     <style name="Theme.AndroidBatteryMaster" parent="android:Theme.Material.NoActionBar">
+        <!-- 窗口背景与 Scaffold 首帧容器色 (#030712) 保持一致，消除启动瞬间色差跳变 -->
         <item name="android:statusBarColor">#020617</item>
         <item name="android:navigationBarColor">#020617</item>
-        <item name="android:windowBackground">#020617</item>
+        <item name="android:windowBackground">#030712</item>
     </style>
 </resources>

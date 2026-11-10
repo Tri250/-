@@ -16,14 +16,20 @@ on:
 permissions:
   contents: write
 
+# 同一 ref 的流水线串行执行，避免并发发布相互覆盖 Release 资产
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 env:
   ANDROID_HOME: /usr/local/lib/android/sdk
   ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
 
 jobs:
   # ============================================================
-  # Android 原生端：编译 Debug APK（release 构建需签名密钥，CI 不持有，
-  # 故产物为 debug 签名 APK，可直接安装；版本号见 app/build.gradle.kts）
+  # Android 原生端：编译 Debug APK + 安装属性自检（aapt2 badging）
+  # release 构建需签名密钥，CI 不持有，故产物为 debug 签名 APK，可直接安装；
+  # 版本号见 app/build.gradle.kts
   # ============================================================
   android:
     name: Android APK 构建
@@ -77,15 +83,46 @@ jobs:
           echo "Found APK at: $APK_PATH"
           echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
 
+      # 安装属性自检：校验包名 / 版本号 / 启动 Activity / 应用图标齐全，
+      # 与"安装与卸载"审计项对应，属性缺失直接让流水线失败
+      - name: Verify APK Install Metadata (aapt2 badging)
+        run: |
+          APK_PATH="${{ steps.find_apk.outputs.apk_path }}"
+          AAPT=$(find "$ANDROID_HOME/build-tools" -name aapt2 -type f | sort -V | tail -n 1)
+          if [ -z "$AAPT" ]; then
+            echo "::warning::aapt2 not found, skipping metadata verification"
+            exit 0
+          fi
+          "$AAPT" dump badging "$APK_PATH" > apk-badging.txt || { echo "::error::aapt2 dump badging failed"; exit 1; }
+          head -n 20 apk-badging.txt
+          grep -q "package: name='com.battery.master'" apk-badging.txt || { echo "::error::Unexpected applicationId"; exit 1; }
+          grep -q "versionName='1.0.0'" apk-badging.txt || { echo "::error::Unexpected versionName"; exit 1; }
+          grep -q "launchable-activity" apk-badging.txt || { echo "::error::Missing launcher activity"; exit 1; }
+          grep -q "application-icon-320" apk-badging.txt || { echo "::error::Missing launcher icons"; exit 1; }
+          grep -q "application-label:'电池大师'" apk-badging.txt || { echo "::error::Unexpected app label"; exit 1; }
+          echo "APK install metadata verified."
+
+      # 版本化命名：从 build.gradle.kts 解析 versionName，产物文件名携带版本，便于安装与归档
+      - name: Rename APK with Version Name
+        id: rename_apk
+        run: |
+          VERSION_NAME=$(grep -m1 'versionName' android/app/build.gradle.kts | sed -E "s/.*\"([^\"]+)\".*/\1/")
+          if [ -z "$VERSION_NAME" ]; then VERSION_NAME="1.0.0"; fi
+          APK_PATH="${{ steps.find_apk.outputs.apk_path }}"
+          NEW_NAME="Android-Battery-Master-v${VERSION_NAME}-debug.apk"
+          mv "$APK_PATH" "$NEW_NAME"
+          echo "version_name=$VERSION_NAME" >> $GITHUB_OUTPUT
+          echo "renamed_apk=$NEW_NAME" >> $GITHUB_OUTPUT
+
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Android-Battery-Master-Debug-APK
-          path: ${{ steps.find_apk.outputs.apk_path }}
+          path: ${{ steps.rename_apk.outputs.renamed_apk }}
           retention-days: 30
 
   # ============================================================
-  # Web 演示端：TypeScript 静态检查 + Vite 构建 + 产物打包
+  # Web 演示端：TypeScript 静态检查 + Vite 构建 + 产物校验 + 打包
   # ============================================================
   web:
     name: Web 演示端构建
@@ -99,6 +136,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
 
       - name: Install Dependencies (npm ci)
         run: npm ci
@@ -108,6 +146,20 @@ jobs:
 
       - name: Build Web Demo (Vite)
         run: npm run build
+
+      # 产物自检：入口 HTML 与编译资产必须存在且非空，防止空壳构建被发布
+      - name: Verify Web Dist Output
+        run: |
+          if [ ! -s dist/index.html ]; then
+            echo "::error::dist/index.html missing or empty"
+            exit 1
+          fi
+          ASSET_COUNT=$(find dist/assets -type f | wc -l)
+          if [ "$ASSET_COUNT" -lt 2 ]; then
+            echo "::error::Expected JS and CSS assets in dist/assets, found $ASSET_COUNT"
+            exit 1
+          fi
+          echo "Web dist verified: index.html + $ASSET_COUNT asset files."
 
       - name: Package Web Dist
         run: |
@@ -124,7 +176,7 @@ jobs:
 
   # ============================================================
   # 发布：仅在推送 v* 标签时创建 GitHub Release
-  # 产物 = Android Debug APK + Web 演示端 dist 打包
+  # 产物 = Android Debug APK（版本化命名）+ Web 演示端 dist 打包 + SHA256 校验和
   # ============================================================
   release:
     name: 发布 GitHub Release
@@ -145,12 +197,51 @@ jobs:
           name: Android-Battery-Master-Web-Demo
           path: artifacts/
 
+      # 完整性校验：为全部发布资产生成 SHA256SUMS，供下载方验证
+      - name: Generate SHA256 Checksums
+        run: |
+          cd artifacts
+          find . -type f \( -name '*.apk' -o -name '*.zip' \) -print0 | xargs -0 sha256sum > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            artifacts/*.apk
-            artifacts/*.zip
+          # 固定中文发布说明（安装/卸载/权限/五维自检摘要）+ 自动追加的提交记录
+          body: |
+            ## Android Battery Master v1.0.0
+
+            专业的安卓电池充放电监测工具：**12 项核心充放电指标**全量实时遥测（健康度 / 剩余电量 / 当前容量 / 设计容量 / 电量百分比 / 电池状态 / 温度 / 健康状况 / 电压 / 循环计数 / 瞬时电流 / 完全充满容量），底层基于 Android BatteryManager、粘性广播与 Linux sysfs 真实硬件通道。
+
+            ### 发布资产
+            | 资产 | 说明 |
+            | --- | --- |
+            | `Android-Battery-Master-v1.0.0-debug.apk` | Android 原生 APK（Debug 签名，可直接安装） |
+            | `web-demo-dist.zip` | Web 演示端静态产物（解压后任意静态服务器托管，或直接用浏览器打开 `index.html`） |
+            | `SHA256SUMS.txt` | 全部资产 SHA256 校验和 |
+
+            ### 安装说明
+            1. 下载 APK 后在设备上点击安装（需在系统设置中允许"安装未知来源应用"）。
+            2. 首次启动授予**零运行时权限**：应用不申请任何敏感权限，安装后即可使用全部功能。
+            3. 覆盖安装：版本号 `versionCode=1` 单调递增，直接安装即可覆盖旧版，数据不丢失。
+
+            ### 卸载说明
+            - 常规卸载：系统设置 → 应用管理 → 电池大师 → 卸载， SharedPreferences 与应用数据随包体一并清除，无残留。
+            - 备份策略：已配置 `dataExtractionRules` 与 `fullBackupContent` 排除全部应用数据，云备份与换机传输均不会携带本应用数据。
+
+            ### 权限说明
+            - 声明权限数：**0**（无运行时权限、无敏感权限）。
+            - 电池指标全部来自公开系统 API（BatteryManager 属性 / `ACTION_BATTERY_CHANGED` 广播）与 sysfs 节点，无需任何授权。
+
+            ### 五维自检摘要
+            - **稳定性**：广播注册/注销全容错（异常 ROM 下退化为轮询通道不崩溃）、系统服务安全转换、空安全与除零防护、Gradle 分发下载超时放宽至 120s。
+            - **性能**：Compose 单数据源 1Hz 刷新、双通道（广播+轮询）共享 Reader 配置避免重复解析、Web 遥测定时器 ref 化消除每拍重建。
+            - **兼容性**：minSdk 26 / targetSdk 35，API 31+/34+ 分级适配（SoC 型号、循环计数）、中文字体回退栈、`prefers-reduced-motion` 无障碍支持。
+            - **权限管理**：0 运行时权限，备份规则显式排除应用数据。
+            - **安装卸载**：`applicationId=com.battery.master`、自适应图标（anydpi-v26 + 五密度 PNG 兜底）、版本化产物命名、CI 安装属性自检（aapt2 badging）。
+
+            ---
+            *以下为自动生成的提交记录*
           generate_release_notes: true
           draft: false
           prerelease: false

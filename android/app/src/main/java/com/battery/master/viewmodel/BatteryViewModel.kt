@@ -37,13 +37,22 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
     private val _simulationRemainingSec = MutableStateFlow(0L)
     val simulationRemainingSec: StateFlow<Long> = _simulationRemainingSec.asStateFlow()
 
+    // 广播注册状态标记：仅成功注册后才允许注销，防止 onCleared 重复注销崩溃
+    private var isReceiverRegistered = false
+
     init {
-        ContextCompat.registerReceiver(
-            application,
-            batteryReceiver,
-            IntentFilter(Intent.ACTION_BATTERY_CHANGED),
-            ContextCompat.RECEIVER_NOT_EXPORTED
-        )
+        // 注册容错：部分定制 ROM 可能拒绝动态注册，失败时退化为纯轮询通道，保证 UI 不崩溃
+        try {
+            ContextCompat.registerReceiver(
+                application,
+                batteryReceiver,
+                IntentFilter(Intent.ACTION_BATTERY_CHANGED),
+                ContextCompat.RECEIVER_NOT_EXPORTED
+            )
+            isReceiverRegistered = true
+        } catch (e: Exception) {
+            isReceiverRegistered = false
+        }
         startTelemetryPolling()
         startSimulationCountdown()
     }
@@ -63,7 +72,14 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
     }
 
     override fun onCleared() {
-        getApplication<Application>().unregisterReceiver(batteryReceiver)
+        if (isReceiverRegistered) {
+            try {
+                getApplication<Application>().unregisterReceiver(batteryReceiver)
+            } catch (e: IllegalArgumentException) {
+                // 防御：系统已代为注销时忽略，避免清理阶段崩溃
+            }
+            isReceiverRegistered = false
+        }
         super.onCleared()
     }
 

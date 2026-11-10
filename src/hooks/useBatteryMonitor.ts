@@ -75,6 +75,13 @@ export function useBatteryMonitor() {
   // 遥测心跳计数器：驱动充放电进度按节拍推进 (指标 5)
   const tickRef = useRef<number>(0);
 
+  // 最新遥测输入快照：interval 闭包经 ref 读取最新值，
+  // 避免 effect 依赖 percentage/status/current 等 state 每拍重建 setInterval
+  const telemetryInputRef = useRef({ status, percentage, current, voltage, temperature, healthQuality });
+  useEffect(() => {
+    telemetryInputRef.current = { status, percentage, current, voltage, temperature, healthQuality };
+  });
+
   // Check and process requirement 12 condition
   // "仅当电量为 100% 且电流在 0-25 mA 之间时，才视为电池充满并显示完全充满时的容量"
   const prevFullMetRef = useRef<boolean>(false);
@@ -112,6 +119,9 @@ export function useBatteryMonitor() {
 
     const interval = setInterval(() => {
       tickRef.current += 1;
+
+      // 从 ref 读取最新输入，替代原 effect 依赖数组（消除每拍定时器重建）
+      const { status, percentage, current, voltage, temperature, healthQuality } = telemetryInputRef.current;
 
       // 指标 5 进度推进：充电 +1% / 3 秒，放电 -1% / 4.5 秒 (实时仿真闭环)
       if (status === 'charging' && percentage < 100 && tickRef.current % 2 === 0) {
@@ -205,7 +215,7 @@ export function useBatteryMonitor() {
     }, 1500);
 
     return () => clearInterval(interval);
-  }, [isLiveTelemetryRunning, percentage, status, current, voltage, temperature, healthQuality]);
+  }, [isLiveTelemetryRunning]);
 
   // Derived metrics
   // 1. 电池健康度
