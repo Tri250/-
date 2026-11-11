@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ============================================================
+  Android Battery Master v1.2.0 · Feature Graphic (1024x500)
+  Google Play 特写图规格 · 设计语言对齐 DesignTokens.kt
+  ============================================================ -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="500" viewBox="0 0 1024 500">
+  <defs>
+    <radialGradient id="pgEm"><stop offset="0" stop-color="#10B981" stop-opacity=".22"/><stop offset="1" stop-color="#10B981" stop-opacity="0"/></radialGradient>
+    <radialGradient id="pgCyan"><stop offset="0" stop-color="#22D3EE" stop-opacity=".17"/><stop offset="1" stop-color="#22D3EE" stop-opacity="0"/></radialGradient>
+    <radialGradient id="pgPur"><stop offset="0" stop-color="#A855F7" stop-opacity=".15"/><stop offset="1" stop-color="#A855F7" stop-opacity="0"/></radialGradient>
+    <radialGradient id="pgCard"><stop offset="0" stop-color="#10B981" stop-opacity=".16"/><stop offset="1" stop-color="#10B981" stop-opacity="0"/></radialGradient>
+    <radialGradient id="pGridFade" cx="50%" cy="42%" r="72%">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".95"/><stop offset=".45" stop-color="#ffffff" stop-opacity=".5"/><stop offset="1" stop-color="#000000"/>
+    </radialGradient>
+    <mask id="pFadeMask" maskUnits="userSpaceOnUse" x="0" y="0" width="1024" height="500">
+      <rect width="1024" height="500" fill="url(#pGridFade)"/>
+    </mask>
+    <pattern id="pGrid" width="48" height="48" patternUnits="userSpaceOnUse">
+      <path d="M48 .5H.5V48" fill="none" stroke="#1E293B" stroke-opacity=".32" stroke-width="1"/>
+    </pattern>
+    <radialGradient id="pVignette" cx="50%" cy="50%" r="75%">
+      <stop offset=".5" stop-color="#02040A" stop-opacity="0"/><stop offset="1" stop-color="#02040A" stop-opacity=".72"/>
+    </radialGradient>
+    <linearGradient id="pGlass" x1="0" y1="0" x2=".28" y2="1">
+      <stop offset="0" stop-color="#0F172A" stop-opacity=".82"/><stop offset="1" stop-color="#090D16" stop-opacity=".68"/>
+    </linearGradient>
+    <linearGradient id="pHl" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#34D399" stop-opacity="0"/><stop offset=".4" stop-color="#34D399" stop-opacity=".55"/>
+      <stop offset=".7" stop-color="#22D3EE" stop-opacity=".45"/><stop offset="1" stop-color="#22D3EE" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="pVerGrad" gradientUnits="userSpaceOnUse" x1="60" y1="140" x2="440" y2="250">
+      <stop offset="0" stop-color="#34D399"/><stop offset=".34" stop-color="#10B981"/><stop offset=".62" stop-color="#2DD4BF"/><stop offset=".92" stop-color="#22D3EE"/>
+    </linearGradient>
+    <linearGradient id="pBarGrad" gradientUnits="userSpaceOnUse" x1="624" y1="0" x2="902" y2="0">
+      <stop offset="0" stop-color="#047857"/><stop offset=".45" stop-color="#10B981"/><stop offset="1" stop-color="#2DD4BF"/>
+    </linearGradient>
+    <linearGradient id="pPillGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#34D399"/><stop offset="1" stop-color="#2DD4BF"/>
+    </linearGradient>
+    <linearGradient id="tileGrad2" gradientUnits="userSpaceOnUse" x1="64" y1="56" x2="128" y2="120">
+      <stop offset="0" stop-color="#10B981" stop-opacity=".16"/><stop offset=".55" stop-color="#0F172A" stop-opacity=".85"/>
+    </linearGradient>
+    <filter id="pfVer" x="-10%" y="-30%" width="120%" height="170%"><feDropShadow dx="0" dy="4" stdDeviation="10" flood-color="#10B981" flood-opacity=".35"/></filter>
+    <filter id="pfHero" x="-30%" y="-30%" width="160%" height="170%"><feDropShadow dx="0" dy="0" stdDeviation="9" flood-color="#34D399" flood-opacity=".45"/></filter>
+    <filter id="pfCard" x="-10%" y="-15%" width="120%" height="135%"><feDropShadow dx="0" dy="16" stdDeviation="20" flood-color="#020610" flood-opacity=".72"/></filter>
+    <filter id="pfBar" x="-10%" y="-150%" width="120%" height="400%"><feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="#10B981" flood-opacity=".55"/></filter>
+    <filter id="pfIcon" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="0" stdDeviation="10" flood-color="#10B981" flood-opacity=".30"/></filter>
+    <filter id="pfDot" x="-200%" y="-200%" width="500%" height="500%"><feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#10B981" flood-opacity=".9"/></filter>
+    <filter id="pfCap" x="-300%" y="-300%" width="700%" height="700%"><feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#D1FAE5" flood-opacity=".9"/></filter>
+    <filter id="pfPill" x="-20%" y="-70%" width="140%" height="240%"><feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#10B981" flood-opacity=".45"/></filter>
+    <clipPath id="pBarClip"><rect x="624" y="216" width="278" height="10" rx="5"/></clipPath>
+    <pattern id="pStripes" width="18" height="18" patternUnits="userSpaceOnUse" patternTransform="rotate(-55)">
+      <rect width="8" height="18" fill="#ffffff" fill-opacity=".13"/>
+    </pattern>
+  </defs>
+
+  <!-- 底层 -->
+  <rect width="1024" height="500" fill="#030712"/>
+  <ellipse cx="180" cy="90" rx="270" ry="200" fill="url(#pgEm)"/>
+  <ellipse cx="880" cy="70" rx="210" ry="150" fill="url(#pgCyan)"/>
+  <ellipse cx="720" cy="440" rx="240" ry="180" fill="url(#pgPur)"/>
+  <rect width="1024" height="500" fill="url(#pGrid)" mask="url(#pFadeMask)"/>
+  <rect width="1024" height="500" fill="url(#pVignette)"/>
+
+  <!-- HUD 边框 -->
+  <rect x="16" y="16" width="992" height="468" fill="none" stroke="#1E293B" stroke-opacity=".9"/>
+  <g stroke="#10B981" stroke-width="2.2" fill="none" stroke-linecap="square">
+    <path d="M16 34V16h18"/><path d="M1008 484v-18h-18"/>
+  </g>
+  <g stroke="#22D3EE" stroke-width="2.2" fill="none" stroke-linecap="square">
+    <path d="M1008 34V16h-18"/><path d="M16 484v-18h18"/>
+  </g>
+
+  <!-- 左列：品牌 -->
+  <rect x="64" y="56" width="64" height="64" rx="18" fill="none" stroke="#34D399" stroke-width="1.6" filter="url(#pfIcon)" opacity=".8"/>
+  <rect x="64" y="56" width="64" height="64" rx="18" fill="url(#tileGrad2)" stroke="#34D399" stroke-opacity=".45"/>
+  <g transform="translate(78,70) scale(0.667)">
+    <rect x="14" y="8" width="26" height="40" rx="6" fill="none" stroke="#34D399" stroke-width="3"/>
+    <rect x="21" y="4" width="12" height="4" rx="2" fill="#34D399"/>
+    <path d="M29 16L20 30h6l-2 10 9-14h-6l2-10z" fill="#34D399"/>
+  </g>
+  <text x="144" y="79" font-family="Noto Sans Mono" font-size="11" letter-spacing="3" fill="#22D3EE">ANDROID BATTERY MASTER</text>
+  <text x="142" y="113" font-family="Noto Sans, Noto Sans CJK SC" font-weight="900" font-size="34" letter-spacing="1" fill="#E2E8F0">安卓电池管家</text>
+
+  <!-- 版本与标语 -->
+  <text x="60" y="240" font-family="Noto Sans Mono" font-weight="700" font-size="104" letter-spacing="-2" fill="url(#pVerGrad)" filter="url(#pfVer)">V1.2.0</text>
+  <text x="64" y="276" font-family="Noto Sans, Noto Sans CJK SC" font-weight="700" font-size="21" letter-spacing="1" fill="#E2E8F0">玻璃拟态设计体系 <tspan fill="#34D399">·</tspan> 界面全面焕新</text>
+
+  <!-- 特性胶囊 2×2 -->
+  <g font-family="Noto Sans, Noto Sans CJK SC" font-size="13" font-weight="700">
+    <rect x="64" y="298" width="140" height="34" rx="17" fill="#0B1220" fill-opacity=".72" stroke="#334155" stroke-opacity=".85"/>
+    <text x="134" y="320" text-anchor="middle" fill="#94A3B8"><tspan fill="#34D399">◆</tspan> 统一设计令牌</text>
+    <rect x="214" y="298" width="140" height="34" rx="17" fill="#0B1220" fill-opacity=".72" stroke="#334155" stroke-opacity=".85"/>
+    <text x="284" y="320" text-anchor="middle" fill="#94A3B8"><tspan fill="#22D3EE">▢</tspan> 玻璃拟态界面</text>
+    <rect x="64" y="340" width="118" height="34" rx="17" fill="#0B1220" fill-opacity=".72" stroke="#334155" stroke-opacity=".85"/>
+    <text x="123" y="362" text-anchor="middle" fill="#94A3B8"><tspan fill="#C084FC">⚡</tspan> 分层动效</text>
+    <rect x="192" y="340" width="118" height="34" rx="17" fill="#0B1220" fill-opacity=".72" stroke="#334155" stroke-opacity=".85"/>
+    <text x="251" y="362" text-anchor="middle" fill="#94A3B8"><tspan fill="#FBBF24">✦</tspan> 品牌化细节</text>
+  </g>
+
+  <!-- 底部徽章 -->
+  <text x="64" y="452" font-family="Noto Sans Mono, Noto Sans CJK SC" font-size="11" letter-spacing="2.5" fill="#64748B"><tspan fill="#34D399" font-weight="700">Android 8.0+</tspan> · Kotlin · Jetpack Compose · <tspan fill="#34D399" font-weight="700">0</tspan> 运行时权限</text>
+
+  <!-- 右侧 Hero 玻璃卡 -->
+  <ellipse cx="790" cy="250" rx="220" ry="180" fill="url(#pgCard)"/>
+  <g filter="url(#pfCard)">
+    <rect x="596" y="84" width="372" height="332" rx="22" fill="url(#pGlass)" stroke="#334155" stroke-opacity=".85"/>
+    <rect x="618" y="84" width="328" height="1" fill="url(#pHl)"/>
+  </g>
+  <g filter="url(#pfPill)">
+    <rect x="800" y="70" width="144" height="28" rx="14" fill="url(#pPillGrad)"/>
+  </g>
+  <text x="872" y="89" text-anchor="middle" font-family="Noto Sans Mono" font-weight="700" font-size="11" letter-spacing="2" fill="#03110B">UI/UX OVERHAUL</text>
+
+  <text x="622" y="115" font-family="Noto Sans Mono" font-size="10.5" letter-spacing="2.5" fill="#22D3EE">BATTERY HERO</text>
+  <circle cx="866" cy="111" r="3.4" fill="#10B981" filter="url(#pfDot)"/>
+  <text x="944" y="115" text-anchor="end" font-family="Noto Sans Mono" font-size="10.5" letter-spacing="2" fill="#34D399">CHARGING</text>
+
+  <!-- 健康度 -->
+  <text x="622" y="212" font-family="Noto Sans Mono" font-weight="700" font-size="74" fill="#34D399" filter="url(#pfHero)">98</text>
+  <text x="712" y="212" font-family="Noto Sans Mono" font-weight="700" font-size="26" fill="#10B981">%</text>
+  <text x="756" y="178" font-family="Noto Sans, Noto Sans CJK SC" font-size="12" fill="#94A3B8">电池健康度</text>
+  <text x="756" y="202" font-family="Noto Sans, Noto Sans CJK SC" font-weight="700" font-size="16" fill="#6EE7B7">良好 GOOD</text>
+
+  <!-- 电量条 -->
+  <rect x="622" y="214" width="320" height="14" rx="7" fill="#020617" stroke="#1E293B" stroke-opacity=".9"/>
+  <g filter="url(#pfBar)">
+    <rect x="624" y="216" width="278" height="10" rx="5" fill="url(#pBarGrad)"/>
+    <rect x="624" y="216" width="278" height="10" rx="5" fill="url(#pStripes)" clip-path="url(#pBarClip)"/>
+  </g>
+  <rect x="894" y="217" width="5" height="8" rx="2.5" fill="#D1FAE5" filter="url(#pfCap)"/>
+
+  <!-- 指标 -->
+  <g>
+    <rect x="622" y="244" width="100" height="52" rx="11" fill="#020617" fill-opacity=".62" stroke="#1E293B" stroke-opacity=".9"/>
+    <text x="634" y="262" font-family="Noto Sans Mono, Noto Sans CJK SC" font-size="10" letter-spacing="1" fill="#64748B">温度</text>
+    <text x="634" y="286" font-family="Noto Sans Mono, Noto Sans CJK SC" font-weight="700" font-size="15" fill="#FDE68A">33.6℃</text>
+
+    <rect x="732" y="244" width="100" height="52" rx="11" fill="#020617" fill-opacity=".62" stroke="#1E293B" stroke-opacity=".9"/>
+    <text x="744" y="262" font-family="Noto Sans Mono, Noto Sans CJK SC" font-size="10" letter-spacing="1" fill="#64748B">电压</text>
+    <text x="744" y="286" font-family="Noto Sans Mono, Noto Sans CJK SC" font-weight="700" font-size="15" fill="#7DD3FC">4.35V</text>
+
+    <rect x="842" y="244" width="100" height="52" rx="11" fill="#020617" fill-opacity=".62" stroke="#1E293B" stroke-opacity=".9"/>
+    <text x="854" y="262" font-family="Noto Sans Mono, Noto Sans CJK SC" font-size="10" letter-spacing="1" fill="#64748B">循环</text>
+    <text x="854" y="286" font-family="Noto Sans Mono, Noto Sans CJK SC" font-weight="700" font-size="15" fill="#6EE7B7">217次</text>
+  </g>
+
+  <!-- 迷你遥测曲线 -->
+  <svg x="622" y="312" width="320" height="72" viewBox="0 0 320 72">
+    <defs>
+      <linearGradient id="pSparkStroke" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="320" y2="0">
+        <stop offset="0" stop-color="#10B981"/><stop offset=".55" stop-color="#2DD4BF"/><stop offset="1" stop-color="#22D3EE"/>
+      </linearGradient>
+      <linearGradient id="pSparkArea" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#22D3EE" stop-opacity=".20"/><stop offset="1" stop-color="#22D3EE" stop-opacity="0"/>
+      </linearGradient>
+      <filter id="pfCyanSm" x="-10%" y="-60%" width="120%" height="220%"><feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#22D3EE" flood-opacity=".8"/></filter>
+    </defs>
+    <path d="M0 58 L36 52 L72 55 L108 43 L144 47 L180 32 L216 38 L252 24 L288 28 L314 12 L314 72 L0 72 Z" fill="url(#pSparkArea)"/>
+    <path d="M0 58 L36 52 L72 55 L108 43 L144 47 L180 32 L216 38 L252 24 L288 28 L314 12" fill="none" stroke="url(#pSparkStroke)" stroke-width="2.2" stroke-linejoin="round" filter="url(#pfCyanSm)"/>
+    <circle cx="314" cy="12" r="3.6" fill="#22D3EE"/>
+    <circle cx="314" cy="12" r="8" fill="none" stroke="#22D3EE" stroke-opacity=".45" stroke-width="1.3"/>
+  </svg>
+  <text x="782" y="404" text-anchor="middle" font-family="Noto Sans Mono" font-size="10" letter-spacing="3" fill="#64748B">GLASSMORPHISM · DESIGN TOKENS · LAYERED MOTION</text>
+</svg>
