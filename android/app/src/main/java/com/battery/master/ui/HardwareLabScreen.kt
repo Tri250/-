@@ -1,7 +1,14 @@
 package com.battery.master.ui
 
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import com.battery.master.ui.theme.DesignTokens
 import androidx.compose.foundation.border
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -9,7 +16,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -53,11 +63,11 @@ fun HardwareLabScreen(viewModel: BatteryViewModel, state: BatteryState) {
                     .fillMaxWidth()
                     .border(
                         1.dp,
-                        if (labActive) Color(0xFF10B981) else Color(0xFF1E293B),
-                        RoundedCornerShape(20.dp)
+                        if (labActive) DesignTokens.BrandPrimary else DesignTokens.Border,
+                        RoundedCornerShape(DesignTokens.RadiusPanel)
                     ),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF090D16))
+                shape = RoundedCornerShape(DesignTokens.RadiusPanel),
+                colors = CardDefaults.cardColors(containerColor = DesignTokens.BgSurface)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Row(
@@ -68,29 +78,29 @@ fun HardwareLabScreen(viewModel: BatteryViewModel, state: BatteryState) {
                         Column {
                             Text(
                                 text = "硬件实验室与模拟调试",
-                                fontSize = 13.sp,
+                                fontSize = DesignTokens.FontXs,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White,
                                 fontFamily = FontFamily.Monospace
                             )
                             Text(
                                 text = if (labActive) "模拟数据生效中 · 真实遥测已冻结" else "真实遥测 · 交互后自动进入模拟模式",
-                                fontSize = 10.sp,
+                                fontSize = DesignTokens.Font2xs,
                                 fontFamily = FontFamily.Monospace,
-                                color = if (labActive) Color(0xFF34D399) else Color(0xFF64748B)
+                                color = if (labActive) DesignTokens.BrandPrimaryLight else DesignTokens.TextTertiary
                             )
                         }
                         // 提示音开关
                         OutlinedButton(
                             onClick = { viewModel.toggleLabSound() },
                             colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = if (soundEnabled) Color(0xFF34D399) else Color(0xFF64748B)
+                                contentColor = if (soundEnabled) DesignTokens.BrandPrimaryLight else DesignTokens.TextTertiary
                             ),
                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
                         ) {
                             Text(
                                 text = if (soundEnabled) "提示音 开" else "提示音 关",
-                                fontSize = 10.sp,
+                                fontSize = DesignTokens.Font2xs,
                                 fontFamily = FontFamily.Monospace
                             )
                         }
@@ -104,14 +114,14 @@ fun HardwareLabScreen(viewModel: BatteryViewModel, state: BatteryState) {
                         enabled = labActive,
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF7C2D12),
-                            disabledContainerColor = Color(0xFF1E293B),
-                            disabledContentColor = Color(0xFF475569)
+                            containerColor = DesignTokens.DangerContainer,
+                            disabledContainerColor = DesignTokens.Border,
+                            disabledContentColor = DesignTokens.TextDisabled
                         )
                     ) {
                         Text(
                             text = "恢复真实硬件遥测",
-                            fontSize = 12.sp,
+                            fontSize = DesignTokens.FontXs,
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -123,9 +133,9 @@ fun HardwareLabScreen(viewModel: BatteryViewModel, state: BatteryState) {
         item {
             Text(
                 text = "一键工作场景模拟",
-                fontSize = 12.sp,
+                fontSize = DesignTokens.FontXs,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF94A3B8),
+                color = DesignTokens.TextSecondary,
                 fontFamily = FontFamily.Monospace
             )
         }
@@ -135,13 +145,13 @@ fun HardwareLabScreen(viewModel: BatteryViewModel, state: BatteryState) {
                 LabScenarioButton(
                     modifier = Modifier.weight(1f),
                     scenario = LabScenario.FULL_CHARGE,
-                    color = Color(0xFF10B981),
+                    color = DesignTokens.BrandPrimary,
                     onClick = { viewModel.applyLabScenario(LabScenario.FULL_CHARGE) }
                 )
                 LabScenarioButton(
                     modifier = Modifier.weight(1f),
                     scenario = LabScenario.FLASH_CHARGE,
-                    color = Color(0xFF38BDF8),
+                    color = DesignTokens.InfoSky,
                     onClick = { viewModel.applyLabScenario(LabScenario.FLASH_CHARGE) }
                 )
             }
@@ -151,13 +161,13 @@ fun HardwareLabScreen(viewModel: BatteryViewModel, state: BatteryState) {
                 LabScenarioButton(
                     modifier = Modifier.weight(1f),
                     scenario = LabScenario.GAMING_DISCHARGE,
-                    color = Color(0xFFA855F7),
+                    color = DesignTokens.FeaturePurple,
                     onClick = { viewModel.applyLabScenario(LabScenario.GAMING_DISCHARGE) }
                 )
                 LabScenarioButton(
                     modifier = Modifier.weight(1f),
                     scenario = LabScenario.OVERHEAT_ALERT,
-                    color = Color(0xFFF43F5E),
+                    color = DesignTokens.DangerRose,
                     onClick = { viewModel.applyLabScenario(LabScenario.OVERHEAT_ALERT) }
                 )
             }
@@ -167,9 +177,9 @@ fun HardwareLabScreen(viewModel: BatteryViewModel, state: BatteryState) {
         item {
             Text(
                 text = "逐项参数调节 (6 组滑杆)",
-                fontSize = 12.sp,
+                fontSize = DesignTokens.FontXs,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF94A3B8),
+                color = DesignTokens.TextSecondary,
                 fontFamily = FontFamily.Monospace
             )
         }
@@ -181,7 +191,7 @@ fun HardwareLabScreen(viewModel: BatteryViewModel, state: BatteryState) {
                     valueText = "$pct%",
                     value = pct.toFloat(),
                     valueRange = 0f..100f,
-                    accent = Color(0xFF10B981),
+                    accent = DesignTokens.BrandPrimary,
                     onValueChange = { viewModel.updateLabPercentage(it.toInt()) }
                 )
                 LabSlider(
@@ -189,7 +199,7 @@ fun HardwareLabScreen(viewModel: BatteryViewModel, state: BatteryState) {
                     valueText = "${if (currentMa > 0) "+$currentMa" else currentMa} mA",
                     value = currentMa.toFloat(),
                     valueRange = -2000f..6000f,
-                    accent = Color(0xFF34D399),
+                    accent = DesignTokens.BrandPrimaryLight,
                     onValueChange = { viewModel.updateLabCurrent(it.toInt()) }
                 )
                 LabSlider(
@@ -197,7 +207,7 @@ fun HardwareLabScreen(viewModel: BatteryViewModel, state: BatteryState) {
                     valueText = "$voltageMv mV",
                     value = voltageMv.toFloat(),
                     valueRange = 3500f..4600f,
-                    accent = Color(0xFF38BDF8),
+                    accent = DesignTokens.InfoSky,
                     onValueChange = { viewModel.updateLabVoltage(it.toInt()) }
                 )
                 LabSlider(
@@ -205,7 +215,7 @@ fun HardwareLabScreen(viewModel: BatteryViewModel, state: BatteryState) {
                     valueText = "$temperature °C",
                     value = temperature,
                     valueRange = 0f..55f,
-                    accent = Color(0xFFF59E0B),
+                    accent = DesignTokens.WarningAmber,
                     onValueChange = { viewModel.updateLabTemperature(it) }
                 )
                 LabSlider(
@@ -213,7 +223,7 @@ fun HardwareLabScreen(viewModel: BatteryViewModel, state: BatteryState) {
                     valueText = "$cycleCount 次",
                     value = cycleCount.toFloat(),
                     valueRange = 0f..1200f,
-                    accent = Color(0xFF14B8A6),
+                    accent = DesignTokens.AccentTeal,
                     onValueChange = { viewModel.updateLabCycleCount(it.toInt()) }
                 )
                 LabSlider(
@@ -221,7 +231,7 @@ fun HardwareLabScreen(viewModel: BatteryViewModel, state: BatteryState) {
                     valueText = "${state.designCapacityMah} mAh",
                     value = state.designCapacityMah.toFloat(),
                     valueRange = 1000f..15000f,
-                    accent = Color(0xFFA855F7),
+                    accent = DesignTokens.FeaturePurple,
                     onValueChange = { viewModel.updateLabDesignCapacity(it.toInt()) }
                 )
             }
@@ -232,26 +242,26 @@ fun HardwareLabScreen(viewModel: BatteryViewModel, state: BatteryState) {
             LabCard {
                 Text(
                     text = "06. 电池状态强制切换",
-                    fontSize = 11.sp,
+                    fontSize = DesignTokens.Font2xs,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF94A3B8),
+                    color = DesignTokens.TextSecondary,
                     fontFamily = FontFamily.Monospace
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    StatusChip("充电中", status == BatteryStatus.CHARGING, Color(0xFF10B981)) {
+                    StatusChip("充电中", status == BatteryStatus.CHARGING, DesignTokens.BrandPrimary) {
                         viewModel.updateLabStatus(BatteryStatus.CHARGING)
                     }
-                    StatusChip("放电中", status == BatteryStatus.DISCHARGING, Color(0xFF38BDF8)) {
+                    StatusChip("放电中", status == BatteryStatus.DISCHARGING, DesignTokens.InfoSky) {
                         viewModel.updateLabStatus(BatteryStatus.DISCHARGING)
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    StatusChip("已充满", status == BatteryStatus.FULL, Color(0xFF2DD4BF)) {
+                    StatusChip("已充满", status == BatteryStatus.FULL, DesignTokens.FullTeal) {
                         viewModel.updateLabStatus(BatteryStatus.FULL)
                     }
-                    StatusChip("未充电", status == BatteryStatus.NOT_CHARGING, Color(0xFF64748B)) {
+                    StatusChip("未充电", status == BatteryStatus.NOT_CHARGING, DesignTokens.TextTertiary) {
                         viewModel.updateLabStatus(BatteryStatus.NOT_CHARGING)
                     }
                 }
@@ -263,29 +273,29 @@ fun HardwareLabScreen(viewModel: BatteryViewModel, state: BatteryState) {
             LabCard {
                 Text(
                     text = "08. 硬件健康状态选择",
-                    fontSize = 11.sp,
+                    fontSize = DesignTokens.Font2xs,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF94A3B8),
+                    color = DesignTokens.TextSecondary,
                     fontFamily = FontFamily.Monospace
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    StatusChip("良好", health == BatteryHealthQuality.GOOD, Color(0xFF10B981)) {
+                    StatusChip("良好", health == BatteryHealthQuality.GOOD, DesignTokens.BrandPrimary) {
                         viewModel.updateLabHealthQuality(BatteryHealthQuality.GOOD)
                     }
-                    StatusChip("过热", health == BatteryHealthQuality.OVERHEAT, Color(0xFFF59E0B)) {
+                    StatusChip("过热", health == BatteryHealthQuality.OVERHEAT, DesignTokens.WarningAmber) {
                         viewModel.updateLabHealthQuality(BatteryHealthQuality.OVERHEAT)
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    StatusChip("损坏", health == BatteryHealthQuality.DEAD, Color(0xFFF43F5E)) {
+                    StatusChip("损坏", health == BatteryHealthQuality.DEAD, DesignTokens.DangerRose) {
                         viewModel.updateLabHealthQuality(BatteryHealthQuality.DEAD)
                     }
-                    StatusChip("超压", health == BatteryHealthQuality.OVER_VOLTAGE, Color(0xFFA855F7)) {
+                    StatusChip("超压", health == BatteryHealthQuality.OVER_VOLTAGE, DesignTokens.FeaturePurple) {
                         viewModel.updateLabHealthQuality(BatteryHealthQuality.OVER_VOLTAGE)
                     }
-                    StatusChip("未知", health == BatteryHealthQuality.UNKNOWN, Color(0xFF64748B)) {
+                    StatusChip("未知", health == BatteryHealthQuality.UNKNOWN, DesignTokens.TextTertiary) {
                         viewModel.updateLabHealthQuality(BatteryHealthQuality.UNKNOWN)
                     }
                 }
@@ -296,7 +306,7 @@ fun HardwareLabScreen(viewModel: BatteryViewModel, state: BatteryState) {
     }
 }
 
-/** 一键场景按钮 */
+/** 一键场景按钮：按压缩放微交互 + 主题色描边 */
 @Composable
 private fun LabScenarioButton(
     modifier: Modifier = Modifier,
@@ -304,40 +314,69 @@ private fun LabScenarioButton(
     color: Color,
     onClick: () -> Unit
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    // 微交互：按压回弹缩放（与 Web active:scale-95 对齐）
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.96f else 1f,
+        animationSpec = tween(durationMillis = DesignTokens.DurationFast),
+        label = "scenario-press"
+    )
+    // 描边颜色随主题色渐入
+    val borderColor by animateColorAsState(
+        targetValue = if (pressed) color else DesignTokens.BorderStrong,
+        animationSpec = tween(durationMillis = DesignTokens.DurationFast),
+        label = "scenario-border"
+    )
     Button(
         onClick = onClick,
-        modifier = modifier,
-        shape = RoundedCornerShape(14.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A)),
+        modifier = modifier
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .border(1.dp, borderColor, RoundedCornerShape(DesignTokens.RadiusCard)),
+        shape = RoundedCornerShape(DesignTokens.RadiusCard),
+        colors = ButtonDefaults.buttonColors(containerColor = DesignTokens.BgElevated),
         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 12.dp)
     ) {
         Column(horizontalAlignment = Alignment.Start) {
             Text(
                 text = scenario.label,
-                fontSize = 12.sp,
+                fontSize = DesignTokens.FontXs,
                 fontWeight = FontWeight.Bold,
                 color = color,
                 fontFamily = FontFamily.Monospace
             )
             Text(
                 text = scenario.desc,
-                fontSize = 9.sp,
-                color = Color(0xFF64748B),
+                fontSize = DesignTokens.Font2xs,
+                color = DesignTokens.TextTertiary,
                 fontFamily = FontFamily.Monospace
             )
         }
     }
 }
 
-/** 实验室区块容器 */
+/** 实验室区块容器：玻璃拟态（半透明渐变底 + 顶部切面高光线） */
 @Composable
 private fun LabCard(content: @Composable ColumnScope.() -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, Color(0xFF1E293B), RoundedCornerShape(16.dp)),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF090D16))
+            .drawBehind {
+                drawRect(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            DesignTokens.BgGlass,
+                            DesignTokens.BgSurface.copy(alpha = 0.96f)
+                        )
+                    )
+                )
+            }
+            .border(1.dp, DesignTokens.Border, RoundedCornerShape(DesignTokens.RadiusCard)),
+        shape = RoundedCornerShape(DesignTokens.RadiusCard),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
     ) {
         Column(modifier = Modifier.padding(14.dp), content = content)
     }
@@ -358,10 +397,10 @@ private fun LabSlider(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(text = label, fontSize = 11.sp, color = Color(0xFF94A3B8))
+            Text(text = label, fontSize = DesignTokens.Font2xs, color = DesignTokens.TextSecondary)
             Text(
                 text = valueText,
-                fontSize = 11.sp,
+                fontSize = DesignTokens.Font2xs,
                 fontWeight = FontWeight.Bold,
                 fontFamily = FontFamily.Monospace,
                 color = Color.White
@@ -374,29 +413,42 @@ private fun LabSlider(
             colors = SliderDefaults.colors(
                 thumbColor = accent,
                 activeTrackColor = accent,
-                inactiveTrackColor = Color(0xFF1E293B)
+                inactiveTrackColor = DesignTokens.Border
             )
         )
     }
 }
 
-/** 枚举选择胶囊 */
+/** 枚举选择胶囊：选中态颜色平滑过渡（微交互 250ms） */
 @Composable
 private fun StatusChip(label: String, selected: Boolean, accent: Color, onClick: () -> Unit) {
+    // 选中/未选中：边框、容器、文字色统一缓动过渡，消除状态切换的生硬感
+    val borderColor by animateColorAsState(
+        targetValue = if (selected) accent else DesignTokens.BorderStrong,
+        animationSpec = tween(durationMillis = DesignTokens.DurationSmooth),
+        label = "chip-border"
+    )
+    val containerColor by animateColorAsState(
+        targetValue = if (selected) DesignTokens.BgElevated else Color.Transparent,
+        animationSpec = tween(durationMillis = DesignTokens.DurationSmooth),
+        label = "chip-container"
+    )
+    val textColor by animateColorAsState(
+        targetValue = if (selected) accent else DesignTokens.TextTertiary,
+        animationSpec = tween(durationMillis = DesignTokens.DurationSmooth),
+        label = "chip-text"
+    )
     Surface(
-        shape = RoundedCornerShape(50),
-        color = if (selected) Color(0xFF0F172A) else Color.Transparent,
-        border = androidx.compose.foundation.BorderStroke(
-            1.dp,
-            if (selected) accent else Color(0xFF334155)
-        ),
+        shape = RoundedCornerShape(DesignTokens.RadiusPill),
+        color = containerColor,
+        border = androidx.compose.foundation.BorderStroke(1.dp, borderColor),
         onClick = onClick
     ) {
         Text(
             text = label,
-            fontSize = 11.sp,
+            fontSize = DesignTokens.Font2xs,
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-            color = if (selected) accent else Color(0xFF64748B),
+            color = textColor,
             fontFamily = FontFamily.Monospace,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
         )

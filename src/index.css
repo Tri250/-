@@ -2,28 +2,247 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /*
- * 主题字体令牌 (Tailwind v4 @theme)
- * 注意：必须通过 --font-* 主题变量定义，
- * 直接写 .font-mono { } 会被 Tailwind 工具类层的 font-mono{font-family:var(--font-mono)} 覆盖而失效。
- * 拉丁字体之后显式声明中文字体回退：Google Fonts 不可达（境内网络）时
- * 回退至系统中文字体，避免落入通用 monospace 导致中文渲染为宋体、与无衬线界面割裂。
+ * ============================================================
+ * Android Battery Master · 统一设计令牌 (Design Tokens)
+ * 版本: v1.2.0 UI Overhaul
+ * 设计语言: 赛博朋克 HUD / AMOLED 暗色玻璃拟态
+ * 与 Android 端 ui/theme/DesignTokens.kt 一一对应
+ * ============================================================
  */
+
 @theme {
+  /* ---------- 字体栈 ----------
+   * 拉丁字体之后显式声明中文字体回退：Google Fonts 不可达（境内网络）时
+   * 回退至系统中文字体，避免落入通用 monospace 导致中文渲染为宋体。
+   */
   --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
     'PingFang SC', 'HarmonyOS Sans SC', 'MiSans', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;
   --font-mono: 'JetBrains Mono', 'PingFang SC', 'HarmonyOS Sans SC', 'MiSans', 'Microsoft YaHei',
     'Noto Sans CJK SC', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* ---------- 品牌字号阶梯 (7 级，全站仅允许使用以下刻度) ----------
+   * 2xs  10px  微型标签：编号 / 角标 / 时间轴脚注
+   * xs   12px  辅助说明：按钮 / 徽章 / 次级描述
+   * sm   14px  正文：卡片标题 / 正文 / 区块标题
+   * base 16px  大标题：页面级标题
+   * xl   20px  卡片大数字
+   * 2xl  24px  校准卡核心数字
+   * 6xl  60px  主仪表盘百分比 (Hero)
+   */
+  --text-2xs: 0.625rem;   /* 10px */
+  --text-2xs--line-height: 1rem;
+  --text-xs: 0.75rem;     /* 12px */
+  --text-xs--line-height: 1.05rem;
+  --text-sm: 0.875rem;    /* 14px */
+  --text-sm--line-height: 1.3rem;
+  --text-base: 1rem;      /* 16px */
+  --text-base--line-height: 1.45rem;
+  --text-xl: 1.25rem;     /* 20px */
+  --text-xl--line-height: 1.6rem;
+  --text-2xl: 1.5rem;     /* 24px */
+  --text-2xl--line-height: 1.9rem;
+  --text-6xl: 3.75rem;    /* 60px */
+  --text-6xl--line-height: 1;
+
+  /* ---------- 动效时长 (微交互 150-250ms / 转场 250-350ms) ---------- */
+  --duration-micro: 150ms;
+  --duration-fast: 200ms;
+  --duration-smooth: 250ms;
+  --duration-slow: 350ms;
+  --duration-hero: 700ms;
+
+  /* ---------- 动效缓动 ---------- */
+  --ease-hud: cubic-bezier(0.22, 1, 0.36, 1);       /*  Expo-out 质感 */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1); /*  轻微回弹 */
+
+  /* ---------- 品牌半径阶梯 ---------- */
+  --radius-chip: 0.5rem;    /* 8px  小元素/输入框 */
+  --radius-card: 1rem;      /* 16px 标准卡片 */
+  --radius-panel: 1.25rem;  /* 20px 大面板 */
+  --radius-hero: 1.5rem;    /* 24px Hero 卡片 */
 }
 
 @layer base {
+  html {
+    /* 锚点滚动平滑由滚动容器负责 */
+    scroll-behavior: smooth;
+  }
+
   body {
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* 统一键盘焦点环：品牌化 focus-visible，全局可预期 */
+  :focus-visible {
+    outline: 2px solid var(--color-emerald-500, #10b981);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* 数字与编号一律使用等宽 + 表格数字，杜绝读数跳动 */
+  .font-mono,
+  [class*='tabular-nums'] {
+    font-variant-numeric: tabular-nums;
   }
 }
 
-/* Custom subtle scrollbar */
+/* ============================================================
+ * 玻璃拟态体系 (Glassmorphism)
+ * 半透明底 + 背景模糊 + 细描边 + 顶部高光线，四件套构成 HUD 玻璃质感
+ * ============================================================ */
+@utility glass-panel {
+  /* 标准玻璃卡片 */
+  background: color-mix(in oklab, var(--color-slate-900, #0f172a) 72%, transparent);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  border: 1px solid color-mix(in oklab, var(--color-slate-700, #334155) 60%, transparent);
+  box-shadow:
+    inset 0 1px 0 0 color-mix(in oklab, white 5%, transparent),
+    0 8px 24px -12px rgb(0 0 0 / 0.5);
+}
+
+@utility glass-strong {
+  /* 深度玻璃：Hero / 核心 HUD 面板 */
+  background: color-mix(in oklab, var(--color-slate-950, #020617) 82%, transparent);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  border: 1px solid color-mix(in oklab, var(--color-slate-700, #334155) 55%, transparent);
+  box-shadow:
+    inset 0 1px 0 0 color-mix(in oklab, white 6%, transparent),
+    0 16px 40px -16px rgb(0 0 0 / 0.6);
+}
+
+@utility glass-hairline {
+  /* 玻璃顶部高光线：1px 渐变亮线，模拟玻璃切面反光 */
+  position: relative;
+  &::before {
+    content: '';
+    position: absolute;
+    inset-inline: 12%;
+    top: 0;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in oklab, white 22%, transparent),
+      transparent
+    );
+    pointer-events: none;
+  }
+}
+
+/* ============================================================
+ * 品牌动画关键帧
+ * ============================================================ */
+@keyframes hud-fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes hud-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes hud-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* 玻璃流光扫过：用于满足条件的判定卡 / 主 CTA */
+@keyframes hud-sheen {
+  0% {
+    transform: translateX(-120%);
+  }
+  60%,
+  100% {
+    transform: translateX(220%);
+  }
+}
+
+/* 进度条流光条纹：健康度 / 容量进度 */
+@keyframes hud-stripe-flow {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 32px 0;
+  }
+}
+
+@utility animate-tab-in {
+  /* Tab 切换进场：淡入 + 上移，全页统一节奏 */
+  animation: hud-fade-in-up var(--duration-slow, 350ms) var(--ease-hud, ease-out) both;
+}
+
+@utility animate-card-in {
+  /* 列表/网格卡片进场，可被 style="animation-delay" 阶梯延迟 */
+  animation: hud-fade-in-up var(--duration-smooth, 250ms) var(--ease-hud, ease-out) both;
+}
+
+@utility animate-scale-in {
+  animation: hud-scale-in var(--duration-fast, 200ms) var(--ease-spring, ease-out) both;
+}
+
+@utility animate-fade-in {
+  animation: hud-fade-in var(--duration-smooth, 250ms) ease-out both;
+}
+
+@utility hud-sheen-track {
+  /* 流光轨道：容器需 relative + overflow-hidden */
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 45%;
+    background: linear-gradient(
+      105deg,
+      transparent,
+      color-mix(in oklab, white 12%, transparent),
+      transparent
+    );
+    animation: hud-sheen 2.8s var(--ease-hud, ease-out) infinite;
+  }
+}
+
+@utility hud-stripe {
+  /* 进度条流光：叠加在填充层之上 */
+  background-image: linear-gradient(
+    115deg,
+    transparent 25%,
+    color-mix(in oklab, white 18%, transparent) 37%,
+    transparent 63%
+  );
+  background-size: 32px 32px;
+  animation: hud-stripe-flow 1.2s linear infinite;
+}
+
+/* ============================================================
+ * 自定义滚动条 (HUD 细条)
+ * ============================================================ */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -39,7 +258,48 @@
   background: rgba(148, 163, 184, 0.5);
 }
 
-/* 无障碍：尊重系统"减弱动态效果"偏好，停用脉冲/旋转/过渡动画 */
+/* ============================================================
+ * 品牌化 range slider (webkit)：拇指品牌色 + 聚焦光环
+ * ============================================================ */
+input[type='range'].hud-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 9999px;
+  background: #1e293b;
+  cursor: pointer;
+}
+input[type='range'].hud-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #34d399;
+  border: 2px solid #052e21;
+  box-shadow: 0 0 10px color-mix(in oklab, #34d399 55%, transparent);
+  transition: transform var(--duration-fast, 200ms) var(--ease-spring, ease-out);
+}
+input[type='range'].hud-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+input[type='range'].hud-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #34d399;
+  border: 2px solid #052e21;
+  box-shadow: 0 0 10px color-mix(in oklab, #34d399 55%, transparent);
+}
+input[type='range'].hud-slider::-moz-range-track {
+  height: 6px;
+  border-radius: 9999px;
+  background: #1e293b;
+}
+
+/* ============================================================
+ * 无障碍：尊重系统"减弱动态效果"偏好，停用脉冲/旋转/过渡动画
+ * ============================================================ */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

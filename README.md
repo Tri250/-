@@ -35,6 +35,15 @@
 
 ---
 
+## 🎨 UI/UX 设计体系 overhaul (v1.2.0)
+
+- **统一设计令牌**：Web 端 `src/index.css` @theme 与 Android 端 `ui/theme/DesignTokens.kt` 一一对应——品牌色板（充电 emerald / 放电 sky / 充满 teal / 警告 amber / 危险 rose / HAL cyan）、7 级字号阶梯（10/12/14/16/20/24/68）、4 级圆角、动效时长（微交互 150-250ms / 转场 250-350ms / Hero 700ms）。双端彻底消除硬编码色值与散落字号。
+- **玻璃拟态体系**：半透明底 + 背景模糊 + 细描边 + 顶部 1px 切面高光线四件套（Web `.glass-panel` / `.glass-strong`；Android 以半透明渐变 + 描边模拟玻璃切面），Hero 卡片、指标卡、实验室面板全部玻璃化。
+- **动画分层**：Tab 切换淡入上移、指标网格 45ms 阶梯错落入场、电量读数 700ms 缓动滚动、充电氛围双层呼吸光晕、遥测曲线霓虹辉光 + 最新点脉冲、健康进度条流光条纹、按钮按压回弹；全站遵循 `prefers-reduced-motion` 无障碍降级。
+- **品牌化细节**：统一 focus-visible 品牌焦点环、品牌化 range slider（霓虹拇指 + 聚焦光环）、等宽 tabular-nums 数字读数杜绝跳动、Material3 colorScheme 映射设计令牌。
+
+---
+
 ## 🛡️ 启动闪退治理 (v1.1.2)
 
 - **启动全链路 Throwable 兜底**：`BatteryManager` 安全转换（缺失服务不再 NPE）、粘性广播查询、sysfs / device-tree 探测、PowerProfile 反射（OEM ROM 抛 `Error` 级异常也捕获）、SharedPreferences 读写、广播注册/注销，全部按 `Throwable` 兜底并降级到最后已知态，采集异常只跳过本拍轮询，进程不退出。
@@ -82,9 +91,9 @@ git push -u origin main
 只要在本地打上 `v*` 格式的版本标签（**必须与 `android/app/build.gradle.kts` 中的 `versionName` 一致**，CI 会强制校验）并推送到 GitHub，GitHub Actions 会自动创建 GitHub Release 并将 APK 文件挂载在 Release 附件中：
 
 ```bash
-# 示例：当前版本 versionName=1.1.2 (versionCode=4)
-git tag v1.1.2
-git push origin v1.1.2
+# 示例：当前版本 versionName=1.2.0 (versionCode=5)
+git tag v1.2.0
+git push origin v1.2.0
 ```
 
 ---

@@ -59,19 +59,19 @@ export function DevicePresetSelector({
   };
 
   return (
-    <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-sm">
+    <div className="p-4 rounded-panel glass-panel glass-hairline animate-card-in">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-300">
+          <div className="w-9 h-9 rounded-card bg-slate-800/80 border border-slate-700/60 flex items-center justify-center text-slate-300">
             <Smartphone className="w-5 h-5" />
           </div>
           <div>
-            <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+            <div className="text-2xs text-slate-400 font-medium">
               4. 电池设计容量出厂配置
             </div>
-            <div className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+            <div className="text-sm font-bold text-white flex items-center gap-1.5">
               <span>{selectedDevice.name}</span>
-              <span className="font-mono text-xs text-emerald-600 dark:text-emerald-400 font-semibold">
+              <span className="font-mono text-xs text-emerald-400 font-semibold tabular-nums">
                 ({designCapacity} mAh)
               </span>
             </div>
@@ -80,7 +80,8 @@ export function DevicePresetSelector({
 
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="min-h-[44px] px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/60 text-xs font-semibold text-slate-700 dark:text-slate-300 transition-colors flex items-center gap-1.5"
+          aria-expanded={isOpen}
+          className="min-h-[44px] px-3.5 py-1.5 rounded-chip border border-slate-700/80 hover:bg-slate-800/60 text-xs font-semibold text-slate-300 transition-colors duration-fast flex items-center gap-1.5"
         >
           <Sliders className="w-3.5 h-3.5" />
           切换机型预设
@@ -89,15 +90,15 @@ export function DevicePresetSelector({
 
       {/* Expandable Selector Drawer */}
       {isOpen && (
-        <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
-          <div className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+        <div className="mt-4 pt-4 border-t border-slate-800 space-y-3 animate-tab-in">
+          <div className="text-xs font-semibold text-slate-300">
             选择主流安卓手机型号预设 (自动适配出厂设计容量)
           </div>
 
           {/* Brand-grouped preset grid (15 presets across 7 brands) */}
           {Array.from(new Set(POPULAR_ANDROID_DEVICES.map((d) => d.brand))).map((brand) => (
             <div key={brand}>
-              <div className="text-[10px] font-bold text-slate-400 dark:text-slate-500 font-mono uppercase tracking-wider mb-1.5 mt-1 first:mt-0">
+              <div className="text-2xs font-bold text-slate-500 font-mono uppercase tracking-wider mb-1.5 mt-1 first:mt-0">
                 {brand}
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -112,21 +113,21 @@ export function DevicePresetSelector({
                         setCapacityError(null);
                         setIsOpen(false);
                       }}
-                      className={`min-h-[44px] p-2.5 rounded-xl text-left border transition-all flex items-center justify-between ${
+                      className={`min-h-[44px] p-2.5 rounded-card text-left border transition-all duration-fast ease-hud flex items-center justify-between ${
                         isSelected
-                          ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/30 dark:border-emerald-700'
-                          : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40'
+                          ? 'border-emerald-500 bg-emerald-950/40 shadow-sm shadow-emerald-950/40'
+                          : 'border-slate-700/80 hover:bg-slate-800/50'
                       }`}
                     >
                       <div>
-                        <div className="text-xs font-semibold text-slate-900 dark:text-white">
+                        <div className="text-xs font-semibold text-white">
                           {device.name}
                         </div>
-                        <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                        <div className="text-2xs text-slate-400 font-mono tabular-nums">
                           设计容量: {device.designCapacity} mAh · {device.fastChargeWattage}W
                         </div>
                       </div>
-                      {isSelected && <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />}
+                      {isSelected && <Check className="w-4 h-4 text-emerald-400 shrink-0" />}
                     </button>
                   );
                 })}
@@ -149,20 +150,21 @@ export function DevicePresetSelector({
                   setCustomInput(e.target.value);
                   if (capacityError) setCapacityError(null);
                 }}
+                aria-label="自定义出厂设计容量 (mAh)"
                 placeholder="输入自定义出厂设计容量 (mAh)"
-                className={`w-full px-3 py-2 rounded-xl border bg-slate-50 dark:bg-slate-800 text-xs text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 ${
+                className={`w-full px-3 py-2 rounded-chip bg-slate-950/60 text-xs text-white font-mono focus:outline-none focus:ring-2 transition-colors ${
                   capacityError
-                    ? 'border-rose-400 dark:border-rose-500 focus:ring-rose-500'
-                    : 'border-slate-200 dark:border-slate-700 focus:ring-emerald-500'
+                    ? 'border border-rose-500 focus:ring-rose-500'
+                    : 'border border-slate-700 focus:ring-emerald-500'
                 }`}
               />
-              <span className="absolute right-3 top-2.5 text-xs text-slate-400 font-mono">
+              <span className="absolute right-3 top-2.5 text-xs text-slate-500 font-mono">
                 mAh
               </span>
             </div>
             <button
               type="submit"
-              className="w-full sm:w-auto min-h-[40px] px-4 py-2 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold hover:opacity-90 transition-opacity whitespace-nowrap"
+              className="w-full sm:w-auto min-h-[40px] px-4 py-2 rounded-chip bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition-colors duration-fast whitespace-nowrap"
             >
               保存自定义容量
             </button>
@@ -170,7 +172,7 @@ export function DevicePresetSelector({
 
           {/* 自定义容量校验反馈 */}
           {capacityError && (
-            <p className="text-[11px] text-rose-500 dark:text-rose-400 font-medium flex items-center gap-1.5 -mt-1">
+            <p className="text-2xs text-rose-400 font-medium flex items-center gap-1.5 -mt-1 animate-fade-in">
               <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
               {capacityError}
             </p>

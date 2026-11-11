@@ -37,24 +37,28 @@ export function FullChargeCalibrationCard({
     : lastFullChargeRecord?.recordedCapacity ?? null;
 
   return (
-    <div className="relative overflow-hidden rounded-2xl p-4 sm:p-5 bg-gradient-to-br from-slate-900/95 via-slate-900/90 to-slate-950 border border-slate-800/90 shadow-xl shadow-black/25 backdrop-blur-md">
+    <div className="relative overflow-hidden glass-strong glass-hairline rounded-panel p-4 sm:p-5 animate-card-in">
       {/* Background ambient neon glow */}
       {isFullyChargedMet && (
-        <div className="absolute -right-8 -top-8 w-36 h-36 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
+        <>
+          <div className="absolute -right-8 -top-8 w-36 h-36 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
+          {/* 满足条件时玻璃流光扫过，强化"已锁定"仪式感 */}
+          <div className="hud-sheen-track" />
+        </>
       )}
 
       {/* Header */}
       <div className="flex items-start justify-between gap-2 pb-3 border-b border-slate-800/80">
         <div>
           <div className="flex items-center gap-2">
-            <span className="font-mono text-[10px] font-bold text-cyan-300 bg-cyan-950/70 border border-cyan-500/40 px-2 py-0.5 rounded shadow-sm shadow-cyan-950/40">
+            <span className="font-mono text-2xs font-bold text-cyan-300 bg-cyan-950/70 border border-cyan-500/40 px-2 py-0.5 rounded shadow-sm shadow-cyan-950/40">
               FEATURE 12
             </span>
             <h3 className="text-sm font-bold text-white tracking-wide">
               完全充满时的容量 (Full Charge Capacity)
             </h3>
           </div>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-slate-400 mt-1 leading-relaxed">
             仅当电量为 100% 且瞬时电流在 0 ~ 25 mA 之间时，系统才判定为完全充满并锁定显示容量。
           </p>
         </div>
@@ -62,7 +66,7 @@ export function FullChargeCalibrationCard({
         {/* Status Indicator */}
         <div className="shrink-0">
           {isFullyChargedMet ? (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-500/50 shadow-sm shadow-emerald-900/40">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-500/50 shadow-sm shadow-emerald-900/40 animate-scale-in">
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
               已锁定充满容量
             </span>
@@ -76,10 +80,10 @@ export function FullChargeCalibrationCard({
       </div>
 
       {/* Hero Value Display */}
-      <div className="mt-4 p-4 rounded-xl bg-slate-950/80 border border-slate-800/90 shadow-inner">
+      <div className="mt-4 p-4 rounded-card bg-slate-950/70 border border-slate-800/90 shadow-inner backdrop-blur-sm">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <div className="text-[11px] font-mono text-slate-400 font-medium">
+            <div className="text-2xs font-mono text-slate-400 font-medium">
               {isFullyChargedMet
                 ? '当前完全充满实时锁定容量'
                 : lastFullChargeRecord
@@ -89,7 +93,7 @@ export function FullChargeCalibrationCard({
             <div className="flex items-baseline gap-2 mt-1">
               {displayCapacity !== null ? (
                 <>
-                  <span className="font-mono text-3xl sm:text-4xl font-black tracking-tight text-emerald-400 drop-shadow-[0_0_12px_rgba(16,185,129,0.3)] tabular-nums">
+                  <span className="font-mono text-2xl font-black tracking-tight text-emerald-400 drop-shadow-[0_0_12px_rgba(16,185,129,0.3)] tabular-nums">
                     {displayCapacity.toLocaleString()}
                   </span>
                   <span className="font-mono text-sm font-bold text-slate-400">
@@ -108,9 +112,9 @@ export function FullChargeCalibrationCard({
           </div>
 
           {/* Live Capacity Readout (激活 currentCapacity) */}
-          <div className="mt-3 pt-2.5 border-t border-slate-800/60 flex items-center justify-between text-[11px] font-mono">
+          <div className="mt-3 pt-2.5 border-t border-slate-800/60 flex items-center justify-between text-2xs font-mono">
             <span className="text-slate-500">当前实时容量 (电量计采样)</span>
-            <span className="text-cyan-300 font-bold">
+            <span className="text-cyan-300 font-bold tabular-nums">
               {currentCapacity.toLocaleString()} mAh
               <span className="text-slate-500 font-normal ml-1.5">
                 / 出厂设计 {designCapacity.toLocaleString()} mAh
@@ -121,7 +125,7 @@ export function FullChargeCalibrationCard({
           {/* Quick Simulation Trigger Button */}
           <button
             onClick={onTriggerTest}
-            className="min-h-[44px] px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 active:scale-95 text-white text-xs font-bold tracking-wider uppercase transition-all flex items-center justify-center gap-1.5 shadow-md shadow-emerald-950/40 whitespace-nowrap"
+            className="min-h-[44px] px-4 py-2 rounded-card bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 active:scale-95 text-white text-xs font-bold tracking-wider uppercase transition-all duration-fast ease-hud flex items-center justify-center gap-1.5 shadow-md shadow-emerald-950/40 whitespace-nowrap"
           >
             <Sparkles className="w-4 h-4 fill-white text-white" />
             一键进入充满状态 (100% + 16 mA)
@@ -130,8 +134,8 @@ export function FullChargeCalibrationCard({
 
         {/* Last Full Charge Record Detail (完整回显 timestamp/currentAtCutoff/voltageAtFull/cycleCount/healthCalculated) */}
         {lastFullChargeRecord && (
-          <div className="mt-3 pt-3 border-t border-slate-800/60">
-            <div className="flex items-center gap-1.5 text-[11px] font-mono text-slate-500 mb-1.5">
+          <div className="mt-3 pt-3 border-t border-slate-800/60 animate-fade-in">
+            <div className="flex items-center gap-1.5 text-2xs font-mono text-slate-500 mb-1.5">
               <Clock className="w-3 h-3 text-slate-400 shrink-0" />
               <span>
                 上次满足判定记录 ·{' '}
@@ -144,27 +148,27 @@ export function FullChargeCalibrationCard({
               </span>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              <div className="p-2 rounded-lg bg-slate-900/60 border border-slate-800/80">
-                <div className="text-[10px] text-slate-500">截止电流</div>
-                <div className="text-[11px] font-mono font-bold text-emerald-300 mt-0.5 tabular-nums">
+              <div className="p-2 rounded-chip bg-slate-900/60 border border-slate-800/80">
+                <div className="text-2xs text-slate-500">截止电流</div>
+                <div className="text-xs font-mono font-bold text-emerald-300 mt-0.5 tabular-nums">
                   {lastFullChargeRecord.currentAtCutoff} mA
                 </div>
               </div>
-              <div className="p-2 rounded-lg bg-slate-900/60 border border-slate-800/80">
-                <div className="text-[10px] text-slate-500">记录时电压</div>
-                <div className="text-[11px] font-mono font-bold text-sky-300 mt-0.5 tabular-nums">
+              <div className="p-2 rounded-chip bg-slate-900/60 border border-slate-800/80">
+                <div className="text-2xs text-slate-500">记录时电压</div>
+                <div className="text-xs font-mono font-bold text-sky-300 mt-0.5 tabular-nums">
                   {lastFullChargeRecord.voltageAtFull} mV
                 </div>
               </div>
-              <div className="p-2 rounded-lg bg-slate-900/60 border border-slate-800/80">
-                <div className="text-[10px] text-slate-500">循环计数</div>
-                <div className="text-[11px] font-mono font-bold text-slate-200 mt-0.5 tabular-nums">
+              <div className="p-2 rounded-chip bg-slate-900/60 border border-slate-800/80">
+                <div className="text-2xs text-slate-500">循环计数</div>
+                <div className="text-xs font-mono font-bold text-slate-200 mt-0.5 tabular-nums">
                   {lastFullChargeRecord.cycleCount} 次
                 </div>
               </div>
-              <div className="p-2 rounded-lg bg-slate-900/60 border border-slate-800/80">
-                <div className="text-[10px] text-slate-500">记录健康比</div>
-                <div className="text-[11px] font-mono font-bold text-cyan-300 mt-0.5 tabular-nums">
+              <div className="p-2 rounded-chip bg-slate-900/60 border border-slate-800/80">
+                <div className="text-2xs text-slate-500">记录健康比</div>
+                <div className="text-xs font-mono font-bold text-cyan-300 mt-0.5 tabular-nums">
                   {lastFullChargeRecord.healthCalculated}%
                 </div>
               </div>
@@ -177,7 +181,7 @@ export function FullChargeCalibrationCard({
       <div className="mt-3.5 grid grid-cols-1 md:grid-cols-2 gap-3">
         {/* Condition 1: Percentage == 100 */}
         <div
-          className={`p-3 rounded-xl border transition-all ${
+          className={`p-3 rounded-card border transition-all duration-smooth ${
             isPercentMet
               ? 'bg-emerald-950/30 border-emerald-500/40 shadow-sm shadow-emerald-950/20'
               : 'bg-slate-950/40 border-slate-800/80'
@@ -188,14 +192,14 @@ export function FullChargeCalibrationCard({
               判定条件 1：电量达到 100%
             </span>
             <span
-              className={`font-mono text-xs font-bold ${
+              className={`font-mono text-xs font-bold tabular-nums ${
                 isPercentMet ? 'text-emerald-400' : 'text-slate-400'
               }`}
             >
               当前: {percentage}%
             </span>
           </div>
-          <div className="mt-1.5 flex items-center gap-1.5 text-[11px] font-mono">
+          <div className="mt-1.5 flex items-center gap-1.5 text-2xs font-mono">
             {isPercentMet ? (
               <span className="text-emerald-300 font-medium flex items-center gap-1">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> 已达成 (处于 100% 满电位)
@@ -210,7 +214,7 @@ export function FullChargeCalibrationCard({
 
         {/* Condition 2: Current in 0 - 25 mA */}
         <div
-          className={`p-3 rounded-xl border transition-all ${
+          className={`p-3 rounded-card border transition-all duration-smooth ${
             isCurrentMet
               ? 'bg-emerald-950/30 border-emerald-500/40 shadow-sm shadow-emerald-950/20'
               : 'bg-slate-950/40 border-slate-800/80'
@@ -221,14 +225,14 @@ export function FullChargeCalibrationCard({
               判定条件 2：电流在 0 ~ 25 mA 之间
             </span>
             <span
-              className={`font-mono text-xs font-bold ${
+              className={`font-mono text-xs font-bold tabular-nums ${
                 isCurrentMet ? 'text-emerald-400' : 'text-slate-400'
               }`}
             >
               当前: {current > 0 ? `+${current}` : current} mA
             </span>
           </div>
-          <div className="mt-1.5 flex items-center gap-1.5 text-[11px] font-mono">
+          <div className="mt-1.5 flex items-center gap-1.5 text-2xs font-mono">
             {isCurrentMet ? (
               <span className="text-emerald-300 font-medium flex items-center gap-1">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> 已进入 0-25 mA 浮充截止区间
@@ -247,7 +251,7 @@ export function FullChargeCalibrationCard({
       </div>
 
       {/* Android HAL Architecture Note */}
-      <div className="mt-3 pt-2.5 border-t border-slate-800/80 flex items-start gap-2 text-[11px] text-slate-400 font-mono">
+      <div className="mt-3 pt-2.5 border-t border-slate-800/80 flex items-start gap-2 text-2xs text-slate-400 font-mono leading-relaxed">
         <HelpCircle className="w-3.5 h-3.5 mt-0.5 text-cyan-400 shrink-0" />
         <p>
           <strong className="text-slate-300">Android HAL 原生规范：</strong>

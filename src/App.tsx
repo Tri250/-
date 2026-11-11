@@ -129,13 +129,13 @@ export default function App() {
       {/* Top Desktop Navigation & Controls Bar */}
       <header className="w-full max-w-5xl px-4 py-3 flex items-center justify-between border-b border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 backdrop-blur-md sticky top-0 z-50">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-sm">
+          <div className="w-8 h-8 rounded-card bg-emerald-600 text-white flex items-center justify-center shadow-sm">
             <Zap className="w-4 h-4 fill-white" />
           </div>
           <div>
-            <h1 className="text-sm font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+            <h1 className="text-sm font-bold tracking-tight text-white flex items-center gap-2">
               <span>Android Battery Master</span>
-              <span className="text-[11px] font-normal text-slate-500 dark:text-slate-400">
+              <span className="text-xs font-normal text-slate-400">
                 安卓电池充放电管家
               </span>
             </h1>
@@ -153,7 +153,7 @@ export default function App() {
           {/* Native Code Quick Button */}
           <button
             onClick={() => setActiveTab('hub')}
-            className={`min-h-[38px] px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all flex items-center gap-1.5 ${
+            className={`min-h-[38px] px-3 py-1.5 rounded-card border text-xs font-semibold transition-all flex items-center gap-1.5 ${
               activeTab === 'hub'
                 ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
                 : 'border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
@@ -167,7 +167,7 @@ export default function App() {
           {/* Phone Frame Toggle (Desktop) */}
           <button
             onClick={() => setIsPhoneFrameMode(!isPhoneFrameMode)}
-            className="hidden md:flex min-h-[38px] px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-medium text-slate-700 dark:text-slate-300 transition-colors items-center gap-1.5"
+            className="hidden md:flex min-h-[38px] px-3 py-1.5 rounded-card border border-slate-700/80 hover:bg-slate-800/60 text-xs font-medium text-slate-700 dark:text-slate-300 transition-colors items-center gap-1.5"
             title="切换真机形态与宽屏仪表板"
           >
             <Smartphone className="w-3.5 h-3.5" />
@@ -177,7 +177,7 @@ export default function App() {
           {/* Dark/Light mode toggle */}
           <button
             onClick={() => setIsDarkMode(!isDarkMode)}
-            className="min-h-[38px] w-9 h-9 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors flex items-center justify-center"
+            className="min-h-[38px] w-9 h-9 rounded-card border border-slate-700/80 hover:bg-slate-800/60 text-slate-700 dark:text-slate-300 transition-colors flex items-center justify-center"
             title="切换深色/浅色主题"
           >
             {isDarkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-600" />}
@@ -206,10 +206,10 @@ export default function App() {
           {/* App Header inside frame */}
           <div className="px-5 pt-1 pb-3 flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800/60">
             <div>
-              <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+              <div className="text-xs font-medium text-slate-400">
                 {selectedDevice.name}
               </div>
-              <div className="text-base font-bold text-slate-900 dark:text-white">
+              <div className="text-base font-bold text-white">
                 充放电核心指标监控
               </div>
             </div>
@@ -240,7 +240,7 @@ export default function App() {
           <div ref={tabBodyRef} className="flex-1 min-h-0 p-4 pb-28 space-y-4 overflow-y-auto">
             {/* TAB 1: 状态总览 (OVERVIEW) */}
             {activeTab === 'overview' && (
-              <div className="space-y-4">
+              <div className="space-y-4 animate-tab-in">
                 {/* Hero Battery Gauge Ring */}
                 <PrimaryBatteryRing
                   percentage={state.percentage}
@@ -491,20 +491,20 @@ export default function App() {
 
             {/* TAB 2: 充放电图表 (TELEMETRY) */}
             {activeTab === 'telemetry' && (
-              <div className="space-y-4">
-                <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between gap-3">
+              <div className="space-y-4 animate-tab-in">
+                <div className="p-4 rounded-panel glass-panel glass-hairline flex items-center justify-between gap-3">
                   <div>
-                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                    <h3 className="text-sm font-bold text-white">
                       高频硬件遥测分析
                     </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    <p className="text-xs text-slate-400 mt-0.5">
                       实时捕获充放电电流（mA）、电芯端电压（mV）及热敏传感器温度曲线
                     </p>
                   </div>
                   {/* 遥测暂停/恢复入口 (复用 isLiveTelemetryRunning 全局开关) */}
                   <button
                     onClick={() => setIsLiveTelemetryRunning(!isLiveTelemetryRunning)}
-                    className="min-h-[44px] shrink-0 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5 transition-colors"
+                    className="min-h-[44px] shrink-0 px-3 py-1.5 rounded-card border border-slate-700/80 hover:bg-slate-800/60 text-xs font-medium text-slate-300 flex items-center gap-1.5 transition-colors"
                     title={isLiveTelemetryRunning ? '暂停实时遥测采集，便于固定波形观察' : '恢复实时遥测采集'}
                   >
                     {isLiveTelemetryRunning ? (
@@ -514,7 +514,7 @@ export default function App() {
                       </>
                     ) : (
                       <>
-                        <Play className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                        <Play className="w-4 h-4 text-emerald-400" />
                         <span>恢复遥测</span>
                       </>
                     )}
@@ -531,22 +531,22 @@ export default function App() {
 
                 {/* Telemetry Summary Cards */}
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80">
+                  <div className="p-4 rounded-card glass-panel glass-hairline">
                     <div className="text-xs text-slate-500">充放电功率</div>
-                    <div className="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-1">
+                    <div className="text-xl font-bold font-mono text-emerald-400 mt-1">
                       {((Math.abs(state.voltage * state.current)) / 1000000).toFixed(2)} W
                     </div>
-                    <div className="text-[11px] text-slate-400 mt-1">
+                    <div className="text-xs text-slate-400 mt-1">
                       P = {state.voltage}mV × {Math.abs(state.current)}mA
                     </div>
                   </div>
 
-                  <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80">
+                  <div className="p-4 rounded-card glass-panel glass-hairline">
                     <div className="text-xs text-slate-500">电池温度评估</div>
-                    <div className="text-xl font-bold font-mono text-slate-900 dark:text-white mt-1">
+                    <div className="text-xl font-bold font-mono text-white mt-1">
                       {state.temperature} °C
                     </div>
-                    <div className={`text-[11px] mt-1 font-medium ${
+                    <div className={`text-xs mt-1 font-medium ${
                       tempAssessment.variant === 'good'
                         ? 'text-emerald-600'
                         : tempAssessment.variant === 'warning'
@@ -559,13 +559,13 @@ export default function App() {
                 </div>
 
                 {/* Quick Shortcut to Lab */}
-                <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800/60 flex items-center justify-between">
-                  <div className="text-xs text-slate-600 dark:text-slate-300">
+                <div className="p-4 rounded-card glass-panel flex items-center justify-between">
+                  <div className="text-xs text-slate-300">
                     想要模拟更强充电功率或极端温升？
                   </div>
                   <button
                     onClick={() => setActiveTab('lab')}
-                    className="min-h-[40px] px-3 py-1.5 rounded-lg bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold"
+                    className="min-h-[40px] px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white transition-colors duration-fast text-xs font-semibold"
                   >
                     前往实验室调节
                   </button>
@@ -575,7 +575,7 @@ export default function App() {
 
             {/* TAB 3: 健康与充满 (HEALTH & REQUIREMENT 12) */}
             {activeTab === 'health' && (
-              <div className="space-y-4">
+              <div className="space-y-4 animate-tab-in">
                 {/* Dedicated Requirement 12 Showcase Card */}
                 <FullChargeCalibrationCard
                   percentage={state.percentage}
@@ -596,24 +596,24 @@ export default function App() {
                 />
 
                 {/* Quick Shortcut to Lab (极端健康状态模拟入口) */}
-                <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800/60 flex items-center justify-between gap-3">
-                  <div className="text-xs text-slate-600 dark:text-slate-300">
+                <div className="p-4 rounded-card glass-panel flex items-center justify-between gap-3">
+                  <div className="text-xs text-slate-300">
                     想模拟过热、超压、损坏等极端健康状态？
                   </div>
                   <button
                     onClick={() => setActiveTab('lab')}
-                    className="min-h-[40px] shrink-0 px-3 py-1.5 rounded-lg bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold transition-colors"
+                    className="min-h-[40px] shrink-0 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white transition-colors duration-fast text-xs font-semibold transition-colors"
                   >
                     前往实验室模拟
                   </button>
                 </div>
 
                 {/* Calibration Details Table */}
-                <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80">
-                  <h4 className="text-xs font-bold text-slate-900 dark:text-white mb-2">
+                <div className="p-4 rounded-panel glass-panel glass-hairline">
+                  <h4 className="text-xs font-bold text-white mb-2">
                     完全充满校准规范详细说明
                   </h4>
-                  <div className="space-y-2 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                  <div className="space-y-2 text-xs text-slate-300 leading-relaxed">
                     <p>
                       <strong>为什么电量到 100% 还不算完全充满？</strong>
                       <br />
@@ -631,7 +631,7 @@ export default function App() {
 
             {/* TAB 4: 硬件实验室 (LAB & SIMULATION) */}
             {activeTab === 'lab' && (
-              <div className="space-y-4">
+              <div className="space-y-4 animate-tab-in">
                 <HardwareSimulationLab
                   percentage={state.percentage}
                   current={state.current}
@@ -663,14 +663,14 @@ export default function App() {
 
             {/* TAB 5: 原生源码与架构 (KOTLIN & JETPACK COMPOSE) */}
             {activeTab === 'native' && (
-              <div className="space-y-4">
+              <div className="space-y-4 animate-tab-in">
                 <NativeCodeViewer />
               </div>
             )}
 
             {/* TAB 6: Android 原生工程总览 (PROJECT HUB) */}
             {activeTab === 'hub' && (
-              <div className="space-y-4">
+              <div className="space-y-4 animate-tab-in">
                 <NativeAndroidProjectHub />
               </div>
             )}

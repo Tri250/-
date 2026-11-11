@@ -24,7 +24,7 @@ export function AndroidNavBar({ activeTab, onChangeTab }: AndroidNavBarProps) {
   ];
 
   return (
-    <div className="shrink-0 w-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800/80">
+    <div className="shrink-0 w-full bg-slate-950/85 backdrop-blur-xl border-t border-slate-800/80">
       <div className="max-w-md mx-auto grid grid-cols-5 items-center h-16 px-1">
         {tabs.map((tab) => {
           const Icon = tab.icon;
@@ -33,20 +33,25 @@ export function AndroidNavBar({ activeTab, onChangeTab }: AndroidNavBarProps) {
             <button
               key={tab.id}
               onClick={() => onChangeTab(tab.id)}
-              className={`min-h-[44px] flex flex-col items-center justify-center transition-all select-none ${
+              aria-current={isActive ? 'page' : undefined}
+              className={`min-h-[44px] flex flex-col items-center justify-center transition-all duration-fast ease-hud select-none active:scale-95 ${
                 isActive
-                  ? 'text-emerald-600 dark:text-emerald-400 font-bold'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                  ? 'text-emerald-400 font-bold'
+                  : 'text-slate-500 hover:text-slate-300'
               }`}
             >
               <div
-                className={`p-1 rounded-xl transition-all ${
-                  isActive ? 'bg-emerald-50 dark:bg-emerald-950/60' : ''
+                className={`relative p-1 rounded-chip transition-all duration-smooth ease-spring ${
+                  isActive ? 'bg-emerald-950/70 scale-105' : 'bg-transparent scale-100'
                 }`}
               >
+                {/* 激活态顶部胶囊高亮线 */}
+                {isActive && (
+                  <span className="absolute -top-1 left-1/2 -translate-x-1/2 w-5 h-0.5 rounded-full bg-emerald-400 shadow-sm shadow-emerald-500/50 animate-scale-in" />
+                )}
                 <Icon className={`w-5 h-5 ${isActive ? 'stroke-[2.4]' : 'stroke-[1.8]'}`} />
               </div>
-              <span className="text-[10px] font-medium tracking-tight mt-0.5 whitespace-nowrap">
+              <span className="text-2xs font-medium tracking-tight mt-0.5 whitespace-nowrap">
                 {tab.label}
               </span>
             </button>
@@ -56,7 +61,7 @@ export function AndroidNavBar({ activeTab, onChangeTab }: AndroidNavBarProps) {
 
       {/* Android Native Home Gesture Pill */}
       <div className="pb-1.5 flex justify-center">
-        <div className="w-32 h-1 rounded-full bg-slate-300 dark:bg-slate-700/80" />
+        <div className="w-32 h-1 rounded-full bg-slate-700/80" />
       </div>
     </div>
   );

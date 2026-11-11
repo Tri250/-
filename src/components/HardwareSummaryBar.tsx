@@ -33,7 +33,7 @@ export function HardwareSummaryBar({ hardwareInfo, deviceName, powerWatts }: Har
   }[hardwareInfo.thermalThrottlingState];
 
   return (
-    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900/95 via-slate-900/90 to-slate-950 border border-slate-700/60 dark:border-cyan-500/20 shadow-lg shadow-black/30 backdrop-blur-md p-4 text-slate-100">
+    <div className="relative overflow-hidden glass-strong glass-hairline rounded-panel p-4 text-slate-100 animate-card-in">
       {/* Subtle futuristic cyber grid background overlay */}
       <div className="absolute -right-10 -top-10 w-44 h-44 bg-cyan-500/5 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute -left-10 -bottom-10 w-44 h-44 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
@@ -51,100 +51,100 @@ export function HardwareSummaryBar({ hardwareInfo, deviceName, powerWatts }: Har
               <h3 className="text-xs font-bold tracking-wider text-slate-100 uppercase">
                 底层硬件信息与电源子系统
               </h3>
-              <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-cyan-950/60 text-cyan-400 border border-cyan-500/30 font-semibold">
+              <span className="font-mono text-2xs px-1.5 py-0.5 rounded bg-cyan-950/60 text-cyan-400 border border-cyan-500/30 font-semibold">
                 HAL v2
               </span>
             </div>
-            <div className="text-[10px] font-mono text-slate-400 truncate">
+            <div className="text-2xs font-mono text-slate-400 truncate">
               {deviceName} · {hardwareInfo.halVersion}
             </div>
           </div>
         </div>
 
         {/* Dynamic Thermal Status Pill */}
-        <div className={`px-2.5 py-1 rounded-full text-[11px] font-medium border flex items-center gap-1.5 ${throttleConfig.color}`}>
+        <div className={`px-2.5 py-1 rounded-full text-xs font-medium border flex items-center gap-1.5 ${throttleConfig.color}`}>
           <span className={`w-1.5 h-1.5 rounded-full ${throttleConfig.dot}`} />
-          <span className="font-mono text-[10px]">{throttleConfig.text}</span>
+          <span className="font-mono text-2xs">{throttleConfig.text}</span>
         </div>
       </div>
 
       {/* 6 Hardware Detail Tiles */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-3">
         {/* 1. SoC Chipset */}
-        <div className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80 hover:border-slate-700 transition-colors">
-          <div className="flex items-center gap-1.5 text-[10px] text-slate-400 mb-1">
+        <div className="p-2.5 rounded-card bg-slate-950/60 border border-slate-800/80 hover:border-slate-700 transition-colors">
+          <div className="flex items-center gap-1.5 text-2xs text-slate-400 mb-1">
             <Microchip className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
             <span className="font-medium">主控处理器 (SoC)</span>
           </div>
-          <div className="text-xs font-bold text-slate-200 truncate font-mono">
+          <div className="text-xs font-bold text-slate-200 truncate font-mono tabular-nums">
             {hardwareInfo.socModel}
           </div>
         </div>
 
         {/* 2. PMIC Controller */}
-        <div className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80 hover:border-slate-700 transition-colors">
-          <div className="flex items-center gap-1.5 text-[10px] text-slate-400 mb-1">
+        <div className="p-2.5 rounded-card bg-slate-950/60 border border-slate-800/80 hover:border-slate-700 transition-colors">
+          <div className="flex items-center gap-1.5 text-2xs text-slate-400 mb-1">
             <Zap className="w-3.5 h-3.5 text-amber-400 shrink-0" />
             <span className="font-medium">电源管理 IC (PMIC)</span>
           </div>
-          <div className="text-xs font-bold text-slate-200 truncate font-mono">
+          <div className="text-xs font-bold text-slate-200 truncate font-mono tabular-nums">
             {hardwareInfo.pmicModel}
           </div>
         </div>
 
         {/* 3. Fast Charge Protocol */}
-        <div className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80 hover:border-slate-700 transition-colors">
-          <div className="flex items-center gap-1.5 text-[10px] text-slate-400 mb-1">
+        <div className="p-2.5 rounded-card bg-slate-950/60 border border-slate-800/80 hover:border-slate-700 transition-colors">
+          <div className="flex items-center gap-1.5 text-2xs text-slate-400 mb-1">
             <Activity className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
             <span className="font-medium">快充融合协议</span>
           </div>
-          <div className="text-xs font-bold text-emerald-400 truncate font-mono">
+          <div className="text-xs font-bold text-emerald-400 truncate font-mono tabular-nums">
             {hardwareInfo.fastChargeProtocol}
           </div>
           {/* 实时协商功率：与协议额定档位对照，闭环快充链路 (V×I 推导) */}
-          <div className="text-[10px] text-slate-400 mt-0.5 font-mono">
+          <div className="text-2xs text-slate-400 mt-0.5 font-mono tabular-nums">
             协商功率: <span className="text-emerald-300 font-bold">{powerWatts.toFixed(1)} W</span>
             {powerWatts >= 45 ? ' · 超级快充档' : powerWatts >= 18 ? ' · 快充档' : powerWatts > 0.5 ? ' · 普通档' : ''}
           </div>
         </div>
 
         {/* 4. Battery Chemistry & Density */}
-        <div className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80 hover:border-slate-700 transition-colors">
-          <div className="flex items-center gap-1.5 text-[10px] text-slate-400 mb-1">
+        <div className="p-2.5 rounded-card bg-slate-950/60 border border-slate-800/80 hover:border-slate-700 transition-colors">
+          <div className="flex items-center gap-1.5 text-2xs text-slate-400 mb-1">
             <Layers className="w-3.5 h-3.5 text-purple-400 shrink-0" />
             <span className="font-medium">电芯材料与体系</span>
           </div>
-          <div className="text-xs font-bold text-slate-200 truncate font-mono">
+          <div className="text-xs font-bold text-slate-200 truncate font-mono tabular-nums">
             {hardwareInfo.batteryChemistry}
           </div>
         </div>
 
         {/* 5. Internal Resistance */}
-        <div className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80 hover:border-slate-700 transition-colors">
-          <div className="flex items-center gap-1.5 text-[10px] text-slate-400 mb-1">
+        <div className="p-2.5 rounded-card bg-slate-950/60 border border-slate-800/80 hover:border-slate-700 transition-colors">
+          <div className="flex items-center gap-1.5 text-2xs text-slate-400 mb-1">
             <ShieldCheck className="w-3.5 h-3.5 text-teal-400 shrink-0" />
             <span className="font-medium">电芯动态内阻</span>
           </div>
-          <div className="text-xs font-bold text-teal-300 font-mono flex items-baseline gap-1">
+          <div className="text-xs font-bold text-teal-300 font-mono tabular-nums flex items-baseline gap-1">
             <span>{hardwareInfo.internalResistanceMohm}</span>
-            <span className="text-[10px] text-slate-500 font-normal">mΩ (健康 &lt; 25)</span>
+            <span className="text-2xs text-slate-500 font-normal">mΩ (健康 &lt; 25)</span>
           </div>
         </div>
 
         {/* 6. Cell Packaging Architecture */}
-        <div className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80 hover:border-slate-700 transition-colors">
-          <div className="flex items-center gap-1.5 text-[10px] text-slate-400 mb-1">
+        <div className="p-2.5 rounded-card bg-slate-950/60 border border-slate-800/80 hover:border-slate-700 transition-colors">
+          <div className="flex items-center gap-1.5 text-2xs text-slate-400 mb-1">
             <Thermometer className="w-3.5 h-3.5 text-sky-400 shrink-0" />
             <span className="font-medium">电芯封装结构</span>
           </div>
-          <div className="text-xs font-bold text-slate-200 truncate font-mono">
+          <div className="text-xs font-bold text-slate-200 truncate font-mono tabular-nums">
             {hardwareInfo.cellStructure}
           </div>
         </div>
       </div>
 
       {/* Linux Kernel Driver Subsystem Path Bar */}
-      <div className="mt-3 pt-2.5 border-t border-slate-800/80 flex flex-wrap items-center justify-between text-[10px] text-slate-400 font-mono gap-1">
+      <div className="mt-3 pt-2.5 border-t border-slate-800/80 flex flex-wrap items-center justify-between text-2xs text-slate-400 font-mono tabular-nums gap-1">
         <div className="flex items-center gap-1.5 truncate">
           <span className="text-emerald-500 font-bold">DRV:</span>
           <span className="text-slate-300 truncate">{hardwareInfo.kernelPowerDriver}</span>
