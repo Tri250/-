@@ -94,37 +94,45 @@ export function DevicePresetSelector({
             选择主流安卓手机型号预设 (自动适配出厂设计容量)
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {POPULAR_ANDROID_DEVICES.map((device) => {
-              const isSelected = selectedDevice.id === device.id;
-              return (
-                <button
-                  key={device.id}
-                  onClick={() => {
-                    onSelectDevice(device);
-                    setCustomInput(device.designCapacity.toString());
-                    setCapacityError(null);
-                    setIsOpen(false);
-                  }}
-                  className={`min-h-[44px] p-2.5 rounded-xl text-left border transition-all flex items-center justify-between ${
-                    isSelected
-                      ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/30 dark:border-emerald-700'
-                      : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40'
-                  }`}
-                >
-                  <div>
-                    <div className="text-xs font-semibold text-slate-900 dark:text-white">
-                      {device.name}
-                    </div>
-                    <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
-                      设计容量: {device.designCapacity} mAh · {device.fastChargeWattage}W
-                    </div>
-                  </div>
-                  {isSelected && <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />}
-                </button>
-              );
-            })}
-          </div>
+          {/* Brand-grouped preset grid (15 presets across 7 brands) */}
+          {Array.from(new Set(POPULAR_ANDROID_DEVICES.map((d) => d.brand))).map((brand) => (
+            <div key={brand}>
+              <div className="text-[10px] font-bold text-slate-400 dark:text-slate-500 font-mono uppercase tracking-wider mb-1.5 mt-1 first:mt-0">
+                {brand}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {POPULAR_ANDROID_DEVICES.filter((d) => d.brand === brand).map((device) => {
+                  const isSelected = selectedDevice.id === device.id;
+                  return (
+                    <button
+                      key={device.id}
+                      onClick={() => {
+                        onSelectDevice(device);
+                        setCustomInput(device.designCapacity.toString());
+                        setCapacityError(null);
+                        setIsOpen(false);
+                      }}
+                      className={`min-h-[44px] p-2.5 rounded-xl text-left border transition-all flex items-center justify-between ${
+                        isSelected
+                          ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/30 dark:border-emerald-700'
+                          : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40'
+                      }`}
+                    >
+                      <div>
+                        <div className="text-xs font-semibold text-slate-900 dark:text-white">
+                          {device.name}
+                        </div>
+                        <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                          设计容量: {device.designCapacity} mAh · {device.fastChargeWattage}W
+                        </div>
+                      </div>
+                      {isSelected && <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
 
           {/* Custom Capacity Input Form */}
           <form
