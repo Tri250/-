@@ -63,11 +63,12 @@ git push -u origin main
 
 ### 3. 发布正式版 Release（可选）
 
-只要在本地打上 `v*` 格式的版本标签并推送到 GitHub，GitHub Actions 会自动创建 GitHub Release 并将 APK 文件挂载在 Release 附件中：
+只要在本地打上 `v*` 格式的版本标签（**必须与 `android/app/build.gradle.kts` 中的 `versionName` 一致**，CI 会强制校验）并推送到 GitHub，GitHub Actions 会自动创建 GitHub Release 并将 APK 文件挂载在 Release 附件中：
 
 ```bash
-git tag v1.0.0
-git push origin v1.0.0
+# 示例：当前版本 versionName=1.1.0 (versionCode=2)
+git tag v1.1.0
+git push origin v1.1.0
 ```
 
 ---

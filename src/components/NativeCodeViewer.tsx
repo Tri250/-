@@ -132,10 +132,19 @@ jobs:
           echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
 
       # 安装属性自检：校验包名 / 版本号 / 启动 Activity / 应用图标齐全，
-      # 与"安装与卸载"审计项对应，属性缺失直接让流水线失败
+      # 与"安装与卸载"审计项对应，属性缺失直接让流水线失败。
+      # 版本号从 build.gradle.kts 动态解析（单一事实来源），并在 v* 标签触发时
+      # 强制校验 tag 与 versionName 一致，杜绝"tag 与包内版本不一致"的错版发布
       - name: Verify APK Install Metadata (aapt2 badging)
         run: |
           APK_PATH="\${{ steps.find_apk.outputs.apk_path }}"
+          VERSION_NAME=$(grep -m1 'versionName' android/app/build.gradle.kts | sed -E "s/.*\\"([^\\"]+)\\".*/\\1/")
+          VERSION_CODE=$(grep -m1 'versionCode' android/app/build.gradle.kts | sed -E "s/.*= *([0-9]+).*/\\1/")
+          if [ -z "$VERSION_NAME" ] || [ -z "$VERSION_CODE" ]; then
+            echo "::error::Failed to parse versionName/versionCode from build.gradle.kts"
+            exit 1
+          fi
+          echo "Expecting versionName=$VERSION_NAME versionCode=$VERSION_CODE"
           AAPT=$(find "$ANDROID_HOME/build-tools" -name aapt2 -type f | sort -V | tail -n 1)
           if [ -z "$AAPT" ]; then
             echo "::warning::aapt2 not found, skipping metadata verification"
@@ -144,10 +153,19 @@ jobs:
           "$AAPT" dump badging "$APK_PATH" > apk-badging.txt || { echo "::error::aapt2 dump badging failed"; exit 1; }
           head -n 20 apk-badging.txt
           grep -q "package: name='com.battery.master'" apk-badging.txt || { echo "::error::Unexpected applicationId"; exit 1; }
-          grep -q "versionName='1.0.0'" apk-badging.txt || { echo "::error::Unexpected versionName"; exit 1; }
+          grep -q "versionName='$VERSION_NAME'" apk-badging.txt || { echo "::error::APK versionName does not match build.gradle.kts ($VERSION_NAME)"; exit 1; }
+          grep -q "versionCode='$VERSION_CODE'" apk-badging.txt || { echo "::error::APK versionCode does not match build.gradle.kts ($VERSION_CODE)"; exit 1; }
           grep -q "launchable-activity" apk-badging.txt || { echo "::error::Missing launcher activity"; exit 1; }
           grep -q "application-icon-320" apk-badging.txt || { echo "::error::Missing launcher icons"; exit 1; }
           grep -q "application-label:'电池大师'" apk-badging.txt || { echo "::error::Unexpected app label"; exit 1; }
+          if [[ "\${GITHUB_REF}" == refs/tags/v* ]]; then
+            TAG_VERSION="\${GITHUB_REF#refs/tags/v}"
+            if [ "$TAG_VERSION" != "$VERSION_NAME" ]; then
+              echo "::error::Tag v$TAG_VERSION does not match versionName $VERSION_NAME — bump build.gradle.kts and re-tag"
+              exit 1
+            fi
+            echo "Tag version consistency verified: v$TAG_VERSION == versionName $VERSION_NAME."
+          fi
           echo "APK install metadata verified."
 
       # 签名校验：正式签名构建必须通过 apksigner verify，防止未签名/损坏包发布
@@ -168,7 +186,10 @@ jobs:
         id: rename_apk
         run: |
           VERSION_NAME=$(grep -m1 'versionName' android/app/build.gradle.kts | sed -E "s/.*\\"([^\\"]+)\\".*/\\1/")
-          if [ -z "$VERSION_NAME" ]; then VERSION_NAME="1.0.0"; fi
+          if [ -z "$VERSION_NAME" ]; then
+            echo "::error::Failed to parse versionName from build.gradle.kts"
+            exit 1
+          fi
           if [ "\${{ env.keystore_available }}" = "true" ]; then SUFFIX="release"; else SUFFIX="debug"; fi
           APK_PATH="\${{ steps.find_apk.outputs.apk_path }}"
           NEW_NAME="Android-Battery-Master-v\${VERSION_NAME}-\${SUFFIX}.apk"
@@ -238,7 +259,8 @@ jobs:
 
   # ============================================================
   # 发布：仅在推送 v* 标签时创建 GitHub Release
-  # 产物 = Android Debug APK（版本化命名）+ Web 演示端 dist 打包 + SHA256 校验和
+  # 产物 = Android Release APK（版本化命名）+ Web 演示端 dist 打包 + SHA256 校验和
+  # 版本信息从 build.gradle.kts 动态解析，发布说明随版本自动更新
   # ============================================================
   release:
     name: 发布 GitHub Release
@@ -247,6 +269,28 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # 版本解析：以 build.gradle.kts 为单一事实来源，注入发布说明与安装指引
+      - name: Resolve Release Version
+        id: version
+        run: |
+          VERSION_NAME=$(grep -m1 'versionName' android/app/build.gradle.kts | sed -E "s/.*\\"([^\\"]+)\\".*/\\1/")
+          VERSION_CODE=$(grep -m1 'versionCode' android/app/build.gradle.kts | sed -E "s/.*= *([0-9]+).*/\\1/")
+          if [ -z "$VERSION_NAME" ] || [ -z "$VERSION_CODE" ]; then
+            echo "::error::Failed to parse versionName/versionCode from build.gradle.kts"
+            exit 1
+          fi
+          TAG_VERSION="\${GITHUB_REF#refs/tags/v}"
+          if [ "$TAG_VERSION" != "$VERSION_NAME" ]; then
+            echo "::error::Tag v$TAG_VERSION does not match versionName $VERSION_NAME"
+            exit 1
+          fi
+          echo "version_name=$VERSION_NAME" >> $GITHUB_OUTPUT
+          echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
+          echo "Release version resolved: v$VERSION_NAME (versionCode=$VERSION_CODE)"
+
       - name: Download Android APK
         uses: actions/download-artifact@v4
         with:
@@ -269,23 +313,23 @@ jobs:
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          # 固定中文发布说明（安装/卸载/权限/五维自检摘要）+ 自动追加的提交记录
+          # 中文发布说明（安装/卸载/权限/五维自检摘要），版本号全部动态注入 + 自动追加的提交记录
           body: |
-            ## Android Battery Master v1.0.0
+            ## Android Battery Master v\${{ steps.version.outputs.version_name }}
 
             专业的安卓电池充放电监测工具：**12 项核心充放电指标**全量实时遥测（健康度 / 剩余电量 / 当前容量 / 设计容量 / 电量百分比 / 电池状态 / 温度 / 健康状况 / 电压 / 循环计数 / 瞬时电流 / 完全充满容量），底层基于 Android BatteryManager、粘性广播与 Linux sysfs 真实硬件通道。
 
             ### 发布资产
             | 资产 | 说明 |
             | --- | --- |
-            | \`Android-Battery-Master-v1.0.0-release.apk\` | Android 原生 APK（**正式 Release 签名**，R8 混淆 + 资源收缩，可直接安装） |
+            | \`Android-Battery-Master-v\${{ steps.version.outputs.version_name }}-release.apk\` | Android 原生 APK（**正式 Release 签名**，R8 混淆 + 资源收缩，可直接安装） |
             | \`web-demo-dist.zip\` | Web 演示端静态产物（解压后任意静态服务器托管，或直接用浏览器打开 \`index.html\`） |
             | \`SHA256SUMS.txt\` | 全部资产 SHA256 校验和 |
 
             ### 安装说明
             1. 下载 APK 后在设备上点击安装（需在系统设置中允许"安装未知来源应用"）。
             2. 首次启动授予**零运行时权限**：应用不申请任何敏感权限，安装后即可使用全部功能。
-            3. 覆盖安装：版本号 \`versionCode=1\` 单调递增，直接安装即可覆盖旧版，数据不丢失。
+            3. 覆盖安装：版本号 \`versionCode=\${{ steps.version.outputs.version_code }}\` 单调递增，直接安装即可覆盖旧版（含 v1.0.0，versionCode=1），数据不丢失。
 
             ### 卸载说明
             - 常规卸载：系统设置 → 应用管理 → 电池大师 → 卸载， SharedPreferences 与应用数据随包体一并清除，无残留。
@@ -300,7 +344,7 @@ jobs:
             - **性能**：Compose 单数据源 1Hz 刷新、双通道（广播+轮询）共享 Reader 配置避免重复解析、Web 遥测定时器 ref 化消除每拍重建。
             - **兼容性**：minSdk 26 / targetSdk 35，API 31+/34+ 分级适配（SoC 型号、循环计数）、中文字体回退栈、\`prefers-reduced-motion\` 无障碍支持。
             - **权限管理**：0 运行时权限，备份规则显式排除应用数据。
-            - **安装卸载**：\`applicationId=com.battery.master\`、自适应图标（anydpi-v26 + 五密度 PNG 兜底）、版本化产物命名、CI 安装属性自检（aapt2 badging）。
+            - **安装卸载**：\`applicationId=com.battery.master\`、\`versionCode=\${{ steps.version.outputs.version_code }}\` 单调递增支持覆盖安装、自适应图标（anydpi-v26 + 五密度 PNG 兜底）、版本化产物命名、CI 安装属性自检（aapt2 badging）与 tag↔versionName 一致性校验。
 
             ---
             *以下为自动生成的提交记录*
@@ -1378,8 +1422,8 @@ android {
         applicationId = "com.battery.master"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
