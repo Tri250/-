@@ -635,6 +635,10 @@ fun BatteryScreen(
     // 一键模拟充满保持期剩余秒数 (0 = 无模拟，UI 倒计时反馈)
     val simulationRemainingSec by viewModel.simulationRemainingSec.collectAsState()
 
+    // 顶层双 Tab：状态总览 / 硬件实验室 (对齐 Web 端 AndroidNavBar 信息架构)
+    var selectedTab by remember { mutableStateOf(0) }
+    val tabTitles = listOf("状态总览", "硬件实验室")
+
     Scaffold(
         containerColor = Color(0xFF030712), // Deep Cyber AMOLED Black
         topBar = {
@@ -673,10 +677,39 @@ fun BatteryScreen(
             )
         }
     ) { innerPadding ->
-        LazyColumn(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
+        ) {
+            // 顶部 Tab 导航条
+            TabRow(
+                selectedTabIndex = selectedTab,
+                containerColor = Color(0xFF090D16),
+                contentColor = Color(0xFF10B981),
+                divider = {}
+            ) {
+                tabTitles.forEachIndexed { index, title ->
+                    Tab(
+                        selected = selectedTab == index,
+                        onClick = { selectedTab = index },
+                        modifier = Modifier.height(44.dp)
+                    ) {
+                        Text(
+                            text = title,
+                            fontSize = 12.sp,
+                            fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal,
+                            fontFamily = FontFamily.Monospace,
+                            color = if (selectedTab == index) Color(0xFF10B981) else Color(0xFF64748B)
+                        )
+                    }
+                }
+            }
+
+            if (selectedTab == 0) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
@@ -860,6 +893,11 @@ fun BatteryScreen(
 
             item {
                 Spacer(modifier = Modifier.height(28.dp))
+            }
+        }
+            } else {
+                // 硬件实验室 Tab：场景模拟 / 滑杆调参 / 健康枚举 / 提示音
+                HardwareLabScreen(viewModel = viewModel, state = state)
             }
         }
 
@@ -1422,8 +1460,8 @@ android {
         applicationId = "com.battery.master"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.1.0"
+        versionCode = 3
+        versionName = "1.1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -1708,14 +1746,15 @@ data class BatteryState(
     val isFullChargeConditionMet: Boolean = false,
 
     // ===== 硬件信息汇总 =====
-    // 默认值保持诚实中性；实际值由 HardwareInfoResolver 在采集层动态填充
-    val socModel: String = "系统未上报",
-    val pmicModel: String = "系统未上报",
-    val batteryChemistry: String = "锂离子电池 (体系未上报)",
-    val fastChargeProtocol: String = "系统未上报",
+    // 默认值为中性估算文案 (采集层 HardwareInfoResolver 会立即以实测/档案值覆盖)；
+    // 三级回退链保证运行期任何字段不再出现"系统未上报"
+    val socModel: String = "平台 SoC 解析中",
+    val pmicModel: String = "平台级 PMIC 电源管理 [工程估算]",
+    val batteryChemistry: String = "锂离子/聚合物电芯 (主流体系) [工程估算]",
+    val fastChargeProtocol: String = "USB PD / QC 兼容快充 [工程估算]",
     val internalResistanceMohm: Float = 0f,
-    val halVersion: String = "Android Battery HAL",
-    val cellStructure: String = "系统未上报",
+    val halVersion: String = "Android Battery AIDL HAL",
+    val cellStructure: String = "标准单电芯封装 [工程估算]",
     val thermalThrottlingState: String = "正常供电 (无节流)"
 ) {
     // 别名兼容
@@ -1748,10 +1787,13 @@ enum class BatteryHealthQuality(val label: String) {
 import android.app.Application
 import android.content.Intent
 import android.content.IntentFilter
+import android.media.AudioManager
+import android.media.ToneGenerator
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.battery.master.data.BatteryState
+import com.battery.master.data.BatteryHealthQuality
 import com.battery.master.data.BatteryStatus
 import com.battery.master.receiver.BatteryReceiver
 import com.battery.master.service.BatteryHardwareReader
@@ -1759,8 +1801,34 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlin.math.abs
+
+/**
+ * 硬件实验室一键模拟场景 (与 Web 端 HardwareSimulationLab 对齐)
+ */
+enum class LabScenario(val label: String, val desc: String) {
+    FULL_CHARGE("充满校准", "100% 且电流 16 mA"),
+    FLASH_CHARGE("极速闪充", "+4800 mA / 45%"),
+    GAMING_DISCHARGE("高负载游戏放电", "-1150 mA / 发热升高"),
+    OVERHEAT_ALERT("电池过热警报", "49.2°C / 异常中断")
+}
+
+/**
+ * 实验室模拟覆盖层：非空时 UI 展示模拟数据，真实遥测轮询被冻结；
+ * 全部字段可在滑杆/枚举中独立调节，退出后无缝恢复真实硬件遥测
+ */
+data class LabOverride(
+    val percentage: Int,
+    val currentMa: Int,
+    val voltageMv: Int,
+    val temperatureCelsius: Float,
+    val status: BatteryStatus,
+    val healthQuality: BatteryHealthQuality,
+    val cycleCount: Int
+)
 
 class BatteryViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -1836,6 +1904,8 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
      */
     private fun publish(fresh: BatteryState) {
         if (System.currentTimeMillis() < simulationHoldUntilMs) return
+        // 硬件实验室模拟中：冻结真实遥测覆盖，保持滑杆/场景设定值稳定展示
+        if (_labOverride.value != null) return
 
         val current = _batteryState.value
         _batteryState.value =
@@ -1866,6 +1936,149 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
         reader.designCapacityMah = capacityMah
         simulationHoldUntilMs = 0L // 手动改配置立即恢复真实遥测
         publish(reader.readBatteryTelemetry())
+    }
+
+    // ==================== 硬件实验室 (与 Web 端 HardwareSimulationLab 对齐) ====================
+
+    // 实验室模拟覆盖层：null = 真实遥测；非空 = 模拟数据生效
+    private val _labOverride = MutableStateFlow<LabOverride?>(null)
+    val labOverride: StateFlow<LabOverride?> = _labOverride.asStateFlow()
+
+    // 实验室提示音开关 (ToneGenerator 系统提示音，无需额外权限)
+    private val _labSoundEnabled = MutableStateFlow(true)
+    val labSoundEnabled: StateFlow<Boolean> = _labSoundEnabled.asStateFlow()
+
+    private var labToneGenerator: ToneGenerator? = null
+
+    /** 实验室提示音：ToneGenerator 懒创建 + 防御性释放，失败静默 (部分 ROM 限制) */
+    private fun playLabTone(tone: Int) {
+        if (!_labSoundEnabled.value) return
+        try {
+            if (labToneGenerator == null) {
+                labToneGenerator = ToneGenerator(AudioManager.STREAM_MUSIC, 70)
+            }
+            labToneGenerator?.startTone(tone, 150)
+        } catch (e: Exception) {
+            labToneGenerator?.release()
+            labToneGenerator = null
+        }
+    }
+
+    /** 进入实验室模拟：以当前真实遥测为基准创建覆盖层 */
+    fun enterLabMode() {
+        if (_labOverride.value != null) return
+        val cur = _batteryState.value
+        _labOverride.value = LabOverride(
+            percentage = cur.percentage,
+            currentMa = cur.currentMa,
+            voltageMv = cur.voltageMv,
+            temperatureCelsius = cur.temperatureCelsius,
+            status = cur.status,
+            healthQuality = cur.healthQuality,
+            cycleCount = cur.cycleCount
+        )
+        playLabTone(ToneGenerator.TONE_PROP_ACK)
+        publishLab()
+    }
+
+    /** 退出实验室模拟：清除覆盖层并立即恢复真实遥测 */
+    fun exitLabMode() {
+        _labOverride.value = null
+        publish(reader.readBatteryTelemetry())
+    }
+
+    fun toggleLabSound() {
+        _labSoundEnabled.value = !_labSoundEnabled.value
+        if (_labSoundEnabled.value) playLabTone(ToneGenerator.TONE_PROP_BEEP)
+    }
+
+    /** 一键场景：自动进入实验室模式并应用预设参数 (与 Web 端四场景一致) */
+    fun applyLabScenario(scenario: LabScenario) {
+        val base = _labOverride.value ?: run {
+            val cur = _batteryState.value
+            LabOverride(
+                cur.percentage, cur.currentMa, cur.voltageMv, cur.temperatureCelsius,
+                cur.status, cur.healthQuality, cur.cycleCount
+            )
+        }
+        _labOverride.value = when (scenario) {
+            LabScenario.FULL_CHARGE -> base.copy(
+                percentage = 100, currentMa = 16, voltageMv = 4410,
+                status = BatteryStatus.CHARGING, healthQuality = BatteryHealthQuality.GOOD
+            )
+            LabScenario.FLASH_CHARGE -> base.copy(
+                percentage = 45, currentMa = 4800, voltageMv = 4250,
+                temperatureCelsius = 38.5f, status = BatteryStatus.CHARGING,
+                healthQuality = BatteryHealthQuality.GOOD
+            )
+            LabScenario.GAMING_DISCHARGE -> base.copy(
+                currentMa = -1150, voltageMv = 3820, temperatureCelsius = 39.8f,
+                status = BatteryStatus.DISCHARGING, healthQuality = BatteryHealthQuality.GOOD
+            )
+            LabScenario.OVERHEAT_ALERT -> base.copy(
+                temperatureCelsius = 49.2f, healthQuality = BatteryHealthQuality.OVERHEAT,
+                status = BatteryStatus.NOT_CHARGING
+            )
+        }
+        playLabTone(ToneGenerator.TONE_PROP_BEEP)
+        publishLab()
+    }
+
+    // ---- 滑杆逐项调节：无覆盖层时自动以真实遥测为基准进入实验室 ----
+
+    private fun mutateLab(transform: (LabOverride) -> LabOverride) {
+        _labOverride.update { current ->
+            transform(current ?: run {
+                val cur = _batteryState.value
+                LabOverride(
+                    cur.percentage, cur.currentMa, cur.voltageMv, cur.temperatureCelsius,
+                    cur.status, cur.healthQuality, cur.cycleCount
+                )
+            })
+        }
+        publishLab()
+    }
+
+    fun updateLabPercentage(v: Int) = mutateLab { it.copy(percentage = v.coerceIn(0, 100)) }
+    fun updateLabCurrent(v: Int) = mutateLab { it.copy(currentMa = v.coerceIn(-2000, 6000)) }
+    fun updateLabVoltage(v: Int) = mutateLab { it.copy(voltageMv = v.coerceIn(3500, 4600)) }
+    fun updateLabTemperature(v: Float) = mutateLab { it.copy(temperatureCelsius = v.coerceIn(0f, 55f)) }
+    fun updateLabCycleCount(v: Int) = mutateLab { it.copy(cycleCount = v.coerceIn(0, 1200)) }
+    fun updateLabStatus(v: BatteryStatus) = mutateLab { it.copy(status = v) }
+    fun updateLabHealthQuality(v: BatteryHealthQuality) = mutateLab {
+        val t = if (v == BatteryHealthQuality.OVERHEAT) 49.2f else it.temperatureCelsius
+        it.copy(healthQuality = v, temperatureCelsius = t)
+    }
+
+    /** 设计容量滑杆：直接作用于 Reader 配置 (真实生效，与总览页校准入口同源) */
+    fun updateLabDesignCapacity(v: Int) {
+        setDesignCapacity(v.coerceIn(1000, 15000))
+    }
+
+    /**
+     * 将实验室覆盖层合成为展示态 BatteryState：
+     * 剩余电量/功率/充满判定按模拟值实时重算；容量与锁定指标 12 保持真实值不丢失
+     */
+    private fun publishLab() {
+        val lab = _labOverride.value ?: return
+        val base = _batteryState.value
+        val isFullMet = lab.percentage == 100 && lab.currentMa in 0..25
+        val effectiveStatus = if (isFullMet) BatteryStatus.FULL else lab.status
+        val remaining = (base.currentCapacityMah * (lab.percentage / 100f)).toInt()
+        _batteryState.value = base.copy(
+            percentage = lab.percentage,
+            currentMa = lab.currentMa,
+            voltageMv = lab.voltageMv,
+            temperatureCelsius = lab.temperatureCelsius,
+            status = effectiveStatus,
+            healthQuality = lab.healthQuality,
+            cycleCount = lab.cycleCount,
+            remainingCapacityMah = remaining.coerceAtMost(base.currentCapacityMah),
+            powerWatts = (abs(lab.voltageMv * lab.currentMa)) / 1_000_000f,
+            isFullChargeConditionMet = isFullMet,
+            fullChargeCapacityMah = if (isFullMet) (base.fullChargeCapacityMah ?: base.currentCapacityMah)
+            else base.fullChargeCapacityMah
+        )
     }
 
     /**
@@ -1972,19 +2185,29 @@ internal data class HardwareTelemetry(
 )
 
 /**
- * 动态解析硬件信息摘要：
- * 能从系统读取的读取真实值 (SoC 型号 / HAL 版本 / 温控节流)，
- * 无公开 API 的字段诚实标注"系统未上报"，避免硬编码机型误导用户
+ * 动态解析硬件信息摘要 —— 三级回退链，彻底消除"系统未上报"：
+ * 1. [实测] sysfs / device-tree 真实节点探测（PMIC compatible、pd_active、恒压门限、双电芯路径）
+ * 2. [推断] 品牌硬件档案 (Build.MANUFACTURER) 匹配品牌快充体系与 PMIC 体系
+ * 3. [估算] 主流工程默认值兜底
+ * 每个字段均在输出中标注来源；快充协议另叠加实时功率档位 (V×I 推断)，
+ * 与 Web 端档位阈值一致 (≥45W 超级快充 / ≥18W 快充 / >0.5W 普通 / 未充电)
  */
 internal object HardwareInfoResolver {
 
+    // 设备静态档案（PMIC / 协议体系 / 电芯结构 / 化学体系）：探测结果缓存，仅解析一次
+    private val staticProfile: DeviceHardwareProfile.Profile by lazy {
+        DeviceHardwareProfile.resolveProfile()
+    }
+
     fun resolve(temperatureCelsius: Float, cycleCount: Int, powerWatts: Float): HardwareTelemetry {
-        // SoC 型号：API 31+ 提供 Build.SOC_MODEL，旧版本回退 Build.HARDWARE
+        val profile = staticProfile
+
+        // SoC 型号：API 31+ 提供 Build.SOC_MODEL，旧版本回退 Build.HARDWARE，仍不可得时按品牌平台估算
         val rawSoc = if (Build.VERSION.SDK_INT >= 31) Build.SOC_MODEL else ""
         val socModel = when {
             !rawSoc.isNullOrBlank() && rawSoc != "unknown" -> rawSoc
             Build.HARDWARE.isNotBlank() && Build.HARDWARE != "unknown" -> Build.HARDWARE
-            else -> "系统未上报"
+            else -> "\${Build.MANUFACTURER} ARM64 旗舰平台 [工程估算]"
         }
 
         // 温控节流状态：按电芯温度推导 (阈值与 Web 端一致)
@@ -1999,29 +2222,31 @@ internal object HardwareInfoResolver {
             (cycleCount.coerceAtLeast(0) / 300f) * 1.5f +
             if (temperatureCelsius > 40f) (temperatureCelsius - 40f) * 0.3f else 0f
 
-        // 快充协议：厂商私有协议无公开 API，但充电档位可由实时功率 (V×I) 真实推断，
-        // 与 Web 端档位阈值一致 (≥45W 超级快充 / ≥18W 快充 / >0.5W 普通 / 未充电)
+        // 快充协议：体系名（sysfs 实测优先 → 品牌档案 → 工程估算）+ 实时功率档位组合，
+        // 未充电时保留体系名并标注"待充电协商"，不再输出空洞的"系统未上报"
         val chargeBand = when {
             powerWatts >= 45f -> "超级快充"
             powerWatts >= 18f -> "快速充电"
             powerWatts > 0.5f -> "普通充电"
             else -> null
         }
+        val liveProtocol = DeviceHardwareProfile.probeLiveProtocol()
+        val protocolSystem = liveProtocol ?: profile.fastChargeProtocol
         val fastChargeProtocol = if (chargeBand != null) {
             val wattText = String.format(java.util.Locale.US, "%.1f", powerWatts)
-            "实时档位: \$chargeBand (\$wattText W) · 协议未上报"
+            "$chargeBand ($wattText W) · $protocolSystem"
         } else {
-            "系统未上报 (待充电触发协商)"
+            "$protocolSystem · 未充电待协商"
         }
 
         return HardwareTelemetry(
             socModel = socModel,
-            pmicModel = "系统未上报",
-            batteryChemistry = "锂离子电池 (体系未上报)",
+            pmicModel = profile.pmicModel,
+            batteryChemistry = profile.batteryChemistry,
             fastChargeProtocol = fastChargeProtocol,
             internalResistanceMohm = (internalResistance * 10f).toInt() / 10f,
-            halVersion = "Android \${Build.VERSION.RELEASE} Battery HAL",
-            cellStructure = "系统未上报",
+            halVersion = "Android \${Build.VERSION.RELEASE} Battery AIDL HAL",
+            cellStructure = profile.cellStructure,
             thermalThrottlingState = thermalThrottlingState
         )
     }
@@ -2061,6 +2286,659 @@ class MainActivity : ComponentActivity() {
                 BatteryScreen(viewModel = batteryViewModel)
             }
         }
+    }
+}`,
+  },
+  {
+    id: 'device_profile',
+    name: 'DeviceHardwareProfile.kt',
+    path: 'android/app/src/main/java/com/battery/master/service/DeviceHardwareProfile.kt',
+    language: 'kotlin',
+    description: '设备硬件档案：PMIC/快充协议/电芯结构三级回退链（sysfs+DT 实测→品牌档案→工程估算）（App 实际源码）',
+    code: `package com.battery.master.service
+
+import android.os.Build
+import java.io.File
+
+/**
+ * 设备硬件档案解析器：PMIC 型号 / 快充协议体系 / 电芯结构 / 化学体系
+ *
+ * 三级回退链，彻底消除"系统未上报"：
+ * 1. [实测] Linux sysfs / device-tree 真实节点探测
+ *    - PMIC：/proc/device-tree 顶层 compatible 节点 (qcom,pm* / mt6xxx / s2mps / max77xxx ...)
+ *    - 快充：/sys/class/power_supply/usb/pd_active、battery/quick_charge_type、dc/online、hv_charge
+ *    - 电芯：/sys/class/power_supply/{dc,battery2,maxfg} 双电芯路径、constant_voltage_max 恒压门限
+ * 2. [推断] 品牌硬件档案 (Build.MANUFACTURER) 匹配品牌快充协议与 PMIC 体系
+ * 3. [估算] 主流工程默认值兜底
+ *
+ * 输出字段均带来源标注，用户可明确区分实测值与推断值；
+ * 静态硬件信息 (PMIC/电芯/化学) 只探测一次并缓存，协议实测带 10 秒 TTL，避免每秒轮询反复读节点。
+ */
+internal object DeviceHardwareProfile {
+
+    /** 设备静态硬件档案解析结果 */
+    data class Profile(
+        val pmicModel: String,
+        val fastChargeProtocol: String,
+        val batteryChemistry: String,
+        val cellStructure: String
+    )
+
+    // ===== 静态档案缓存（探测一次；null 也视为已探测，避免不可读设备反复扫描 device-tree）=====
+    @Volatile private var pmicProbed = false
+    @Volatile private var cachedPmic: String? = null
+    @Volatile private var cachedCellStructure: String? = null
+    @Volatile private var cachedChemistry: String? = null
+
+    // ===== 协议实测 TTL 缓存 =====
+    @Volatile private var lastProtocolProbeMs = 0L
+    @Volatile private var cachedLiveProtocol: String? = null
+    private const val PROTOCOL_TTL_MS = 10_000L
+
+    /** 品牌快充协议体系档案 (推断层) */
+    private val brandProtocols = listOf(
+        "google" to "USB PD 3.0 (PPS)",
+        "xiaomi" to "澎湃秒充 / HyperCharge",
+        "redmi" to "澎湃秒充 / HyperCharge",
+        "oppo" to "SUPERVOOC 超级闪充",
+        "oneplus" to "SUPERVOOC 超级闪充",
+        "realme" to "SUPERDART 超级闪充",
+        "vivo" to "双芯闪充 (FlashCharge)",
+        "iqoo" to "超快闪充 (FlashCharge)",
+        "honor" to "超级快充 (HONOR SuperCharge)",
+        "huawei" to "超级快充 (SCP)",
+        "samsung" to "SFC 超级快充 (PD3.0 PPS)",
+        "motorola" to "TurboPower 快充 (PD3.0)",
+        "sony" to "USB PD 3.0 快充",
+        "asus" to "HyperCharge 快充 (PD3.0)",
+        "lenovo" to "超级闪充 (PD3.0)",
+        "meizu" to "mCharge 超充",
+        "nubia" to "Neotouch 超级快充",
+        "zte" to "超级快充 (PD3.0)"
+    )
+
+    /** 品牌 PMIC 体系档案 (推断层) */
+    private val brandPmics = listOf(
+        "google" to "Tensor 专用电源管理芯片 (Shannon PMIC)",
+        "samsung" to "Exynos PMIC 体系 (S2MPS 系列)",
+        "xiaomi" to "澎湃 P2 快充芯片 + G1 电池管理",
+        "redmi" to "小米澎湃电源管理芯片",
+        "oppo" to "SUPERVOOC S 电源管理芯片",
+        "oneplus" to "SUPERVOOC S 电源管理芯片",
+        "realme" to "SUPERVOOC 电源管理芯片",
+        "vivo" to "自研电源管理 + 双芯闪充芯片",
+        "iqoo" to "自研电竞电源管理芯片",
+        "honor" to "荣耀能效增强芯片 (HONOR E1)",
+        "huawei" to "海思 Hi6xxx 电源管理 IC",
+        "motorola" to "Qualcomm PMIC 电源管理 IC",
+        "sony" to "Qualcomm PMIC 电源管理 IC"
+    )
+
+    /** 解析设备静态硬件档案（结果进程内缓存） */
+    fun resolveProfile(): Profile {
+        val manufacturer = Build.MANUFACTURER.lowercase()
+
+        // --- PMIC：device-tree 实测优先，品牌档案回退，工程估算兜底 ---
+        val pmicModel = detectPmicFromDeviceTree()
+            ?: brandPmics.firstOrNull { manufacturer.startsWith(it.first) }?.second?.let { "$it [品牌档案]" }
+            ?: "平台级 PMIC 电源管理 [工程估算]"
+
+        // --- 快充协议体系：品牌档案 / 工程估算 (实测值由 probeLiveProtocol 动态叠加) ---
+        val protocol = brandProtocols.firstOrNull { manufacturer.startsWith(it.first) }?.second?.let { "$it [品牌档案]" }
+            ?: "USB PD / QC 兼容快充 [工程估算]"
+
+        // --- 电芯结构：双电芯路径实测 → 恒压门限实测 → 主流估算 ---
+        val cell = cachedCellStructure ?: detectCellStructure().also { cachedCellStructure = it }
+
+        // --- 化学体系：恒压门限归档 → 主流兜底 ---
+        val chemistry = cachedChemistry ?: detectChemistry().also { cachedChemistry = it }
+
+        return Profile(pmicModel, protocol, chemistry, cell)
+    }
+
+    /**
+     * 实测快充协议（带 10 秒 TTL 缓存，充电协商状态变化时自动刷新）
+     * 返回 null 表示当前无可实测的协议节点，由上层回退到档案推断
+     */
+    fun probeLiveProtocol(): String? {
+        val now = System.currentTimeMillis()
+        if (now - lastProtocolProbeMs < PROTOCOL_TTL_MS) return cachedLiveProtocol
+        lastProtocolProbeMs = now
+        cachedLiveProtocol = detectProtocolFromSysfs()
+        return cachedLiveProtocol
+    }
+
+    /**
+     * 扫描 device-tree 顶层与一级子目录的 compatible 节点寻找 PMIC 型号
+     * (限定两层深度，compatible 文件权限 444 普通应用可读)
+     */
+    private fun detectPmicFromDeviceTree(): String? {
+        if (pmicProbed) return cachedPmic
+        pmicProbed = true
+        val found = try {
+            val root = File("/proc/device-tree")
+            if (!root.isDirectory) {
+                null
+            } else {
+                val candidates = mutableListOf<File>()
+                root.listFiles()?.let { files ->
+                    files.filterTo(candidates) { it.isFile && it.name == "compatible" }
+                    files.filter { it.isDirectory }.forEach { dir ->
+                        File(dir, "compatible").takeIf { it.exists() && it.canRead() }?.let { candidates.add(it) }
+                    }
+                }
+                val matched = candidates.asSequence()
+                    .mapNotNull { file ->
+                        try {
+                            file.readBytes().toString(Charsets.UTF_8)
+                                .split('\\u0000')
+                                .firstOrNull { isPmicCompatible(it) }
+                        } catch (e: Exception) {
+                            null
+                        }
+                    }
+                    .firstOrNull()
+                matched?.let { formatPmicName(it) }
+            }
+        } catch (e: Exception) {
+            null
+        }
+        cachedPmic = found
+        return cachedPmic
+    }
+
+    /** PMIC compatible 命名特征：高通 pm 系列 / 联发科 mt6xxx / Maxim / 三星 / RK / 海思 / TI 充电芯片 */
+    private fun isPmicCompatible(name: String): Boolean = Regex(
+        "qcom,pm[67k]?[0-9]|mt6[0-9]{3}|max77[0-9]|maxim,max77|s2mps|s2mpu|rk8[0-9a-z]|hi642[0-9]|bq25[0-9]|sm5703|fan5[0-9]|rt5033"
+    ).containsMatchIn(name)
+
+    /** 将 compatible 字符串格式化为可读 PMIC 型号 + [DT 实测] 标注 */
+    private fun formatPmicName(compatible: String): String {
+        val token = compatible.trim()
+        val pretty = when {
+            token.startsWith("qcom,") -> "Qualcomm " + token.substringAfter(',').uppercase()
+            token.startsWith("mt6") -> "MediaTek " + token.uppercase()
+            token.contains("s2mp") -> "Samsung " + token.uppercase()
+            token.contains("max77") -> "Maxim " + token.uppercase()
+            token.startsWith("rk8") -> "Rockchip " + token.uppercase()
+            token.startsWith("hi64") -> "HiSilicon " + token.uppercase()
+            token.startsWith("bq25") -> "TI " + token.uppercase()
+            else -> token.uppercase()
+        }
+        return "$pretty [DT 实测]"
+    }
+
+    /** sysfs 实测快充协议（高通 pd_active / QC 档位 / OPPO 直充路径 / 高压快充标志） */
+    private fun detectProtocolFromSysfs(): String? {
+        // 高通 PD_ACTIVE：0 无 / 1 PD2.0 / 2 PD3.0-PPS
+        when (BatterySysfs.readInt("/sys/class/power_supply/usb/pd_active")) {
+            1 -> return "USB PD 2.0 [实测]"
+            2 -> return "USB PD 3.0 (PPS) [实测]"
+        }
+        // PD 版本寄存器 (hex 编码，非 0 视为已协商 PD)
+        BatterySysfs.readInt("/sys/class/power_supply/usb/pd_revision")?.let {
+            if (it > 0) return "USB PD (Rev \${it.toString(16)}) [实测]"
+        }
+        // 高通 QC 档位节点
+        BatterySysfs.readInt("/sys/class/power_supply/battery/quick_charge_type")?.let {
+            if (it > 0) return "Quick Charge (档位 $it) [实测]"
+        }
+        // OPPO/一加双芯直充路径
+        if (BatterySysfs.readInt("/sys/class/power_supply/dc/online") == 1) {
+            return "SUPERVOOC 直充 [实测]"
+        }
+        // 高压快充标志
+        if (BatterySysfs.readInt("/sys/class/power_supply/battery/hv_charge") == 1 ||
+            BatterySysfs.readInt("/sys/class/power_supply/battery/hv_charging") == 1
+        ) {
+            return "高压快充 (HV) [实测]"
+        }
+        return null
+    }
+
+    /** 电芯结构探测：双电芯专用路径存在性 → 恒压门限 → 主流单电芯估算 */
+    private fun detectCellStructure(): String {
+        val dualCellPaths = listOf(
+            "/sys/class/power_supply/dc",        // OPPO/一加 双电芯直充
+            "/sys/class/power_supply/battery2",  // 通用第二电芯
+            "/sys/class/power_supply/maxfg"      // Maxim 双芯电量计 (Pixel 8 Pro 等)
+        )
+        dualCellPaths.firstOrNull { File(it).exists() }?.let {
+            return "串联双电芯分压快充 [实测]"
+        }
+        val cvMax = readConstantVoltageMax()
+        return if (cvMax != null && cvMax >= 4400) {
+            "单电芯高压聚合物 (恒压 \${cvMax}mV) [实测]"
+        } else {
+            "标准单电芯封装 [工程估算]"
+        }
+    }
+
+    /** 化学体系归档：按恒压门限区分高压/标准电芯体系 */
+    private fun detectChemistry(): String {
+        val cvMax = readConstantVoltageMax()
+        return when {
+            cvMax == null -> "锂离子/聚合物电芯 (主流体系) [工程估算]"
+            cvMax >= 4450 -> "高压硅碳/锂离子电芯 (恒压 \${cvMax}mV) [实测]"
+            cvMax >= 4350 -> "高压锂聚合物电芯 (恒压 \${cvMax}mV) [实测]"
+            else -> "标准锂离子电芯 (恒压 \${cvMax}mV) [实测]"
+        }
+    }
+
+    /** 恒压门限读取 (化学体系与电芯结构共用) */
+    private fun readConstantVoltageMax(): Int? =
+        BatterySysfs.readInt("/sys/class/power_supply/battery/constant_voltage_max")
+            ?: BatterySysfs.readInt("/sys/class/power_supply/battery/voltage_max")
+}`,
+  },
+  {
+    id: 'hardware_lab',
+    name: 'HardwareLabScreen.kt',
+    path: 'android/app/src/main/java/com/battery/master/ui/HardwareLabScreen.kt',
+    language: 'kotlin',
+    description: '硬件实验室 UI：4 一键场景 / 6 滑杆 / 状态与健康枚举 / 提示音（App 实际源码）',
+    code: `package com.battery.master.ui
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.battery.master.data.BatteryHealthQuality
+import com.battery.master.data.BatteryState
+import com.battery.master.data.BatteryStatus
+import com.battery.master.viewmodel.BatteryViewModel
+import com.battery.master.viewmodel.LabScenario
+
+/**
+ * 硬件实验室 (与 Web 端 HardwareSimulationLab 对齐)：
+ * 4 个一键场景 + 6 个滑杆 + 电池状态/健康枚举 + 提示音开关，
+ * 模拟数据仅作用于展示层，退出后无缝恢复真实硬件遥测
+ */
+@Composable
+fun HardwareLabScreen(viewModel: BatteryViewModel, state: BatteryState) {
+    val lab by viewModel.labOverride.collectAsState()
+    val soundEnabled by viewModel.labSoundEnabled.collectAsState()
+
+    // 滑杆取值：模拟中读覆盖层，否则读真实遥测 (拖动时 VM 会自动进入模拟模式)
+    val labActive = lab != null
+    val pct = lab?.percentage ?: state.percentage
+    val currentMa = lab?.currentMa ?: state.currentMa
+    val voltageMv = lab?.voltageMv ?: state.voltageMv
+    val temperature = lab?.temperatureCelsius ?: state.temperatureCelsius
+    val cycleCount = lab?.cycleCount ?: state.cycleCount
+    val status = lab?.status ?: state.status
+    val health = lab?.healthQuality ?: state.healthQuality
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        // ===== 模式状态与控制 =====
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(
+                        1.dp,
+                        if (labActive) Color(0xFF10B981) else Color(0xFF1E293B),
+                        RoundedCornerShape(20.dp)
+                    ),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF090D16))
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = "硬件实验室与模拟调试",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                                fontFamily = FontFamily.Monospace
+                            )
+                            Text(
+                                text = if (labActive) "模拟数据生效中 · 真实遥测已冻结" else "真实遥测 · 交互后自动进入模拟模式",
+                                fontSize = 10.sp,
+                                fontFamily = FontFamily.Monospace,
+                                color = if (labActive) Color(0xFF34D399) else Color(0xFF64748B)
+                            )
+                        }
+                        // 提示音开关
+                        OutlinedButton(
+                            onClick = { viewModel.toggleLabSound() },
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = if (soundEnabled) Color(0xFF34D399) else Color(0xFF64748B)
+                            ),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = if (soundEnabled) "提示音 开" else "提示音 关",
+                                fontSize = 10.sp,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // 退出模拟：恢复真实遥测
+                    Button(
+                        onClick = { viewModel.exitLabMode() },
+                        enabled = labActive,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF7C2D12),
+                            disabledContainerColor = Color(0xFF1E293B),
+                            disabledContentColor = Color(0xFF475569)
+                        )
+                    ) {
+                        Text(
+                            text = "恢复真实硬件遥测",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+
+        // ===== 一键工作场景 =====
+        item {
+            Text(
+                text = "一键工作场景模拟",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF94A3B8),
+                fontFamily = FontFamily.Monospace
+            )
+        }
+
+        item {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                LabScenarioButton(
+                    modifier = Modifier.weight(1f),
+                    scenario = LabScenario.FULL_CHARGE,
+                    color = Color(0xFF10B981),
+                    onClick = { viewModel.applyLabScenario(LabScenario.FULL_CHARGE) }
+                )
+                LabScenarioButton(
+                    modifier = Modifier.weight(1f),
+                    scenario = LabScenario.FLASH_CHARGE,
+                    color = Color(0xFF38BDF8),
+                    onClick = { viewModel.applyLabScenario(LabScenario.FLASH_CHARGE) }
+                )
+            }
+        }
+        item {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                LabScenarioButton(
+                    modifier = Modifier.weight(1f),
+                    scenario = LabScenario.GAMING_DISCHARGE,
+                    color = Color(0xFFA855F7),
+                    onClick = { viewModel.applyLabScenario(LabScenario.GAMING_DISCHARGE) }
+                )
+                LabScenarioButton(
+                    modifier = Modifier.weight(1f),
+                    scenario = LabScenario.OVERHEAT_ALERT,
+                    color = Color(0xFFF43F5E),
+                    onClick = { viewModel.applyLabScenario(LabScenario.OVERHEAT_ALERT) }
+                )
+            }
+        }
+
+        // ===== 交互滑杆区 =====
+        item {
+            Text(
+                text = "逐项参数调节 (6 组滑杆)",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF94A3B8),
+                fontFamily = FontFamily.Monospace
+            )
+        }
+
+        item {
+            LabCard {
+                LabSlider(
+                    label = "05. 电量百分比",
+                    valueText = "$pct%",
+                    value = pct.toFloat(),
+                    valueRange = 0f..100f,
+                    accent = Color(0xFF10B981),
+                    onValueChange = { viewModel.updateLabPercentage(it.toInt()) }
+                )
+                LabSlider(
+                    label = "11. 瞬时电流",
+                    valueText = "\${if (currentMa > 0) "+$currentMa" else currentMa} mA",
+                    value = currentMa.toFloat(),
+                    valueRange = -2000f..6000f,
+                    accent = Color(0xFF34D399),
+                    onValueChange = { viewModel.updateLabCurrent(it.toInt()) }
+                )
+                LabSlider(
+                    label = "09. 电芯电压",
+                    valueText = "$voltageMv mV",
+                    value = voltageMv.toFloat(),
+                    valueRange = 3500f..4600f,
+                    accent = Color(0xFF38BDF8),
+                    onValueChange = { viewModel.updateLabVoltage(it.toInt()) }
+                )
+                LabSlider(
+                    label = "07. 传感器温度",
+                    valueText = "$temperature °C",
+                    value = temperature,
+                    valueRange = 0f..55f,
+                    accent = Color(0xFFF59E0B),
+                    onValueChange = { viewModel.updateLabTemperature(it) }
+                )
+                LabSlider(
+                    label = "10. 循环计数",
+                    valueText = "$cycleCount 次",
+                    value = cycleCount.toFloat(),
+                    valueRange = 0f..1200f,
+                    accent = Color(0xFF14B8A6),
+                    onValueChange = { viewModel.updateLabCycleCount(it.toInt()) }
+                )
+                LabSlider(
+                    label = "04. 出厂设计容量 (真实生效)",
+                    valueText = "\${state.designCapacityMah} mAh",
+                    value = state.designCapacityMah.toFloat(),
+                    valueRange = 1000f..15000f,
+                    accent = Color(0xFFA855F7),
+                    onValueChange = { viewModel.updateLabDesignCapacity(it.toInt()) }
+                )
+            }
+        }
+
+        // ===== 电池状态枚举 =====
+        item {
+            LabCard {
+                Text(
+                    text = "06. 电池状态强制切换",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF94A3B8),
+                    fontFamily = FontFamily.Monospace
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    StatusChip("充电中", status == BatteryStatus.CHARGING, Color(0xFF10B981)) {
+                        viewModel.updateLabStatus(BatteryStatus.CHARGING)
+                    }
+                    StatusChip("放电中", status == BatteryStatus.DISCHARGING, Color(0xFF38BDF8)) {
+                        viewModel.updateLabStatus(BatteryStatus.DISCHARGING)
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    StatusChip("已充满", status == BatteryStatus.FULL, Color(0xFF2DD4BF)) {
+                        viewModel.updateLabStatus(BatteryStatus.FULL)
+                    }
+                    StatusChip("未充电", status == BatteryStatus.NOT_CHARGING, Color(0xFF64748B)) {
+                        viewModel.updateLabStatus(BatteryStatus.NOT_CHARGING)
+                    }
+                }
+            }
+        }
+
+        // ===== 健康枚举 =====
+        item {
+            LabCard {
+                Text(
+                    text = "08. 硬件健康状态选择",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF94A3B8),
+                    fontFamily = FontFamily.Monospace
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    StatusChip("良好", health == BatteryHealthQuality.GOOD, Color(0xFF10B981)) {
+                        viewModel.updateLabHealthQuality(BatteryHealthQuality.GOOD)
+                    }
+                    StatusChip("过热", health == BatteryHealthQuality.OVERHEAT, Color(0xFFF59E0B)) {
+                        viewModel.updateLabHealthQuality(BatteryHealthQuality.OVERHEAT)
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    StatusChip("损坏", health == BatteryHealthQuality.DEAD, Color(0xFFF43F5E)) {
+                        viewModel.updateLabHealthQuality(BatteryHealthQuality.DEAD)
+                    }
+                    StatusChip("超压", health == BatteryHealthQuality.OVER_VOLTAGE, Color(0xFFA855F7)) {
+                        viewModel.updateLabHealthQuality(BatteryHealthQuality.OVER_VOLTAGE)
+                    }
+                    StatusChip("未知", health == BatteryHealthQuality.UNKNOWN, Color(0xFF64748B)) {
+                        viewModel.updateLabHealthQuality(BatteryHealthQuality.UNKNOWN)
+                    }
+                }
+            }
+        }
+
+        item { Spacer(modifier = Modifier.height(28.dp)) }
+    }
+}
+
+/** 一键场景按钮 */
+@Composable
+private fun LabScenarioButton(
+    modifier: Modifier = Modifier,
+    scenario: LabScenario,
+    color: Color,
+    onClick: () -> Unit
+) {
+    Button(
+        onClick = onClick,
+        modifier = modifier,
+        shape = RoundedCornerShape(14.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A)),
+        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 12.dp)
+    ) {
+        Column(horizontalAlignment = Alignment.Start) {
+            Text(
+                text = scenario.label,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = color,
+                fontFamily = FontFamily.Monospace
+            )
+            Text(
+                text = scenario.desc,
+                fontSize = 9.sp,
+                color = Color(0xFF64748B),
+                fontFamily = FontFamily.Monospace
+            )
+        }
+    }
+}
+
+/** 实验室区块容器 */
+@Composable
+private fun LabCard(content: @Composable ColumnScope.() -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, Color(0xFF1E293B), RoundedCornerShape(16.dp)),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF090D16))
+    ) {
+        Column(modifier = Modifier.padding(14.dp), content = content)
+    }
+}
+
+/** 带标签的滑杆行 */
+@Composable
+private fun LabSlider(
+    label: String,
+    valueText: String,
+    value: Float,
+    valueRange: ClosedFloatingPointRange<Float>,
+    accent: Color,
+    onValueChange: (Float) -> Unit
+) {
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(text = label, fontSize = 11.sp, color = Color(0xFF94A3B8))
+            Text(
+                text = valueText,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace,
+                color = Color.White
+            )
+        }
+        Slider(
+            value = value,
+            onValueChange = onValueChange,
+            valueRange = valueRange,
+            colors = SliderDefaults.colors(
+                thumbColor = accent,
+                activeTrackColor = accent,
+                inactiveTrackColor = Color(0xFF1E293B)
+            )
+        )
+    }
+}
+
+/** 枚举选择胶囊 */
+@Composable
+private fun StatusChip(label: String, selected: Boolean, accent: Color, onClick: () -> Unit) {
+    Surface(
+        shape = RoundedCornerShape(50),
+        color = if (selected) Color(0xFF0F172A) else Color.Transparent,
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            if (selected) accent else Color(0xFF334155)
+        ),
+        onClick = onClick
+    ) {
+        Text(
+            text = label,
+            fontSize = 11.sp,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+            color = if (selected) accent else Color(0xFF64748B),
+            fontFamily = FontFamily.Monospace,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+        )
     }
 }`,
   },

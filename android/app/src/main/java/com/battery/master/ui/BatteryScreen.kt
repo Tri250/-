@@ -44,6 +44,10 @@ fun BatteryScreen(
     // 一键模拟充满保持期剩余秒数 (0 = 无模拟，UI 倒计时反馈)
     val simulationRemainingSec by viewModel.simulationRemainingSec.collectAsState()
 
+    // 顶层双 Tab：状态总览 / 硬件实验室 (对齐 Web 端 AndroidNavBar 信息架构)
+    var selectedTab by remember { mutableStateOf(0) }
+    val tabTitles = listOf("状态总览", "硬件实验室")
+
     Scaffold(
         containerColor = Color(0xFF030712), // Deep Cyber AMOLED Black
         topBar = {
@@ -82,10 +86,39 @@ fun BatteryScreen(
             )
         }
     ) { innerPadding ->
-        LazyColumn(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
+        ) {
+            // 顶部 Tab 导航条
+            TabRow(
+                selectedTabIndex = selectedTab,
+                containerColor = Color(0xFF090D16),
+                contentColor = Color(0xFF10B981),
+                divider = {}
+            ) {
+                tabTitles.forEachIndexed { index, title ->
+                    Tab(
+                        selected = selectedTab == index,
+                        onClick = { selectedTab = index },
+                        modifier = Modifier.height(44.dp)
+                    ) {
+                        Text(
+                            text = title,
+                            fontSize = 12.sp,
+                            fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal,
+                            fontFamily = FontFamily.Monospace,
+                            color = if (selectedTab == index) Color(0xFF10B981) else Color(0xFF64748B)
+                        )
+                    }
+                }
+            }
+
+            if (selectedTab == 0) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
@@ -269,6 +302,11 @@ fun BatteryScreen(
 
             item {
                 Spacer(modifier = Modifier.height(28.dp))
+            }
+        }
+            } else {
+                // 硬件实验室 Tab：场景模拟 / 滑杆调参 / 健康枚举 / 提示音
+                HardwareLabScreen(viewModel = viewModel, state = state)
             }
         }
 
