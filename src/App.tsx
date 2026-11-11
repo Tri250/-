@@ -639,7 +639,6 @@ export default function App() {
                   temperature={state.temperature}
                   status={state.status}
                   healthQuality={state.healthQuality}
-                  fastChargeWattage={selectedDevice.fastChargeWattage}
                   currentCapacity={state.currentCapacity}
                   designCapacity={state.designCapacity}
                   cycleCount={state.cycleCount}

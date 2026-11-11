@@ -30,7 +30,6 @@ interface HardwareSimulationLabProps {
   cycleCount: number;
   soundEnabled: boolean;
   isLiveTelemetryRunning: boolean;
-  fastChargeWattage: number;
   onUpdatePercentage: (val: number) => void;
   onUpdateCurrent: (val: number) => void;
   onSetVoltage: (val: number) => void;
@@ -58,7 +57,6 @@ export function HardwareSimulationLab({
   cycleCount,
   soundEnabled,
   isLiveTelemetryRunning,
-  fastChargeWattage,
   onUpdatePercentage,
   onUpdateCurrent,
   onSetVoltage,
@@ -168,13 +166,12 @@ export function HardwareSimulationLab({
             </div>
           </button>
 
-          {/* 2. Super Fast Charge (按当前机型快充协议额定功率动态联动) */}
+          {/* 2. Super Fast Charge (预期效果：极速闪充 +4800mA 一键场景) */}
           <button
             onClick={() => {
-              const ccCurrent = Math.min(8500, Math.max(1500, Math.round((fastChargeWattage * 1000) / 4.4)));
               onSetStatus('charging');
               onUpdatePercentage(45);
-              onUpdateCurrent(ccCurrent);
+              onUpdateCurrent(4800);
               onSetVoltage(4250);
               onSetTemperature(38.5);
               onUpdateHealthQuality('good');
@@ -183,10 +180,10 @@ export function HardwareSimulationLab({
           >
             <div className="text-xs font-bold text-sky-800 dark:text-sky-300 flex items-center gap-1">
               <Zap className="w-3.5 h-3.5 text-sky-600" />
-              极速闪充 ({fastChargeWattage}W)
+              极速闪充
             </div>
             <div className="text-[10px] text-sky-600 dark:text-sky-400 mt-0.5">
-              +{Math.min(8500, Math.max(1500, Math.round((fastChargeWattage * 1000) / 4.4)))} mA / 45%
+              +4800 mA / 45%
             </div>
           </button>
 
