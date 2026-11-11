@@ -33,6 +33,10 @@ class BatteryHardwareReader(private val context: Context) {
     var lastFullChargeTimestamp: Long? =
         prefs.getLong(KEY_LAST_FULL_TIMESTAMP, -1L).takeIf { it > 0 }
 
+    // 是否处于充满判定区间内 (100% 且 0-25mA)：用于写盘去重，
+    // 避免满足条件期间每秒遥测轮询重复写 SharedPreferences
+    private var wasInFullChargeBand = false
+
     /**
      * 读取最新的电池遥测数据
      */
@@ -167,12 +171,19 @@ class BatteryHardwareReader(private val context: Context) {
      * 未满足条件时保留上次锁定值，不因通道切换而丢失。
      * 轮询通道 (readBatteryTelemetry) 与广播通道 (BatteryReceiver) 共用，
      * 保证两通道指标 12 语义完全一致。
+     *
+     * 写盘去重：仅在进入判定区间的第一拍、或锁定容量发生变化时才持久化；
+     * 满足条件期间每秒遥测不再重复写 SharedPreferences (首次锁定时间戳语义保留)。
      */
     fun lockFullChargeIfCriteriaMet(currentCapacityMah: Int, percentage: Int, currentNowMa: Int): Int? {
         if (percentage == 100 && currentNowMa in 0..25) {
-            persistFullChargeCapacity(currentCapacityMah, System.currentTimeMillis())
+            if (!wasInFullChargeBand || lastRecordedFullCapacity != currentCapacityMah) {
+                persistFullChargeCapacity(currentCapacityMah, System.currentTimeMillis())
+            }
+            wasInFullChargeBand = true
             return currentCapacityMah
         }
+        wasInFullChargeBand = false
         return lastRecordedFullCapacity
     }
 

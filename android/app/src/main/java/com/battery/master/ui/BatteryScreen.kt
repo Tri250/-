@@ -196,15 +196,17 @@ fun BatteryScreen(
                         title = "电池温度",
                         value = "${state.temperatureCelsius}",
                         unit = "°C",
+                        // 温度评估口径与 Web 端三段制完全对齐 (>45 严重 / 38-45 偏热 / ≤0 过冷 / 其余正常)
                         sub = when {
-                            state.temperatureCelsius > 42 -> "高温发热预警"
-                            state.temperatureCelsius <= 0 -> "低温报警 (<0°C)"
-                            else -> "温度平稳"
+                            state.temperatureCelsius > 45 -> "严重发热 (>45°C)"
+                            state.temperatureCelsius >= 38 -> "偏热预警 (38-45°C)"
+                            state.temperatureCelsius <= 0 -> "过冷保护 (≤0°C)"
+                            else -> "温度正常"
                         },
-                        accentColor = if (state.temperatureCelsius > 42 || state.temperatureCelsius <= 0) {
-                            Color(0xFFF43F5E)
-                        } else {
-                            Color(0xFFF59E0B)
+                        accentColor = when {
+                            state.temperatureCelsius > 45 || state.temperatureCelsius <= 0 -> Color(0xFFF43F5E)
+                            state.temperatureCelsius >= 38 -> Color(0xFFF59E0B)
+                            else -> Color(0xFF10B981)
                         }
                     )
                     CyberMetricCardItem(

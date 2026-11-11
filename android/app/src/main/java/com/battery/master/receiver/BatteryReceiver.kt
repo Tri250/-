@@ -29,13 +29,15 @@ class BatteryReceiver(
         // 安全转换：极端场景下系统服务异常返回时静默丢弃本次广播，轮询通道继续兜底
         val batteryManager = context.getSystemService(Context.BATTERY_SERVICE) as? BatteryManager ?: return
 
-        // 5. 电量百分比 (0 - 100) (extras 缺失时回退 CAPACITY 属性，与轮询通道一致)
+        // 5. 电量百分比 (0 - 100) (extras 缺失时回退 CAPACITY 属性，与轮询通道口径完全一致；
+        //    真实 0% 电量不被 CAPACITY 属性污染，保证双通道指标 5 与指标 12 判定一致)
         val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
         val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
-        var percentage = if (level >= 0 && scale > 0) (level * 100 / scale) else 0
-        if (percentage == 0) {
+        val percentage = if (level >= 0 && scale > 0) {
+            (level * 100 / scale)
+        } else {
             val capacityProp = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
-            if (capacityProp in 0..100) percentage = capacityProp
+            if (capacityProp in 0..100) capacityProp else 0
         }
 
         // 6. 电池状态
