@@ -9,6 +9,10 @@ export type BatteryHealthQuality = 'good' | 'overheat' | 'dead' | 'over_voltage'
 
 export interface HardwareInfo {
   socModel: string;
+  socVendor: string;
+  socProcess: string;
+  socCpu: string;
+  socGpu: string;
   pmicModel: string;
   batteryChemistry: string;
   fastChargeProtocol: string;
@@ -27,6 +31,10 @@ export interface DevicePreset {
   fastChargeWattage: number; // in W
   batteryChemistry: string;
   socModel: string;
+  socVendor: string;
+  socProcess: string;
+  socCpu: string;
+  socGpu: string;
   pmicModel: string;
   fastChargeProtocol: string;
   internalResistanceMohm: number;

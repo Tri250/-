@@ -326,6 +326,10 @@ export function useBatteryMonitor() {
 
   const hardwareInfo = {
     socModel: selectedDevice.socModel,
+    socVendor: selectedDevice.socVendor,
+    socProcess: selectedDevice.socProcess,
+    socCpu: selectedDevice.socCpu,
+    socGpu: selectedDevice.socGpu,
     pmicModel: selectedDevice.pmicModel,
     batteryChemistry: selectedDevice.batteryChemistry,
     fastChargeProtocol: selectedDevice.fastChargeProtocol,

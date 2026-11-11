@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Cpu, Zap, Activity, ShieldCheck, Layers, Thermometer, Microchip } from 'lucide-react';
+import { Cpu, Zap, Activity, ShieldCheck, Layers, Thermometer, Microchip, Factory, Gamepad2 } from 'lucide-react';
 import { HardwareInfo } from '../types/battery';
 
 interface HardwareSummaryBarProps {
@@ -79,6 +79,9 @@ export function HardwareSummaryBar({ hardwareInfo, deviceName, powerWatts }: Har
           <div className="text-xs font-bold text-slate-200 truncate font-mono tabular-nums">
             {hardwareInfo.socModel}
           </div>
+          <div className="text-2xs text-cyan-400/80 mt-0.5 font-mono truncate">
+            {hardwareInfo.socVendor}
+          </div>
         </div>
 
         {/* 2. PMIC Controller */}
@@ -139,6 +142,43 @@ export function HardwareSummaryBar({ hardwareInfo, deviceName, powerWatts }: Har
           </div>
           <div className="text-xs font-bold text-slate-200 truncate font-mono tabular-nums">
             {hardwareInfo.cellStructure}
+          </div>
+        </div>
+      </div>
+
+      {/* SoC 主控架构区块：制程 / CPU / GPU 三栏 (与 Android 端 SoCHardwareProfile 字段对齐) */}
+      <div className="mt-3 pt-3 border-t border-slate-800/80">
+        <div className="flex items-center gap-1.5 text-2xs text-slate-400 mb-2">
+          <Cpu className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+          <span className="font-medium">SoC 主控架构</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+          <div className="p-2.5 rounded-card bg-slate-950/60 border border-slate-800/80 hover:border-slate-700 transition-colors">
+            <div className="flex items-center gap-1.5 text-2xs text-slate-400 mb-1">
+              <Factory className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+              <span className="font-medium">制程工艺</span>
+            </div>
+            <div className="text-xs font-bold text-slate-200 font-mono tabular-nums">
+              {hardwareInfo.socProcess}
+            </div>
+          </div>
+          <div className="p-2.5 rounded-card bg-slate-950/60 border border-slate-800/80 hover:border-slate-700 transition-colors">
+            <div className="flex items-center gap-1.5 text-2xs text-slate-400 mb-1">
+              <Cpu className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+              <span className="font-medium">CPU 架构</span>
+            </div>
+            <div className="text-2xs font-bold text-slate-200 font-mono tabular-nums leading-relaxed">
+              {hardwareInfo.socCpu}
+            </div>
+          </div>
+          <div className="p-2.5 rounded-card bg-slate-950/60 border border-slate-800/80 hover:border-slate-700 transition-colors">
+            <div className="flex items-center gap-1.5 text-2xs text-slate-400 mb-1">
+              <Gamepad2 className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+              <span className="font-medium">GPU 渲染</span>
+            </div>
+            <div className="text-xs font-bold text-slate-200 font-mono tabular-nums">
+              {hardwareInfo.socGpu}
+            </div>
           </div>
         </div>
       </div>

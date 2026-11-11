@@ -7,6 +7,10 @@ import android.os.Build
  */
 internal data class HardwareTelemetry(
     val socModel: String,
+    val socVendor: String,
+    val socProcess: String,
+    val socCpu: String,
+    val socGpu: String,
     val pmicModel: String,
     val batteryChemistry: String,
     val fastChargeProtocol: String,
@@ -18,7 +22,7 @@ internal data class HardwareTelemetry(
 
 /**
  * 动态解析硬件信息摘要 —— 三级回退链，彻底消除"系统未上报"：
- * 1. [实测] sysfs / device-tree 真实节点探测（PMIC compatible、pd_active、恒压门限、双电芯路径）
+ * 1. [实测] sysfs / device-tree 真实节点探测（SoC 型号、PMIC compatible、pd_active、恒压门限、双电芯路径）
  * 2. [推断] 品牌硬件档案 (Build.MANUFACTURER) 匹配品牌快充体系与 PMIC 体系
  * 3. [估算] 主流工程默认值兜底
  * 每个字段均在输出中标注来源；快充协议另叠加实时功率档位 (V×I 推断)，
@@ -26,7 +30,7 @@ internal data class HardwareTelemetry(
  */
 internal object HardwareInfoResolver {
 
-    // 设备静态档案（PMIC / 协议体系 / 电芯结构 / 化学体系）：探测结果缓存，仅解析一次
+    // 设备静态档案（SoC / PMIC / 协议体系 / 电芯结构 / 化学体系）：探测结果缓存，仅解析一次
     private val staticProfile: DeviceHardwareProfile.Profile by lazy {
         DeviceHardwareProfile.resolveProfile()
     }
@@ -39,6 +43,10 @@ internal object HardwareInfoResolver {
         } catch (e: Throwable) {
             HardwareTelemetry(
                 socModel = "平台 SoC 解析中",
+                socVendor = "主流旗舰 SoC 厂商 [工程估算]",
+                socProcess = "主流旗舰制程 (以厂方规格为准) [工程估算]",
+                socCpu = "8 核 64 位大小核架构 [工程估算]",
+                socGpu = "平台集成旗舰 GPU [工程估算]",
                 pmicModel = "平台级 PMIC 电源管理 [工程估算]",
                 batteryChemistry = "锂离子/聚合物电芯 (主流体系) [工程估算]",
                 fastChargeProtocol = "USB PD / QC 兼容快充 [工程估算]",
@@ -53,13 +61,8 @@ internal object HardwareInfoResolver {
     private fun resolveInternal(temperatureCelsius: Float, cycleCount: Int, powerWatts: Float): HardwareTelemetry {
         val profile = staticProfile
 
-        // SoC 型号：API 31+ 提供 Build.SOC_MODEL，旧版本回退 Build.HARDWARE，仍不可得时按品牌平台估算
-        val rawSoc = if (Build.VERSION.SDK_INT >= 31) Build.SOC_MODEL else ""
-        val socModel = when {
-            !rawSoc.isNullOrBlank() && rawSoc != "unknown" -> rawSoc
-            Build.HARDWARE.isNotBlank() && Build.HARDWARE != "unknown" -> Build.HARDWARE
-            else -> "${Build.MANUFACTURER} ARM64 旗舰平台 [工程估算]"
-        }
+        // SoC 主控五字段：型号 / 厂商 / 制程 / CPU / GPU (SoCHardwareProfile 全量检测链)
+        val soc = SoCHardwareProfile.resolveSoc()
 
         // 温控节流状态：按电芯温度推导 (阈值与 Web 端一致)
         val thermalThrottlingState = when {
@@ -91,7 +94,11 @@ internal object HardwareInfoResolver {
         }
 
         return HardwareTelemetry(
-            socModel = socModel,
+            socModel = soc.model,
+            socVendor = soc.vendor,
+            socProcess = soc.process,
+            socCpu = soc.cpu,
+            socGpu = soc.gpu,
             pmicModel = profile.pmicModel,
             batteryChemistry = profile.batteryChemistry,
             fastChargeProtocol = fastChargeProtocol,

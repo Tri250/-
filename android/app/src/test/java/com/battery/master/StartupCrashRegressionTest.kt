@@ -76,6 +76,12 @@ class StartupCrashRegressionTest {
         assertTrue(telemetry.fastChargeProtocol.isNotEmpty())
         assertTrue(telemetry.cellStructure.isNotEmpty())
         assertTrue(telemetry.batteryChemistry.isNotEmpty())
+        // SoC 主控五字段：任何降级环境下均非空且带来源标注
+        assertTrue(telemetry.socModel.isNotEmpty())
+        assertTrue(telemetry.socVendor.isNotEmpty())
+        assertTrue(telemetry.socProcess.isNotEmpty())
+        assertTrue(telemetry.socCpu.isNotEmpty())
+        assertTrue(telemetry.socGpu.isNotEmpty())
     }
 
     // ===== 5. 读取器：BatteryManager 属性异常时的安全降级 =====

@@ -54,6 +54,10 @@ data class BatteryState(
     // 默认值为中性估算文案 (采集层 HardwareInfoResolver 会立即以实测/档案值覆盖)；
     // 三级回退链保证运行期任何字段不再出现"系统未上报"
     val socModel: String = "平台 SoC 解析中",
+    val socVendor: String = "主流旗舰 SoC 厂商 [工程估算]",
+    val socProcess: String = "主流旗舰制程 (以厂方规格为准) [工程估算]",
+    val socCpu: String = "8 核 64 位大小核架构 [工程估算]",
+    val socGpu: String = "平台集成旗舰 GPU [工程估算]",
     val pmicModel: String = "平台级 PMIC 电源管理 [工程估算]",
     val batteryChemistry: String = "锂离子/聚合物电芯 (主流体系) [工程估算]",
     val fastChargeProtocol: String = "USB PD / QC 兼容快充 [工程估算]",

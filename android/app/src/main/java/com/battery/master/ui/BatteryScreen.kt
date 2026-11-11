@@ -595,30 +595,50 @@ fun HardwareSummaryCard(state: BatteryState, onCalibrateDesignCapacity: () -> Un
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // 硬件网格
+            // ===== SoC 主控架构区块 (型号/厂商/制程/CPU/GPU 五字段，检测链见 SoCHardwareProfile) =====
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 HardwareItem(modifier = Modifier.weight(1f), label = "SoC 主控", value = state.socModel)
+                HardwareItem(modifier = Modifier.weight(1f), label = "SoC 厂商", value = state.socVendor)
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                HardwareItem(modifier = Modifier.weight(1f), label = "制程工艺", value = state.socProcess)
+                HardwareItem(modifier = Modifier.weight(1f), label = "GPU 渲染", value = state.socGpu)
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // CPU 架构文案较长，允许两行展示 (核心配置分级完整可读)
+            HardwareItem(
+                modifier = Modifier.fillMaxWidth(),
+                label = "CPU 架构",
+                value = state.socCpu,
+                maxLines = 2
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // ===== 电源子系统区块 =====
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 HardwareItem(modifier = Modifier.weight(1f), label = "电源管理 IC", value = state.pmicModel)
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 HardwareItem(modifier = Modifier.weight(1f), label = "快充协议", value = state.fastChargeProtocol)
-                HardwareItem(modifier = Modifier.weight(1f), label = "电芯内阻", value = "${state.internalResistanceMohm} mΩ")
             }
 
             Spacer(modifier = Modifier.height(8.dp))
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                HardwareItem(modifier = Modifier.weight(1f), label = "电芯内阻", value = "${state.internalResistanceMohm} mΩ")
                 HardwareItem(modifier = Modifier.weight(1f), label = "化学材料体系", value = state.batteryChemistry)
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                HardwareItem(modifier = Modifier.weight(1f), label = "电芯结构", value = state.cellStructure)
                 HardwareItem(modifier = Modifier.weight(1f), label = "AIDL 规范", value = state.halVersion)
             }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // 电芯结构 (激活 BatteryState.cellStructure：Resolver 采集 -> State 承载 -> UI 消费)
-            HardwareItem(modifier = Modifier.fillMaxWidth(), label = "电芯结构", value = state.cellStructure)
 
             Spacer(modifier = Modifier.height(10.dp))
 
@@ -639,7 +659,7 @@ fun HardwareSummaryCard(state: BatteryState, onCalibrateDesignCapacity: () -> Un
 }
 
 @Composable
-fun HardwareItem(modifier: Modifier = Modifier, label: String, value: String) {
+fun HardwareItem(modifier: Modifier = Modifier, label: String, value: String, maxLines: Int = 1) {
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(DesignTokens.RadiusChip),
@@ -655,7 +675,7 @@ fun HardwareItem(modifier: Modifier = Modifier, label: String, value: String) {
                 fontWeight = FontWeight.Bold,
                 fontFamily = FontFamily.Monospace,
                 color = DesignTokens.TextPrimary,
-                maxLines = 1
+                maxLines = maxLines
             )
         }
     }

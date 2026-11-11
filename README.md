@@ -44,6 +44,15 @@
 
 ---
 
+## 🔩 SoC 主控功能模块全量自检 (v1.2.1)
+
+- **五字段完整档案**：SoC 模块从单一"型号"升级为 **型号 / 厂商 / 制程 / CPU 架构 / GPU** 五字段（Web 端 `HardwareInfo`/`DevicePreset` 与 Android 端 `BatteryState` 同构），硬件摘要栏与 Android 硬件网格同步展示。
+- **五级检测链**（`SoCHardwareProfile`）：API 31+ `Build.SOC_MODEL`/`SOC_MANUFACTURER` → soc0 节点 `/sys/devices/soc0/{machine,family,model}` → `/proc/cpuinfo` "Hardware:" 行 → 平台代号档案（pineapple / mt6991 / exynos2400…）→ 品牌体系工程估算，全链路 Throwable 兜底，任何环境不再出现"系统未上报"。
+- **平台规格档案**：覆盖骁龙 8 系（865/888/8 Gen1/8+/8 Gen2/8s Gen3/8 Gen3/8 Elite/8 Elite Gen 5）、天玑（8500/9200/9300/9400/9500）、Tensor G3/G4、Exynos 2200/2400、麒麟 9000/9000S、虎贲 T760 的营销名 / 厂商 / 制程 / CPU 核心分级 / GPU（来源：各厂商官方规格页），命中即输出完整架构档案。
+- **回归测试**：新增 `SocHardwareProfileTest`（Robolectric）覆盖五级检测链、ShadowBuild 注入实测、平台代号回退、未知型号诚实估算与全部纯解析函数；启动回归测试同步断言五字段非空。
+
+---
+
 ## 🛡️ 启动闪退治理 (v1.1.2)
 
 - **启动全链路 Throwable 兜底**：`BatteryManager` 安全转换（缺失服务不再 NPE）、粘性广播查询、sysfs / device-tree 探测、PowerProfile 反射（OEM ROM 抛 `Error` 级异常也捕获）、SharedPreferences 读写、广播注册/注销，全部按 `Throwable` 兜底并降级到最后已知态，采集异常只跳过本拍轮询，进程不退出。
@@ -91,9 +100,9 @@ git push -u origin main
 只要在本地打上 `v*` 格式的版本标签（**必须与 `android/app/build.gradle.kts` 中的 `versionName` 一致**，CI 会强制校验）并推送到 GitHub，GitHub Actions 会自动创建 GitHub Release 并将 APK 文件挂载在 Release 附件中：
 
 ```bash
-# 示例：当前版本 versionName=1.2.0 (versionCode=5)
-git tag v1.2.0
-git push origin v1.2.0
+# 示例：当前版本 versionName=1.2.1 (versionCode=6)
+git tag v1.2.1
+git push origin v1.2.1
 ```
 
 ---
