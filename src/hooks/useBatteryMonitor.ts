@@ -77,9 +77,16 @@ export function useBatteryMonitor() {
 
   // 最新遥测输入快照：interval 闭包经 ref 读取最新值，
   // 避免 effect 依赖 percentage/status/current 等 state 每拍重建 setInterval
-  const telemetryInputRef = useRef({ status, percentage, current, voltage, temperature, healthQuality });
+  // fastChargeWattage 一并入快照：快充协议功率联动充电链路（CC 段目标电流/推进速率）
+  const telemetryInputRef = useRef({
+    status, percentage, current, voltage, temperature, healthQuality,
+    fastChargeWattage: selectedDevice.fastChargeWattage,
+  });
   useEffect(() => {
-    telemetryInputRef.current = { status, percentage, current, voltage, temperature, healthQuality };
+    telemetryInputRef.current = {
+      status, percentage, current, voltage, temperature, healthQuality,
+      fastChargeWattage: selectedDevice.fastChargeWattage,
+    };
   });
 
   // Check and process requirement 12 condition
@@ -121,10 +128,12 @@ export function useBatteryMonitor() {
       tickRef.current += 1;
 
       // 从 ref 读取最新输入，替代原 effect 依赖数组（消除每拍定时器重建）
-      const { status, percentage, current, voltage, temperature, healthQuality } = telemetryInputRef.current;
+      const { status, percentage, current, voltage, temperature, healthQuality, fastChargeWattage } = telemetryInputRef.current;
 
-      // 指标 5 进度推进：充电 +1% / 3 秒，放电 -1% / 4.5 秒 (实时仿真闭环)
-      if (status === 'charging' && percentage < 100 && tickRef.current % 2 === 0) {
+      // 指标 5 进度推进：充电速率与机型快充功率联动
+      // (≥65W 每 1.5s +1%，20-64W 每 3s +1%，<20W 每 4.5s +1%；放电维持 -1%/4.5s)
+      const chargeTicksPerPercent = fastChargeWattage >= 65 ? 1 : fastChargeWattage >= 20 ? 2 : 3;
+      if (status === 'charging' && percentage < 100 && tickRef.current % chargeTicksPerPercent === 0) {
         setPercentage((prev) => Math.min(100, Math.round(prev) + 1));
       }
       if (status === 'discharging' && percentage > 0 && tickRef.current % 3 === 0) {
@@ -147,8 +156,9 @@ export function useBatteryMonitor() {
           return Math.max(5, Math.min(24, Math.round(prevCurrent + (Math.random() * 4 - 2))));
         }
         if (status === 'charging') {
-          // As battery approaches 100%, current naturally tapers (CC to CV phase)
-          let targetCurrent = 2200;
+          // 快充协议联动：CC 段目标电流由机型额定功率推导 (P = U×I，单芯等效 4.4V 母线)，
+          // 双电芯串联机型按等效封顶 8.5A；CV 段 (90%/98%/100%) 保持自然衰减截止
+          let targetCurrent = Math.min(8500, Math.max(1200, Math.round((fastChargeWattage * 1000) / 4.4)));
           if (percentage > 90) targetCurrent = 800;
           if (percentage >= 98) targetCurrent = 200;
           if (percentage >= 100) targetCurrent = 15; // 满电 CV 截止：电流自然衰减进入 0-25mA 涓流区间

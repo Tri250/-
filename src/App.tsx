@@ -256,6 +256,7 @@ export default function App() {
                 <HardwareSummaryBar
                   hardwareInfo={hardwareInfo}
                   deviceName={selectedDevice.name}
+                  powerWatts={Math.abs(state.voltage * state.current) / 1000000}
                 />
 
                 {/* Device Preset Switcher */}
@@ -638,6 +639,7 @@ export default function App() {
                   temperature={state.temperature}
                   status={state.status}
                   healthQuality={state.healthQuality}
+                  fastChargeWattage={selectedDevice.fastChargeWattage}
                   currentCapacity={state.currentCapacity}
                   designCapacity={state.designCapacity}
                   cycleCount={state.cycleCount}

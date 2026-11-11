@@ -109,8 +109,8 @@ class BatteryReceiver(
         // 瞬时功率 (W = V × I)：与轮询通道一致，始终计算
         val powerWatts = (voltageMv.toFloat() * abs(currentMa)) / 1_000_000f
 
-        // 动态解析硬件信息摘要 (真实可读字段 + 诚实未上报标注)
-        val hardware = HardwareInfoResolver.resolve(temperatureCelsius, cycleCount)
+        // 动态解析硬件信息摘要 (真实可读字段 + 快充档位功率推断 + 诚实未上报标注)
+        val hardware = HardwareInfoResolver.resolve(temperatureCelsius, cycleCount, powerWatts)
 
         val updatedState = BatteryState(
             healthPercentage = healthPercentage,

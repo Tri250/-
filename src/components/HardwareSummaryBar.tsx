@@ -9,9 +9,11 @@ import { HardwareInfo } from '../types/battery';
 interface HardwareSummaryBarProps {
   hardwareInfo: HardwareInfo;
   deviceName: string;
+  /** 实时协商充电功率 (W)：由 |电压 × 电流| 推导，充电时 > 0 */
+  powerWatts: number;
 }
 
-export function HardwareSummaryBar({ hardwareInfo, deviceName }: HardwareSummaryBarProps) {
+export function HardwareSummaryBar({ hardwareInfo, deviceName, powerWatts }: HardwareSummaryBarProps) {
   const throttleConfig = {
     NORMAL: {
       text: '全频供电 (无节流)',
@@ -98,6 +100,11 @@ export function HardwareSummaryBar({ hardwareInfo, deviceName }: HardwareSummary
           </div>
           <div className="text-xs font-bold text-emerald-400 truncate font-mono">
             {hardwareInfo.fastChargeProtocol}
+          </div>
+          {/* 实时协商功率：与协议额定档位对照，闭环快充链路 (V×I 推导) */}
+          <div className="text-[10px] text-slate-400 mt-0.5 font-mono">
+            协商功率: <span className="text-emerald-300 font-bold">{powerWatts.toFixed(1)} W</span>
+            {powerWatts >= 45 ? ' · 超级快充档' : powerWatts >= 18 ? ' · 快充档' : powerWatts > 0.5 ? ' · 普通档' : ''}
           </div>
         </div>
 

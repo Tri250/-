@@ -23,7 +23,7 @@ internal data class HardwareTelemetry(
  */
 internal object HardwareInfoResolver {
 
-    fun resolve(temperatureCelsius: Float, cycleCount: Int): HardwareTelemetry {
+    fun resolve(temperatureCelsius: Float, cycleCount: Int, powerWatts: Float): HardwareTelemetry {
         // SoC 型号：API 31+ 提供 Build.SOC_MODEL，旧版本回退 Build.HARDWARE
         val rawSoc = if (Build.VERSION.SDK_INT >= 31) Build.SOC_MODEL else ""
         val socModel = when {
@@ -44,11 +44,26 @@ internal object HardwareInfoResolver {
             (cycleCount.coerceAtLeast(0) / 300f) * 1.5f +
             if (temperatureCelsius > 40f) (temperatureCelsius - 40f) * 0.3f else 0f
 
+        // 快充协议：厂商私有协议无公开 API，但充电档位可由实时功率 (V×I) 真实推断，
+        // 与 Web 端档位阈值一致 (≥45W 超级快充 / ≥18W 快充 / >0.5W 普通 / 未充电)
+        val chargeBand = when {
+            powerWatts >= 45f -> "超级快充"
+            powerWatts >= 18f -> "快速充电"
+            powerWatts > 0.5f -> "普通充电"
+            else -> null
+        }
+        val fastChargeProtocol = if (chargeBand != null) {
+            val wattText = String.format(java.util.Locale.US, "%.1f", powerWatts)
+            "实时档位: $chargeBand ($wattText W) · 协议未上报"
+        } else {
+            "系统未上报 (待充电触发协商)"
+        }
+
         return HardwareTelemetry(
             socModel = socModel,
             pmicModel = "系统未上报",
             batteryChemistry = "锂离子电池 (体系未上报)",
-            fastChargeProtocol = "系统未上报",
+            fastChargeProtocol = fastChargeProtocol,
             internalResistanceMohm = (internalResistance * 10f).toInt() / 10f,
             halVersion = "Android ${Build.VERSION.RELEASE} Battery HAL",
             cellStructure = "系统未上报",
