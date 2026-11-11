@@ -4,11 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
-import android.os.Build
-import com.battery.master.data.BatteryHealthQuality
 import com.battery.master.data.BatteryState
-import com.battery.master.data.BatteryStatus
-import kotlin.math.abs
 
 /**
  * Android 原生底层硬件与电量计 HAL 读取器
@@ -78,125 +74,18 @@ class BatteryHardwareReader(private val context: Context) {
             null
         }
 
-        // 5. 电量百分比
-        val level = batteryIntent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
-        val scale = batteryIntent?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
-        val percentage = if (level >= 0 && scale > 0) {
-            (level * 100 / scale)
-        } else {
-            // 部分设备无 BATTERY_PROPERTY_CAPACITY 时返回 Int.MIN_VALUE，需防护
-            val capacityProp = batteryManager?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
-                ?: Int.MIN_VALUE
-            if (capacityProp in 0..100) capacityProp else 0
-        }
+        // 12 项指标统一经共享解析器提取 (与广播通道 BatteryReceiver 单一实现，语义零漂移)
+        val raw = BatteryTelemetryParser.parse(batteryIntent, batteryManager, designCapacityMah)
 
-        // 6. 电池状态 (充电中、放电中、已充满、未充电)
-        val statusInt = batteryIntent?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
-        val status = when (statusInt) {
-            BatteryManager.BATTERY_STATUS_CHARGING -> BatteryStatus.CHARGING
-            BatteryManager.BATTERY_STATUS_DISCHARGING -> BatteryStatus.DISCHARGING
-            BatteryManager.BATTERY_STATUS_FULL -> BatteryStatus.FULL
-            BatteryManager.BATTERY_STATUS_NOT_CHARGING -> BatteryStatus.NOT_CHARGING
-            else -> BatteryStatus.NOT_CHARGING
-        }
+        // 12. 完全充满时的容量：满足判定则锁定+持久化，未满足保留上次锁定值不抹除
+        // 注意：必须先执行锁定 (内部可能刷新时间戳) 再读取 lastFullChargeTimestamp
+        val fullChargeCapacityMah =
+            lockFullChargeIfCriteriaMet(raw.currentCapacityMah, raw.percentage, raw.currentMa)
 
-        // 7. 电池温度：当前电池温度（摄氏度 ℃）
-        val tempTenths = batteryIntent?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 250) ?: 250
-        val temperatureCelsius = tempTenths / 10.0f
-
-        // 8. 电池健康状况 (良好、过热、损坏、超压、未知)
-        val healthInt = batteryIntent?.getIntExtra(BatteryManager.EXTRA_HEALTH, -1) ?: -1
-        val healthQuality = when (healthInt) {
-            BatteryManager.BATTERY_HEALTH_GOOD -> BatteryHealthQuality.GOOD
-            BatteryManager.BATTERY_HEALTH_OVERHEAT -> BatteryHealthQuality.OVERHEAT
-            BatteryManager.BATTERY_HEALTH_DEAD -> BatteryHealthQuality.DEAD
-            BatteryManager.BATTERY_HEALTH_OVER_VOLTAGE -> BatteryHealthQuality.OVER_VOLTAGE
-            else -> BatteryHealthQuality.UNKNOWN
-        }
-
-        // 9. 电压：当前电池电压（毫伏 mV）
-        val voltageMv = batteryIntent?.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 4000) ?: 4000
-
-        // 11. 瞬时电流：当前电池的瞬时电流（毫安 mA）
-        // BATTERY_PROPERTY_CURRENT_NOW 规范返回微安 (μA)，部分旧内核返回毫安 (mA)，需归一化
-        val currentMicroAmp = batteryManager?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)
-            ?: 0
-        val currentNowMa = BatterySysfs.normalizeCurrentToMilliAmps(currentMicroAmp)
-
-        // 10. 循环计数：电池充放电的次数
-        // Android 14+ 原生 API 与 Linux sysfs 双重支持；均不可用时返回 0 (UI 显示"系统未上报")
-        var cycleCount = 0
-        if (Build.VERSION.SDK_INT >= 34) { // Android 14+ 原生 API
-            cycleCount = batteryIntent?.getIntExtra(BatteryManager.EXTRA_CYCLE_COUNT, 0) ?: 0
-        }
-        if (cycleCount <= 0) {
-            cycleCount = BatterySysfs.readInt("/sys/class/power_supply/battery/cycle_count") ?: 0
-        }
-
-        // 3. 电池当前容量（衰减后的容量 mAh）
-        val chargeCounterUah = batteryManager?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER)
-            ?: 0
-        var currentCapacityMah = (designCapacityMah * 0.92f).toInt()
-        val sysfsMaxCapacityUah = BatterySysfs.readInt("/sys/class/power_supply/battery/charge_full")
-        if (sysfsMaxCapacityUah != null && sysfsMaxCapacityUah > 0) {
-            currentCapacityMah = sysfsMaxCapacityUah / 1000
-        }
-
-        // 2. 剩余电量（mAh）
-        // 不变式：剩余电量恒 ≤ 当前可用容量，与 Web 端 (百分比 × 当前容量) 口径一致，
-        // 避免库仑计读数抖动导致指标 2 大于指标 3
-        val remainingCapacityMah = if (chargeCounterUah > 0 && chargeCounterUah != Int.MIN_VALUE) {
-            (chargeCounterUah / 1000).coerceAtMost(currentCapacityMah)
-        } else {
-            (currentCapacityMah * (percentage / 100f)).toInt()
-        }
-
-        // 1. 电池健康度 (%)
-        val healthPercentage = ((currentCapacityMah.toFloat() / designCapacityMah) * 100f).coerceIn(0f, 100f)
-
-        // 12. 完全充满时的容量：估算的电池完全充满时的容量（毫安时）
-        // 核心规则：仅当电量为 100% 且电流在 0-25 mA 之间时，才视为电池充满
-        val isFullChargeConditionMet = (percentage == 100 && currentNowMa in 0..25)
-        val fullChargeCapacityMah = lockFullChargeIfCriteriaMet(currentCapacityMah, percentage, currentNowMa)
-
-        // 计算瞬时功率 (W = V * I)
-        val powerWatts = (voltageMv.toFloat() * abs(currentNowMa)) / 1_000_000f
-
-        // 动态解析硬件信息摘要 (真实可读字段 + 快充档位功率推断 + 诚实未上报标注)
-        val hardware = HardwareInfoResolver.resolve(temperatureCelsius, cycleCount, powerWatts)
-
-        return BatteryState(
-            healthPercentage = healthPercentage,
-            remainingCapacityMah = remainingCapacityMah,
-            currentCapacityMah = currentCapacityMah,
-            designCapacityMah = designCapacityMah,
-            percentage = percentage,
-            status = if (isFullChargeConditionMet) BatteryStatus.FULL else status,
-            temperatureCelsius = temperatureCelsius,
-            healthQuality = healthQuality,
-            voltageMv = voltageMv,
-            cycleCount = cycleCount,
-            currentMa = currentNowMa,
-            fullChargeCapacityMah = fullChargeCapacityMah,
-            lastFullChargeTimestamp = lastFullChargeTimestamp,
-            isFullChargeConditionMet = isFullChargeConditionMet,
-            powerWatts = powerWatts,
-            socModel = hardware.socModel,
-            socVendor = hardware.socVendor,
-            socProcess = hardware.socProcess,
-            socCpu = hardware.socCpu,
-            socGpu = hardware.socGpu,
-            pmicModel = hardware.pmicModel,
-            batteryChemistry = hardware.batteryChemistry,
-            fastChargeProtocol = hardware.fastChargeProtocol,
-            internalResistanceMohm = hardware.internalResistanceMohm,
-            halVersion = hardware.halVersion,
-            cellStructure = hardware.cellStructure,
-            thermalThrottlingState = hardware.thermalThrottlingState
-        )
+        return raw.toBatteryState(fullChargeCapacityMah, lastFullChargeTimestamp)
     }
 
-    /** 安全默认态：任何采集都不可用时 UI 仍有可渲染的中性数据 */
+    /** 安全默认态：任何采集都不可用时 UI 仍有可渲染的中性数据 (保留已锁定的指标 12 不丢失) */
     private fun buildSafeDefaultState(): BatteryState = BatteryState(
         currentCapacityMah = (designCapacityMah * 0.92f).toInt(),
         remainingCapacityMah = 0,
@@ -204,13 +93,17 @@ class BatteryHardwareReader(private val context: Context) {
         temperatureCelsius = 25.0f,
         percentage = 0,
         socModel = "平台 SoC 解析中",
-        pmicModel = "平台级 PMIC 电源管理 [工程估算]"
+        pmicModel = "平台级 PMIC 电源管理 [工程估算]",
+        fullChargeCapacityMah = lastRecordedFullCapacity,
+        lastFullChargeTimestamp = lastFullChargeTimestamp
     )
 
     /**
      * 持久化指标 12 的充满锁定容量与时间戳 (供 ViewModel 模拟充满时调用)
+     * 防御：容量/时间戳非法时拒绝写入，保留上一次有效锁定值，避免脏数据覆盖真实记录
      */
     fun persistFullChargeCapacity(capacityMah: Int, timestampMs: Long) {
+        if (capacityMah <= 0 || timestampMs <= 0) return
         lastRecordedFullCapacity = capacityMah
         lastFullChargeTimestamp = timestampMs
         try {
@@ -232,9 +125,12 @@ class BatteryHardwareReader(private val context: Context) {
      *
      * 写盘去重：仅在进入判定区间的第一拍、或锁定容量发生变化时才持久化；
      * 满足条件期间每秒遥测不再重复写 SharedPreferences (首次锁定时间戳语义保留)。
+     *
+     * 容量守卫：currentCapacityMah 非法 (≤0) 时拒绝锁定，保留上次有效锁定值，
+     * 防止 sysfs 脏数据把 "0 mAh" 写入指标 12 与持久化存储。
      */
     fun lockFullChargeIfCriteriaMet(currentCapacityMah: Int, percentage: Int, currentNowMa: Int): Int? {
-        if (percentage == 100 && currentNowMa in 0..25) {
+        if (BatteryTelemetryParser.isFullChargeCriteriaMet(percentage, currentNowMa) && currentCapacityMah > 0) {
             if (!wasInFullChargeBand || lastRecordedFullCapacity != currentCapacityMah) {
                 persistFullChargeCapacity(currentCapacityMah, System.currentTimeMillis())
             }

@@ -728,17 +728,37 @@ fun FullChargeConditionCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            Text(
-                text = if (state.fullChargeCapacityMah != null) {
-                    "${state.fullChargeCapacityMah} mAh"
-                } else {
-                    "— 未完全充满暂不显示 (需100%且电流0~25mA) —"
-                },
-                fontSize = DesignTokens.Font2xl,
-                fontWeight = FontWeight.Black,
-                fontFamily = FontFamily.Monospace,
-                color = if (state.fullChargeCapacityMah != null) DesignTokens.BrandPrimaryLight else DesignTokens.TextTertiary
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = if (state.fullChargeCapacityMah != null) {
+                        "${state.fullChargeCapacityMah} mAh"
+                    } else {
+                        "— 未完全充满暂不显示 (需100%且电流0~25mA) —"
+                    },
+                    fontSize = DesignTokens.Font2xl,
+                    fontWeight = FontWeight.Black,
+                    fontFamily = FontFamily.Monospace,
+                    color = if (state.fullChargeCapacityMah != null) DesignTokens.BrandPrimaryLight else DesignTokens.TextTertiary
+                )
+                // v1.2.1 自检：锁定值为历史记录 (当前未在判定区间) 时显式标注，
+                // 避免用户把历史锁定容量误读为实时充满值
+                if (state.fullChargeCapacityMah != null && !isFullMet) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Surface(
+                        shape = RoundedCornerShape(DesignTokens.RadiusChip),
+                        color = DesignTokens.BgElevated,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, DesignTokens.Border)
+                    ) {
+                        Text(
+                            text = "历史锁定",
+                            fontSize = DesignTokens.Font2xs,
+                            fontFamily = FontFamily.Monospace,
+                            color = DesignTokens.TextAmberStrong,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+            }
 
             // 上次充满锁定时间 (激活 lastFullChargeTimestamp：持久化值跨重启回显)
             state.lastFullChargeTimestamp?.let { timestamp ->

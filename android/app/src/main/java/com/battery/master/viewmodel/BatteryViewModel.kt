@@ -13,6 +13,7 @@ import com.battery.master.data.BatteryHealthQuality
 import com.battery.master.data.BatteryStatus
 import com.battery.master.receiver.BatteryReceiver
 import com.battery.master.service.BatteryHardwareReader
+import com.battery.master.service.BatteryTelemetryParser
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -60,7 +61,7 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
     // 事件通道：监听系统 ACTION_BATTERY_CHANGED 广播 (与 1 秒轮询互补，共享 Reader 配置)
     private val batteryReceiver = BatteryReceiver(reader) { fresh -> publish(fresh) }
 
-    // 一键模拟充满后的保持期 (毫秒)：期间不覆盖模拟数据，15 秒后恢复真实遥测
+    // 一键模拟充满后的保持期截止时间戳 (毫秒)：期间不覆盖模拟数据，15 秒后恢复真实遥测
     private var simulationHoldUntilMs = 0L
 
     // 模拟保持期剩余秒数 (供 UI 显示倒计时反馈，0 表示无模拟)
@@ -121,8 +122,11 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
     /**
      * 统一发布遥测数据：
      * 1. 模拟保持期内不覆盖 (一键充满演示可持续观察 15 秒)；
-     * 2. 若新数据未满足充满条件、但上一轮已锁定充满容量，
-     *    则保留指标 12 的锁定容量与时间戳不丢失
+     * 2. 硬件实验室模拟中冻结真实遥测覆盖，保持滑杆/场景设定值稳定展示。
+     *
+     * v1.2.1 自检修复：删除旧版"上一轮已锁定则回填"分支——
+     * 锁定容量以 BatteryHardwareReader 为单一数据源 (未满足判定时已自动返回上次锁定值)，
+     * 旧分支会把实验室合成的展示容量泄漏进真实遥测态 (退出实验室后虚假回显)。
      */
     private fun publish(fresh: BatteryState) {
         // 启动闪退治理：发布链路任何异常都不能逃逸到协程 (未捕获异常会直接杀进程)
@@ -131,19 +135,7 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
             // 硬件实验室模拟中：冻结真实遥测覆盖，保持滑杆/场景设定值稳定展示
             if (_labOverride.value != null) return
 
-            val current = _batteryState.value
-            _batteryState.value =
-                if (!fresh.isFullChargeConditionMet &&
-                    current.isFullChargeConditionMet &&
-                    current.fullChargeCapacityMah != null
-                ) {
-                    fresh.copy(
-                        fullChargeCapacityMah = current.fullChargeCapacityMah,
-                        lastFullChargeTimestamp = current.lastFullChargeTimestamp
-                    )
-                } else {
-                    fresh
-                }
+            _batteryState.value = fresh
         } catch (e: Throwable) {
             // 单拍发布失败保留上一帧数据，下一拍自动恢复
         }
@@ -226,6 +218,10 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
         // UI 回调入口兜底：恢复真实遥测失败也不影响 UI 稳定
         try {
             _labOverride.value = null
+            // v1.2.1 自检修复：用户主动退出实验室即要求立即回到真实遥测，
+            // 必须同时取消一键模拟保持期——否则 publish 会在保持期内被拦截，
+            // 退出后界面仍残留实验室合成数据直到保持期自然结束
+            simulationHoldUntilMs = 0L
             publish(reader.readBatteryTelemetry())
         } catch (e: Throwable) {
             // 忽略：下一拍轮询自动恢复
@@ -314,7 +310,8 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
         // UI 回调入口兜底：合成展示态失败时保留上一帧，不逃逸到主线程
         try {
             val base = _batteryState.value
-            val isFullMet = lab.percentage == 100 && lab.currentMa in 0..25
+            // 充满判定统一消费共享谓词 (与真实遥测通道同一实现)
+            val isFullMet = BatteryTelemetryParser.isFullChargeCriteriaMet(lab.percentage, lab.currentMa)
             val effectiveStatus = if (isFullMet) BatteryStatus.FULL else lab.status
             val remaining = (base.currentCapacityMah * (lab.percentage / 100f)).toInt()
             _batteryState.value = base.copy(
@@ -339,24 +336,40 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
     /**
      * 一键模拟完全充满判定条件 (电量 100% 且瞬时电流 0~25mA)
      * 模拟结果同时持久化，保持期结束后锁定容量依然可回显 (指标 12)
+     *
+     * v1.2.1 自检修复：容量非法 (≤0) 时拒绝写入持久化并保留上次有效锁定值，
+     * 同步把剩余电量校准为当前容量，保证"100% 充满"展示态自洽。
      */
     fun triggerFullChargeSimulation() {
         // UI 回调入口兜底
         try {
             val current = _batteryState.value
             val timestamp = System.currentTimeMillis()
-            simulationHoldUntilMs = timestamp + 15_000
-            reader.persistFullChargeCapacity(current.currentCapacityMah, timestamp)
+            simulationHoldUntilMs = timestamp + SIMULATION_HOLD_MS
+            val capacity = current.currentCapacityMah
+            // persistFullChargeCapacity 内部对非法容量/时间戳拒绝写入，保留上次有效锁定
+            reader.persistFullChargeCapacity(capacity, timestamp)
+            val lockedCapacity = if (capacity > 0) capacity else current.fullChargeCapacityMah
             _batteryState.value = current.copy(
                 percentage = 100,
-                currentMa = 16,
+                currentMa = SIMULATED_TRICKLE_CURRENT_MA,
                 status = BatteryStatus.FULL,
                 isFullChargeConditionMet = true,
-                fullChargeCapacityMah = current.currentCapacityMah,
-                lastFullChargeTimestamp = timestamp
+                fullChargeCapacityMah = lockedCapacity,
+                lastFullChargeTimestamp = timestamp,
+                remainingCapacityMah = lockedCapacity ?: current.remainingCapacityMah
             )
         } catch (e: Throwable) {
             // 忽略：保持当前展示数据
         }
+    }
+
+    companion object {
+        /** 一键模拟充满后的保持期 (毫秒) */
+        private const val SIMULATION_HOLD_MS = 15_000L
+
+        /** 一键模拟充满时展示的浮充电流 (mA)：判定区间中值，稳定落在 0~25 mA 截止带内 */
+        private val SIMULATED_TRICKLE_CURRENT_MA =
+            (BatteryTelemetryParser.FULL_CHARGE_TRICKLE_MIN_MA + BatteryTelemetryParser.FULL_CHARGE_TRICKLE_MAX_MA) / 2
     }
 }
