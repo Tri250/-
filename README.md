@@ -65,6 +65,20 @@
 
 ---
 
+## 🧭 整体全量自检与发布加固 (v1.2.2)
+
+对整个项目（Android 端 14 个 Kotlin 源文件 + Web 演示端 + CI 工作流）进行五维全面深度自检审计：
+
+- **稳定性**：全链路 `Throwable` 兜底确认完备——ViewModel 协程（轮询/倒计时）异常吞掉不中断、Receiver 注册失败自动降级轮询、`onCleared` 条件注销防泄漏、sysfs 读取异常返回 null、除零防护覆盖 raw=0/Int.MIN_VALUE 等边界。
+- **性能**：确认 1Hz 轮询无重复昂贵操作——SoC 解析进程内缓存、live protocol 探测 10s TTL、静态硬件信息仅探测一次；Compose 单数据源 StateFlow 驱动，无更新风暴。
+- **兼容性**：`Build.SOC_*` 等 API 全部带 `SDK_INT` 分级守卫（API 31+/34+），sysfs/PMIC 探测异常 ROM 路径全回退，minSdk 26 / targetSdk 35 保持不变。
+- **权限管理**：确认 Manifest 零权限声明（无运行时/敏感权限），`exported` 仅 LAUNCHER Activity，备份规则（`backup_rules` + `dataExtractionRules`）显式排除全部应用数据。
+- **安装与卸载**：`versionCode` 单调递增（7），R8 混淆 + 资源收缩 + PowerProfile 反射保留规则齐全；CI 安装属性自检（aapt2 badging：包名/版本/启动 Activity/图标/应用标签）与 tag↔versionName 一致性强制校验。
+- **Web 端预检**：`npm ci` + `tsc --noEmit` + `vite build` 本地全通过（dist 产物含 index.html + assets）。
+- **版本升级**：versionName 1.2.2 / versionCode 7，覆盖安装兼容旧版（versionCode=1 起单调递增）。
+
+---
+
 ## 👨‍💻 开发者
 
 - **某厂大牛马【带娃的小陈工】** — 抖音 / 小红书 平台
@@ -118,9 +132,9 @@ git push -u origin main
 只要在本地打上 `v*` 格式的版本标签（**必须与 `android/app/build.gradle.kts` 中的 `versionName` 一致**，CI 会强制校验）并推送到 GitHub，GitHub Actions 会自动创建 GitHub Release 并将 APK 文件挂载在 Release 附件中：
 
 ```bash
-# 示例：当前版本 versionName=1.2.1 (versionCode=6)
-git tag v1.2.1
-git push origin v1.2.1
+# 示例：当前版本 versionName=1.2.2 (versionCode=7)
+git tag v1.2.2
+git push origin v1.2.2
 ```
 
 ---
