@@ -9,7 +9,6 @@ import {
   Flame,
   AlertOctagon,
   CheckCircle,
-  BatteryMedium,
   RotateCcw,
   Volume2,
   VolumeX,

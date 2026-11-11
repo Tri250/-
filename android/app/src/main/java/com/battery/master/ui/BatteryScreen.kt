@@ -249,10 +249,11 @@ fun BatteryScreen(
                         modifier = Modifier.weight(1f),
                         number = "11",
                         title = "瞬时电流",
-                        value = "${if (state.currentMa > 0) "+${state.currentMa}" else state.currentMa}",
+                        // 指标 11：经 BatteryState.currentNowMa 别名读取 (激活别名，与 currentMa 同源)
+                        value = "${if (state.currentNowMa > 0) "+${state.currentNowMa}" else state.currentNowMa}",
                         unit = "mA",
                         sub = "功率 ${String.format("%.2f", state.powerWatts)} W",
-                        accentColor = if (state.currentMa > 0) Color(0xFF10B981) else Color(0xFF06B6D4)
+                        accentColor = if (state.currentNowMa > 0) Color(0xFF10B981) else Color(0xFF06B6D4)
                     )
                     CyberMetricCardItem(
                         modifier = Modifier.weight(1f),
@@ -403,7 +404,9 @@ fun CyberHeroBatteryCard(state: BatteryState) {
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // 11. 瞬时电流与功率 (直接消费 State.powerWatts，统一数据源)
+            // 11. 瞬时电流与功率 (指标 11 经 BatteryState.currentNowMa 别名读取，与 currentMa 同源；
+            //    功率直接消费 State.powerWatts，统一数据源)
+            val currentMa = state.currentNowMa
             val powerW = state.powerWatts
             Surface(
                 shape = RoundedCornerShape(8.dp),
@@ -411,7 +414,7 @@ fun CyberHeroBatteryCard(state: BatteryState) {
                 border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1E293B))
             ) {
                 Text(
-                    text = "${if (state.currentMa > 0) "+${state.currentMa}" else state.currentMa} mA · ${String.format("%.2f", powerW)} W · ${(state.voltageMv / 1000f)} V",
+                    text = "${if (currentMa > 0) "+$currentMa" else currentMa} mA · ${String.format("%.2f", powerW)} W · ${(state.voltageMv / 1000f)} V",
                     fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,

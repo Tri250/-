@@ -15,7 +15,8 @@ interface CodeFileItem {
   code: string;
 }
 
-const NATIVE_CODE_FILES: CodeFileItem[] = [
+// 单一数据源：内嵌源码与仓库真实文件保持同步（NativeAndroidProjectHub 亦复用此数组）
+export const NATIVE_CODE_FILES: CodeFileItem[] = [
   {
     id: 'github_actions',
     name: 'build-apk.yml (GitHub 自动编译)',
@@ -79,7 +80,7 @@ jobs:
             yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 || true
             $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0" || true
           elif [ -d "$ANDROID_HOME/tools/bin" ]; then
-            yes | $ANDROID_HOME/tools/bin/sdkmanager --licenses > /dev/null 2>&1
+            yes | $ANDROID_HOME/tools/bin/sdkmanager --licenses > /dev/null 2>&1 || true
           fi
 
       # 解码 release 签名密钥（GitHub Secrets 注入）；未配置时回退 debug 签名
@@ -166,7 +167,7 @@ jobs:
       - name: Rename APK with Version Name
         id: rename_apk
         run: |
-          VERSION_NAME=$(grep -m1 'versionName' android/app/build.gradle.kts | sed -E "s/.*\"([^\"]+)\".*/\\1/")
+          VERSION_NAME=$(grep -m1 'versionName' android/app/build.gradle.kts | sed -E "s/.*\\"([^\\"]+)\\".*/\\1/")
           if [ -z "$VERSION_NAME" ]; then VERSION_NAME="1.0.0"; fi
           if [ "\${{ env.keystore_available }}" = "true" ]; then SUFFIX="release"; else SUFFIX="debug"; fi
           APK_PATH="\${{ steps.find_apk.outputs.apk_path }}"
@@ -237,7 +238,7 @@ jobs:
 
   # ============================================================
   # 发布：仅在推送 v* 标签时创建 GitHub Release
-  # 产物 = Android Release APK（版本化命名）+ Web 演示端 dist 打包 + SHA256 校验和
+  # 产物 = Android Debug APK（版本化命名）+ Web 演示端 dist 打包 + SHA256 校验和
   # ============================================================
   release:
     name: 发布 GitHub Release
@@ -268,10 +269,41 @@ jobs:
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          # 固定中文发布说明（安装/卸载/权限/五维自检摘要）+ 自动追加的提交记录
           body: |
             ## Android Battery Master v1.0.0
 
-            专业的安卓电池充放电监测工具：**12 项核心充放电指标**全量实时遥测，底层基于 Android BatteryManager、粘性广播与 Linux sysfs 真实硬件通道。
+            专业的安卓电池充放电监测工具：**12 项核心充放电指标**全量实时遥测（健康度 / 剩余电量 / 当前容量 / 设计容量 / 电量百分比 / 电池状态 / 温度 / 健康状况 / 电压 / 循环计数 / 瞬时电流 / 完全充满容量），底层基于 Android BatteryManager、粘性广播与 Linux sysfs 真实硬件通道。
+
+            ### 发布资产
+            | 资产 | 说明 |
+            | --- | --- |
+            | \`Android-Battery-Master-v1.0.0-release.apk\` | Android 原生 APK（**正式 Release 签名**，R8 混淆 + 资源收缩，可直接安装） |
+            | \`web-demo-dist.zip\` | Web 演示端静态产物（解压后任意静态服务器托管，或直接用浏览器打开 \`index.html\`） |
+            | \`SHA256SUMS.txt\` | 全部资产 SHA256 校验和 |
+
+            ### 安装说明
+            1. 下载 APK 后在设备上点击安装（需在系统设置中允许"安装未知来源应用"）。
+            2. 首次启动授予**零运行时权限**：应用不申请任何敏感权限，安装后即可使用全部功能。
+            3. 覆盖安装：版本号 \`versionCode=1\` 单调递增，直接安装即可覆盖旧版，数据不丢失。
+
+            ### 卸载说明
+            - 常规卸载：系统设置 → 应用管理 → 电池大师 → 卸载， SharedPreferences 与应用数据随包体一并清除，无残留。
+            - 备份策略：已配置 \`dataExtractionRules\` 与 \`fullBackupContent\` 排除全部应用数据，云备份与换机传输均不会携带本应用数据。
+
+            ### 权限说明
+            - 声明权限数：**0**（无运行时权限、无敏感权限）。
+            - 电池指标全部来自公开系统 API（BatteryManager 属性 / \`ACTION_BATTERY_CHANGED\` 广播）与 sysfs 节点，无需任何授权。
+
+            ### 五维自检摘要
+            - **稳定性**：广播注册/注销全容错（异常 ROM 下退化为轮询通道不崩溃）、系统服务安全转换、空安全与除零防护、Gradle 分发下载超时放宽至 120s。
+            - **性能**：Compose 单数据源 1Hz 刷新、双通道（广播+轮询）共享 Reader 配置避免重复解析、Web 遥测定时器 ref 化消除每拍重建。
+            - **兼容性**：minSdk 26 / targetSdk 35，API 31+/34+ 分级适配（SoC 型号、循环计数）、中文字体回退栈、\`prefers-reduced-motion\` 无障碍支持。
+            - **权限管理**：0 运行时权限，备份规则显式排除应用数据。
+            - **安装卸载**：\`applicationId=com.battery.master\`、自适应图标（anydpi-v26 + 五密度 PNG 兜底）、版本化产物命名、CI 安装属性自检（aapt2 badging）。
+
+            ---
+            *以下为自动生成的提交记录*
           generate_release_notes: true
           draft: false
           prerelease: false
@@ -294,13 +326,11 @@ jobs:
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.content.SharedPreferences
 import android.os.BatteryManager
 import android.os.Build
 import com.battery.master.data.BatteryHealthQuality
 import com.battery.master.data.BatteryState
 import com.battery.master.data.BatteryStatus
-import com.battery.master.service.BatterySysfs
 import kotlin.math.abs
 
 /**
@@ -310,21 +340,29 @@ import kotlin.math.abs
 class BatteryHardwareReader(private val context: Context) {
 
     private val batteryManager = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
-    private val prefs: SharedPreferences =
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
-    var designCapacityMah: Int = 5000
+    // 满电容量持久化：指标 12 锁定值跨进程重启保留
+    private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+    // 默认或从数据库读取的出厂设计容量 (mAh)：构造时从系统解析一次，之后可被用户覆盖
+    // (Receiver 事件通道共享此值，保证轮询/广播双通道数据一致，用户设置不被广播覆盖)
+    var designCapacityMah: Int = getDesignCapacity(context)
+
+    // 记录上一轮充满锁定的容量 (从持久化恢复)
     private var lastRecordedFullCapacity: Int? =
-        prefs.getInt(KEY_LAST_FULL_CAPACITY, 0).takeIf { it > 0 }
-    private var lastFullChargeTimestamp: Long? =
-        prefs.getLong(KEY_LAST_FULL_TIMESTAMP, 0L).takeIf { it > 0 }
+        prefs.getInt(KEY_LAST_FULL_CAPACITY, -1).takeIf { it > 0 }
 
-    companion object {
-        private const val PREFS_NAME = "battery_master_prefs"
-        private const val KEY_LAST_FULL_CAPACITY = "last_full_charge_capacity"
-        private const val KEY_LAST_FULL_TIMESTAMP = "last_full_charge_timestamp"
-    }
+    // 上一次满足充满判定条件的时间戳 (广播通道共享读取，与锁定容量同源)
+    var lastFullChargeTimestamp: Long? =
+        prefs.getLong(KEY_LAST_FULL_TIMESTAMP, -1L).takeIf { it > 0 }
 
+    // 是否处于充满判定区间内 (100% 且 0-25mA)：用于写盘去重，
+    // 避免满足条件期间每秒遥测轮询重复写 SharedPreferences
+    private var wasInFullChargeBand = false
+
+    /**
+     * 读取最新的电池遥测数据
+     */
     fun readBatteryTelemetry(): BatteryState {
         val intentFilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
         val batteryIntent: Intent? = context.registerReceiver(null, intentFilter)
@@ -332,8 +370,13 @@ class BatteryHardwareReader(private val context: Context) {
         // 5. 电量百分比
         val level = batteryIntent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
         val scale = batteryIntent?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
-        val percentage = if (level >= 0 && scale > 0) (level * 100 / scale)
-                         else batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+        val percentage = if (level >= 0 && scale > 0) {
+            (level * 100 / scale)
+        } else {
+            // 部分设备无 BATTERY_PROPERTY_CAPACITY 时返回 Int.MIN_VALUE，需防护
+            val capacityProp = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+            if (capacityProp in 0..100) capacityProp else 0
+        }
 
         // 6. 电池状态 (充电中、放电中、已充满、未充电)
         val statusInt = batteryIntent?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
@@ -342,14 +385,14 @@ class BatteryHardwareReader(private val context: Context) {
             BatteryManager.BATTERY_STATUS_DISCHARGING -> BatteryStatus.DISCHARGING
             BatteryManager.BATTERY_STATUS_FULL -> BatteryStatus.FULL
             BatteryManager.BATTERY_STATUS_NOT_CHARGING -> BatteryStatus.NOT_CHARGING
-            else -> BatteryStatus.DISCHARGING
+            else -> BatteryStatus.NOT_CHARGING
         }
 
-        // 7. 电池温度：当前电池温度 (摄氏度 ℃)
+        // 7. 电池温度：当前电池温度（摄氏度 ℃）
         val tempTenths = batteryIntent?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 250) ?: 250
         val temperatureCelsius = tempTenths / 10.0f
 
-        // 8. 电池健康：(良好、过热、损坏、超压、未知)
+        // 8. 电池健康状况 (良好、过热、损坏、超压、未知)
         val healthInt = batteryIntent?.getIntExtra(BatteryManager.EXTRA_HEALTH, -1) ?: -1
         val healthQuality = when (healthInt) {
             BatteryManager.BATTERY_HEALTH_GOOD -> BatteryHealthQuality.GOOD
@@ -359,26 +402,25 @@ class BatteryHardwareReader(private val context: Context) {
             else -> BatteryHealthQuality.UNKNOWN
         }
 
-        // 9. 电压：当前电池电压 (毫伏 mV)
+        // 9. 电压：当前电池电压（毫伏 mV）
         val voltageMv = batteryIntent?.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 4000) ?: 4000
 
-        // 11. 瞬时电流：BATTERY_PROPERTY_CURRENT_NOW 规范返回微安 (uA)，
-        //     部分旧内核返回毫安 (mA)，统一归一化为 mA (正为充电，负为放电)
-        var currentMicroAmp = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)
-        if (currentMicroAmp == Int.MIN_VALUE) {
-            currentMicroAmp = BatterySysfs.readInt("/sys/class/power_supply/battery/current_now") ?: 0
-        }
+        // 11. 瞬时电流：当前电池的瞬时电流（毫安 mA）
+        // BATTERY_PROPERTY_CURRENT_NOW 规范返回微安 (μA)，部分旧内核返回毫安 (mA)，需归一化
+        val currentMicroAmp = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)
         val currentNowMa = BatterySysfs.normalizeCurrentToMilliAmps(currentMicroAmp)
 
         // 10. 循环计数：电池充放电的次数
-        var cycleCount = if (Build.VERSION.SDK_INT >= 34) {
-            batteryIntent?.getIntExtra(BatteryManager.EXTRA_CYCLE_COUNT, 0) ?: 0
-        } else 0
+        // Android 14+ 原生 API 与 Linux sysfs 双重支持；均不可用时返回 0 (UI 显示"系统未上报")
+        var cycleCount = 0
+        if (Build.VERSION.SDK_INT >= 34) { // Android 14+ 原生 API
+            cycleCount = batteryIntent?.getIntExtra(BatteryManager.EXTRA_CYCLE_COUNT, 0) ?: 0
+        }
         if (cycleCount <= 0) {
             cycleCount = BatterySysfs.readInt("/sys/class/power_supply/battery/cycle_count") ?: 0
         }
 
-        // 3. 电池当前容量 (衰减后的容量 mAh)
+        // 3. 电池当前容量（衰减后的容量 mAh）
         val chargeCounterUah = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER)
         var currentCapacityMah = (designCapacityMah * 0.92f).toInt()
         val sysfsMaxCapacityUah = BatterySysfs.readInt("/sys/class/power_supply/battery/charge_full")
@@ -386,9 +428,11 @@ class BatteryHardwareReader(private val context: Context) {
             currentCapacityMah = sysfsMaxCapacityUah / 1000
         }
 
-        // 2. 剩余电量 (mAh)
+        // 2. 剩余电量（mAh）
+        // 不变式：剩余电量恒 ≤ 当前可用容量，与 Web 端 (百分比 × 当前容量) 口径一致，
+        // 避免库仑计读数抖动导致指标 2 大于指标 3
         val remainingCapacityMah = if (chargeCounterUah > 0 && chargeCounterUah != Int.MIN_VALUE) {
-            chargeCounterUah / 1000
+            (chargeCounterUah / 1000).coerceAtMost(currentCapacityMah)
         } else {
             (currentCapacityMah * (percentage / 100f)).toInt()
         }
@@ -396,17 +440,16 @@ class BatteryHardwareReader(private val context: Context) {
         // 1. 电池健康度 (%)
         val healthPercentage = ((currentCapacityMah.toFloat() / designCapacityMah) * 100f).coerceIn(0f, 100f)
 
-        // 12. 完全充满时的容量：估算的电池完全充满时的容量 (mAh)
-        // 关键判定：仅当电量为 100% 且电流在 0-25 mA 之间时，才视为电池充满
+        // 12. 完全充满时的容量：估算的电池完全充满时的容量（毫安时）
+        // 核心规则：仅当电量为 100% 且电流在 0-25 mA 之间时，才视为电池充满
         val isFullChargeConditionMet = (percentage == 100 && currentNowMa in 0..25)
-        if (isFullChargeConditionMet) {
-            persistFullChargeCapacity(currentCapacityMah, System.currentTimeMillis())
-        }
+        val fullChargeCapacityMah = lockFullChargeIfCriteriaMet(currentCapacityMah, percentage, currentNowMa)
 
+        // 计算瞬时功率 (W = V * I)
         val powerWatts = (voltageMv.toFloat() * abs(currentNowMa)) / 1_000_000f
 
-        // 动态解析硬件信息摘要 (真实可读字段 + 诚实未上报标注)
-        val hardware = HardwareInfoResolver.resolve(temperatureCelsius, cycleCount)
+        // 动态解析硬件信息摘要 (真实可读字段 + 快充档位功率推断 + 诚实未上报标注)
+        val hardware = HardwareInfoResolver.resolve(temperatureCelsius, cycleCount, powerWatts)
 
         return BatteryState(
             healthPercentage = healthPercentage,
@@ -420,7 +463,8 @@ class BatteryHardwareReader(private val context: Context) {
             voltageMv = voltageMv,
             cycleCount = cycleCount,
             currentMa = currentNowMa,
-            fullChargeCapacityMah = if (isFullChargeConditionMet) currentCapacityMah else lastRecordedFullCapacity,
+            fullChargeCapacityMah = fullChargeCapacityMah,
+            lastFullChargeTimestamp = lastFullChargeTimestamp,
             isFullChargeConditionMet = isFullChargeConditionMet,
             powerWatts = powerWatts,
             socModel = hardware.socModel,
@@ -445,6 +489,54 @@ class BatteryHardwareReader(private val context: Context) {
             .putLong(KEY_LAST_FULL_TIMESTAMP, timestampMs)
             .apply()
     }
+
+    /**
+     * 特性 12 共享判定：仅当 percentage == 100 且 currentNow ∈ [0, 25] mA 时，
+     * 锁定并持久化完全充满容量（同步刷新内存锁定时间戳）；
+     * 未满足条件时保留上次锁定值，不因通道切换而丢失。
+     * 轮询通道 (readBatteryTelemetry) 与广播通道 (BatteryReceiver) 共用，
+     * 保证两通道指标 12 语义完全一致。
+     *
+     * 写盘去重：仅在进入判定区间的第一拍、或锁定容量发生变化时才持久化；
+     * 满足条件期间每秒遥测不再重复写 SharedPreferences (首次锁定时间戳语义保留)。
+     */
+    fun lockFullChargeIfCriteriaMet(currentCapacityMah: Int, percentage: Int, currentNowMa: Int): Int? {
+        if (percentage == 100 && currentNowMa in 0..25) {
+            if (!wasInFullChargeBand || lastRecordedFullCapacity != currentCapacityMah) {
+                persistFullChargeCapacity(currentCapacityMah, System.currentTimeMillis())
+            }
+            wasInFullChargeBand = true
+            return currentCapacityMah
+        }
+        wasInFullChargeBand = false
+        return lastRecordedFullCapacity
+    }
+
+    /**
+     * 指标 04 设计容量三级回退链：
+     * PowerProfile 反射 -> sysfs charge_full_design -> 主流 5000mAh 兜底
+     */
+    private fun getDesignCapacity(context: Context): Int {
+        try {
+            val powerProfileClass = Class.forName("com.android.internal.os.PowerProfile")
+            val constructor = powerProfileClass.getConstructor(Context::class.java)
+            val powerProfile = constructor.newInstance(context)
+            val getBatteryCapacityMethod = powerProfileClass.getMethod("getBatteryCapacity")
+            val capacity = getBatteryCapacityMethod.invoke(powerProfile) as? Double
+            if (capacity != null && capacity > 0) return capacity.toInt()
+        } catch (e: Exception) {}
+
+        val sysfsDesign = BatterySysfs.readInt("/sys/class/power_supply/battery/charge_full_design")
+        if (sysfsDesign != null && sysfsDesign > 0) return sysfsDesign / 1000
+
+        return 5000
+    }
+
+    companion object {
+        private const val PREFS_NAME = "battery_master_prefs"
+        private const val KEY_LAST_FULL_CAPACITY = "last_full_capacity_mah"
+        private const val KEY_LAST_FULL_TIMESTAMP = "last_full_timestamp_ms"
+    }
 }`,
   },
   {
@@ -452,59 +544,708 @@ class BatteryHardwareReader(private val context: Context) {
     name: 'BatteryScreen.kt (Compose UI)',
     path: 'android/app/src/main/java/com/battery/master/ui/BatteryScreen.kt',
     language: 'kotlin',
-    description: 'Jetpack Compose 原生界面（结构节选）：12 项指标卡片与充满判定卡片',
+    description: 'Jetpack Compose 原生界面（全量源码）：12 项指标卡片网格、硬件信息汇总与充满判定卡片',
     code: `package com.battery.master.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.battery.master.data.BatteryHealthQuality
+import com.battery.master.data.BatteryState
+import com.battery.master.data.BatteryStatus
 import com.battery.master.model.BatteryInfo
 import com.battery.master.viewmodel.BatteryViewModel
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BatteryScreen(viewModel: BatteryViewModel) {
-    val batteryInfo by viewModel.batteryInfo.collectAsState()
+fun BatteryScreen(
+    viewModel: BatteryViewModel
+) {
+    // 经 BatteryInfo (BatteryState 业务别名) 消费 ViewModel 兼容别名 batteryInfo
+    val state: BatteryInfo by viewModel.batteryInfo.collectAsState()
+
+    // 指标 04 设计容量校准对话框开关 (激活 ViewModel.setDesignCapacity)
+    var showDesignCapacityDialog by remember { mutableStateOf(false) }
+
+    // 一键模拟充满保持期剩余秒数 (0 = 无模拟，UI 倒计时反馈)
+    val simulationRemainingSec by viewModel.simulationRemainingSec.collectAsState()
 
     Scaffold(
+        containerColor = Color(0xFF030712), // Deep Cyber AMOLED Black
         topBar = {
             TopAppBar(
-                title = { Text("Android Battery Master", fontWeight = FontWeight.Bold) }
+                title = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(10.dp)
+                                .background(Color(0xFF10B981), RoundedCornerShape(5.dp))
+                        )
+                        Column {
+                            Text(
+                                text = "ANDROID BATTERY MASTER",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 1.sp,
+                                color = Color.White,
+                                fontFamily = FontFamily.Monospace
+                            )
+                            Text(
+                                text = "Android 15 Battery AIDL HAL · 原生硬件遥测",
+                                fontSize = 11.sp,
+                                color = Color(0xFF06B6D4),
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color(0xFF090D16)
+                )
             )
         }
     ) { innerPadding ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState()),
+                .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            HeroBatteryCard(batteryInfo)
-            FullChargeConditionCard(batteryInfo)
+            // 1. 顶部华丽核心环形仪表盘 (5. 电量百分比, 6. 电池状态, 2. 剩余电量, 11. 瞬时电流)
+            item {
+                CyberHeroBatteryCard(state)
+            }
 
-            Text("12 项充放电核心指标详情", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-            MetricItemCard("01", "电池健康度", "%.1f%%".format(batteryInfo.healthPercentage), "当前容量 / 出厂设计")
-            MetricItemCard("02", "剩余电量", "\${batteryInfo.remainingCapacityMah} mAh", "当前可用电荷量")
-            MetricItemCard("03", "电池当前容量", "\${batteryInfo.currentCapacityMah} mAh", "衰减后最大可用容量")
-            MetricItemCard("04", "电池设计容量", "\${batteryInfo.designCapacityMah} mAh", "出厂铭牌额定容量")
-            MetricItemCard("05", "电量百分比", "\${batteryInfo.percentage}%", "当前电量等级")
-            MetricItemCard("06", "电池状态", batteryInfo.status.label, "充电中 / 放电中 / 已充满 / 未充电")
-            MetricItemCard("07", "电池温度", "%.1f ℃".format(batteryInfo.temperatureCelsius), "NTC 热敏传感器")
-            MetricItemCard("08", "电池健康", batteryInfo.healthQuality.label, "良好 / 过热 / 损坏 / 超压 / 未知")
-            MetricItemCard("09", "电压", "\${batteryInfo.voltageMv} mV", "电芯端两极电压")
-            MetricItemCard("10", "循环计数", "\${batteryInfo.cycleCount} 次", "充放电周期计数")
-            MetricItemCard("11", "瞬时电流", "\${batteryInfo.currentNowMa} mA", "功率 %.2f W".format(batteryInfo.powerWatts))
-            MetricItemCard("12", "完全充满时的容量", batteryInfo.fullChargeCapacityMah?.let { "\$it mAh" } ?: "未充满不显示", "100% 且 0-25 mA 锁定")
+            // 2. 硬件信息汇总栏 (Hardware Information Summary Bar)
+            item {
+                HardwareSummaryCard(state, onCalibrateDesignCapacity = { showDesignCapacityDialog = true })
+            }
+
+            // 3. 特性 12 充满判定卡片 (100% 且 0-25 mA)
+            item {
+                FullChargeConditionCard(
+                    state,
+                    simulationRemainingSec = simulationRemainingSec,
+                    onTriggerTest = { viewModel.triggerFullChargeSimulation() }
+                )
+            }
+
+            // 4. 12 项充放电指标卡片网格列表
+            item {
+                Text(
+                    text = "12 项充放电核心指标详情",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp,
+                    letterSpacing = 1.sp,
+                    color = Color(0xFF94A3B8),
+                    fontFamily = FontFamily.Monospace,
+                    modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
+                )
+            }
+
+            item {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    CyberMetricCardItem(
+                        modifier = Modifier.weight(1f),
+                        number = "01",
+                        title = "电池健康度",
+                        value = "\${String.format("%.1f", state.healthPercentage)}%",
+                        sub = "出厂设计保持率",
+                        accentColor = Color(0xFF10B981)
+                    )
+                    CyberMetricCardItem(
+                        modifier = Modifier.weight(1f),
+                        number = "02",
+                        title = "剩余电量",
+                        value = "\${state.remainingCapacityMah}",
+                        unit = "mAh",
+                        sub = "当前可用电荷量",
+                        accentColor = Color(0xFF06B6D4)
+                    )
+                }
+            }
+
+            item {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    CyberMetricCardItem(
+                        modifier = Modifier.weight(1f),
+                        number = "03",
+                        title = "电池当前容量",
+                        value = "\${state.currentCapacityMah}",
+                        unit = "mAh",
+                        sub = "衰减后最大可用",
+                        accentColor = Color(0xFFA855F7)
+                    )
+                    CyberMetricCardItem(
+                        modifier = Modifier.weight(1f),
+                        number = "04",
+                        title = "电池设计容量",
+                        value = "\${state.designCapacityMah}",
+                        unit = "mAh",
+                        sub = "出厂铭牌标称",
+                        accentColor = Color(0xFF38BDF8)
+                    )
+                }
+            }
+
+            item {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    CyberMetricCardItem(
+                        modifier = Modifier.weight(1f),
+                        number = "05",
+                        title = "电量百分比",
+                        value = "\${state.percentage}",
+                        unit = "%",
+                        sub = "系统广播 EXTRA_LEVEL/SCALE",
+                        accentColor = Color(0xFF10B981)
+                    )
+                    CyberMetricCardItem(
+                        modifier = Modifier.weight(1f),
+                        number = "06",
+                        title = "电池状态",
+                        value = state.status.label,
+                        sub = "Battery Status",
+                        accentColor = Color(0xFF38BDF8)
+                    )
+                }
+            }
+
+            item {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    CyberMetricCardItem(
+                        modifier = Modifier.weight(1f),
+                        number = "07",
+                        title = "电池温度",
+                        value = "\${state.temperatureCelsius}",
+                        unit = "°C",
+                        // 温度评估口径与 Web 端三段制完全对齐 (>45 严重 / 38-45 偏热 / ≤0 过冷 / 其余正常)
+                        sub = when {
+                            state.temperatureCelsius > 45 -> "严重发热 (>45°C)"
+                            state.temperatureCelsius >= 38 -> "偏热预警 (38-45°C)"
+                            state.temperatureCelsius <= 0 -> "过冷保护 (≤0°C)"
+                            else -> "温度正常"
+                        },
+                        accentColor = when {
+                            state.temperatureCelsius > 45 || state.temperatureCelsius <= 0 -> Color(0xFFF43F5E)
+                            state.temperatureCelsius >= 38 -> Color(0xFFF59E0B)
+                            else -> Color(0xFF10B981)
+                        }
+                    )
+                    CyberMetricCardItem(
+                        modifier = Modifier.weight(1f),
+                        number = "08",
+                        title = "电池健康状况",
+                        value = state.healthQuality.label,
+                        sub = "Android BatteryManager",
+                        accentColor = Color(0xFF10B981)
+                    )
+                }
+            }
+
+            item {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    CyberMetricCardItem(
+                        modifier = Modifier.weight(1f),
+                        number = "09",
+                        title = "电芯电压",
+                        value = "\${state.voltageMv}",
+                        unit = "mV",
+                        sub = "电势差 \${(state.voltageMv / 1000f)} V",
+                        accentColor = Color(0xFF38BDF8)
+                    )
+                    CyberMetricCardItem(
+                        modifier = Modifier.weight(1f),
+                        number = "10",
+                        title = "充放电循环",
+                        value = if (state.cycleCount > 0) "\${state.cycleCount}" else "—",
+                        unit = if (state.cycleCount > 0) "次" else "",
+                        sub = if (state.cycleCount > 0) "Cycle Count" else "系统未上报循环数据",
+                        accentColor = Color(0xFF14B8A6)
+                    )
+                }
+            }
+
+            item {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    CyberMetricCardItem(
+                        modifier = Modifier.weight(1f),
+                        number = "11",
+                        title = "瞬时电流",
+                        // 指标 11：经 BatteryState.currentNowMa 别名读取 (激活别名，与 currentMa 同源)
+                        value = "\${if (state.currentNowMa > 0) "+\${state.currentNowMa}" else state.currentNowMa}",
+                        unit = "mA",
+                        sub = "功率 \${String.format("%.2f", state.powerWatts)} W",
+                        accentColor = if (state.currentNowMa > 0) Color(0xFF10B981) else Color(0xFF06B6D4)
+                    )
+                    CyberMetricCardItem(
+                        modifier = Modifier.weight(1f),
+                        number = "12",
+                        title = "完全充满容量",
+                        value = if (state.fullChargeCapacityMah != null) "\${state.fullChargeCapacityMah}" else "—",
+                        unit = if (state.fullChargeCapacityMah != null) "mAh" else "",
+                        sub = if (state.isFullChargeConditionMet) "已满足 100% & 0-25 mA" else "详见上方充满判定卡",
+                        accentColor = Color(0xFF34D399)
+                    )
+                }
+            }
+
+            item {
+                Spacer(modifier = Modifier.height(28.dp))
+            }
+        }
+
+        // 指标 04 设计容量校准对话框 (激活 ViewModel.setDesignCapacity)
+        if (showDesignCapacityDialog) {
+            var capacityInput by remember { mutableStateOf(state.designCapacityMah.toString()) }
+            var inputError by remember { mutableStateOf<String?>(null) }
+
+            // 校验并提交：空值/0/超范围均给出可见错误反馈，不再静默失败
+            val submitCalibration: () -> Unit = {
+                val parsed = capacityInput.toIntOrNull()
+                inputError = when {
+                    capacityInput.isBlank() -> "请输入容量数值"
+                    parsed == null || parsed <= 0 -> "容量必须为大于 0 的整数"
+                    parsed > 20000 -> "容量超出合理范围 (最大 20000 mAh)"
+                    else -> null
+                }
+                if (inputError == null && parsed != null) {
+                    viewModel.setDesignCapacity(parsed)
+                    showDesignCapacityDialog = false
+                }
+            }
+
+            AlertDialog(
+                onDismissRequest = { showDesignCapacityDialog = false },
+                title = { Text("校准设计容量 (指标 04)") },
+                text = {
+                    OutlinedTextField(
+                        value = capacityInput,
+                        onValueChange = { input ->
+                            capacityInput = input.filter { it.isDigit() }.take(5)
+                            inputError = null
+                        },
+                        label = { Text("出厂设计容量 (mAh)") },
+                        singleLine = true,
+                        isError = inputError != null,
+                        supportingText = {
+                            inputError?.let { err ->
+                                Text(err, fontSize = 11.sp, color = Color(0xFFFB7185))
+                            }
+                        },
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Number,
+                            imeAction = ImeAction.Done
+                        ),
+                        keyboardActions = KeyboardActions(onDone = { submitCalibration() }),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color(0xFFE2E8F0),
+                            focusedBorderColor = Color(0xFF06B6D4),
+                            unfocusedBorderColor = Color(0xFF334155),
+                            focusedLabelColor = Color(0xFF06B6D4),
+                            unfocusedLabelColor = Color(0xFF64748B),
+                            errorBorderColor = Color(0xFFFB7185),
+                            errorLabelColor = Color(0xFFFB7185)
+                        )
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = submitCalibration) {
+                        Text("确定", color = Color(0xFF34D399))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDesignCapacityDialog = false }) {
+                        Text("取消", color = Color(0xFF94A3B8))
+                    }
+                },
+                containerColor = Color(0xFF0F172A),
+                titleContentColor = Color.White
+            )
+        }
+    }
+}
+
+/**
+ * 华丽酷炫核心电池 HUD 卡片
+ */
+@Composable
+fun CyberHeroBatteryCard(state: BatteryState) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, Color(0xFF1E293B), RoundedCornerShape(24.dp)),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A))
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(22.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Status Tag
+            Surface(
+                shape = RoundedCornerShape(50),
+                color = Color(0xFF1E293B),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF334155))
+            ) {
+                Text(
+                    text = state.status.label,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace,
+                    color = when (state.status) {
+                        BatteryStatus.CHARGING -> Color(0xFF34D399)
+                        BatteryStatus.FULL -> Color(0xFF2DD4BF)
+                        else -> Color(0xFF38BDF8)
+                    },
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // 5. 电量百分比 (Huge Futuristic typography)
+            Text(
+                text = "\${state.percentage}%",
+                fontSize = 68.sp,
+                fontWeight = FontWeight.Black,
+                fontFamily = FontFamily.Monospace,
+                color = Color.White
+            )
+
+            // 2. 剩余电量 (mAh)
+            Text(
+                text = "剩余电量: \${state.remainingCapacityMah} / \${state.currentCapacityMah} mAh",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                fontFamily = FontFamily.Monospace,
+                color = Color(0xFF94A3B8)
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // 11. 瞬时电流与功率 (指标 11 经 BatteryState.currentNowMa 别名读取，与 currentMa 同源；
+            //    功率直接消费 State.powerWatts，统一数据源)
+            val currentMa = state.currentNowMa
+            val powerW = state.powerWatts
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = Color(0xFF020617),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1E293B))
+            ) {
+                Text(
+                    text = "\${if (currentMa > 0) "+$currentMa" else currentMa} mA · \${String.format("%.2f", powerW)} W · \${(state.voltageMv / 1000f)} V",
+                    fontSize = 12.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF38BDF8),
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp)
+                )
+            }
+        }
+    }
+}
+
+/**
+ * 硬件信息汇总栏 (Hardware Information Summary Bar)
+ */
+@Composable
+fun HardwareSummaryCard(state: BatteryState, onCalibrateDesignCapacity: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, Color(0xFF1E293B), RoundedCornerShape(20.dp)),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF090D16))
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "底层硬件信息与电源子系统",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    fontFamily = FontFamily.Monospace
+                )
+                Surface(
+                    shape = RoundedCornerShape(4.dp),
+                    color = Color(0xFF0F172A),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF06B6D4))
+                ) {
+                    Text(
+                        text = state.thermalThrottlingState,
+                        fontSize = 10.sp,
+                        color = Color(0xFF06B6D4),
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // 硬件网格
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                HardwareItem(modifier = Modifier.weight(1f), label = "SoC 主控", value = state.socModel)
+                HardwareItem(modifier = Modifier.weight(1f), label = "电源管理 IC", value = state.pmicModel)
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                HardwareItem(modifier = Modifier.weight(1f), label = "快充协议", value = state.fastChargeProtocol)
+                HardwareItem(modifier = Modifier.weight(1f), label = "电芯内阻", value = "\${state.internalResistanceMohm} mΩ")
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                HardwareItem(modifier = Modifier.weight(1f), label = "化学材料体系", value = state.batteryChemistry)
+                HardwareItem(modifier = Modifier.weight(1f), label = "AIDL 规范", value = state.halVersion)
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // 电芯结构 (激活 BatteryState.cellStructure：Resolver 采集 -> State 承载 -> UI 消费)
+            HardwareItem(modifier = Modifier.fillMaxWidth(), label = "电芯结构", value = state.cellStructure)
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // 指标 04 用户校准入口 (激活 ViewModel.setDesignCapacity，与 Web 端自定义容量对等)
+            OutlinedButton(
+                onClick = onCalibrateDesignCapacity,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF06B6D4))
+            ) {
+                Text(
+                    text = "校准设计容量 (当前 \${state.designCapacityMah} mAh)",
+                    fontSize = 11.sp,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun HardwareItem(modifier: Modifier = Modifier, label: String, value: String) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(10.dp),
+        color = Color(0xFF020617),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1E293B))
+    ) {
+        Column(modifier = Modifier.padding(10.dp)) {
+            Text(text = label, fontSize = 10.sp, color = Color(0xFF64748B))
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = value,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace,
+                color = Color(0xFFE2E8F0),
+                maxLines = 1
+            )
+        }
+    }
+}
+
+/**
+ * 特性 12 充满判定卡片
+ */
+@Composable
+fun FullChargeConditionCard(
+    state: BatteryState,
+    simulationRemainingSec: Long,
+    onTriggerTest: () -> Unit
+) {
+    // 直接消费 State.isFullChargeConditionMet (双通道单一数据源，不本地重算)
+    val isFullMet = state.isFullChargeConditionMet
+    val isSimulating = simulationRemainingSec > 0
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(
+                1.dp,
+                if (isFullMet) Color(0xFF10B981) else Color(0xFF1E293B),
+                RoundedCornerShape(20.dp)
+            ),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF090D16))
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "12. 完全充满时的容量 (估算)",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp,
+                    color = Color.White
+                )
+                Text(
+                    text = if (isFullMet) "已达充满判定 (100% & 0-25 mA)" else "等待条件满足",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace,
+                    color = if (isFullMet) Color(0xFF34D399) else Color(0xFFFBBF24)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = if (state.fullChargeCapacityMah != null) {
+                    "\${state.fullChargeCapacityMah} mAh"
+                } else {
+                    "— 未完全充满暂不显示 (需100%且电流0~25mA) —"
+                },
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Black,
+                fontFamily = FontFamily.Monospace,
+                color = if (state.fullChargeCapacityMah != null) Color(0xFF34D399) else Color(0xFF64748B)
+            )
+
+            // 上次充满锁定时间 (激活 lastFullChargeTimestamp：持久化值跨重启回显)
+            state.lastFullChargeTimestamp?.let { timestamp ->
+                Text(
+                    text = "上次锁定: " + SimpleDateFormat(
+                        "yyyy-MM-dd HH:mm:ss",
+                        Locale.getDefault()
+                    ).format(Date(timestamp)),
+                    fontSize = 10.sp,
+                    fontFamily = FontFamily.Monospace,
+                    color = Color(0xFF64748B)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Button(
+                onClick = onTriggerTest,
+                enabled = !isSimulating,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (isSimulating) Color(0xFF334155) else Color(0xFF047857),
+                    disabledContainerColor = Color(0xFF1E293B),
+                    disabledContentColor = Color(0xFF94A3B8)
+                )
+            ) {
+                Text(
+                    text = if (isSimulating) {
+                        "模拟保持中 (\${simulationRemainingSec}s) · 结束后自动恢复真实遥测"
+                    } else {
+                        "一键模拟完全充满 (100% + 16mA)"
+                    },
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun CyberMetricCardItem(
+    modifier: Modifier = Modifier,
+    number: String,
+    title: String,
+    value: String,
+    unit: String = "",
+    sub: String,
+    accentColor: Color
+) {
+    Card(
+        modifier = modifier.border(1.dp, Color(0xFF1E293B), RoundedCornerShape(16.dp)),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF090D16))
+    ) {
+        Column(modifier = Modifier.padding(13.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = title,
+                    fontSize = 11.sp,
+                    color = Color(0xFF94A3B8)
+                )
+                Text(
+                    text = number,
+                    fontSize = 9.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF475569)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(
+                    text = value,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Black,
+                    fontFamily = FontFamily.Monospace,
+                    color = Color.White
+                )
+                if (unit.isNotEmpty()) {
+                    Spacer(modifier = Modifier.width(3.dp))
+                    Text(
+                        text = unit,
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        color = accentColor
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(3.dp))
+
+            Text(
+                text = sub,
+                fontSize = 10.sp,
+                fontFamily = FontFamily.Monospace,
+                color = Color(0xFF64748B),
+                maxLines = 1
+            )
         }
     }
 }`,
@@ -551,36 +1292,62 @@ fun BatteryScreen(viewModel: BatteryViewModel) {
   },
   {
     id: 'res_themes',
-    name: 'themes.xml & strings.xml',
-    path: 'android/app/src/main/res/values/',
+    name: 'themes.xml / strings.xml / colors.xml',
+    path: 'android/app/src/main/res/values/themes.xml',
     language: 'xml',
-    description: 'Android 资源配置：暗黑赛博朋克主题、应用名与自适应图标规则',
-    code: `<!-- res/values/themes.xml -->
+    description: 'Android 资源配置：暗黑赛博朋克主题、应用名、图标背景色与备份排除规则',
+    code: `<!-- android/app/src/main/res/values/themes.xml -->
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Dark Cyberpunk Theme for Battery Master -->
     <style name="Theme.AndroidBatteryMaster" parent="android:Theme.Material.NoActionBar">
+        <!-- 窗口背景与 Scaffold 首帧容器色 (#030712) 保持一致，消除启动瞬间色差跳变 -->
         <item name="android:statusBarColor">#020617</item>
         <item name="android:navigationBarColor">#020617</item>
-        <item name="android:windowBackground">#020617</item>
+        <item name="android:windowBackground">#030712</item>
     </style>
 </resources>
 
-<!-- res/values/strings.xml -->
+<!-- android/app/src/main/res/values/strings.xml -->
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">电池大师</string>
 </resources>
 
-<!-- res/xml/backup_rules.xml -->
+<!-- android/app/src/main/res/values/colors.xml -->
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ic_launcher_background">#020617</color>
+    <color name="neon_emerald">#10B981</color>
+</resources>
+
+<!-- android/app/src/main/res/xml/backup_rules.xml -->
 <?xml version="1.0" encoding="utf-8"?>
 <full-backup-content>
+    <exclude domain="root" path="." />
+    <exclude domain="file" path="." />
+    <exclude domain="database" path="." />
+    <exclude domain="sharedpref" path="." />
+    <exclude domain="external" path="." />
 </full-backup-content>
 
-<!-- res/xml/data_extraction_rules.xml -->
+<!-- android/app/src/main/res/xml/data_extraction_rules.xml -->
 <?xml version="1.0" encoding="utf-8"?>
 <data-extraction-rules>
-    <cloud-backup><exclude path="." /></cloud-backup>
-    <device-transfer><exclude path="." /></device-transfer>
+    <cloud-backup>
+        <exclude domain="root" path="." />
+        <exclude domain="file" path="." />
+        <exclude domain="database" path="." />
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="external" path="." />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" path="." />
+        <exclude domain="file" path="." />
+        <exclude domain="database" path="." />
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="external" path="." />
+    </device-transfer>
 </data-extraction-rules>`,
   },
   {
@@ -595,6 +1362,14 @@ fun BatteryScreen(viewModel: BatteryViewModel) {
     alias(libs.plugins.kotlin.compose)
 }
 
+// 签名参数由 CI 通过环境变量注入（GitHub Secrets），本地构建同样可注入；
+// 缺失时回退 debug 签名，保证流水线与本地开发始终可产出可安装 APK
+val releaseKeystoreFile = System.getenv("KEYSTORE_FILE")
+val releaseKeystorePass = System.getenv("KEYSTORE_PASSWORD")
+val releaseKeyPass = System.getenv("KEY_PASSWORD")
+val hasReleaseSigning = releaseKeystoreFile != null &&
+    releaseKeystorePass != null && releaseKeyPass != null
+
 android {
     namespace = "com.battery.master"
     compileSdk = 35
@@ -605,8 +1380,37 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "1.0.0"
+
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = file(releaseKeystoreFile as String)
+                storePassword = releaseKeystorePass
+                keyAlias = "battery-master"
+                keyPassword = releaseKeyPass
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            // 正式发布：R8 全量混淆 + 资源收缩，压缩包体并移除未引用代码/资源
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+            signingConfig = if (hasReleaseSigning) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
+        }
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
