@@ -31,6 +31,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.battery.master.BuildConfig
 import com.battery.master.data.BatteryHealthQuality
 import com.battery.master.data.BatteryState
 import com.battery.master.data.BatteryStatus
@@ -74,15 +75,15 @@ fun BatteryScreen(
                         )
                         Column {
                             Text(
-                                text = "ANDROID BATTERY MASTER",
-                                fontSize = DesignTokens.FontSm,
+                                text = "电池大师",
+                                fontSize = DesignTokens.FontXl,
                                 fontWeight = FontWeight.Black,
-                                letterSpacing = 1.sp,
+                                letterSpacing = 2.sp,
                                 color = Color.White,
                                 fontFamily = FontFamily.Monospace
                             )
                             Text(
-                                text = "Android 15 Battery AIDL HAL · 原生硬件遥测",
+                                text = "Android 15 电池 AIDL 硬件抽象层 · 原生硬件遥测",
                                 fontSize = DesignTokens.Font2xs,
                                 color = DesignTokens.AccentCyanDark,
                                 fontFamily = FontFamily.Monospace
@@ -314,6 +315,11 @@ fun BatteryScreen(
                         accentColor = DesignTokens.BrandPrimaryLight
                     )
                 }
+            }
+
+            // 5. 关于 APP 功能说明 (版本号经 BuildConfig 单源注入)
+            item {
+                AboutAppCard()
             }
 
             item {
@@ -863,6 +869,110 @@ fun CyberMetricCardItem(
                 fontFamily = FontFamily.Monospace,
                 color = DesignTokens.TextTertiary,
                 maxLines = 1
+            )
+        }
+    }
+}
+
+// ============================================================
+// 关于 APP 功能说明卡片
+// 版本信息经 BuildConfig 单源注入 (build.gradle.kts defaultConfig)
+// ============================================================
+@Composable
+fun AboutAppCard() {
+    val featureLines = listOf(
+        "12 项核心充放电指标全量实时遥测：健康度 / 剩余电量 / 当前容量 / 设计容量 / 电量百分比 / 电池状态 / 温度 / 健康状况 / 电压 / 循环计数 / 瞬时电流 / 完全充满容量",
+        "完全充满判定：电量 100% 且瞬时电流回落至 0~25 mA 浮充截止区间时，自动锁定实际充满容量并跨会话保存",
+        "硬件实验室：一键场景模拟（充满校准 / 极速闪充 / 高负载放电 / 过热警报）与六组滑杆调参，随时一键恢复真实硬件遥测",
+        "硬件信息解析：SoC 主控五字段档案（型号 / 厂商 / 制程 / CPU / GPU）与 PMIC 型号、快充协议、电芯结构三级回退检测",
+        "数据来源：系统 BatteryManager 公开接口、ACTION_BATTERY_CHANGED 粘性广播与 sysfs 真实硬件通道，全部本地计算，不上传任何数据",
+        "零权限声明：不申请任何运行时或敏感权限，安装即可使用全部功能"
+    )
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, DesignTokens.Border, RoundedCornerShape(DesignTokens.RadiusPanel)),
+        shape = RoundedCornerShape(DesignTokens.RadiusPanel),
+        colors = CardDefaults.cardColors(containerColor = DesignTokens.BgSurface)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "关于 APP",
+                    fontSize = DesignTokens.FontXs,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    fontFamily = FontFamily.Monospace
+                )
+                Surface(
+                    shape = RoundedCornerShape(DesignTokens.RadiusChip),
+                    color = DesignTokens.BgElevated,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, DesignTokens.BrandPrimary)
+                ) {
+                    Text(
+                        text = "v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                        fontSize = DesignTokens.Font2xs,
+                        color = DesignTokens.BrandPrimary,
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Text(
+                text = "电池大师 — 专业安卓电池充放电监测工具",
+                fontSize = DesignTokens.Font2xs,
+                color = DesignTokens.TextSecondary,
+                fontFamily = FontFamily.Monospace
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            featureLines.forEach { line ->
+                Row(modifier = Modifier.padding(vertical = 3.dp)) {
+                    Text(
+                        text = "• ",
+                        fontSize = DesignTokens.Font2xs,
+                        color = DesignTokens.BrandPrimary,
+                        fontFamily = FontFamily.Monospace
+                    )
+                    Text(
+                        text = line,
+                        fontSize = DesignTokens.Font2xs,
+                        color = DesignTokens.TextTertiary,
+                        fontFamily = FontFamily.Monospace,
+                        lineHeight = DesignTokens.FontXs
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            HorizontalDivider(color = DesignTokens.Border, thickness = 1.dp)
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Text(
+                text = "开发者：某厂大牛马【带娃的小陈工】",
+                fontSize = DesignTokens.Font2xs,
+                fontWeight = FontWeight.Bold,
+                color = DesignTokens.TextSecondary,
+                fontFamily = FontFamily.Monospace
+            )
+            Text(
+                text = "抖音 / 小红书 平台",
+                fontSize = DesignTokens.Font2xs,
+                color = DesignTokens.TextTertiary,
+                fontFamily = FontFamily.Monospace
             )
         }
     }

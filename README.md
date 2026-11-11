@@ -79,6 +79,15 @@
 
 ---
 
+## 🖥️ 界面中文化与关于卡片 (v1.2.3)
+
+- **首屏标题中文化**：顶栏主标题 `ANDROID BATTERY MASTER` → **电池大师**，副标题 `Android 15 Battery AIDL HAL · 原生硬件遥测` → **Android 15 电池 AIDL 硬件抽象层 · 原生硬件遥测**，与应用名 `app_name`（电池大师）完全统一。
+- **新增「关于 APP」功能说明卡片**：状态总览页底部新增卡片，集中说明应用功能——12 项核心充放电指标实时遥测、完全充满判定（100% 且 0~25 mA 浮充截止）、硬件实验室场景模拟与滑杆调参、硬件信息三级回退解析、数据来源（BatteryManager 公开接口 / 粘性广播 / sysfs，全本地计算零上传）、零权限声明；并展示开发者署名（某厂大牛马【带娃的小陈工】— 抖音 / 小红书 平台）。
+- **版本徽章单源注入**：关于卡片版本号经 `BuildConfig.VERSION_NAME/VERSION_CODE` 读取（buildConfig 开启），与 `build.gradle.kts` 单一事实来源，杜绝硬编码漂移。
+- **版本升级**：versionName 1.2.3 / versionCode 8。
+
+---
+
 ## 👨‍💻 开发者
 
 - **某厂大牛马【带娃的小陈工】** — 抖音 / 小红书 平台
@@ -132,9 +141,9 @@ git push -u origin main
 只要在本地打上 `v*` 格式的版本标签（**必须与 `android/app/build.gradle.kts` 中的 `versionName` 一致**，CI 会强制校验）并推送到 GitHub，GitHub Actions 会自动创建 GitHub Release 并将 APK 文件挂载在 Release 附件中：
 
 ```bash
-# 示例：当前版本 versionName=1.2.2 (versionCode=7)
-git tag v1.2.2
-git push origin v1.2.2
+# 示例：当前版本 versionName=1.2.3 (versionCode=8)
+git tag v1.2.3
+git push origin v1.2.3
 ```
 
 ---

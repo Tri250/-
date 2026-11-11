@@ -20,8 +20,8 @@ android {
         applicationId = "com.battery.master"
         minSdk = 26
         targetSdk = 35
-        versionCode = 7
-        versionName = "1.2.2"
+        versionCode = 8
+        versionName = "1.2.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -62,6 +62,8 @@ android {
     }
     buildFeatures {
         compose = true
+        // AboutAppCard 版本徽章经 BuildConfig.VERSION_NAME/VERSION_CODE 单源注入
+        buildConfig = true
     }
     testOptions {
         unitTests {

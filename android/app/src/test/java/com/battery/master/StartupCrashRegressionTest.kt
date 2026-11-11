@@ -36,7 +36,7 @@ class StartupCrashRegressionTest {
     @Test
     fun mainActivity_launch_rendersHudAndTabs_withoutCrash() {
         // Activity 由 Rule 自动启动：View 模型构造、遥测读取、广播注册、Compose 组合同步完成
-        composeRule.onNodeWithText("ANDROID BATTERY MASTER").assertExists()
+        composeRule.onNodeWithText("电池大师").assertExists()
         composeRule.onNodeWithText("状态总览").assertExists()
         composeRule.onNodeWithText("硬件实验室").assertExists()
     }
