@@ -198,7 +198,7 @@ export function PrimaryBatteryRing({
 
           {/* 5. 电量百分比 (Ultra-Bold Sci-Fi Display) */}
           <div className="flex items-baseline justify-center">
-            <span className="font-mono text-6xl font-black tracking-tight text-white tabular-nums drop-shadow-[0_0_12px_rgba(255,255,255,0.25)]">
+            <span className="font-mono text-6xl font-black tracking-tight text-slate-900 dark:text-white tabular-nums drop-shadow-[0_0_12px_rgba(255,255,255,0.25)]">
               {percentage}
             </span>
             <span className="font-mono text-2xl font-bold text-sky-400 ml-1">
@@ -207,7 +207,7 @@ export function PrimaryBatteryRing({
           </div>
 
           {/* 2. 剩余电量 (mAh) */}
-          <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-300 font-mono">
+          <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-300 font-mono">
             <span className="text-slate-400">剩余</span>
             <span className="font-bold text-emerald-400 tabular-nums text-sm">
               {remainingCapacity.toLocaleString()}

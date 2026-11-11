@@ -55,8 +55,11 @@ export function useBatteryMonitor() {
     const currentRatio = currentCapacity / (designCapacity || 5000);
     const newCurrentCap = Math.round(device.designCapacity * Math.min(1, Math.max(0.7, currentRatio)));
     setCurrentCapacity(newCurrentCap);
-    // 切换机型后旧的充满锁定值不再适用，需重新测量 (指标 12)
+    // 切换机型后旧的充满锁定值与历史记录均不再适用，需整体重新测量 (指标 12 闭环：
+    // 避免 A 机型的锁定容量/判定记录被错误换算到 B 机型的设计容量口径上)
     setFullChargeCapacity(null);
+    setLastFullChargeRecord(null);
+    prevFullMetRef.current = false;
   }, [currentCapacity, designCapacity]);
 
   // Derived Thermal Throttling State based on cell temperature
@@ -101,7 +104,12 @@ export function useBatteryMonitor() {
       // 仅在条件首次满足、或锁定值被清空 (切换机型) 的瞬间计算并锁定一次容量，
       // 涓流区间内电流波动 (5-24mA) 不再触发重复随机抖动 (Requirement 12)
       if (!prevFullMetRef.current || fullChargeCapacity === null) {
-        const estimatedFullCap = Math.round(currentCapacity * 0.996 + (Math.random() * 8 - 4));
+        // 物理不变式：完全充满容量恒 ≤ 电池当前最大可用容量 (衰减上限)，
+        // 抖动 ±4 mAh 后仍需钳制，杜绝"满电容量大于电芯实际容量"的矛盾读数
+        const estimatedFullCap = Math.max(
+          1,
+          Math.min(currentCapacity, Math.round(currentCapacity * 0.996 + (Math.random() * 8 - 4)))
+        );
         setFullChargeCapacity(estimatedFullCap);
         if (soundEnabled) playFullChargeChime();
         setLastFullChargeRecord({
@@ -245,6 +253,13 @@ export function useBatteryMonitor() {
     if (soundEnabled) playPlugInSound();
   }, [soundEnabled]);
 
+  // Action: Reset feature 12 locked capacity & last full-charge record (指标 12 重新测量入口)
+  const resetFullChargeRecord = useCallback(() => {
+    setFullChargeCapacity(null);
+    setLastFullChargeRecord(null);
+    prevFullMetRef.current = false;
+  }, []);
+
   // Action: Toggle charge/discharge
   const toggleCharging = useCallback(() => {
     if (status === 'charging' || status === 'full') {
@@ -352,6 +367,7 @@ export function useBatteryMonitor() {
     setIsLiveTelemetryRunning,
     // Actions
     triggerFullChargeTest,
+    resetFullChargeRecord,
     toggleCharging,
     updatePercentage,
     updateCurrent,

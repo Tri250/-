@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">电池大师</string>
+    <string name="developer_name">某厂大牛马【带娃的小陈工】</string>
+    <string name="developer_platforms">抖音 · 小红书</string>
+    <string name="developer_credit">开发者：%1$s（%2$s）</string>
 </resources>

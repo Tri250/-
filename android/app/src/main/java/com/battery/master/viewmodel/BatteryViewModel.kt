@@ -296,7 +296,13 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
     fun updateLabCycleCount(v: Int) = mutateLab { it.copy(cycleCount = v.coerceIn(0, 1200)) }
     fun updateLabStatus(v: BatteryStatus) = mutateLab { it.copy(status = v) }
     fun updateLabHealthQuality(v: BatteryHealthQuality) = mutateLab {
-        val t = if (v == BatteryHealthQuality.OVERHEAT) 49.2f else it.temperatureCelsius
+        // 与 Web 端 updateHealthQuality 口径一致：过热 → 良好时温度同步回落，
+        // 避免"健康良好 + 49.2°C"的矛盾组合残留
+        val t = when {
+            v == BatteryHealthQuality.OVERHEAT -> 49.2f
+            v == BatteryHealthQuality.GOOD && it.temperatureCelsius > 42f -> 34.5f
+            else -> it.temperatureCelsius
+        }
         it.copy(healthQuality = v, temperatureCelsius = t)
     }
 

@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -318,6 +319,27 @@ fun BatteryScreen(
 
             item {
                 Spacer(modifier = Modifier.height(28.dp))
+            }
+
+            // 开发者署名 (资源化文案，与 strings.xml 同源)
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = stringResource(
+                            com.battery.master.R.string.developer_credit,
+                            stringResource(com.battery.master.R.string.developer_name),
+                            stringResource(com.battery.master.R.string.developer_platforms)
+                        ),
+                        fontSize = DesignTokens.Font2xs,
+                        fontFamily = FontFamily.Monospace,
+                        color = DesignTokens.TextDisabled
+                    )
+                }
             }
         }
             } else {

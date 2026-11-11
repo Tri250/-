@@ -196,13 +196,16 @@ class BatteryHardwareReader(private val context: Context) {
         )
     }
 
-    /** 安全默认态：任何采集都不可用时 UI 仍有可渲染的中性数据 */
+    /** 安全默认态：任何采集都不可用时 UI 仍有可渲染的中性数据；
+     *  指标 12 闭环：已持久化的充满锁定容量与时间戳跨异常回显，不因降级丢失 */
     private fun buildSafeDefaultState(): BatteryState = BatteryState(
         currentCapacityMah = (designCapacityMah * 0.92f).toInt(),
         remainingCapacityMah = 0,
         voltageMv = 4000,
         temperatureCelsius = 25.0f,
         percentage = 0,
+        fullChargeCapacityMah = lastRecordedFullCapacity,
+        lastFullChargeTimestamp = lastFullChargeTimestamp,
         socModel = "平台 SoC 解析中",
         pmicModel = "平台级 PMIC 电源管理 [工程估算]"
     )

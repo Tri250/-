@@ -38,6 +38,7 @@ export default function App() {
     soundEnabled,
     setSoundEnabled,
     triggerFullChargeTest,
+    resetFullChargeRecord,
     toggleCharging,
     updatePercentage,
     updateCurrent,
@@ -112,7 +113,9 @@ export default function App() {
   ).toFixed(1);
 
   // 重置实验室：恢复当前选中机型的出厂默认 12 项指标
+  // (指标 12 同步清除锁定容量与历史记录，保证"重置"语义完整闭环)
   const resetLab = () => {
+    resetFullChargeRecord();
     updateDesignCapacity(selectedDevice.designCapacity);
     updateCurrentCapacity(Math.round(selectedDevice.designCapacity * 0.92));
     updateCycleCount(0);
@@ -133,7 +136,7 @@ export default function App() {
             <Zap className="w-4 h-4 fill-white" />
           </div>
           <div>
-            <h1 className="text-sm font-bold tracking-tight text-white flex items-center gap-2">
+            <h1 className="text-sm font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
               <span>Android Battery Master</span>
               <span className="text-xs font-normal text-slate-400">
                 安卓电池充放电管家
@@ -209,7 +212,7 @@ export default function App() {
               <div className="text-xs font-medium text-slate-400">
                 {selectedDevice.name}
               </div>
-              <div className="text-base font-bold text-white">
+              <div className="text-base font-bold text-slate-900 dark:text-white">
                 充放电核心指标监控
               </div>
             </div>
@@ -680,6 +683,17 @@ export default function App() {
           <AndroidNavBar activeTab={activeTab} onChangeTab={setActiveTab} />
         </div>
       </main>
+
+      {/* Developer Credit Footer */}
+      <footer className="w-full max-w-5xl px-4 py-3 flex items-center justify-center gap-2 text-2xs font-mono text-slate-500 dark:text-slate-400">
+        <Code2 className="w-3.5 h-3.5 text-emerald-500" />
+        <span>
+          开发者：某厂大牛马【带娃的小陈工】 · 抖音 / 小红书
+        </span>
+        <span className="hidden sm:inline text-slate-400 dark:text-slate-500">
+          · Android Battery Master v1.2.1
+        </span>
+      </footer>
     </div>
   );
 }

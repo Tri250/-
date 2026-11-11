@@ -43,7 +43,7 @@ export function AndroidStatusBar({
   const isLow = percentage <= 15 && !isCharging;
 
   return (
-    <div className="w-full flex items-center justify-between px-5 pt-3 pb-2 text-xs font-medium tracking-tight text-slate-200 select-none transition-colors">
+    <div className="w-full flex items-center justify-between px-5 pt-3 pb-2 text-xs font-medium tracking-tight text-slate-700 dark:text-slate-200 select-none transition-colors">
       {/* Left: Clock & Android notification indicator */}
       <div className="flex items-center gap-2">
         <span className="font-mono font-semibold text-sm">{timeStr}</span>
@@ -62,13 +62,13 @@ export function AndroidStatusBar({
 
       {/* Right: Network, Wi-Fi & Dynamic Battery Icon */}
       <div className="flex items-center gap-2">
-        <span className="text-2xs font-semibold text-slate-400">5G</span>
-        <Signal className="w-3.5 h-3.5 text-slate-300" />
-        <Wifi className="w-3.5 h-3.5 text-slate-300" />
+        <span className="text-2xs font-semibold text-slate-500 dark:text-slate-400">5G</span>
+        <Signal className="w-3.5 h-3.5 text-slate-500 dark:text-slate-300" />
+        <Wifi className="w-3.5 h-3.5 text-slate-500 dark:text-slate-300" />
 
         {/* Realistic Android Battery Icon */}
         <div className="flex items-center gap-1 pl-1">
-          <span className="font-mono text-xs tabular-nums font-semibold text-slate-200">
+          <span className="font-mono text-xs tabular-nums font-semibold text-slate-700 dark:text-slate-200">
             {percentage}%
           </span>
           <div
@@ -77,7 +77,7 @@ export function AndroidStatusBar({
                 ? 'border-rose-500 text-rose-500'
                 : isOverheat
                 ? 'border-amber-500 text-amber-500'
-                : 'border-slate-300 text-slate-100'
+                : 'border-slate-400 dark:border-slate-300 text-slate-800 dark:text-slate-100'
             }`}
           >
             {/* Battery Level Fill */}
@@ -89,7 +89,7 @@ export function AndroidStatusBar({
                   ? 'bg-rose-500'
                   : isOverheat
                   ? 'bg-amber-500'
-                  : 'bg-slate-100'
+                  : 'bg-slate-800 dark:bg-slate-100'
               }`}
               style={{ width: `${Math.min(100, Math.max(8, percentage))}%` }}
             />
@@ -104,7 +104,7 @@ export function AndroidStatusBar({
                   ? 'bg-rose-500'
                   : isOverheat
                   ? 'bg-amber-500'
-                  : 'bg-slate-300'
+                  : 'bg-slate-500 dark:bg-slate-300'
               }`}
             />
           </div>
