@@ -38,6 +38,7 @@ export default function App() {
     soundEnabled,
     setSoundEnabled,
     triggerFullChargeTest,
+    resetFullChargeLock,
     toggleCharging,
     updatePercentage,
     updateCurrent,
@@ -50,6 +51,8 @@ export default function App() {
     setStatus,
     isLiveTelemetryRunning,
     setIsLiveTelemetryRunning,
+    // 指标 12 唯一判定口径：100% 且电流 0-25 mA（单一数据源）
+    isFullChargeConditionMet,
   } = useBatteryMonitor();
 
   // Navigation tab state
@@ -122,6 +125,8 @@ export default function App() {
     setTemperature(32.5);
     setStatus('discharging');
     updateHealthQuality('good');
+    // 指标 12 联动闭环：恢复出厂默认时同步清除充满锁定态，回到"待充满判定"
+    resetFullChargeLock();
   };
 
   return (
@@ -226,7 +231,7 @@ export default function App() {
               role="button"
               tabIndex={0}
               className={`cursor-pointer px-2.5 py-1 rounded-lg text-[10px] font-semibold border transition-all flex items-center gap-1 ${
-                state.percentage === 100 && state.current >= 0 && state.current <= 25
+                isFullChargeConditionMet
                   ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300'
                   : 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
               }`}
@@ -457,19 +462,13 @@ export default function App() {
                     value={state.fullChargeCapacity ? `${state.fullChargeCapacity}` : '待充满判定'}
                     unit={state.fullChargeCapacity ? 'mAh' : ''}
                     subValue={
-                      state.percentage === 100 && state.current >= 0 && state.current <= 25
+                      isFullChargeConditionMet
                         ? '已满足 100% & 0-25 mA 锁定'
                         : '充至 100% 且电流 0-25 mA 时记录'
                     }
                     badge={{
-                      text:
-                        state.percentage === 100 && state.current >= 0 && state.current <= 25
-                          ? '已充满显示'
-                          : '校准就绪',
-                      variant:
-                        state.percentage === 100 && state.current >= 0 && state.current <= 25
-                          ? 'good'
-                          : 'warning',
+                      text: isFullChargeConditionMet ? '已充满显示' : '校准就绪',
+                      variant: isFullChargeConditionMet ? 'good' : 'warning',
                     }}
                     hint="特性 12：仅当 100% 且电流 0-25 mA 时视为充满"
                     onClick={() => setActiveTab('health')}

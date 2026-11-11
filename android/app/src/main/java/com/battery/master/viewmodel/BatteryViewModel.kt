@@ -154,7 +154,10 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
             while (isActive) {
                 // 启动闪退治理：轮询体整体兜底，硬件读取异常只跳过本拍，协程不中断
                 try {
-                    publish(reader.readBatteryTelemetry())
+                    // 遥测暂停：暂停期间跳过本拍发布，保留最后一帧数据展示
+                    if (!_isTelemetryPaused.value) {
+                        publish(reader.readBatteryTelemetry())
+                    }
                 } catch (e: Throwable) {
                     // 读取失败静默跳过，1 秒后重试
                 }
@@ -179,6 +182,15 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
     // 实验室模拟覆盖层：null = 真实遥测；非空 = 模拟数据生效
     private val _labOverride = MutableStateFlow<LabOverride?>(null)
     val labOverride: StateFlow<LabOverride?> = _labOverride.asStateFlow()
+
+    // 遥测暂停开关：暂停期间停止发布真实遥测帧 (保留最后一帧展示)，与 Web 端暂停链路对齐
+    private val _isTelemetryPaused = MutableStateFlow(false)
+    val isTelemetryPaused: StateFlow<Boolean> = _isTelemetryPaused.asStateFlow()
+
+    /** 切换遥测暂停/恢复：暂停仅冻结真实遥测轮询，实验室模拟与 UI 不受影响 */
+    fun toggleTelemetryPaused() {
+        _isTelemetryPaused.value = !_isTelemetryPaused.value
+    }
 
     // 实验室提示音开关 (ToneGenerator 系统提示音，无需额外权限)
     private val _labSoundEnabled = MutableStateFlow(true)
@@ -317,6 +329,11 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
             val isFullMet = lab.percentage == 100 && lab.currentMa in 0..25
             val effectiveStatus = if (isFullMet) BatteryStatus.FULL else lab.status
             val remaining = (base.currentCapacityMah * (lab.percentage / 100f)).toInt()
+            // 实验室判满同样落盘：保持期/退出实验室后锁定容量仍可回显 (指标 12 闭环)
+            if (isFullMet && base.fullChargeCapacityMah == null) {
+                val ts = System.currentTimeMillis()
+                reader.persistFullChargeCapacity(base.currentCapacityMah, ts)
+            }
             _batteryState.value = base.copy(
                 percentage = lab.percentage,
                 currentMa = lab.currentMa,
@@ -329,7 +346,9 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
                 powerWatts = (abs(lab.voltageMv * lab.currentMa)) / 1_000_000f,
                 isFullChargeConditionMet = isFullMet,
                 fullChargeCapacityMah = if (isFullMet) (base.fullChargeCapacityMah ?: base.currentCapacityMah)
-                else base.fullChargeCapacityMah
+                else base.fullChargeCapacityMah,
+                lastFullChargeTimestamp = if (isFullMet) (base.lastFullChargeTimestamp ?: reader.lastFullChargeTimestamp)
+                else base.lastFullChargeTimestamp
             )
         } catch (e: Throwable) {
             // 忽略：保持上一帧展示

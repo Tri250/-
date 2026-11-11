@@ -32,13 +32,14 @@ import com.battery.master.viewmodel.LabScenario
 
 /**
  * 硬件实验室 (与 Web 端 HardwareSimulationLab 对齐)：
- * 4 个一键场景 + 6 个滑杆 + 电池状态/健康枚举 + 提示音开关，
+ * 4 个一键场景 + 6 个滑杆 + 电池状态/健康枚举 + 提示音开关 + 遥测暂停开关，
  * 模拟数据仅作用于展示层，退出后无缝恢复真实硬件遥测
  */
 @Composable
 fun HardwareLabScreen(viewModel: BatteryViewModel, state: BatteryState) {
     val lab by viewModel.labOverride.collectAsState()
     val soundEnabled by viewModel.labSoundEnabled.collectAsState()
+    val telemetryPaused by viewModel.isTelemetryPaused.collectAsState()
 
     // 滑杆取值：模拟中读覆盖层，否则读真实遥测 (拖动时 VM 会自动进入模拟模式)
     val labActive = lab != null
@@ -100,6 +101,20 @@ fun HardwareLabScreen(viewModel: BatteryViewModel, state: BatteryState) {
                         ) {
                             Text(
                                 text = if (soundEnabled) "提示音 开" else "提示音 关",
+                                fontSize = DesignTokens.Font2xs,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+                        // 遥测暂停开关 (与 Web 端实时遥测暂停链路对齐)
+                        OutlinedButton(
+                            onClick = { viewModel.toggleTelemetryPaused() },
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = if (telemetryPaused) DesignTokens.WarningAmber else DesignTokens.TextTertiary
+                            ),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = if (telemetryPaused) "遥测 已暂停" else "遥测 运行中",
                                 fontSize = DesignTokens.Font2xs,
                                 fontFamily = FontFamily.Monospace
                             )

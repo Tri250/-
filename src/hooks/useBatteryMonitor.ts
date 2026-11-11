@@ -55,8 +55,10 @@ export function useBatteryMonitor() {
     const currentRatio = currentCapacity / (designCapacity || 5000);
     const newCurrentCap = Math.round(device.designCapacity * Math.min(1, Math.max(0.7, currentRatio)));
     setCurrentCapacity(newCurrentCap);
-    // 切换机型后旧的充满锁定值不再适用，需重新测量 (指标 12)
+    // 切换机型后旧的充满锁定值不再适用，需重新测量 (指标 12)：
+    // 实时锁定容量与上次满足记录必须同步清空，避免跨机型展示脏数据
     setFullChargeCapacity(null);
+    setLastFullChargeRecord(null);
   }, [currentCapacity, designCapacity]);
 
   // Derived Thermal Throttling State based on cell temperature
@@ -89,11 +91,14 @@ export function useBatteryMonitor() {
     };
   });
 
-  // Check and process requirement 12 condition
+  // 指标 12 唯一判定口径（单一数据源，供 UI 各消费点复用，杜绝多处手工同步）：
   // "仅当电量为 100% 且电流在 0-25 mA 之间时，才视为电池充满并显示完全充满时的容量"
+  const isFullChargeConditionMet = percentage === 100 && current >= 0 && current <= 25;
+
+  // Check and process requirement 12 condition
   const prevFullMetRef = useRef<boolean>(false);
   useEffect(() => {
-    const isCriteriaMet = percentage === 100 && current >= 0 && current <= 25;
+    const isCriteriaMet = isFullChargeConditionMet;
 
     if (isCriteriaMet) {
       setStatus('full');
@@ -118,7 +123,7 @@ export function useBatteryMonitor() {
       prevFullMetRef.current = false;
       // If user discharges or current moves away from 0-25mA cutoff, fullChargeCapacity remains stored if recorded, or indicates awaiting cutoff
     }
-  }, [percentage, current, currentCapacity, designCapacity, voltage, cycleCount, soundEnabled, fullChargeCapacity]);
+  }, [isFullChargeConditionMet, currentCapacity, designCapacity, voltage, cycleCount, soundEnabled, fullChargeCapacity]);
 
   // Live telemetry loop (simulating realistic micro-fluctuations in current, voltage, temperature)
   useEffect(() => {
@@ -151,7 +156,13 @@ export function useBatteryMonitor() {
         // 电量耗尽保护：0% 或即将耗尽且非充电状态时电流必须为 0，
         // 避免与上方 setCurrent(0) 竞争导致"未充电"状态仍显示负电流
         if (percentage <= 1 && status !== 'charging') return 0;
-        if (percentage === 100 && prevCurrent >= 0 && prevCurrent <= 25) {
+        // 涓流保持仅对充电/已充满状态生效：未充电时即便 100% 电流也应归零，
+        // 否则"未充电"状态会残留 5-24mA 虚假注入电流 (指标 11/12 一致性)
+        if (
+          percentage === 100 &&
+          prevCurrent >= 0 && prevCurrent <= 25 &&
+          (status === 'charging' || status === 'full')
+        ) {
           // Keep in trickle band (10 - 24 mA)
           return Math.max(5, Math.min(24, Math.round(prevCurrent + (Math.random() * 4 - 2))));
         }
@@ -244,6 +255,12 @@ export function useBatteryMonitor() {
     setVoltage(4410);
     if (soundEnabled) playPlugInSound();
   }, [soundEnabled]);
+
+  // Action: 清除指标 12 充满锁定态 (重置实验室/重新校准入口，恢复"待充满判定"初始态)
+  const resetFullChargeLock = useCallback(() => {
+    setFullChargeCapacity(null);
+    setLastFullChargeRecord(null);
+  }, []);
 
   // Action: Toggle charge/discharge
   const toggleCharging = useCallback(() => {
@@ -350,8 +367,11 @@ export function useBatteryMonitor() {
     setSoundEnabled,
     isLiveTelemetryRunning,
     setIsLiveTelemetryRunning,
+    // 指标 12 统一判定口径：100% 且电流 0-25 mA（UI 各消费点唯一数据源）
+    isFullChargeConditionMet,
     // Actions
     triggerFullChargeTest,
+    resetFullChargeLock,
     toggleCharging,
     updatePercentage,
     updateCurrent,

@@ -25,9 +25,9 @@ export function NativeAndroidProjectHub() {
   const HUB_FILE_DESCRIPTIONS: Record<string, string> = {
     receiver: '核心广播接收器：监听 ACTION_BATTERY_CHANGED，与轮询通道共享 Reader 配置及特性 12（100% 且电流 0-25 mA）锁定逻辑',
     state: '数据实体模型：完整包含 1 到 12 项充放电指标字段 + 硬件信息汇总',
-    viewmodel: 'ViewModel：双通道发布去重、模拟充满保持期倒计时、广播注册容错、指标 12 持久化与硬件实验室模拟覆盖层',
+    viewmodel: 'ViewModel：双通道发布去重、模拟充满保持期倒计时、广播注册容错、指标 12 持久化与硬件实验室模拟覆盖层、遥测暂停开关',
     device_profile: '设备硬件档案：PMIC/快充协议/电芯结构三级回退链（sysfs+device-tree 实测 → 品牌档案推断 → 工程估算），彻底消除"系统未上报"',
-    hardware_lab: '硬件实验室 UI：4 一键场景（充满校准/极速闪充/游戏放电/过热警报）+ 6 滑杆 + 状态健康枚举 + 提示音开关',
+    hardware_lab: '硬件实验室 UI：4 一键场景（充满校准/极速闪充/游戏放电/过热警报）+ 6 滑杆 + 状态健康枚举 + 提示音/遥测暂停开关',
     compose: 'Jetpack Compose 原生界面（全量源码）：顶部双 Tab 导航（状态总览/硬件实验室）、12 项指标卡片网格与充满校准对话框',
     manifest: 'Android 清单文件：零运行时权限（公开 Battery API 免权限），广播在代码中动态注册',
     gradle: 'Gradle 编译脚本：Android SDK 35、Kotlin 2.0、Jetpack Compose BOM 与 Release 签名注入',
@@ -97,6 +97,14 @@ export function NativeAndroidProjectHub() {
             <span className="text-slate-400">特性12判定:</span>
             <div className="font-mono text-emerald-300 font-semibold truncate">100% &amp; 0-25 mA</div>
           </div>
+        </div>
+
+        {/* 开发者署名 */}
+        <div className="mt-3 pt-3 border-t border-slate-800 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px]">
+          <span className="font-bold text-emerald-400 tracking-wide">开发者</span>
+          <span className="text-white font-semibold">某厂大牛马【带娃的小陈工】</span>
+          <span className="text-slate-600">·</span>
+          <span className="text-slate-400">抖音 / 小红书 平台同名，欢迎来撩</span>
         </div>
       </div>
 
