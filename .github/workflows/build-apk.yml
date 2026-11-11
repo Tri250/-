@@ -329,6 +329,9 @@ jobs:
             - **权限管理**：0 运行时权限，备份规则显式排除应用数据。
             - **安装卸载**：`applicationId=com.battery.master`、`versionCode=${{ steps.version.outputs.version_code }}` 单调递增支持覆盖安装、自适应图标（anydpi-v26 + 五密度 PNG 兜底）、版本化产物命名、CI 安装属性自检（aapt2 badging）与 tag↔versionName 一致性校验。
 
+            ### 👨‍💻 开发者
+            - **某厂大牛马【带娃的小陈工】** — 抖音 / 小红书 平台
+
             ---
             *以下为自动生成的提交记录*
           generate_release_notes: true
