@@ -23,7 +23,20 @@ class BatteryReceiver(
     private val onBatteryUpdate: (BatteryState) -> Unit
 ) : BroadcastReceiver() {
 
+    /**
+     * 启动闪退治理：ACTION_BATTERY_CHANGED 是粘性广播，注册成功瞬间即在主线程同步回调
+     * (ViewModel 构造期间)，BroadcastReceiver 未捕获异常会直接导致进程崩溃。
+     * 因此整体包一层 Throwable 兜底：单次解析失败由 1 秒轮询通道自动补偿，绝不影响启动。
+     */
     override fun onReceive(context: Context, intent: Intent) {
+        try {
+            handleBatteryChanged(context, intent)
+        } catch (e: Throwable) {
+            // 任何解析异常静默丢弃本次广播，轮询通道继续兜底，保证启动与运行期稳定
+        }
+    }
+
+    private fun handleBatteryChanged(context: Context, intent: Intent) {
         if (intent.action != Intent.ACTION_BATTERY_CHANGED) return
 
         // 安全转换：极端场景下系统服务异常返回时静默丢弃本次广播，轮询通道继续兜底

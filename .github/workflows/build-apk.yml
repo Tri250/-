@@ -84,6 +84,14 @@ jobs:
           cd android
           chmod +x gradlew
 
+      # 启动闪退回归测试 (Robolectric，无模拟器)：
+      # 覆盖 Activity 启动 -> ViewModel 构造 -> 粘性广播回调 -> Compose 首帧渲染全链路，
+      # 任何一环抛异常都会导致安装后启动闪退，测试失败即阻断发布
+      - name: Run Startup Crash Regression Tests (Robolectric)
+        run: |
+          cd android
+          ./gradlew testDebugUnitTest --no-daemon --stacktrace || gradle testDebugUnitTest --no-daemon --stacktrace
+
       - name: Build Release APK (R8 minified + signed)
         run: |
           cd android

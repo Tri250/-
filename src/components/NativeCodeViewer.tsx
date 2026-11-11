@@ -109,6 +109,14 @@ jobs:
           cd android
           chmod +x gradlew
 
+      # 启动闪退回归测试 (Robolectric，无模拟器)：
+      # 覆盖 Activity 启动 -> ViewModel 构造 -> 粘性广播回调 -> Compose 首帧渲染全链路，
+      # 任何一环抛异常都会导致安装后启动闪退，测试失败即阻断发布
+      - name: Run Startup Crash Regression Tests (Robolectric)
+        run: |
+          cd android
+          ./gradlew testDebugUnitTest --no-daemon --stacktrace || gradle testDebugUnitTest --no-daemon --stacktrace
+
       - name: Build Release APK (R8 minified + signed)
         run: |
           cd android
@@ -380,36 +388,70 @@ import kotlin.math.abs
 /**
  * Android 原生底层硬件与电量计 HAL 读取器
  * 负责通过 Android BatteryManager、Intent 以及 Linux sysfs 读取真实的 12 项充放电指标
+ *
+ * 启动闪退治理：本类是启动路径 (ViewModel 构造 -> 首次遥测 -> 粘性广播回调) 的核心，
+ * 任何 OEM ROM 的硬件服务异常 (BatteryManager 缺失、PowerProfile 反射抛 Error、
+ * sysfs 不可读、SharedPreferences 损坏、registerReceiver 被 ROM 拒绝) 都可能引发崩溃。
+ * 因此所有外部依赖访问均以 Throwable 级兜底 + 最后已知状态降级，保证进程永不因此退出。
  */
 class BatteryHardwareReader(private val context: Context) {
 
-    private val batteryManager = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+    /**
+     * BatteryManager 安全获取：部分定制 ROM/模拟器可能缺失 BATTERY_SERVICE，
+     * 非空强转 (as) 会直接 NPE 导致启动闪退，故使用安全转换 + 可空引用
+     */
+    private val batteryManager: BatteryManager? =
+        try {
+            context.getSystemService(Context.BATTERY_SERVICE) as? BatteryManager
+        } catch (e: Throwable) {
+            null
+        }
 
     // 满电容量持久化：指标 12 锁定值跨进程重启保留
-    private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private val prefs = try {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    } catch (e: Throwable) {
+        null
+    }
 
     // 默认或从数据库读取的出厂设计容量 (mAh)：构造时从系统解析一次，之后可被用户覆盖
     // (Receiver 事件通道共享此值，保证轮询/广播双通道数据一致，用户设置不被广播覆盖)
-    var designCapacityMah: Int = getDesignCapacity(context)
+    var designCapacityMah: Int = runCatching { getDesignCapacity(context) }
+        .getOrDefault(FALLBACK_DESIGN_CAPACITY)
 
     // 记录上一轮充满锁定的容量 (从持久化恢复)
     private var lastRecordedFullCapacity: Int? =
-        prefs.getInt(KEY_LAST_FULL_CAPACITY, -1).takeIf { it > 0 }
+        runCatching { prefs?.getInt(KEY_LAST_FULL_CAPACITY, -1)?.takeIf { it > 0 } }.getOrNull()
 
     // 上一次满足充满判定条件的时间戳 (广播通道共享读取，与锁定容量同源)
     var lastFullChargeTimestamp: Long? =
-        prefs.getLong(KEY_LAST_FULL_TIMESTAMP, -1L).takeIf { it > 0 }
+        runCatching { prefs?.getLong(KEY_LAST_FULL_TIMESTAMP, -1L)?.takeIf { it > 0 } }.getOrNull()
 
     // 是否处于充满判定区间内 (100% 且 0-25mA)：用于写盘去重，
     // 避免满足条件期间每秒遥测轮询重复写 SharedPreferences
     private var wasInFullChargeBand = false
 
+    // 最后一次成功读取的完整遥测：读取异常时降级返回，UI 不白屏不崩溃
+    private var lastKnownState: BatteryState? = null
+
     /**
-     * 读取最新的电池遥测数据
+     * 读取最新的电池遥测数据 (全链路 Throwable 兜底，异常时降级到最后已知态)
      */
-    fun readBatteryTelemetry(): BatteryState {
-        val intentFilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
-        val batteryIntent: Intent? = context.registerReceiver(null, intentFilter)
+    fun readBatteryTelemetry(): BatteryState = try {
+        readBatteryTelemetryInternal().also { lastKnownState = it }
+    } catch (e: Throwable) {
+        // 采集链路任何环节异常 (ROM 服务缺失/sysfs 拒绝等)：
+        // 返回最后已知态或安全默认值，保证 UI 与轮询协程不崩溃
+        lastKnownState ?: buildSafeDefaultState()
+    }
+
+    private fun readBatteryTelemetryInternal(): BatteryState {
+        // 粘性广播查询：部分 ROM 会对此抛异常，必须兜底
+        val batteryIntent: Intent? = try {
+            context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        } catch (e: Throwable) {
+            null
+        }
 
         // 5. 电量百分比
         val level = batteryIntent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
@@ -418,7 +460,8 @@ class BatteryHardwareReader(private val context: Context) {
             (level * 100 / scale)
         } else {
             // 部分设备无 BATTERY_PROPERTY_CAPACITY 时返回 Int.MIN_VALUE，需防护
-            val capacityProp = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+            val capacityProp = batteryManager?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+                ?: Int.MIN_VALUE
             if (capacityProp in 0..100) capacityProp else 0
         }
 
@@ -451,7 +494,8 @@ class BatteryHardwareReader(private val context: Context) {
 
         // 11. 瞬时电流：当前电池的瞬时电流（毫安 mA）
         // BATTERY_PROPERTY_CURRENT_NOW 规范返回微安 (μA)，部分旧内核返回毫安 (mA)，需归一化
-        val currentMicroAmp = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)
+        val currentMicroAmp = batteryManager?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)
+            ?: 0
         val currentNowMa = BatterySysfs.normalizeCurrentToMilliAmps(currentMicroAmp)
 
         // 10. 循环计数：电池充放电的次数
@@ -465,7 +509,8 @@ class BatteryHardwareReader(private val context: Context) {
         }
 
         // 3. 电池当前容量（衰减后的容量 mAh）
-        val chargeCounterUah = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER)
+        val chargeCounterUah = batteryManager?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER)
+            ?: 0
         var currentCapacityMah = (designCapacityMah * 0.92f).toInt()
         val sysfsMaxCapacityUah = BatterySysfs.readInt("/sys/class/power_supply/battery/charge_full")
         if (sysfsMaxCapacityUah != null && sysfsMaxCapacityUah > 0) {
@@ -522,16 +567,31 @@ class BatteryHardwareReader(private val context: Context) {
         )
     }
 
+    /** 安全默认态：任何采集都不可用时 UI 仍有可渲染的中性数据 */
+    private fun buildSafeDefaultState(): BatteryState = BatteryState(
+        currentCapacityMah = (designCapacityMah * 0.92f).toInt(),
+        remainingCapacityMah = 0,
+        voltageMv = 4000,
+        temperatureCelsius = 25.0f,
+        percentage = 0,
+        socModel = "平台 SoC 解析中",
+        pmicModel = "平台级 PMIC 电源管理 [工程估算]"
+    )
+
     /**
      * 持久化指标 12 的充满锁定容量与时间戳 (供 ViewModel 模拟充满时调用)
      */
     fun persistFullChargeCapacity(capacityMah: Int, timestampMs: Long) {
         lastRecordedFullCapacity = capacityMah
         lastFullChargeTimestamp = timestampMs
-        prefs.edit()
-            .putInt(KEY_LAST_FULL_CAPACITY, capacityMah)
-            .putLong(KEY_LAST_FULL_TIMESTAMP, timestampMs)
-            .apply()
+        try {
+            prefs?.edit()
+                ?.putInt(KEY_LAST_FULL_CAPACITY, capacityMah)
+                ?.putLong(KEY_LAST_FULL_TIMESTAMP, timestampMs)
+                ?.apply()
+        } catch (e: Throwable) {
+            // 存储异常不阻塞内存锁定值的生效
+        }
     }
 
     /**
@@ -559,6 +619,10 @@ class BatteryHardwareReader(private val context: Context) {
     /**
      * 指标 04 设计容量三级回退链：
      * PowerProfile 反射 -> sysfs charge_full_design -> 主流 5000mAh 兜底
+     *
+     * 注意：PowerProfile 构造在部分 OEM ROM 上会抛出 ExceptionInInitializerError /
+     * NoClassDefFoundError 等 Error (非 Exception)，必须按 Throwable 捕获，
+     * 否则会直接引发启动闪退。
      */
     private fun getDesignCapacity(context: Context): Int {
         try {
@@ -568,18 +632,21 @@ class BatteryHardwareReader(private val context: Context) {
             val getBatteryCapacityMethod = powerProfileClass.getMethod("getBatteryCapacity")
             val capacity = getBatteryCapacityMethod.invoke(powerProfile) as? Double
             if (capacity != null && capacity > 0) return capacity.toInt()
-        } catch (e: Exception) {}
+        } catch (e: Throwable) {}
 
         val sysfsDesign = BatterySysfs.readInt("/sys/class/power_supply/battery/charge_full_design")
         if (sysfsDesign != null && sysfsDesign > 0) return sysfsDesign / 1000
 
-        return 5000
+        return FALLBACK_DESIGN_CAPACITY
     }
 
     companion object {
         private const val PREFS_NAME = "battery_master_prefs"
         private const val KEY_LAST_FULL_CAPACITY = "last_full_capacity_mah"
         private const val KEY_LAST_FULL_TIMESTAMP = "last_full_timestamp_ms"
+
+        /** 设计容量兜底值：与 BatteryState 默认口径一致 */
+        const val FALLBACK_DESIGN_CAPACITY = 5000
     }
 }`,
   },
@@ -1460,8 +1527,8 @@ android {
         applicationId = "com.battery.master"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "1.1.1"
+        versionCode = 4
+        versionName = "1.1.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -1503,6 +1570,12 @@ android {
     buildFeatures {
         compose = true
     }
+    testOptions {
+        unitTests {
+            // Robolectric 需要资源与 Manifest 上下文
+            isIncludeAndroidResources = true
+        }
+    }
 }
 
 dependencies {
@@ -1515,6 +1588,14 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("androidx.core:core-ktx:1.15.0")
+
+    // 单元测试 (Robolectric)：无模拟器验证启动全链路 (Activity/ViewModel/Receiver/Resolver)
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.14.1")
+    testImplementation("androidx.test:core-ktx:1.6.1")
+    testImplementation(platform("androidx.compose:compose-bom:2024.10.01"))
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
 }`,
   },
   {
@@ -1565,7 +1646,20 @@ class BatteryReceiver(
     private val onBatteryUpdate: (BatteryState) -> Unit
 ) : BroadcastReceiver() {
 
+    /**
+     * 启动闪退治理：ACTION_BATTERY_CHANGED 是粘性广播，注册成功瞬间即在主线程同步回调
+     * (ViewModel 构造期间)，BroadcastReceiver 未捕获异常会直接导致进程崩溃。
+     * 因此整体包一层 Throwable 兜底：单次解析失败由 1 秒轮询通道自动补偿，绝不影响启动。
+     */
     override fun onReceive(context: Context, intent: Intent) {
+        try {
+            handleBatteryChanged(context, intent)
+        } catch (e: Throwable) {
+            // 任何解析异常静默丢弃本次广播，轮询通道继续兜底，保证启动与运行期稳定
+        }
+    }
+
+    private fun handleBatteryChanged(context: Context, intent: Intent) {
         if (intent.action != Intent.ACTION_BATTERY_CHANGED) return
 
         // 安全转换：极端场景下系统服务异常返回时静默丢弃本次广播，轮询通道继续兜底
@@ -1834,6 +1928,7 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
 
     private val reader = BatteryHardwareReader(application.applicationContext)
 
+    // 启动闪退治理：构造期首次读取走安全读取，任何 ROM 硬件异常都降级为默认态而非崩溃
     private val _batteryState = MutableStateFlow(reader.readBatteryTelemetry())
     val batteryState: StateFlow<BatteryState> = _batteryState.asStateFlow()
 
@@ -1863,7 +1958,8 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
                 ContextCompat.RECEIVER_NOT_EXPORTED
             )
             isReceiverRegistered = true
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
+            // Error 级异常 (如部分 ROM 的 SecurityException/LinkageError) 也一并兜底
             isReceiverRegistered = false
         }
         startTelemetryPolling()
@@ -1877,8 +1973,12 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
     private fun startSimulationCountdown() {
         viewModelScope.launch {
             while (isActive) {
-                val remainingMs = simulationHoldUntilMs - System.currentTimeMillis()
-                _simulationRemainingSec.value = if (remainingMs > 0) (remainingMs + 999) / 1000 else 0L
+                try {
+                    val remainingMs = simulationHoldUntilMs - System.currentTimeMillis()
+                    _simulationRemainingSec.value = if (remainingMs > 0) (remainingMs + 999) / 1000 else 0L
+                } catch (e: Throwable) {
+                    // 倒计时异常不致命，下一拍继续刷新
+                }
                 delay(250)
             }
         }
@@ -1888,8 +1988,8 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
         if (isReceiverRegistered) {
             try {
                 getApplication<Application>().unregisterReceiver(batteryReceiver)
-            } catch (e: IllegalArgumentException) {
-                // 防御：系统已代为注销时忽略，避免清理阶段崩溃
+            } catch (e: Throwable) {
+                // 防御：系统已代为注销/ROM 拒绝时忽略，避免清理阶段崩溃
             }
             isReceiverRegistered = false
         }
@@ -1903,39 +2003,53 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
      *    则保留指标 12 的锁定容量与时间戳不丢失
      */
     private fun publish(fresh: BatteryState) {
-        if (System.currentTimeMillis() < simulationHoldUntilMs) return
-        // 硬件实验室模拟中：冻结真实遥测覆盖，保持滑杆/场景设定值稳定展示
-        if (_labOverride.value != null) return
+        // 启动闪退治理：发布链路任何异常都不能逃逸到协程 (未捕获异常会直接杀进程)
+        try {
+            if (System.currentTimeMillis() < simulationHoldUntilMs) return
+            // 硬件实验室模拟中：冻结真实遥测覆盖，保持滑杆/场景设定值稳定展示
+            if (_labOverride.value != null) return
 
-        val current = _batteryState.value
-        _batteryState.value =
-            if (!fresh.isFullChargeConditionMet &&
-                current.isFullChargeConditionMet &&
-                current.fullChargeCapacityMah != null
-            ) {
-                fresh.copy(
-                    fullChargeCapacityMah = current.fullChargeCapacityMah,
-                    lastFullChargeTimestamp = current.lastFullChargeTimestamp
-                )
-            } else {
-                fresh
-            }
+            val current = _batteryState.value
+            _batteryState.value =
+                if (!fresh.isFullChargeConditionMet &&
+                    current.isFullChargeConditionMet &&
+                    current.fullChargeCapacityMah != null
+                ) {
+                    fresh.copy(
+                        fullChargeCapacityMah = current.fullChargeCapacityMah,
+                        lastFullChargeTimestamp = current.lastFullChargeTimestamp
+                    )
+                } else {
+                    fresh
+                }
+        } catch (e: Throwable) {
+            // 单拍发布失败保留上一帧数据，下一拍自动恢复
+        }
     }
 
     private fun startTelemetryPolling() {
         viewModelScope.launch {
             while (isActive) {
-                // 持续读取真实硬件 (1 秒刷新频率)
-                publish(reader.readBatteryTelemetry())
+                // 启动闪退治理：轮询体整体兜底，硬件读取异常只跳过本拍，协程不中断
+                try {
+                    publish(reader.readBatteryTelemetry())
+                } catch (e: Throwable) {
+                    // 读取失败静默跳过，1 秒后重试
+                }
                 delay(1000)
             }
         }
     }
 
     fun setDesignCapacity(capacityMah: Int) {
-        reader.designCapacityMah = capacityMah
-        simulationHoldUntilMs = 0L // 手动改配置立即恢复真实遥测
-        publish(reader.readBatteryTelemetry())
+        // 启动闪退治理：UI 回调入口兜底，写配置/读遥测异常不逃逸到主线程
+        try {
+            reader.designCapacityMah = capacityMah
+            simulationHoldUntilMs = 0L // 手动改配置立即恢复真实遥测
+            publish(reader.readBatteryTelemetry())
+        } catch (e: Throwable) {
+            // 忽略：保持当前展示数据
+        }
     }
 
     // ==================== 硬件实验室 (与 Web 端 HardwareSimulationLab 对齐) ====================
@@ -1958,8 +2072,12 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
                 labToneGenerator = ToneGenerator(AudioManager.STREAM_MUSIC, 70)
             }
             labToneGenerator?.startTone(tone, 150)
-        } catch (e: Exception) {
-            labToneGenerator?.release()
+        } catch (e: Throwable) {
+            // ToneGenerator 构造/播放在部分 ROM 抛 RuntimeException，降级为静音
+            try {
+                labToneGenerator?.release()
+            } catch (e2: Throwable) {
+            }
             labToneGenerator = null
         }
     }
@@ -1983,8 +2101,13 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
 
     /** 退出实验室模拟：清除覆盖层并立即恢复真实遥测 */
     fun exitLabMode() {
-        _labOverride.value = null
-        publish(reader.readBatteryTelemetry())
+        // UI 回调入口兜底：恢复真实遥测失败也不影响 UI 稳定
+        try {
+            _labOverride.value = null
+            publish(reader.readBatteryTelemetry())
+        } catch (e: Throwable) {
+            // 忽略：下一拍轮询自动恢复
+        }
     }
 
     fun toggleLabSound() {
@@ -2027,16 +2150,21 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
     // ---- 滑杆逐项调节：无覆盖层时自动以真实遥测为基准进入实验室 ----
 
     private fun mutateLab(transform: (LabOverride) -> LabOverride) {
-        _labOverride.update { current ->
-            transform(current ?: run {
-                val cur = _batteryState.value
-                LabOverride(
-                    cur.percentage, cur.currentMa, cur.voltageMv, cur.temperatureCelsius,
-                    cur.status, cur.healthQuality, cur.cycleCount
-                )
-            })
+        // UI 回调入口兜底：滑杆高频回调，异常不逃逸到主线程
+        try {
+            _labOverride.update { current ->
+                transform(current ?: run {
+                    val cur = _batteryState.value
+                    LabOverride(
+                        cur.percentage, cur.currentMa, cur.voltageMv, cur.temperatureCelsius,
+                        cur.status, cur.healthQuality, cur.cycleCount
+                    )
+                })
+            }
+            publishLab()
+        } catch (e: Throwable) {
+            // 忽略：保持当前模拟参数
         }
-        publishLab()
     }
 
     fun updateLabPercentage(v: Int) = mutateLab { it.copy(percentage = v.coerceIn(0, 100)) }
@@ -2061,24 +2189,29 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
      */
     private fun publishLab() {
         val lab = _labOverride.value ?: return
-        val base = _batteryState.value
-        val isFullMet = lab.percentage == 100 && lab.currentMa in 0..25
-        val effectiveStatus = if (isFullMet) BatteryStatus.FULL else lab.status
-        val remaining = (base.currentCapacityMah * (lab.percentage / 100f)).toInt()
-        _batteryState.value = base.copy(
-            percentage = lab.percentage,
-            currentMa = lab.currentMa,
-            voltageMv = lab.voltageMv,
-            temperatureCelsius = lab.temperatureCelsius,
-            status = effectiveStatus,
-            healthQuality = lab.healthQuality,
-            cycleCount = lab.cycleCount,
-            remainingCapacityMah = remaining.coerceAtMost(base.currentCapacityMah),
-            powerWatts = (abs(lab.voltageMv * lab.currentMa)) / 1_000_000f,
-            isFullChargeConditionMet = isFullMet,
-            fullChargeCapacityMah = if (isFullMet) (base.fullChargeCapacityMah ?: base.currentCapacityMah)
-            else base.fullChargeCapacityMah
-        )
+        // UI 回调入口兜底：合成展示态失败时保留上一帧，不逃逸到主线程
+        try {
+            val base = _batteryState.value
+            val isFullMet = lab.percentage == 100 && lab.currentMa in 0..25
+            val effectiveStatus = if (isFullMet) BatteryStatus.FULL else lab.status
+            val remaining = (base.currentCapacityMah * (lab.percentage / 100f)).toInt()
+            _batteryState.value = base.copy(
+                percentage = lab.percentage,
+                currentMa = lab.currentMa,
+                voltageMv = lab.voltageMv,
+                temperatureCelsius = lab.temperatureCelsius,
+                status = effectiveStatus,
+                healthQuality = lab.healthQuality,
+                cycleCount = lab.cycleCount,
+                remainingCapacityMah = remaining.coerceAtMost(base.currentCapacityMah),
+                powerWatts = (abs(lab.voltageMv * lab.currentMa)) / 1_000_000f,
+                isFullChargeConditionMet = isFullMet,
+                fullChargeCapacityMah = if (isFullMet) (base.fullChargeCapacityMah ?: base.currentCapacityMah)
+                else base.fullChargeCapacityMah
+            )
+        } catch (e: Throwable) {
+            // 忽略：保持上一帧展示
+        }
     }
 
     /**
@@ -2086,18 +2219,23 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
      * 模拟结果同时持久化，保持期结束后锁定容量依然可回显 (指标 12)
      */
     fun triggerFullChargeSimulation() {
-        val current = _batteryState.value
-        val timestamp = System.currentTimeMillis()
-        simulationHoldUntilMs = timestamp + 15_000
-        reader.persistFullChargeCapacity(current.currentCapacityMah, timestamp)
-        _batteryState.value = current.copy(
-            percentage = 100,
-            currentMa = 16,
-            status = BatteryStatus.FULL,
-            isFullChargeConditionMet = true,
-            fullChargeCapacityMah = current.currentCapacityMah,
-            lastFullChargeTimestamp = timestamp
-        )
+        // UI 回调入口兜底
+        try {
+            val current = _batteryState.value
+            val timestamp = System.currentTimeMillis()
+            simulationHoldUntilMs = timestamp + 15_000
+            reader.persistFullChargeCapacity(current.currentCapacityMah, timestamp)
+            _batteryState.value = current.copy(
+                percentage = 100,
+                currentMa = 16,
+                status = BatteryStatus.FULL,
+                isFullChargeConditionMet = true,
+                fullChargeCapacityMah = current.currentCapacityMah,
+                lastFullChargeTimestamp = timestamp
+            )
+        } catch (e: Throwable) {
+            // 忽略：保持当前展示数据
+        }
     }
 }`,
   },
@@ -2200,6 +2338,25 @@ internal object HardwareInfoResolver {
     }
 
     fun resolve(temperatureCelsius: Float, cycleCount: Int, powerWatts: Float): HardwareTelemetry {
+        // 启动闪退治理：解析链路任何 Throwable (ROM 服务缺失/DT 扫描 Error 等) 均降级为
+        // 工程估算态，绝不向启动路径抛异常
+        return try {
+            resolveInternal(temperatureCelsius, cycleCount, powerWatts)
+        } catch (e: Throwable) {
+            HardwareTelemetry(
+                socModel = "平台 SoC 解析中",
+                pmicModel = "平台级 PMIC 电源管理 [工程估算]",
+                batteryChemistry = "锂离子/聚合物电芯 (主流体系) [工程估算]",
+                fastChargeProtocol = "USB PD / QC 兼容快充 [工程估算]",
+                internalResistanceMohm = 14.8f,
+                halVersion = "Android \${Build.VERSION.RELEASE} Battery AIDL HAL",
+                cellStructure = "标准单电芯封装 [工程估算]",
+                thermalThrottlingState = "正常供电 (无节流)"
+            )
+        }
+    }
+
+    private fun resolveInternal(temperatureCelsius: Float, cycleCount: Int, powerWatts: Float): HardwareTelemetry {
         val profile = staticProfile
 
         // SoC 型号：API 31+ 提供 Build.SOC_MODEL，旧版本回退 Build.HARDWARE，仍不可得时按品牌平台估算
@@ -2401,16 +2558,23 @@ internal object DeviceHardwareProfile {
      * 返回 null 表示当前无可实测的协议节点，由上层回退到档案推断
      */
     fun probeLiveProtocol(): String? {
-        val now = System.currentTimeMillis()
-        if (now - lastProtocolProbeMs < PROTOCOL_TTL_MS) return cachedLiveProtocol
-        lastProtocolProbeMs = now
-        cachedLiveProtocol = detectProtocolFromSysfs()
-        return cachedLiveProtocol
+        // 启动闪退治理：探测整体兜底，任何 Throwable 均视为"无实测节点"
+        return try {
+            val now = System.currentTimeMillis()
+            if (now - lastProtocolProbeMs < PROTOCOL_TTL_MS) return cachedLiveProtocol
+            lastProtocolProbeMs = now
+            cachedLiveProtocol = detectProtocolFromSysfs()
+            cachedLiveProtocol
+        } catch (e: Throwable) {
+            null
+        }
     }
 
     /**
      * 扫描 device-tree 顶层与一级子目录的 compatible 节点寻找 PMIC 型号
      * (限定两层深度，compatible 文件权限 444 普通应用可读)
+     *
+     * 启动闪退治理：/proc 扫描在部分 OEM ROM 会抛 Error 级异常，按 Throwable 全兜底
      */
     private fun detectPmicFromDeviceTree(): String? {
         if (pmicProbed) return cachedPmic
@@ -2433,14 +2597,14 @@ internal object DeviceHardwareProfile {
                             file.readBytes().toString(Charsets.UTF_8)
                                 .split('\\u0000')
                                 .firstOrNull { isPmicCompatible(it) }
-                        } catch (e: Exception) {
+                        } catch (e: Throwable) {
                             null
                         }
                     }
                     .firstOrNull()
                 matched?.let { formatPmicName(it) }
             }
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             null
         }
         cachedPmic = found

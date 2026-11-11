@@ -32,6 +32,25 @@ internal object HardwareInfoResolver {
     }
 
     fun resolve(temperatureCelsius: Float, cycleCount: Int, powerWatts: Float): HardwareTelemetry {
+        // 启动闪退治理：解析链路任何 Throwable (ROM 服务缺失/DT 扫描 Error 等) 均降级为
+        // 工程估算态，绝不向启动路径抛异常
+        return try {
+            resolveInternal(temperatureCelsius, cycleCount, powerWatts)
+        } catch (e: Throwable) {
+            HardwareTelemetry(
+                socModel = "平台 SoC 解析中",
+                pmicModel = "平台级 PMIC 电源管理 [工程估算]",
+                batteryChemistry = "锂离子/聚合物电芯 (主流体系) [工程估算]",
+                fastChargeProtocol = "USB PD / QC 兼容快充 [工程估算]",
+                internalResistanceMohm = 14.8f,
+                halVersion = "Android ${Build.VERSION.RELEASE} Battery AIDL HAL",
+                cellStructure = "标准单电芯封装 [工程估算]",
+                thermalThrottlingState = "正常供电 (无节流)"
+            )
+        }
+    }
+
+    private fun resolveInternal(temperatureCelsius: Float, cycleCount: Int, powerWatts: Float): HardwareTelemetry {
         val profile = staticProfile
 
         // SoC 型号：API 31+ 提供 Build.SOC_MODEL，旧版本回退 Build.HARDWARE，仍不可得时按品牌平台估算

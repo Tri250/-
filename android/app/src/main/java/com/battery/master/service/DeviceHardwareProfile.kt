@@ -104,16 +104,23 @@ internal object DeviceHardwareProfile {
      * 返回 null 表示当前无可实测的协议节点，由上层回退到档案推断
      */
     fun probeLiveProtocol(): String? {
-        val now = System.currentTimeMillis()
-        if (now - lastProtocolProbeMs < PROTOCOL_TTL_MS) return cachedLiveProtocol
-        lastProtocolProbeMs = now
-        cachedLiveProtocol = detectProtocolFromSysfs()
-        return cachedLiveProtocol
+        // 启动闪退治理：探测整体兜底，任何 Throwable 均视为"无实测节点"
+        return try {
+            val now = System.currentTimeMillis()
+            if (now - lastProtocolProbeMs < PROTOCOL_TTL_MS) return cachedLiveProtocol
+            lastProtocolProbeMs = now
+            cachedLiveProtocol = detectProtocolFromSysfs()
+            cachedLiveProtocol
+        } catch (e: Throwable) {
+            null
+        }
     }
 
     /**
      * 扫描 device-tree 顶层与一级子目录的 compatible 节点寻找 PMIC 型号
      * (限定两层深度，compatible 文件权限 444 普通应用可读)
+     *
+     * 启动闪退治理：/proc 扫描在部分 OEM ROM 会抛 Error 级异常，按 Throwable 全兜底
      */
     private fun detectPmicFromDeviceTree(): String? {
         if (pmicProbed) return cachedPmic
@@ -136,14 +143,14 @@ internal object DeviceHardwareProfile {
                             file.readBytes().toString(Charsets.UTF_8)
                                 .split('\u0000')
                                 .firstOrNull { isPmicCompatible(it) }
-                        } catch (e: Exception) {
+                        } catch (e: Throwable) {
                             null
                         }
                     }
                     .firstOrNull()
                 matched?.let { formatPmicName(it) }
             }
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             null
         }
         cachedPmic = found
