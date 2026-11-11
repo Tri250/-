@@ -92,9 +92,10 @@ class BatteryReceiver(
 
         // 2. 剩余电量 (mAh)
         // 从 BATTERY_PROPERTY_CHARGE_COUNTER 获取 (uAh -> mAh)，或由百分比折算
+        // 不变式：剩余电量恒 ≤ 当前可用容量，与轮询通道口径一致
         val chargeCounterUah = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER)
         val remainingCapacityMah = if (chargeCounterUah > 0 && chargeCounterUah != Int.MIN_VALUE) {
-            chargeCounterUah / 1000
+            (chargeCounterUah / 1000).coerceAtMost(currentCapacityMah)
         } else {
             (currentCapacityMah * (percentage / 100.0f)).toInt()
         }

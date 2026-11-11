@@ -106,8 +106,10 @@ class BatteryHardwareReader(private val context: Context) {
         }
 
         // 2. 剩余电量（mAh）
+        // 不变式：剩余电量恒 ≤ 当前可用容量，与 Web 端 (百分比 × 当前容量) 口径一致，
+        // 避免库仑计读数抖动导致指标 2 大于指标 3
         val remainingCapacityMah = if (chargeCounterUah > 0 && chargeCounterUah != Int.MIN_VALUE) {
-            chargeCounterUah / 1000
+            (chargeCounterUah / 1000).coerceAtMost(currentCapacityMah)
         } else {
             (currentCapacityMah * (percentage / 100f)).toInt()
         }

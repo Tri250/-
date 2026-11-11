@@ -98,9 +98,9 @@ export function useBatteryMonitor() {
     if (isCriteriaMet) {
       setStatus('full');
 
-      // 仅在条件首次满足的瞬间计算并锁定一次容量，
+      // 仅在条件首次满足、或锁定值被清空 (切换机型) 的瞬间计算并锁定一次容量，
       // 涓流区间内电流波动 (5-24mA) 不再触发重复随机抖动 (Requirement 12)
-      if (!prevFullMetRef.current) {
+      if (!prevFullMetRef.current || fullChargeCapacity === null) {
         const estimatedFullCap = Math.round(currentCapacity * 0.996 + (Math.random() * 8 - 4));
         setFullChargeCapacity(estimatedFullCap);
         if (soundEnabled) playFullChargeChime();
@@ -118,7 +118,7 @@ export function useBatteryMonitor() {
       prevFullMetRef.current = false;
       // If user discharges or current moves away from 0-25mA cutoff, fullChargeCapacity remains stored if recorded, or indicates awaiting cutoff
     }
-  }, [percentage, current, currentCapacity, designCapacity, voltage, cycleCount, soundEnabled]);
+  }, [percentage, current, currentCapacity, designCapacity, voltage, cycleCount, soundEnabled, fullChargeCapacity]);
 
   // Live telemetry loop (simulating realistic micro-fluctuations in current, voltage, temperature)
   useEffect(() => {
@@ -228,8 +228,10 @@ export function useBatteryMonitor() {
   }, [isLiveTelemetryRunning]);
 
   // Derived metrics
-  // 1. 电池健康度
-  const healthPercentage = Number(((currentCapacity / designCapacity) * 100).toFixed(1));
+  // 1. 电池健康度：容量比钳制在 0-100%，与 Android coerceIn(0f, 100f) 口径一致
+  const healthPercentage = Number(
+    Math.min(100, Math.max(0, (currentCapacity / designCapacity) * 100)).toFixed(1)
+  );
   // 2. 剩余电量 (mAh)
   const remainingCapacity = Math.round((percentage / 100) * currentCapacity);
 
@@ -274,9 +276,11 @@ export function useBatteryMonitor() {
   }, [status]);
 
   // Action: Set custom design capacity
+  // 不变式：当前可用容量恒 ≤ 设计容量，避免健康度 > 100% 与负损耗
   const updateDesignCapacity = useCallback((val: number) => {
     const clamped = Math.max(1000, Math.min(15000, val));
     setDesignCapacity(clamped);
+    setCurrentCapacity((prev) => Math.min(prev, clamped));
   }, []);
 
   // Action: Set custom degraded capacity
