@@ -267,23 +267,21 @@ class FullChargeCapacityTest {
 
     @Test
     fun labMode_realLock_survivesLabSession() {
+        // 先持久化一次真实锁定 (模拟上一会话真实充满后重启)
+        val timestamp = System.currentTimeMillis()
+        BatteryHardwareReader(app).persistFullChargeCapacity(4820, timestamp)
+
         val vm = BatteryViewModel(app)
-        // 先经广播通道真实锁定一次
-        val reader = BatteryHardwareReader(app)
-        var emitted: BatteryState? = null
-        BatteryReceiver(reader) { emitted = it }.onReceive(app, Intent(Intent.ACTION_BATTERY_CHANGED).apply {
-            putExtra(BatteryManager.EXTRA_LEVEL, 100)
-            putExtra(BatteryManager.EXTRA_SCALE, 100)
-            putExtra(BatteryManager.EXTRA_STATUS, BatteryManager.BATTERY_STATUS_CHARGING)
-        })
-        val realLock = emitted!!.fullChargeCapacityMah
-        assertNotNull(realLock)
+        // VM 构造时从 prefs 恢复锁定值
+        assertEquals(4820, vm.batteryState.value.fullChargeCapacityMah)
+        assertEquals(timestamp, vm.batteryState.value.lastFullChargeTimestamp)
 
         // 进入再退出实验室：真实锁定值不丢失
         vm.enterLabMode()
         vm.applyLabScenario(LabScenario.GAMING_DISCHARGE)
         vm.exitLabMode()
-        assertEquals(realLock, vm.batteryState.value.fullChargeCapacityMah)
+        assertEquals(4820, vm.batteryState.value.fullChargeCapacityMah)
+        assertEquals(timestamp, vm.batteryState.value.lastFullChargeTimestamp)
     }
 
     // ===== 8. 模拟保持期内退出实验室：残留数据修复回归 =====
