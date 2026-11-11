@@ -127,6 +127,50 @@ export function FullChargeCalibrationCard({
             一键进入充满状态 (100% + 16 mA)
           </button>
         </div>
+
+        {/* Last Full Charge Record Detail (完整回显 timestamp/currentAtCutoff/voltageAtFull/cycleCount/healthCalculated) */}
+        {lastFullChargeRecord && (
+          <div className="mt-3 pt-3 border-t border-slate-800/60">
+            <div className="flex items-center gap-1.5 text-[11px] font-mono text-slate-500 mb-1.5">
+              <Clock className="w-3 h-3 text-slate-400 shrink-0" />
+              <span>
+                上次满足判定记录 ·{' '}
+                {new Date(lastFullChargeRecord.timestamp).toLocaleString('zh-CN', {
+                  month: '2-digit',
+                  day: '2-digit',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div className="p-2 rounded-lg bg-slate-900/60 border border-slate-800/80">
+                <div className="text-[10px] text-slate-500">截止电流</div>
+                <div className="text-[11px] font-mono font-bold text-emerald-300 mt-0.5 tabular-nums">
+                  {lastFullChargeRecord.currentAtCutoff} mA
+                </div>
+              </div>
+              <div className="p-2 rounded-lg bg-slate-900/60 border border-slate-800/80">
+                <div className="text-[10px] text-slate-500">记录时电压</div>
+                <div className="text-[11px] font-mono font-bold text-sky-300 mt-0.5 tabular-nums">
+                  {lastFullChargeRecord.voltageAtFull} mV
+                </div>
+              </div>
+              <div className="p-2 rounded-lg bg-slate-900/60 border border-slate-800/80">
+                <div className="text-[10px] text-slate-500">循环计数</div>
+                <div className="text-[11px] font-mono font-bold text-slate-200 mt-0.5 tabular-nums">
+                  {lastFullChargeRecord.cycleCount} 次
+                </div>
+              </div>
+              <div className="p-2 rounded-lg bg-slate-900/60 border border-slate-800/80">
+                <div className="text-[10px] text-slate-500">记录健康比</div>
+                <div className="text-[11px] font-mono font-bold text-cyan-300 mt-0.5 tabular-nums">
+                  {lastFullChargeRecord.healthCalculated}%
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Real-time Condition Verification Checklist */}
