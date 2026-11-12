@@ -336,6 +336,10 @@ fun BatteryScreen(
             }
 
             item {
+                // 局部变量：currentNowMa 为自定义 getter 属性不可智能转换，
+                // 绑定局部值后 when 分支可安全比较与空安全分支
+                val currentNow = state.currentNowMa
+                val powerW = state.powerWatts
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     CyberMetricCardItem(
                         modifier = Modifier.weight(1f),
@@ -344,18 +348,17 @@ fun BatteryScreen(
                         // 指标 11：经 BatteryState.currentNowMa 别名读取 (激活别名，与 currentMa 同源)
                         // v1.2.3 P0 审计修复：currentMa 可空——设备不支持 CURRENT_NOW
                         // 时显示 "—"，旧实现归一化为 0 会虚构 "0 mA / 0.00 W" 读数
-                        value = state.currentNowMa?.let { if (it > 0) "+$it" else "$it" } ?: "—",
-                        unit = if (state.currentNowMa != null) "mA" else "",
+                        value = currentNow?.let { if (it > 0) "+$it" else "$it" } ?: "—",
+                        unit = if (currentNow != null) "mA" else "",
                         // v1.2.4 P2 审计修复：功率随符号携带方向 (充电 +W / 放电 −W)，
                         // 旧实现解析层 abs 后充放同显正功率，方向丢失
                         sub = "功率 " + when {
-                            state.currentNowMa == null -> "— W"
-                            state.currentNowMa > 0 -> "+${String.format(Locale.US, "%.2f", state.powerWatts)} W"
-                            state.currentNowMa < 0 ->
-                                "-${String.format(Locale.US, "%.2f", abs(state.powerWatts))} W"
-                            else -> String.format(Locale.US, "%.2f", state.powerWatts) + " W"
+                            currentNow == null -> "— W"
+                            currentNow > 0 -> "+${String.format(Locale.US, "%.2f", powerW)} W"
+                            currentNow < 0 -> "-${String.format(Locale.US, "%.2f", abs(powerW))} W"
+                            else -> String.format(Locale.US, "%.2f", powerW) + " W"
                         },
-                        accentColor = if ((state.currentNowMa ?: 0) > 0) DesignTokens.BrandPrimary else DesignTokens.AccentCyanDark
+                        accentColor = if ((currentNow ?: 0) > 0) DesignTokens.BrandPrimary else DesignTokens.AccentCyanDark
                     )
                     CyberMetricCardItem(
                         modifier = Modifier.weight(1f),
