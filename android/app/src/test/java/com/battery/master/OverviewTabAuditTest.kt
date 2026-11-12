@@ -1,6 +1,7 @@
 package com.battery.master
 
 import android.app.Application
+import android.os.Looper
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onFirst
@@ -15,6 +16,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows
 import org.robolectric.annotation.Config
 import java.util.Locale
 
@@ -128,7 +130,9 @@ class OverviewTabAuditTest {
         // B3 判定卡触发按钮在场
         composeRule.onNodeWithText("一键模拟完全充满 (100% + 16mA)").assertExists()
         composeRule.onNodeWithText("一键模拟完全充满 (100% + 16mA)").performClick()
-        advanceCompose()
+        // 双时钟推进：looper.idle 执行 viewModelScope(Main) 协程 → waitForIdle 推进重组渲染
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+        composeRule.waitForIdle()
 
         // 保持期倒计时可见反馈 (协程经 waitUntil 时钟推进后渲染；条件满足瞬间返回，不耗 15s 窗口)
         composeRule.waitUntil(3_000) {
