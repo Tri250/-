@@ -3,6 +3,7 @@ package com.battery.master
 import android.app.Application
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
@@ -105,7 +106,12 @@ class OverviewTabAuditTest {
             advanceCompose()
 
             // 旧实现 (无 Locale.US)：de_DE 下渲染 "4,00 W"，本断言失败
-            composeRule.onNodeWithText("4.00 W", substring = true).assertExists()
+            // (功率文本同时出现在 Hero 读数条与指标 11 卡副标题，onAllNodes 多节点安全)
+            assert(
+                composeRule.onAllNodes(
+                    androidx.compose.ui.test.hasText("4.00 W", substring = true)
+                ).fetchSemanticsNodes().isNotEmpty()
+            )
         } finally {
             Locale.setDefault(previousLocale)
         }
@@ -124,8 +130,15 @@ class OverviewTabAuditTest {
         advanceCompose()
 
         // 按钮立即进入倒计时禁用态 (15 秒保持期窗口内，先于其他 waitUntil 断言)
-        composeRule.onNodeWithText("模拟保持中", substring = true).assertExists()
-        composeRule.onNodeWithText("模拟保持中", substring = true).assertIsNotEnabled()
+        // (按钮文本与副文本同时存在，onAllNodes 多节点安全)
+        assert(
+            composeRule.onAllNodes(
+                androidx.compose.ui.test.hasText("模拟保持中", substring = true)
+            ).fetchSemanticsNodes().isNotEmpty()
+        )
+        composeRule.onAllNodes(
+            androidx.compose.ui.test.hasText("模拟保持中", substring = true)
+        ).onFirst().assertIsNotEnabled()
 
         // Hero 状态标签切为"已充满"，核心读数切为 100% (缓动动画收敛后)
         composeRule.waitUntil(5_000) {
@@ -152,9 +165,17 @@ class OverviewTabAuditTest {
     fun heroCard_rendersCoreReadings() {
         mountShell()
 
-        // 电量百分比读数条在场 (静态渲染，不依赖协程时序)
-        composeRule.onNodeWithText("剩余电量", substring = true).assertExists()
-        composeRule.onNodeWithText("mA ·", substring = true).assertExists()
+        // Hero 读数条在场 (静态渲染；"剩余电量" 同时命中指标 02 卡，onAllNodes 多节点安全)
+        assert(
+            composeRule.onAllNodes(
+                androidx.compose.ui.test.hasText("剩余电量", substring = true)
+            ).fetchSemanticsNodes().isNotEmpty()
+        )
+        assert(
+            composeRule.onAllNodes(
+                androidx.compose.ui.test.hasText("mA ·", substring = true)
+            ).fetchSemanticsNodes().isNotEmpty()
+        )
         // Robolectric 环境设计容量兜底 5000
         assertEquals(5000, BatteryViewModel(app).batteryState.value.designCapacityMah)
     }
