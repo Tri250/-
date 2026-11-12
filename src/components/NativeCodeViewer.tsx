@@ -505,17 +505,18 @@ class BatteryHardwareReader(private val context: Context) {
             cycleCount = batteryIntent?.getIntExtra(BatteryManager.EXTRA_CYCLE_COUNT, 0) ?: 0
         }
         if (cycleCount <= 0) {
-            cycleCount = BatterySysfs.readInt("/sys/class/power_supply/battery/cycle_count") ?: 0
+            cycleCount = BatterySysfs.readIntCached("/sys/class/power_supply/battery/cycle_count") ?: 0
         }
 
         // 3. 电池当前容量（衰减后的容量 mAh）
+        // sysfs charge_full 经单位归一化 (μAh 规范 + mAh 上报内核双重解释)，
+        // 合理区间外视为脏数据，回退设计容量估算值，避免非法容量流入指标 12 锁定与持久化
         val chargeCounterUah = batteryManager?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER)
             ?: 0
-        var currentCapacityMah = (designCapacityMah * 0.92f).toInt()
-        val sysfsMaxCapacityUah = BatterySysfs.readInt("/sys/class/power_supply/battery/charge_full")
-        if (sysfsMaxCapacityUah != null && sysfsMaxCapacityUah > 0) {
-            currentCapacityMah = sysfsMaxCapacityUah / 1000
-        }
+        val fallbackCapacityMah = (designCapacityMah * 0.92f).toInt()
+        val currentCapacityMah = BatterySysfs.normalizeChargeFullToMilliAmps(
+            BatterySysfs.readIntCached("/sys/class/power_supply/battery/charge_full")
+        ) ?: fallbackCapacityMah
 
         // 2. 剩余电量（mAh）
         // 不变式：剩余电量恒 ≤ 当前可用容量，与 Web 端 (百分比 × 当前容量) 口径一致，
@@ -571,16 +572,25 @@ class BatteryHardwareReader(private val context: Context) {
         )
     }
 
-    /** 安全默认态：任何采集都不可用时 UI 仍有可渲染的中性数据 */
-    private fun buildSafeDefaultState(): BatteryState = BatteryState(
-        currentCapacityMah = (designCapacityMah * 0.92f).toInt(),
-        remainingCapacityMah = 0,
-        voltageMv = 4000,
-        temperatureCelsius = 25.0f,
-        percentage = 0,
-        socModel = "平台 SoC 解析中",
-        pmicModel = "平台级 PMIC 电源管理 [工程估算]"
-    )
+    /** 安全默认态：任何采集都不可用时 UI 仍有可渲染的中性数据 (保留已锁定的指标 12 不丢失) */
+    private fun buildSafeDefaultState(): BatteryState {
+        // 健康度与容量口径自洽：容量回退估算 (设计×0.92) 时健康度同步现算，
+        // 杜绝旧版 "当前容量 92% / 健康度却显示 100%" 的跨指标矛盾
+        val capacity = (designCapacityMah * 0.92f).toInt()
+        val health = (capacity.toFloat() / designCapacityMah * 100f).coerceIn(0f, 100f)
+        return BatteryState(
+            currentCapacityMah = capacity,
+            healthPercentage = health,
+            remainingCapacityMah = 0,
+            voltageMv = 4000,
+            temperatureCelsius = 25.0f,
+            percentage = 0,
+            socModel = "平台 SoC 解析中",
+            pmicModel = "平台级 PMIC 电源管理 [工程估算]",
+            fullChargeCapacityMah = lastRecordedFullCapacity,
+            lastFullChargeTimestamp = lastFullChargeTimestamp
+        )
+    }
 
     /**
      * 持久化指标 12 的充满锁定容量与时间戳 (供 ViewModel 模拟充满时调用)
@@ -635,11 +645,22 @@ class BatteryHardwareReader(private val context: Context) {
             val powerProfile = constructor.newInstance(context)
             val getBatteryCapacityMethod = powerProfileClass.getMethod("getBatteryCapacity")
             val capacity = getBatteryCapacityMethod.invoke(powerProfile) as? Double
-            if (capacity != null && capacity > 0) return capacity.toInt()
+            // 合理区间校验：损坏 ROM 的 power_profile.xml 可能含异常标称，
+            // 区间外不直接采信，回退 sysfs / 兜底链
+            if (capacity != null &&
+                capacity.toInt() in BatterySysfs.MIN_PLAUSIBLE_CAPACITY_MAH..BatterySysfs.MAX_PLAUSIBLE_CAPACITY_MAH
+            ) {
+                return capacity.toInt()
+            }
         } catch (e: Throwable) {}
 
-        val sysfsDesign = BatterySysfs.readInt("/sys/class/power_supply/battery/charge_full_design")
-        if (sysfsDesign != null && sysfsDesign > 0) return sysfsDesign / 1000
+        // charge_full_design 与 charge_full 同源同单位歧义：标准内核 μAh，
+        // 个别内核 mAh。旧实现 raw/1000 在 mAh 内核下得到 5 mAh 级设计容量，
+        // 指标 01 健康度恒钳 100%、指标 02 剩余电量折算全线失真 → 统一走双解释归一化
+        val sysfsDesign = BatterySysfs.normalizeChargeFullToMilliAmps(
+            BatterySysfs.readIntCached("/sys/class/power_supply/battery/charge_full_design")
+        )
+        if (sysfsDesign != null) return sysfsDesign
 
         return FALLBACK_DESIGN_CAPACITY
     }
@@ -1826,16 +1847,17 @@ class BatteryReceiver(
             } catch (e: Exception) {}
         }
         if (cycleCount <= 0) {
-            cycleCount = BatterySysfs.readInt("/sys/class/power_supply/battery/cycle_count") ?: 0
+            cycleCount = BatterySysfs.readIntCached("/sys/class/power_supply/battery/cycle_count") ?: 0
         }
 
         // 4. 电池出厂设计容量 (共享 Reader 单一数据源：PowerProfile -> sysfs -> 5000mAh)
         val designCapacityMah = reader.designCapacityMah
 
         // 3. 电池当前容量 (衰减后容量，从 sysfs charge_full 读取或由电量计芯片校准)
-        val currentCapacityMah = BatterySysfs.readInt("/sys/class/power_supply/battery/charge_full")?.div(1000)
-            ?.takeIf { it > 0 }
-            ?: (designCapacityMah * 0.92f).toInt()
+        // charge_full 单位归一化：μAh 规范内核 / mAh 上报内核双重解释，脏数据回退估算
+        val currentCapacityMah = BatterySysfs.normalizeChargeFullToMilliAmps(
+            BatterySysfs.readIntCached("/sys/class/power_supply/battery/charge_full")
+        ) ?: (designCapacityMah * 0.92f).toInt()
 
         // 2. 剩余电量 (mAh)
         // 从 BATTERY_PROPERTY_CHARGE_COUNTER 获取 (uAh -> mAh)，或由百分比折算
@@ -2379,6 +2401,19 @@ import kotlin.math.abs
  */
 internal object BatterySysfs {
 
+    /** 电池当前容量合理区间 (mAh)：区间外视为 sysfs 单位异常/脏数据，回退估算值 */
+    const val MIN_PLAUSIBLE_CAPACITY_MAH = 500
+    const val MAX_PLAUSIBLE_CAPACITY_MAH = 20_000
+
+    /**
+     * 静态 sysfs 节点 TTL 缓存 (毫秒)：
+     * charge_full / charge_full_design / cycle_count 变化频率极低 (分钟级)，
+     * 1Hz 轮询下无需每秒 open/read/close；current_now 等瞬态节点不走缓存。
+     * 仅主线程访问 (ViewModel 轮询 + 广播 onReceive 均在主线程)，无需并发防护。
+     */
+    private const val STATIC_NODE_TTL_MS = 30_000L
+    private val staticNodeCache = HashMap<String, Pair<Long, Int>>()
+
     /**
      * 从 Linux sysfs 读取电池节点数据
      * (例如高通/联发科平台的 /sys/class/power_supply/battery/)
@@ -2388,6 +2423,38 @@ internal object BatterySysfs {
         if (file.exists() && file.canRead()) file.readText().trim().toIntOrNull() else null
     } catch (e: Exception) {
         null
+    }
+
+    /**
+     * 静态节点带 TTL 缓存读取：TTL 内直接命中内存，过期后重新读盘。
+     * 节点不可读 (null) 不缓存，下一拍自动重试，节点热插拔出现后 ≤1 拍即可恢复真实读数。
+     */
+    fun readIntCached(path: String): Int? {
+        val now = System.currentTimeMillis()
+        val hit = staticNodeCache[path]
+        if (hit != null && now < hit.first) return hit.second
+        val fresh = readInt(path)
+        if (fresh != null) staticNodeCache[path] = (now + STATIC_NODE_TTL_MS) to fresh
+        return fresh
+    }
+
+    /**
+     * charge_full 原始值 → mAh 容量归一化 (指标 03「电池当前容量」)：
+     *
+     * 1. 标准内核以 μAh 上报 (sysfs 规范)：raw/1000 落入合理区间 → 直接采用；
+     * 2. 个别内核以 mAh 上报：raw/1000 落入 0~20 mAh 非法区间，但 raw 本身
+     *    落入合理区间 → 按 mAh 解释采用 (v1.2.3 修复：旧逻辑"一律回退估算值"
+     *    会把真实读数丢弃、健康度恒伪造 92.0%，违背真实遥测目标)；
+     * 3. 两者均不在区间 → 脏数据，返回 null 由调用方回退估算值。
+     */
+    fun normalizeChargeFullToMilliAmps(rawUah: Int?): Int? {
+        if (rawUah == null || rawUah <= 0) return null
+        val asMah = rawUah / 1000
+        return when {
+            asMah in MIN_PLAUSIBLE_CAPACITY_MAH..MAX_PLAUSIBLE_CAPACITY_MAH -> asMah
+            rawUah in MIN_PLAUSIBLE_CAPACITY_MAH..MAX_PLAUSIBLE_CAPACITY_MAH -> rawUah
+            else -> null
+        }
     }
 
     /**
