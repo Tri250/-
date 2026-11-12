@@ -28,7 +28,7 @@ import org.robolectric.annotation.Config
  * 5. 关于 APP 版本徽章经 BuildConfig 单源注入，与构建配置一致。
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34])
+@Config(sdk = [34], qualifiers = "w1200dp-h3000dp")
 class AppShellAuditTest {
 
     private val app: Application get() = ApplicationProvider.getApplicationContext()

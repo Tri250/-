@@ -31,7 +31,7 @@ import java.util.Locale
  * 环境假设 (与既有测试一致)：CI/桌面无电池 sysfs → 当前容量收敛 0.92×5000=4600。
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34])
+@Config(sdk = [34], qualifiers = "w1200dp-h3000dp")
 class OverviewTabAuditTest {
 
     private val app: Application get() = ApplicationProvider.getApplicationContext()

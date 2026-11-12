@@ -27,7 +27,7 @@ import org.robolectric.annotation.Config
  *    仍停留在过热区 (>45°C) 回落中性室温，消除"健康=良好 但 49.2°C"矛盾展示。
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34])
+@Config(sdk = [34], qualifiers = "w1200dp-h3000dp")
 class LabHardwareAuditTest {
 
     private val app: Application get() = ApplicationProvider.getApplicationContext()
