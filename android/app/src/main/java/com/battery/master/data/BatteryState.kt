@@ -5,13 +5,14 @@ package com.battery.master.data
  */
 data class BatteryState(
     // 1、电池健康度 (百分比，例如 94.5%)
-    val healthPercentage: Float = 100.0f,
+    // 默认值与 BatteryHardwareReader 安全默认态同口径 (0.92 × 设计容量)，中性自洽
+    val healthPercentage: Float = 92.0f,
 
     // 2、剩余电量 (mAh，例如 3800 mAh)
     val remainingCapacityMah: Int = 0,
 
     // 3、电池当前容量 (电池衰减后的容量 mAh，例如 4700 mAh)
-    val currentCapacityMah: Int = 5000,
+    val currentCapacityMah: Int = 4600,
 
     // 4、电池设计容量 (电池出厂容量 mAh，例如 5000 mAh)
     val designCapacityMah: Int = 5000,
@@ -23,13 +24,16 @@ data class BatteryState(
     val status: BatteryStatus = BatteryStatus.NOT_CHARGING,
 
     // 7、电池温度：摄氏度 (例如 32.5°C)
-    val temperatureCelsius: Float = 0.0f,
+    // 默认 25.0°C 中性室温 (与 BatteryTelemetryParser 缺失默认一致)；0.0 会被 UI 判定为"过冷"
+    val temperatureCelsius: Float = 25.0f,
 
     // 8、电池健康：良好、过热、损坏、超压、未知
-    val healthQuality: BatteryHealthQuality = BatteryHealthQuality.GOOD,
+    // 默认 UNKNOWN 诚实中性 (与 Reader 降级态一致)；GOOD 属正面断言不作默认
+    val healthQuality: BatteryHealthQuality = BatteryHealthQuality.UNKNOWN,
 
     // 9、电压：毫伏 mV (例如 4150 mV)
-    val voltageMv: Int = 0,
+    // 默认 4000 中性典型值 (与 Parser 故障回退一致)；0 是故障断言值
+    val voltageMv: Int = 4000,
 
     // 10、循环计数：电池充放电的次数
     val cycleCount: Int = 0,
