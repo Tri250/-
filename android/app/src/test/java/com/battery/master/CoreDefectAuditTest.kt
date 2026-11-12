@@ -227,8 +227,11 @@ class CoreDefectAuditTest {
         vm.exitLabMode()
         assertNull(vm.labOverride.value)
         val real = vm.batteryState.value
-        // 真实通道电流不可读 → CURRENT_UNAVAILABLE (不谎报充满)
-        assertEquals(FullChargeVerdict.CURRENT_UNAVAILABLE, real.fullChargeVerdict)
+        // 模拟电压不得残留 (8888 mV 为实验室注入值)
+        assertTrue(real.voltageMv != 8888)
+        // 真实通道不得谎报充满 (P0-1)：判定为 NOT_YET / CURRENT_UNAVAILABLE 之一，
+        // 具体取值取决于环境粘性广播电量，不硬编码
+        assertTrue(real.fullChargeVerdict != FullChargeVerdict.FULLY_CHARGED)
         // 设计容量回到系统三级链解析值 (Robolectric 环境命中 PowerProfile 或兜底，
         // 不硬编码具体等级，仅断言不再是用户校准值)
         assertTrue(real.designCapacitySource != CapacitySource.CALIBRATED)
