@@ -78,7 +78,8 @@ class AppShellAuditTest {
         composeRule.onNodeWithText("一键工作场景模拟").assertExists()
 
         // 模拟 Activity 重建 (旋转/折叠/字体变更)：rememberSaveable 恢复选中态
-        tester.emulateSaveAndRestore()
+        // (ui-test-junit4 1.7.x API 名为 emulateSavedInstanceStateRestore，1.8+ 才更名 emulateSaveAndRestore)
+        tester.emulateSavedInstanceStateRestore()
 
         // 旧实现 remember：重建后弹回 Tab 0，"一键工作场景模拟" 消失
         composeRule.onNodeWithText("一键工作场景模拟").assertExists()
@@ -96,7 +97,7 @@ class AppShellAuditTest {
         composeRule.onNodeWithText("校准设计容量 (指标 04)").assertExists()
 
         // 配置变更重建后对话框不得消失 (旧实现 remember 直接丢失)
-        tester.emulateSaveAndRestore()
+        tester.emulateSavedInstanceStateRestore()
         composeRule.onNodeWithText("校准设计容量 (指标 04)").assertExists()
     }
 
