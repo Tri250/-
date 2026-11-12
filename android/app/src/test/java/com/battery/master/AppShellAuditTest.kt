@@ -119,9 +119,9 @@ class AppShellAuditTest {
     fun aboutCard_versionBadgeInjectedFromBuildConfig() {
         mountShell()
 
-        // 徽章文案与构建配置严格一致 (v1.2.3 / versionCode 8)
+        // 徽章文案与构建配置严格一致 (v1.2.4 / versionCode 9)
         composeRule.onNodeWithText("v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})").assertExists()
-        assertEquals("1.2.3", BuildConfig.VERSION_NAME)
-        assertEquals(8, BuildConfig.VERSION_CODE)
+        assertEquals("1.2.4", BuildConfig.VERSION_NAME)
+        assertEquals(9, BuildConfig.VERSION_CODE)
     }
 }

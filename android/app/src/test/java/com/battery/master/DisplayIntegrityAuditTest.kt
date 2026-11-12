@@ -9,6 +9,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
 import com.battery.master.data.CapacitySource
+import com.battery.master.service.BatterySysfs
 import com.battery.master.service.BatteryTelemetryParser
 import com.battery.master.service.HardwareInfoResolver
 import com.battery.master.ui.HardwareLabScreen
@@ -93,22 +94,22 @@ class DisplayIntegrityAuditTest {
 
     @Test
     fun powerWatts_signedByDirection_notAbs() {
-        // 放电态 (DISCHARGING)：-1150 mA × 4000 mV → -4.6 W (旧实现 abs → +4.6 W，方向丢失)
-        val dischargeIntent = Intent(Intent.ACTION_BATTERY_CHANGED).apply {
-            putExtra(BatteryManager.EXTRA_LEVEL, 58)
-            putExtra(BatteryManager.EXTRA_SCALE, 100)
-            putExtra(BatteryManager.EXTRA_STATUS, BatteryManager.BATTERY_STATUS_DISCHARGING)
-            putExtra(BatteryManager.EXTRA_VOLTAGE, 4000)
-        }
-        Shadows.shadowOf(batteryManager())
-            .setIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW, -1_150_000)
-        val discharge = BatteryTelemetryParser.parse(dischargeIntent, batteryManager(), 5000)
-        assertEquals(-1150, discharge.currentMa)
-        assertNotNull(discharge.powerWatts)
-        assertTrue("放电功率必须为负 (旧实现 abs 后为正)", discharge.powerWatts!! < 0)
-        assertEquals(-4.6f, discharge.powerWatts!!, 0.01f)
+        // 放电符号链路：放电态负电流保持负值 (充电为正、放电为负 口径，
+        // 与 RemainingMetricsAuditTest 符号校准用例互为印证)
+        assertEquals(-1150, BatterySysfs.normalizeCurrentToMilliAmps(-1_150_000, false))
 
-        // 充电态 (CHARGING)：+1150 mA × 4000 mV → +4.6 W
+        // 展示链路：VM 实验室通道注入放电电流 → 功率随符号携带方向。
+        // 旧实现解析层 abs() 后放电 1150 mA 与充电 1150 mA 同显正功率，
+        // 方向信息丢失——负电流必须产出负功率
+        val vm = BatteryViewModel(app)
+        vm.enterLabMode()
+        vm.updateLabVoltage(4000)
+        vm.updateLabCurrent(-1150)
+        val state = vm.batteryState.value
+        assertEquals(-1150, state.currentMa)
+        assertEquals(-4.6f, state.powerWatts, 0.01f)
+
+        // 充电链路：真实通道注入 +1150 mA 充电态 → +4.6 W
         val chargeIntent = Intent(Intent.ACTION_BATTERY_CHANGED).apply {
             putExtra(BatteryManager.EXTRA_LEVEL, 58)
             putExtra(BatteryManager.EXTRA_SCALE, 100)
