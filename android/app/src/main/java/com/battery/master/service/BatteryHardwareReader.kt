@@ -163,11 +163,22 @@ class BatteryHardwareReader(private val context: Context) {
             val powerProfile = constructor.newInstance(context)
             val getBatteryCapacityMethod = powerProfileClass.getMethod("getBatteryCapacity")
             val capacity = getBatteryCapacityMethod.invoke(powerProfile) as? Double
-            if (capacity != null && capacity > 0) return capacity.toInt()
+            // 合理区间校验：损坏 ROM 的 power_profile.xml 可能含异常标称，
+            // 区间外不直接采信，回退 sysfs / 兜底链
+            if (capacity != null &&
+                capacity.toInt() in BatterySysfs.MIN_PLAUSIBLE_CAPACITY_MAH..BatterySysfs.MAX_PLAUSIBLE_CAPACITY_MAH
+            ) {
+                return capacity.toInt()
+            }
         } catch (e: Throwable) {}
 
-        val sysfsDesign = BatterySysfs.readIntCached("/sys/class/power_supply/battery/charge_full_design")
-        if (sysfsDesign != null && sysfsDesign > 0) return sysfsDesign / 1000
+        // charge_full_design 与 charge_full 同源同单位歧义：标准内核 μAh，
+        // 个别内核 mAh。旧实现 raw/1000 在 mAh 内核下得到 5 mAh 级设计容量，
+        // 指标 01 健康度恒钳 100%、指标 02 剩余电量折算全线失真 → 统一走双解释归一化
+        val sysfsDesign = BatterySysfs.normalizeChargeFullToMilliAmps(
+            BatterySysfs.readIntCached("/sys/class/power_supply/battery/charge_full_design")
+        )
+        if (sysfsDesign != null) return sysfsDesign
 
         return FALLBACK_DESIGN_CAPACITY
     }

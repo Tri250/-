@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.BatteryManager
 import androidx.test.core.app.ApplicationProvider
+import com.battery.master.service.BatteryHardwareReader
 import com.battery.master.service.BatterySysfs
 import com.battery.master.service.BatteryTelemetryParser
 import com.battery.master.viewmodel.BatteryViewModel
@@ -103,6 +104,14 @@ class CapacityHealthMetricsTest {
         // 真实路径：容量估算回退随设计容量联动 (0.92 × 8000)
         assertEquals(7360, state.currentCapacityMah)
         assertEquals(92.0f, state.healthPercentage, 0.01f)
+    }
+
+    @Test
+    fun reader_designCapacity_alwaysWithinPlausibleBand() {
+        // 指标 04 回退链 (PowerProfile → sysfs charge_full_design → 5000) 任一环节
+        // 都不得产出 5 mAh 级 (mAh 上报内核旧缺陷) 或 50000 mAh 级脏标称
+        val design = BatteryHardwareReader(app).designCapacityMah
+        assertTrue(design in BatterySysfs.MIN_PLAUSIBLE_CAPACITY_MAH..BatterySysfs.MAX_PLAUSIBLE_CAPACITY_MAH)
     }
 
     // ===== 3. 实验室校准设计容量 → 指标 01 实时重算 (旧缺陷回归) =====

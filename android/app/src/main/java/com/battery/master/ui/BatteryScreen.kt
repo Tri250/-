@@ -344,6 +344,7 @@ fun BatteryScreen(
                 inputError = when {
                     capacityInput.isBlank() -> "请输入容量数值"
                     parsed == null || parsed <= 0 -> "容量必须为大于 0 的整数"
+                    parsed < 500 -> "容量低于合理范围 (最小 500 mAh)"
                     parsed > 20000 -> "容量超出合理范围 (最大 20000 mAh)"
                     else -> null
                 }
