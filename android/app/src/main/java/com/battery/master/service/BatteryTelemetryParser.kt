@@ -90,10 +90,6 @@ internal object BatteryTelemetryParser {
     const val FULL_CHARGE_TRICKLE_MIN_MA = 0
     const val FULL_CHARGE_TRICKLE_MAX_MA = 25
 
-    /** 电池当前容量合理区间 (mAh)：区间外视为 sysfs 单位异常/脏数据，回退估算值 */
-    const val MIN_PLAUSIBLE_CAPACITY_MAH = 500
-    const val MAX_PLAUSIBLE_CAPACITY_MAH = 20_000
-
     /**
      * 指标 12 共享判定谓词：仅当电量 100% 且瞬时电流处于 0~25 mA 浮充截止区间时为 true。
      * 双通道与 UI 卡片统一消费此谓词语义，不在各处重算。
@@ -166,24 +162,16 @@ internal object BatteryTelemetryParser {
             cycleCount = intent?.getIntExtra(BatteryManager.EXTRA_CYCLE_COUNT, 0) ?: 0
         }
         if (cycleCount <= 0) {
-            cycleCount = BatterySysfs.readInt("/sys/class/power_supply/battery/cycle_count") ?: 0
+            cycleCount = BatterySysfs.readIntCached("/sys/class/power_supply/battery/cycle_count") ?: 0
         }
 
         // 3. 电池当前容量 (衰减后容量 mAh)
-        // sysfs charge_full 为 μAh；合理区间外视为单位异常/脏数据，回退设计容量估算值，
-        // 避免非法容量流入指标 12 锁定与持久化
+        // sysfs charge_full 经单位归一化 (μAh 规范 + mAh 上报内核双重解释)，
+        // 合理区间外视为脏数据，回退设计容量估算值，避免非法容量流入指标 12 锁定与持久化
         val fallbackCapacityMah = (effectiveDesignCapacity * 0.92f).toInt()
-        val sysfsMaxCapacityUah = BatterySysfs.readInt("/sys/class/power_supply/battery/charge_full")
-        val currentCapacityMah = if (sysfsMaxCapacityUah != null && sysfsMaxCapacityUah > 0) {
-            val sysfsCapacityMah = sysfsMaxCapacityUah / 1000
-            if (sysfsCapacityMah in MIN_PLAUSIBLE_CAPACITY_MAH..MAX_PLAUSIBLE_CAPACITY_MAH) {
-                sysfsCapacityMah
-            } else {
-                fallbackCapacityMah
-            }
-        } else {
-            fallbackCapacityMah
-        }
+        val currentCapacityMah = BatterySysfs.normalizeChargeFullToMilliAmps(
+            BatterySysfs.readIntCached("/sys/class/power_supply/battery/charge_full")
+        ) ?: fallbackCapacityMah
 
         // 2. 剩余电量 (mAh)
         // 不变式：剩余电量恒 ≤ 当前可用容量，与 Web 端 (百分比 × 当前容量) 口径一致，

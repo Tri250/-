@@ -86,17 +86,24 @@ class BatteryHardwareReader(private val context: Context) {
     }
 
     /** 安全默认态：任何采集都不可用时 UI 仍有可渲染的中性数据 (保留已锁定的指标 12 不丢失) */
-    private fun buildSafeDefaultState(): BatteryState = BatteryState(
-        currentCapacityMah = (designCapacityMah * 0.92f).toInt(),
-        remainingCapacityMah = 0,
-        voltageMv = 4000,
-        temperatureCelsius = 25.0f,
-        percentage = 0,
-        socModel = "平台 SoC 解析中",
-        pmicModel = "平台级 PMIC 电源管理 [工程估算]",
-        fullChargeCapacityMah = lastRecordedFullCapacity,
-        lastFullChargeTimestamp = lastFullChargeTimestamp
-    )
+    private fun buildSafeDefaultState(): BatteryState {
+        // 健康度与容量口径自洽：容量回退估算 (设计×0.92) 时健康度同步现算，
+        // 杜绝旧版 "当前容量 92% / 健康度却显示 100%" 的跨指标矛盾
+        val capacity = (designCapacityMah * 0.92f).toInt()
+        val health = (capacity.toFloat() / designCapacityMah * 100f).coerceIn(0f, 100f)
+        return BatteryState(
+            currentCapacityMah = capacity,
+            healthPercentage = health,
+            remainingCapacityMah = 0,
+            voltageMv = 4000,
+            temperatureCelsius = 25.0f,
+            percentage = 0,
+            socModel = "平台 SoC 解析中",
+            pmicModel = "平台级 PMIC 电源管理 [工程估算]",
+            fullChargeCapacityMah = lastRecordedFullCapacity,
+            lastFullChargeTimestamp = lastFullChargeTimestamp
+        )
+    }
 
     /**
      * 持久化指标 12 的充满锁定容量与时间戳 (供 ViewModel 模拟充满时调用)
@@ -159,7 +166,7 @@ class BatteryHardwareReader(private val context: Context) {
             if (capacity != null && capacity > 0) return capacity.toInt()
         } catch (e: Throwable) {}
 
-        val sysfsDesign = BatterySysfs.readInt("/sys/class/power_supply/battery/charge_full_design")
+        val sysfsDesign = BatterySysfs.readIntCached("/sys/class/power_supply/battery/charge_full_design")
         if (sysfsDesign != null && sysfsDesign > 0) return sysfsDesign / 1000
 
         return FALLBACK_DESIGN_CAPACITY

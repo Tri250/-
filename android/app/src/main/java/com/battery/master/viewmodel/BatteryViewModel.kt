@@ -299,11 +299,15 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
     /** 设计容量滑杆：直接作用于 Reader 配置 (真实生效，与总览页校准入口同源) */
     fun updateLabDesignCapacity(v: Int) {
         setDesignCapacity(v.coerceIn(1000, 15000))
+        // 实验室态下 publish(真实遥测) 被 labOverride 拦截，必须立即以新设计容量
+        // 重算展示态健康度，否则指标 01 健康度冻结为进入实验室时的旧值
+        if (_labOverride.value != null) publishLab()
     }
 
     /**
      * 将实验室覆盖层合成为展示态 BatteryState：
-     * 剩余电量/功率/充满判定按模拟值实时重算；容量与锁定指标 12 保持真实值不丢失
+     * 剩余电量/功率/健康度/充满判定按模拟值与 Reader 配置实时重算；
+     * 容量与锁定指标 12 保持真实值不丢失
      */
     private fun publishLab() {
         val lab = _labOverride.value ?: return
@@ -314,6 +318,10 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
             val isFullMet = BatteryTelemetryParser.isFullChargeCriteriaMet(lab.percentage, lab.currentMa)
             val effectiveStatus = if (isFullMet) BatteryStatus.FULL else lab.status
             val remaining = (base.currentCapacityMah * (lab.percentage / 100f)).toInt()
+            // 指标 01 健康度实时重算：与真实遥测同口径 (当前容量 / Reader 设计容量)，
+            // 实验室内校准设计容量立即生效，不再沿用进入实验室时的冻结快照
+            val healthPercentage =
+                ((base.currentCapacityMah.toFloat() / reader.designCapacityMah) * 100f).coerceIn(0f, 100f)
             _batteryState.value = base.copy(
                 percentage = lab.percentage,
                 currentMa = lab.currentMa,
@@ -322,6 +330,7 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
                 status = effectiveStatus,
                 healthQuality = lab.healthQuality,
                 cycleCount = lab.cycleCount,
+                healthPercentage = healthPercentage,
                 remainingCapacityMah = remaining.coerceAtMost(base.currentCapacityMah),
                 powerWatts = (abs(lab.voltageMv * lab.currentMa)) / 1_000_000f,
                 isFullChargeConditionMet = isFullMet,
