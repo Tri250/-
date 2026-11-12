@@ -58,7 +58,7 @@ class CapacityMetricsAuditTest {
         assertNull(BatterySysfs.parseCapacityMah(-3_500_000))
         assertNull(BatterySysfs.parseCapacityMah(Int.MIN_VALUE))
         assertNull(BatterySysfs.parseCapacityMah(499))        // 低于合理下限 500 mAh
-        assertNull(BatterySysfs.parseCapacityMah(25_000_000)) // 25000 mAh 超出合理上限
+        assertNull(BatterySysfs.parseCapacityMah(30_000_000)) // 30000 mAh 超出合理上限 25000 mAh
     }
 
     // ===== 指标 01/02/03：解析口径自洽与精度 =====
@@ -114,9 +114,10 @@ class CapacityMetricsAuditTest {
 
         // 低于下限 / 超出上限 / 非法值：拒绝写入，指标 04 维持上次有效值，
         // 防止非法分母级联污染指标 01 (健康度)、02 (剩余电量)、03 (当前容量估算)
+        // (上限 25000 内为合法区间——覆盖 23800mAh 三防大电池机；30000 为越界样本)
         vm.setDesignCapacity(3)
         assertEquals(6800, vm.batteryState.value.designCapacityMah)
-        vm.setDesignCapacity(25_000)
+        vm.setDesignCapacity(30_000)
         assertEquals(6800, vm.batteryState.value.designCapacityMah)
         vm.setDesignCapacity(0)
         assertEquals(6800, vm.batteryState.value.designCapacityMah)

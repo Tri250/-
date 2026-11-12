@@ -64,7 +64,10 @@ class HealthAuthenticityAuditTest {
         // 兜底值 5000 必须且只能对应 FALLBACK；其余来源必须落在合理区间
         when (source) {
             CapacitySource.FALLBACK -> assertEquals(5000, value)
-            else -> assertTrue("设计容量 $value 超出合理区间", value in 500..20000)
+            else -> assertTrue(
+                "设计容量 $value 超出合理区间",
+                value in BatteryTelemetryParser.MIN_PLAUSIBLE_CAPACITY_MAH..BatteryTelemetryParser.MAX_PLAUSIBLE_CAPACITY_MAH
+            )
         }
 
         // 遥测态与 Reader 配置同源 (双通道单一数据源，语义零漂移)

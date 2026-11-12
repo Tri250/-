@@ -7,6 +7,9 @@ import com.battery.master.data.BatteryHealthQuality
 import com.battery.master.data.BatteryState
 import com.battery.master.data.BatteryStatus
 import com.battery.master.data.CapacitySource
+import com.battery.master.data.FullChargeSource
+import com.battery.master.data.FullChargeVerdict
+import kotlin.math.abs
 
 /**
  * 原始电池遥测快照 (未施加指标 12 充满锁定)
@@ -21,28 +24,35 @@ internal data class RawBatteryTelemetry(
     val temperatureCelsius: Float,
     val healthQuality: BatteryHealthQuality,
     val voltageMv: Int,
-    val currentMa: Int,
+    /** v1.2.3 P0 审计修复：null = 设备不支持 CURRENT_NOW / 读数不可用 */
+    val currentMa: Int?,
     val cycleCount: Int,
     val designCapacityMah: Int,
     val currentCapacityMah: Int,
     val remainingCapacityMah: Int,
     val healthPercentage: Float,
-    val powerWatts: Float,
+    /** 瞬时功率 (W)；null = 电流不可读，禁止虚构 0W */
+    val powerWatts: Float?,
     val isFullChargeConditionMet: Boolean,
+    /** v1.2.3 P0 审计修复：充满判定三态，替代单一布尔 (不可读 ≠ 未满足) */
+    val fullChargeVerdict: FullChargeVerdict = FullChargeVerdict.NOT_YET,
     /** v1.2.3 健康度真实性审计：容量来源等级，透传至 UI 标注，区分实测与降级估算 */
     val currentCapacitySource: CapacitySource = CapacitySource.ESTIMATED,
     val designCapacitySource: CapacitySource = CapacitySource.FALLBACK
 ) {
     /**
      * 合成为展示态 BatteryState：
-     * 指标 12 锁定容量/时间戳由调用方经 BatteryHardwareReader 单一数据源注入，
-     * 满足充满判定时状态强制归一为 FULL (与 Web 端口径一致)。
+     * 指标 12 锁定容量/时间戳/来源由调用方经 BatteryHardwareReader 单一数据源注入，
+     * 仅当判定为 FULLY_CHARGED 时状态强制归一为 FULL (与 Web 端口径一致)——
+     * v1.2.3 P0 审计修复：旧实现按单一布尔强制 FULL，不支持 CURRENT_NOW 的机型
+     * 在 100% 时电流被归一化为 0，即使正在放电状态也被改成"已充满"。
      */
     fun toBatteryState(
         fullChargeCapacityMah: Int?,
-        lastFullChargeTimestamp: Long?
+        lastFullChargeTimestamp: Long?,
+        fullChargeSource: FullChargeSource = FullChargeSource.NONE
     ): BatteryState {
-        val hardware = HardwareInfoResolver.resolve(temperatureCelsius, cycleCount, powerWatts)
+        val hardware = HardwareInfoResolver.resolve(temperatureCelsius, cycleCount, powerWatts ?: 0f)
         return BatteryState(
             healthPercentage = healthPercentage,
             remainingCapacityMah = remainingCapacityMah,
@@ -60,7 +70,9 @@ internal data class RawBatteryTelemetry(
             fullChargeCapacityMah = fullChargeCapacityMah,
             lastFullChargeTimestamp = lastFullChargeTimestamp,
             isFullChargeConditionMet = isFullChargeConditionMet,
-            powerWatts = powerWatts,
+            fullChargeVerdict = fullChargeVerdict,
+            fullChargeSource = fullChargeSource,
+            powerWatts = powerWatts ?: 0f,
             socModel = hardware.socModel,
             socVendor = hardware.socVendor,
             socProcess = hardware.socProcess,
@@ -96,9 +108,16 @@ internal object BatteryTelemetryParser {
     const val FULL_CHARGE_TRICKLE_MIN_MA = 0
     const val FULL_CHARGE_TRICKLE_MAX_MA = 25
 
-    /** 电池当前容量合理区间 (mAh)：区间外视为 sysfs 单位异常/脏数据，回退估算值 */
+    /**
+     * 电池当前容量合理区间 (mAh)：区间外视为 sysfs 单位异常/脏数据，回退估算值
+     *
+     * v1.2.3 P1 审计修复：上限 20000 → 25000——真实存在 23800 mAh 三防大电池机
+     * (项目既有测试 LabHardwareAuditTest 已按合法输入覆盖)，旧上限使这类设备的
+     * charge_full/charge_full_design 被判脏数据、静默降级 5000 mAh 兜底，
+     * 指标 01/02/03 全链路失真。25000 仍远超任何量产手机电芯容量上限。
+     */
     const val MIN_PLAUSIBLE_CAPACITY_MAH = 500
-    const val MAX_PLAUSIBLE_CAPACITY_MAH = 20_000
+    const val MAX_PLAUSIBLE_CAPACITY_MAH = 25_000
 
     /** 指标 07 温度物理合理区间 (℃)：覆盖极寒存储到极端温升，区间外视为传感器故障 */
     const val MIN_PLAUSIBLE_TEMPERATURE_C = -40f
@@ -118,11 +137,38 @@ internal object BatteryTelemetryParser {
     const val MAX_PLAUSIBLE_CURRENT_MA = 20_000
 
     /**
-     * 指标 12 共享判定谓词：仅当电量 100% 且瞬时电流处于 0~25 mA 浮充截止区间时为 true。
-     * 双通道与 UI 卡片统一消费此谓词语义，不在各处重算。
+     * 指标 12 充满判定谓词 (量纲口径)：电量 100% 且 |瞬时电流| ≤ 25 mA 浮充截止区间。
+     *
+     * v1.2.3 P0 审计修复：
+     * 1. currentMa 可空——null (设备不支持 CURRENT_NOW) 一律返回 false，
+     *    旧实现把不可读归一化为 0 mA 导致判定恒真；
+     * 2. 取绝对值判定——AOSP 未规定 current_now 符号方向，大量高通/三星内核
+     *    充电时上报负值，旧实现硬要求 [0, 25] 使这类机型判定永不成立。
+     *
+     * 注：真实通道应使用 [evaluateFullCharge] 三态判定 (附加充电态校验与
+     * UNKNOWN 语义)；本函数保留给实验室覆盖层与量纲口径断言使用。
      */
-    fun isFullChargeCriteriaMet(percentage: Int, currentMa: Int): Boolean =
-        percentage == FULL_CHARGE_PERCENTAGE && currentMa in FULL_CHARGE_TRICKLE_MIN_MA..FULL_CHARGE_TRICKLE_MAX_MA
+    fun isFullChargeCriteriaMet(percentage: Int, currentMa: Int?): Boolean =
+        percentage == FULL_CHARGE_PERCENTAGE && currentMa != null &&
+            abs(currentMa) in FULL_CHARGE_TRICKLE_MIN_MA..FULL_CHARGE_TRICKLE_MAX_MA
+
+    /**
+     * 指标 12 充满判定三态 (真实通道专用，双通道与 UI 卡片统一消费)
+     *
+     * - 电量非 100% → NOT_YET；
+     * - 电流不可读 (null) → CURRENT_UNAVAILABLE (不得谎报充满，不得锁定写盘)；
+     * - 未处于充电/满电状态 → NOT_YET (即使 100% 且电流近零：防拔线后误判)；
+     * - 充电态且 |电流| ≤ 25 mA → FULLY_CHARGED。
+     */
+    fun evaluateFullCharge(percentage: Int, currentMa: Int?, isCharging: Boolean): FullChargeVerdict =
+        when {
+            percentage != FULL_CHARGE_PERCENTAGE -> FullChargeVerdict.NOT_YET
+            currentMa == null -> FullChargeVerdict.CURRENT_UNAVAILABLE
+            !isCharging -> FullChargeVerdict.NOT_YET
+            abs(currentMa) in FULL_CHARGE_TRICKLE_MIN_MA..FULL_CHARGE_TRICKLE_MAX_MA ->
+                FullChargeVerdict.FULLY_CHARGED
+            else -> FullChargeVerdict.NOT_YET
+        }
 
     /**
      * 从 ACTION_BATTERY_CHANGED Intent + BatteryManager 提取原始遥测。
@@ -192,8 +238,16 @@ internal object BatteryTelemetryParser {
         }
 
         // 11. 瞬时电流：CURRENT_NOW 规范返回微安 (μA)，部分旧内核返回毫安 (mA)，归一化为 mA
-        val currentMicroAmp = batteryManager?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW) ?: 0
-        val currentMa = BatterySysfs.normalizeCurrentToMilliAmps(currentMicroAmp)
+        // v1.2.3 P0 审计修复：
+        // 1. 设备不支持该属性时 getIntProperty 返回 Int.MIN_VALUE，旧实现经
+        //    normalizeCurrentToMilliAmps 归一化为 0 mA → 充满判定 (0~25mA) 恒真，
+        //    估算值被冒充实测锁定写盘。现透传 null = 不可读；
+        // 2. 符号按 EXTRA_STATUS/EXTRA_PLUGGED 校准 (充电为正、放电为负)，
+        //    修复充电上报负值的平台 (高通/三星部分内核) 判定永不成立问题。
+        val rawCurrentProp = batteryManager?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)
+        val isCharging = status == BatteryStatus.CHARGING || status == BatteryStatus.FULL ||
+            ((intent?.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1) ?: -1) != 0)
+        val currentMa = BatterySysfs.normalizeCurrentToMilliAmps(rawCurrentProp, isCharging)
 
         // 10. 循环计数：Android 14+ 原生 API 与 Linux sysfs 双重支持
         var cycleCount = 0
@@ -235,11 +289,14 @@ internal object BatteryTelemetryParser {
         val healthPercentage =
             ((currentCapacityMah.toFloat() / effectiveDesignCapacity) * 100f).coerceIn(0f, 100f)
 
-        // 12. 完全充满判定：100% 且电流 0~25 mA (共享谓词，双通道一致)
-        val isFullChargeConditionMet = isFullChargeCriteriaMet(percentage, currentMa)
+        // 12. 完全充满判定：100% 且充电态 |电流| ≤ 25 mA (三态判定，双通道一致)
+        // v1.2.3 P0 审计修复：旧实现电流不可读时归一化为 0 → 判定恒真，
+        // 且未校验充电态 → 放电中到 100% 也被强制 FULL。现显式三态。
+        val fullChargeVerdict = evaluateFullCharge(percentage, currentMa, isCharging)
+        val isFullChargeConditionMet = fullChargeVerdict == FullChargeVerdict.FULLY_CHARGED
 
-        // 瞬时功率 (W = V × I)
-        val powerWatts = (voltageMv.toFloat() * kotlin.math.abs(currentMa)) / 1_000_000f
+        // 瞬时功率 (W = V × I)：电流不可读时为 null，UI 显示 "—" 而非虚构 0W
+        val powerWatts: Float? = currentMa?.let { (voltageMv.toFloat() * abs(it)) / 1_000_000f }
 
         return RawBatteryTelemetry(
             percentage = percentage,
@@ -255,6 +312,7 @@ internal object BatteryTelemetryParser {
             healthPercentage = healthPercentage,
             powerWatts = powerWatts,
             isFullChargeConditionMet = isFullChargeConditionMet,
+            fullChargeVerdict = fullChargeVerdict,
             currentCapacitySource = currentCapacitySource,
             designCapacitySource = designCapacitySource
         )

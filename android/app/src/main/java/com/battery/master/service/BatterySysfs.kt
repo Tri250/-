@@ -25,21 +25,40 @@ internal object BatterySysfs {
     }
 
     /**
-     * 将 CURRENT_NOW 原始值归一化为毫安 (mA)，保持符号 (充电为正、放电为负)
+     * 将 CURRENT_NOW 原始值归一化为毫安 (mA)，统一符号约定"充电为正、放电为负"
      *
-     * 判定策略：
-     * 1. |raw| > 20000：手机不可能通过 20A+ 电流，必定是 μA，直接 /1000；
-     * 2. 可读取 sysfs current_now 时做交叉校验：
-     *    - sysfs ≈ 1000 × raw → raw 是 mA，sysfs 是 μA → 直接返回 raw；
-     *    - raw ≈ 1000 × sysfs → raw 是 μA → /1000；
-     *    - 两者同单位 → 按 Android 官方规范默认 μA → /1000；
-     * 3. 无 sysfs 时按官方规范默认 μA → /1000。
+     * v1.2.3 P0 审计修复：
+     * 1. 可空语义：设备不支持 BATTERY_PROPERTY_CURRENT_NOW 时系统返回
+     *    Int.MIN_VALUE (旧实现归一化为 0 mA，导致不支持该属性的机型在 100%
+     *    电量时充满判定恒真、估算值被冒充实测锁定写盘)。现 Int.MIN_VALUE
+     *    与 null 一律返回 null = 电流不可读，判定方走 UNKNOWN 而非 true。
+     *    真实 0 mA (浮充截止) 仍是合法读数，返回 0。
+     * 2. 符号归一：AOSP 未规定 current_now 符号方向，实际随平台/HAL 而变
+     *    (大量高通/三星内核充电时上报负值)。旧实现只处理量纲不校验符号，
+     *    使指标 12 判定 (0~25 mA) 在这类机型上永不成立。现按充放电状态
+     *    校准符号：充电态取正值、放电态取负值，未知态保持原始符号。
+     *
+     * @param raw CURRENT_NOW 原始读数 (μA 或 mA，随 HAL 而定)，允许 null
+     * @param isCharging 是否处于充电/满电状态 (null = 未知，不翻转符号)
+     * @return 归一化后的 mA 值；不可读返回 null
      */
-    fun normalizeCurrentToMilliAmps(raw: Int): Int =
-        normalizeCurrentToMilliAmpsInternal(raw).coerceIn(
+    fun normalizeCurrentToMilliAmps(raw: Int?, isCharging: Boolean?): Int? {
+        // 不支持/不可读：返回 null，绝不归一化成 0 (0 是合法浮充读数，语义不同)
+        if (raw == null || raw == Int.MIN_VALUE) return null
+        if (raw == 0) return 0
+
+        val normalized = normalizeCurrentToMilliAmpsInternal(raw).coerceIn(
             -BatteryTelemetryParser.MAX_PLAUSIBLE_CURRENT_MA,
             BatteryTelemetryParser.MAX_PLAUSIBLE_CURRENT_MA
         )
+
+        // 符号校准：跨平台统一"充电为正、放电为负"口径
+        return when {
+            isCharging == true && normalized < 0 -> -normalized
+            isCharging == false && normalized > 0 -> -normalized
+            else -> normalized
+        }
+    }
 
     private fun normalizeCurrentToMilliAmpsInternal(raw: Int): Int {
         if (raw == 0 || raw == Int.MIN_VALUE) return 0
@@ -61,8 +80,8 @@ internal object BatterySysfs {
      *
      * 背景：charge_full / charge_full_design 规范单位为 μAh，但个别内核以 mAh 上报。
      * 判定链 (合理区间与 BatteryTelemetryParser 常量单源一致)：
-     * 1. round(raw / 1000) ∈ [500, 20000] → 规范 μAh，四舍五入取整返回；
-     * 2. raw ∈ [500, 20000] → μAh 单位下 0.5~20 mAh 电芯物理上不存在，
+     * 1. round(raw / 1000) ∈ [500, 25000] → 规范 μAh，四舍五入取整返回；
+     * 2. raw ∈ [500, 25000] → μAh 单位下 0.5~25 mAh 电芯物理上不存在，
      *    必为 mAh 上报内核 → 直接返回原始值；
      * 3. 其余 (0 / 负值 / 越界) 一律视为脏数据返回 null，由调用方回退设计容量估算值。
      */

@@ -50,11 +50,16 @@ class BatteryReceiver(
             reader.designCapacitySource
         )
 
-        // 12. 完全充满时的容量：与轮询通道共享锁定逻辑，满足则锁定+持久化，
+        // 12. 完全充满时的容量：与轮询通道共享三态锁定逻辑，满足则锁定+持久化，
         // 未满足保留上次锁定值不抹除；先锁定再读时间戳保证回显值实时刷新
-        val fullChargeCapacityMah =
-            reader.lockFullChargeIfCriteriaMet(raw.currentCapacityMah, raw.percentage, raw.currentMa)
+        val isCharging = raw.status == com.battery.master.data.BatteryStatus.CHARGING ||
+            raw.status == com.battery.master.data.BatteryStatus.FULL
+        reader.lockFullChargeIfCriteriaMet(raw.currentCapacityMah, raw.percentage, raw.currentMa, isCharging)
 
-        onBatteryUpdate(raw.toBatteryState(fullChargeCapacityMah, reader.lastFullChargeTimestamp))
+        // v1.2.3 P0 审计修复：真实锁定 (REAL) 与模拟演示值 (SIMULATED) 分离，
+        // 双通道统一经 Reader 单一数据源解析展示值，广播通道不再冒充实测锁定
+        val display = reader.resolveFullChargeDisplay()
+
+        onBatteryUpdate(raw.toBatteryState(display.capacityMah, display.timestampMs, display.source))
     }
 }

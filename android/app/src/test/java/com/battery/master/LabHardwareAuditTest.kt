@@ -19,10 +19,10 @@ import org.robolectric.annotation.Config
  * 硬件实验室 (C 层) 与状态管理层 (E 层) 审计回归测试 (Robolectric + Compose Test)
  *
  * 覆盖 v1.2.3 本轮审计修复点：
- * 1. 设计容量滑杆对越界真实值 (超出滑杆 1000~15000 范围) 钳制防崩溃——
- *    Compose Slider 对 value 超出 valueRange 直接抛 IllegalArgumentException，
- *    真实设备 (Reader 三级链有效区间 500~20000) 存在 23800mAh 三防大电池机 /
- *    600mAh 小电池设备，旧实现未钳制即崩溃 (setContent 完成即证明不崩溃)；
+ * 1. 设计容量滑杆区间与解析器合法区间 (500~25000) 单源对齐——真实设备
+ *    (Reader 三级链有效区间) 存在 23800mAh 三防大电池机 / 600mAh 小电池设备，
+ *    v1.2.3 P1 修复后这类合法值不再被静默压成边界值，数值文本与滑杆位置一致；
+ *    value 仍防御性钳制在 valueRange 内，setContent 完成即证明不崩溃；
  * 2. 健康枚举与温度指标联动闭环：选"过热"联动 49.2°C，选非过热态时若温度
  *    仍停留在过热区 (>45°C) 回落中性室温，消除"健康=良好 但 49.2°C"矛盾展示。
  */
@@ -35,17 +35,18 @@ class LabHardwareAuditTest {
     @get:Rule
     val composeRule = createComposeRule()
 
-    // ===== 1. 设计容量滑杆越界真实值防崩溃 =====
+    // ===== 1. 设计容量滑杆对真实设备合法值无损展示 =====
 
     @Test
     fun designCapacitySlider_survivesAboveRangeCapacity() {
         val viewModel = BatteryViewModel(app)
-        // 三防大电池机：Reader 三级链可合法返回 23800 mAh (超出滑杆上限 15000)
+        // 三防大电池机：Reader 三级链可合法返回 23800 mAh (在 500~25000 合法区间内，
+        // v1.2.3 P1 修复前滑杆上限 15000 会把滑杆位置静默压到边界、文本与位置不一致)
         composeRule.setContent {
             HardwareLabScreen(viewModel = viewModel, state = BatteryState(designCapacityMah = 23800))
         }
 
-        // setContent 未抛异常即证明 Slider value 已钳制；数值文本仍显示真实设计容量
+        // setContent 未抛异常即证明 Slider value 处于 valueRange 内；数值文本显示真实设计容量
         composeRule.onNodeWithText("23800 mAh").assertExists()
         composeRule.onNodeWithText("04. 出厂设计容量 (真实生效)").assertExists()
     }
@@ -53,7 +54,7 @@ class LabHardwareAuditTest {
     @Test
     fun designCapacitySlider_survivesBelowRangeCapacity() {
         val viewModel = BatteryViewModel(app)
-        // 小电池设备：三级链可合法返回 600 mAh (低于滑杆下限 1000)
+        // 小电池设备：三级链可合法返回 600 mAh (高于滑杆下限 500)
         composeRule.setContent {
             HardwareLabScreen(viewModel = viewModel, state = BatteryState(designCapacityMah = 600))
         }

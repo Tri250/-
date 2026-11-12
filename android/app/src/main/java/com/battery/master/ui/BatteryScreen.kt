@@ -36,6 +36,9 @@ import com.battery.master.BuildConfig
 import com.battery.master.data.BatteryHealthQuality
 import com.battery.master.data.BatteryState
 import com.battery.master.data.BatteryStatus
+import com.battery.master.data.CapacitySource
+import com.battery.master.data.FullChargeSource
+import com.battery.master.data.FullChargeVerdict
 import com.battery.master.model.BatteryInfo
 import com.battery.master.service.BatteryTelemetryParser
 import com.battery.master.viewmodel.BatteryViewModel
@@ -58,6 +61,11 @@ fun BatteryScreen(
 
     // 一键模拟充满保持期剩余秒数 (0 = 无模拟，UI 倒计时反馈)
     val simulationRemainingSec by viewModel.simulationRemainingSec.collectAsState()
+
+    // v1.2.3 P1 审计修复：硬件实验室模拟态跨 Tab 可见——旧实现总览页完全不读
+    // labOverride，用户切回总览后看到的是模拟数据却零提示，会把实验室模拟值
+    // 当作真实电池状态阅读。现采集覆盖层状态，顶部显示警示横幅
+    val labOverride by viewModel.labOverride.collectAsState()
 
     // 顶层双 Tab：状态总览 / 硬件实验室 (对齐 Web 端 AndroidNavBar 信息架构)。
     // 外壳层审计修复：rememberSaveable 保证配置变更重建后停留在当前 Tab，
@@ -154,17 +162,25 @@ fun BatteryScreen(
                 CyberHeroBatteryCard(state)
             }
 
+            // 1. 硬件实验室模拟态警示横幅 (P1 审计修复：跨 Tab 泄漏可视化)
+            if (labOverride != null) {
+                item {
+                    LabSimulationBanner(onExit = { viewModel.exitLabMode() })
+                }
+            }
+
             // 2. 硬件信息汇总栏 (Hardware Information Summary Bar)
             item {
                 HardwareSummaryCard(state, onCalibrateDesignCapacity = { showDesignCapacityDialog = true })
             }
 
-            // 3. 特性 12 充满判定卡片 (100% 且 0-25 mA)
+            // 3. 特性 12 充满判定卡片 (100% 且充电态 |电流| ≤ 25 mA)
             item {
                 FullChargeConditionCard(
                     state,
                     simulationRemainingSec = simulationRemainingSec,
-                    onTriggerTest = { viewModel.triggerFullChargeSimulation() }
+                    onTriggerTest = { viewModel.triggerFullChargeSimulation() },
+                    onClearRecords = { viewModel.clearFullChargeRecords() }
                 )
             }
 
@@ -315,10 +331,12 @@ fun BatteryScreen(
                         number = "11",
                         title = "瞬时电流",
                         // 指标 11：经 BatteryState.currentNowMa 别名读取 (激活别名，与 currentMa 同源)
-                        value = "${if (state.currentNowMa > 0) "+${state.currentNowMa}" else state.currentNowMa}",
-                        unit = "mA",
-                        sub = "功率 ${String.format(Locale.US, "%.2f", state.powerWatts)} W",
-                        accentColor = if (state.currentNowMa > 0) DesignTokens.BrandPrimary else DesignTokens.AccentCyanDark
+                        // v1.2.3 P0 审计修复：currentMa 可空——设备不支持 CURRENT_NOW
+                        // 时显示 "—"，旧实现归一化为 0 会虚构 "0 mA / 0.00 W" 读数
+                        value = state.currentNowMa?.let { if (it > 0) "+$it" else "$it" } ?: "—",
+                        unit = if (state.currentNowMa != null) "mA" else "",
+                        sub = "功率 ${state.currentNowMa?.let { String.format(Locale.US, "%.2f", state.powerWatts) + " W" } ?: "— W"}",
+                        accentColor = if ((state.currentNowMa ?: 0) > 0) DesignTokens.BrandPrimary else DesignTokens.AccentCyanDark
                     )
                     CyberMetricCardItem(
                         modifier = Modifier.weight(1f),
@@ -412,6 +430,16 @@ fun BatteryScreen(
                     }
                 },
                 dismissButton = {
+                    // v1.2.3 P1 审计修复：校准值持久化后需提供撤销入口——
+                    // 恢复系统自动探测 (PowerProfile/sysfs 三级回退链)
+                    if (state.designCapacitySource == CapacitySource.CALIBRATED) {
+                        TextButton(onClick = {
+                            viewModel.clearDesignCapacityCalibration()
+                            showDesignCapacityDialog = false
+                        }) {
+                            Text("恢复自动探测", color = DesignTokens.TextSecondary)
+                        }
+                    }
                     TextButton(onClick = { showDesignCapacityDialog = false }) {
                         Text("取消", color = DesignTokens.TextSecondary)
                     }
@@ -554,6 +582,8 @@ fun CyberHeroBatteryCard(state: BatteryState) {
 
             // 11. 瞬时电流与功率 (指标 11 经 BatteryState.currentNowMa 别名读取，与 currentMa 同源；
             //    功率直接消费 State.powerWatts，统一数据源)
+            // v1.2.3 P0 审计修复：currentMa 可空——设备不支持 CURRENT_NOW 时显示
+            // "— mA · — W"，旧实现归一化为 0 会显示 "0 mA · 0.00 W" 的虚构读数
             val currentMa = state.currentNowMa
             val powerW = state.powerWatts
             Surface(
@@ -562,7 +592,13 @@ fun CyberHeroBatteryCard(state: BatteryState) {
                 border = androidx.compose.foundation.BorderStroke(1.dp, DesignTokens.Border)
             ) {
                 Text(
-                    text = "${if (currentMa > 0) "+$currentMa" else currentMa} mA · ${String.format(Locale.US, "%.2f", powerW)} W · ${String.format(Locale.US, "%.2f", state.voltageMv / 1000f)} V",
+                    text = buildString {
+                        append(if (currentMa != null) "${if (currentMa > 0) "+$currentMa" else currentMa} mA" else "— mA")
+                        append(" · ")
+                        append(if (currentMa != null) "${String.format(Locale.US, "%.2f", powerW)} W" else "— W")
+                        append(" · ")
+                        append("${String.format(Locale.US, "%.2f", state.voltageMv / 1000f)} V")
+                    },
                     fontSize = DesignTokens.FontXs,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
@@ -706,16 +742,74 @@ fun HardwareItem(modifier: Modifier = Modifier, label: String, value: String, ma
 }
 
 /**
+ * v1.2.3 P1 审计修复：硬件实验室模拟态警示横幅
+ *
+ * 旧实现 labOverride 只能靠实验室 Tab 内的"恢复真实硬件遥测"按钮清除，
+ * 切 Tab 不退出模拟且总览页零提示——用户会把模拟数据当真实电池状态阅读。
+ * 本横幅在模拟生效期间常驻总览页顶部，明示数据性质并提供一键恢复出口。
+ */
+@Composable
+private fun LabSimulationBanner(onExit: () -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(DesignTokens.RadiusChip),
+        color = DesignTokens.BgElevated,
+        border = androidx.compose.foundation.BorderStroke(1.dp, DesignTokens.TextAmberStrong)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "硬件实验室模拟数据生效中",
+                    fontSize = DesignTokens.Font2xs,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace,
+                    color = DesignTokens.TextAmberStrong
+                )
+                Text(
+                    text = "当前总览页数值为实验室模拟值，非真实电池状态",
+                    fontSize = DesignTokens.Font2xs,
+                    fontFamily = FontFamily.Monospace,
+                    color = DesignTokens.TextTertiary
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            TextButton(onClick = onExit) {
+                Text(
+                    text = "恢复真实",
+                    fontSize = DesignTokens.Font2xs,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace,
+                    color = DesignTokens.BrandPrimaryLight
+                )
+            }
+        }
+    }
+}
+
+/**
  * 特性 12 充满判定卡片
+ *
+ * v1.2.3 P0 审计修复：
+ * 1. 三态判定展示——电流不可读 (设备不支持 CURRENT_NOW) 时明确提示"无法判定"，
+ *    不再谎报"已达充满判定"；未在充电态时提示未在充电；
+ * 2. 来源标注——锁定值为"一键模拟完全充满"演示值时显式标注"模拟"，与真实
+ *    锁定 (REAL) 区分，杜绝演示值冒充实测跨重启存在；
+ * 3. 清除入口——用户可一键清除全部锁定记录 (真实 + 模拟)。
  */
 @Composable
 fun FullChargeConditionCard(
     state: BatteryState,
     simulationRemainingSec: Long,
-    onTriggerTest: () -> Unit
+    onTriggerTest: () -> Unit,
+    onClearRecords: () -> Unit
 ) {
-    // 直接消费 State.isFullChargeConditionMet (双通道单一数据源，不本地重算)
+    // 直接消费 State 判定字段 (双通道单一数据源，不本地重算)
     val isFullMet = state.isFullChargeConditionMet
+    val verdict = state.fullChargeVerdict
     val isSimulating = simulationRemainingSec > 0
 
     Card(
@@ -742,11 +836,19 @@ fun FullChargeConditionCard(
                     color = Color.White
                 )
                 Text(
-                    text = if (isFullMet) "已达充满判定 (100% & 0-25 mA)" else "等待条件满足",
+                    text = when (verdict) {
+                        FullChargeVerdict.FULLY_CHARGED -> "已达充满判定 (100% & |I|≤25 mA)"
+                        FullChargeVerdict.CURRENT_UNAVAILABLE -> "电流不可读 · 无法判定"
+                        FullChargeVerdict.NOT_YET -> "等待条件满足"
+                    },
                     fontSize = DesignTokens.Font2xs,
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace,
-                    color = if (isFullMet) DesignTokens.BrandPrimaryLight else DesignTokens.TextAmberStrong
+                    color = when (verdict) {
+                        FullChargeVerdict.FULLY_CHARGED -> DesignTokens.BrandPrimaryLight
+                        FullChargeVerdict.CURRENT_UNAVAILABLE -> DesignTokens.TextAmberStrong
+                        FullChargeVerdict.NOT_YET -> DesignTokens.TextAmberStrong
+                    }
                 )
             }
 
@@ -757,7 +859,7 @@ fun FullChargeConditionCard(
                     text = if (state.fullChargeCapacityMah != null) {
                         "${state.fullChargeCapacityMah} mAh"
                     } else {
-                        "— 未完全充满暂不显示 (需100%且电流0~25mA) —"
+                        "— 未完全充满暂不显示 (需100%且充电态|电流|≤25mA) —"
                     },
                     fontSize = DesignTokens.Font2xl,
                     fontWeight = FontWeight.Black,
@@ -782,6 +884,36 @@ fun FullChargeConditionCard(
                         )
                     }
                 }
+                // v1.2.3 P0 审计修复：演示值显式标注"模拟"，杜绝一键模拟按钮的
+                // 演示容量冒充实测锁定跨重启存在
+                if (state.fullChargeCapacityMah != null && state.fullChargeSource == FullChargeSource.SIMULATED) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Surface(
+                        shape = RoundedCornerShape(DesignTokens.RadiusChip),
+                        color = DesignTokens.BgElevated,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, DesignTokens.BrandPrimaryDark)
+                    ) {
+                        Text(
+                            text = "来源: 模拟",
+                            fontSize = DesignTokens.Font2xs,
+                            fontFamily = FontFamily.Monospace,
+                            color = DesignTokens.BrandPrimaryLight,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+            }
+
+            // v1.2.3 P0 审计修复：电流不可读时显式说明设备能力边界，引导用户
+            // 以系统充满状态为准，不再把估算值当作实测锁定值
+            if (verdict == FullChargeVerdict.CURRENT_UNAVAILABLE) {
+                Text(
+                    text = "本设备不支持电流上报 (CURRENT_NOW)，无法执行 0-25 mA 浮充判定；" +
+                        "已保留上次有效锁定值，不作新锁定。",
+                    fontSize = DesignTokens.Font2xs,
+                    fontFamily = FontFamily.Monospace,
+                    color = DesignTokens.TextTertiary
+                )
             }
 
             // 上次充满锁定时间 (激活 lastFullChargeTimestamp：持久化值跨重启回显)
@@ -818,6 +950,22 @@ fun FullChargeConditionCard(
                     fontSize = DesignTokens.FontXs,
                     fontWeight = FontWeight.Bold
                 )
+            }
+
+            // v1.2.3 P0 审计修复：清除锁定记录入口 (真实 + 模拟演示值)
+            if (state.fullChargeCapacityMah != null) {
+                Spacer(modifier = Modifier.height(6.dp))
+                TextButton(
+                    onClick = onClearRecords,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "清除锁定记录",
+                        fontSize = DesignTokens.Font2xs,
+                        fontFamily = FontFamily.Monospace,
+                        color = DesignTokens.TextSecondary
+                    )
+                }
             }
         }
     }

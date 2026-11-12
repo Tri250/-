@@ -137,15 +137,24 @@ class RemainingMetricsAuditTest {
     @Test
     fun currentNormalization_clampsToPhysicalCeiling() {
         // μA 规范值正常折算 (无 sysfs 交叉校验环境下按规范默认 μA)
-        assertEquals(2350, BatterySysfs.normalizeCurrentToMilliAmps(2_350_000))
+        assertEquals(2350, BatterySysfs.normalizeCurrentToMilliAmps(2_350_000, null))
         // 垃圾 μA (等效 200A) 收敛到 ±20A 物理上限
-        assertEquals(20_000, BatterySysfs.normalizeCurrentToMilliAmps(200_000_000))
-        assertEquals(-20_000, BatterySysfs.normalizeCurrentToMilliAmps(-200_000_000))
+        assertEquals(20_000, BatterySysfs.normalizeCurrentToMilliAmps(200_000_000, null))
+        assertEquals(-20_000, BatterySysfs.normalizeCurrentToMilliAmps(-200_000_000, null))
         // |raw| ≤ 20000 且无 sysfs 时按规范 μA 折算
-        assertEquals(4, BatterySysfs.normalizeCurrentToMilliAmps(4800))
-        // 边界：0 / Int.MIN_VALUE → 0
-        assertEquals(0, BatterySysfs.normalizeCurrentToMilliAmps(0))
-        assertEquals(0, BatterySysfs.normalizeCurrentToMilliAmps(Int.MIN_VALUE))
+        assertEquals(4, BatterySysfs.normalizeCurrentToMilliAmps(4800, null))
+        // 真实 0 mA (浮充截止) 是合法读数，保留 0
+        assertEquals(0, BatterySysfs.normalizeCurrentToMilliAmps(0, null))
+        // v1.2.3 P0 审计修复：Int.MIN_VALUE (设备不支持 CURRENT_NOW) → null，
+        // 旧实现归一化为 0 使充满判定恒真、估算值冒充实测锁定写盘
+        assertNull(BatterySysfs.normalizeCurrentToMilliAmps(Int.MIN_VALUE, null))
+        assertNull(BatterySysfs.normalizeCurrentToMilliAmps(null, true))
+        // v1.2.3 P0 审计修复：符号归一——充电态负值翻正 (高通/三星内核)，
+        // 放电态正值翻负 (统一"充电为正、放电为负"口径)
+        assertEquals(1500, BatterySysfs.normalizeCurrentToMilliAmps(-1_500_000, true))
+        assertEquals(-1500, BatterySysfs.normalizeCurrentToMilliAmps(1_500_000, false))
+        // 未知态保持原始符号，不擅自翻转
+        assertEquals(-1500, BatterySysfs.normalizeCurrentToMilliAmps(-1_500_000, null))
     }
 
     // ===== 链路闭环：实验室设计容量滑杆 → Reader → 指标 01/02/03 → UI =====
@@ -168,9 +177,10 @@ class RemainingMetricsAuditTest {
         // 基底刷新后指标 01/02/03 同口径联动：当前容量 = 0.92 × 6800 = 6256，健康度 92%
         assertEquals(6256, after.currentCapacityMah)
         assertEquals(92.0f, after.healthPercentage, 0.01f)
-        // 实验室覆盖层其余参数 (电量等) 不受设计容量变更影响
+        // 实验室覆盖层其余参数 (电量等) 不受设计容量变更影响；
+        // 电流需具体数值驱动滑杆：真实通道不可读 (null) 时落入 0 mA 展示，属模拟态预期行为
         assertEquals(before.percentage, after.percentage)
-        assertEquals(before.currentMa, after.currentMa)
+        assertEquals(before.currentMa ?: 0, after.currentMa)
 
         // 退出实验室：恢复真实遥测，设计容量配置跨实验室会话保留
         vm.exitLabMode()
@@ -183,7 +193,7 @@ class RemainingMetricsAuditTest {
     fun viewModel_labDesignCapacity_outOfRangeRejected() {
         val vm = BatteryViewModel(app)
         vm.updateLabDesignCapacity(6800)
-        // 实验室滑杆本身钳制 1000~15000；VM 层对越界值二次拒绝 (单源防线)
+        // 实验室滑杆本身钳制 500~25000 (与解析器常量单源)；VM 层对越界值二次拒绝 (单源防线)
         vm.setDesignCapacity(3)
         assertEquals(6800, vm.batteryState.value.designCapacityMah)
     }

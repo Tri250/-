@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.sp
 import com.battery.master.data.BatteryHealthQuality
 import com.battery.master.data.BatteryState
 import com.battery.master.data.BatteryStatus
+import com.battery.master.service.BatteryTelemetryParser
 import com.battery.master.viewmodel.BatteryViewModel
 import com.battery.master.viewmodel.LabScenario
 
@@ -43,7 +44,9 @@ fun HardwareLabScreen(viewModel: BatteryViewModel, state: BatteryState) {
     // 滑杆取值：模拟中读覆盖层，否则读真实遥测 (拖动时 VM 会自动进入模拟模式)
     val labActive = lab != null
     val pct = lab?.percentage ?: state.percentage
-    val currentMa = lab?.currentMa ?: state.currentMa
+    // v1.2.3 P0 审计修复：真实 currentMa 可空 (设备不支持 CURRENT_NOW)，
+    // 滑杆以 0 兜底展示，电流读数文本区分 "—"
+    val currentMa = lab?.currentMa ?: state.currentMa ?: 0
     val voltageMv = lab?.voltageMv ?: state.voltageMv
     val temperature = lab?.temperatureCelsius ?: state.temperatureCelsius
     val cycleCount = lab?.cycleCount ?: state.cycleCount
@@ -194,48 +197,58 @@ fun HardwareLabScreen(viewModel: BatteryViewModel, state: BatteryState) {
                     accent = DesignTokens.BrandPrimary,
                     onValueChange = { viewModel.updateLabPercentage(it.toInt()) }
                 )
+                // v1.2.3 P1 审计修复：滑杆区间与解析器合法区间单源对齐。
+                // 旧实现区间窄于解析器钳制区间 (电流 ±2000~6000 vs ±20000、
+                // 电压 3500~4600 vs 2000~12000、温度 0~55 vs -40~120、
+                // 循环 0~1200 vs 0~10000、设计容量 1000~15000 vs 500~25000)，
+                // 导致真实合法值被静默压成边界值 (双电芯 8800mV 一碰变 4600mV、
+                // 120W 快充 8000mA 一碰变 6000mA、23800mAh 设备一拖变 15000)。
+                // value 仍钳制在区间内防御越界 (文本显示真实值，语义不混淆)
                 LabSlider(
                     label = "11. 瞬时电流",
                     valueText = "${if (currentMa > 0) "+$currentMa" else currentMa} mA",
-                    value = currentMa.toFloat(),
-                    valueRange = -2000f..6000f,
+                    value = currentMa.toFloat()
+                        .coerceIn(-BatteryTelemetryParser.MAX_PLAUSIBLE_CURRENT_MA.toFloat(), BatteryTelemetryParser.MAX_PLAUSIBLE_CURRENT_MA.toFloat()),
+                    valueRange = (-BatteryTelemetryParser.MAX_PLAUSIBLE_CURRENT_MA).toFloat()..BatteryTelemetryParser.MAX_PLAUSIBLE_CURRENT_MA.toFloat(),
                     accent = DesignTokens.BrandPrimaryLight,
                     onValueChange = { viewModel.updateLabCurrent(it.toInt()) }
                 )
                 LabSlider(
                     label = "09. 电芯电压",
                     valueText = "$voltageMv mV",
-                    value = voltageMv.toFloat(),
-                    valueRange = 3500f..4600f,
+                    value = voltageMv.toFloat()
+                        .coerceIn(BatteryTelemetryParser.MIN_PLAUSIBLE_VOLTAGE_MV.toFloat(), BatteryTelemetryParser.MAX_PLAUSIBLE_VOLTAGE_MV.toFloat()),
+                    valueRange = BatteryTelemetryParser.MIN_PLAUSIBLE_VOLTAGE_MV.toFloat()..BatteryTelemetryParser.MAX_PLAUSIBLE_VOLTAGE_MV.toFloat(),
                     accent = DesignTokens.InfoSky,
                     onValueChange = { viewModel.updateLabVoltage(it.toInt()) }
                 )
                 LabSlider(
                     label = "07. 传感器温度",
                     valueText = "$temperature °C",
-                    value = temperature,
-                    valueRange = 0f..55f,
+                    value = temperature
+                        .coerceIn(BatteryTelemetryParser.MIN_PLAUSIBLE_TEMPERATURE_C, BatteryTelemetryParser.MAX_PLAUSIBLE_TEMPERATURE_C),
+                    valueRange = BatteryTelemetryParser.MIN_PLAUSIBLE_TEMPERATURE_C..BatteryTelemetryParser.MAX_PLAUSIBLE_TEMPERATURE_C,
                     accent = DesignTokens.WarningAmber,
                     onValueChange = { viewModel.updateLabTemperature(it) }
                 )
                 LabSlider(
                     label = "10. 循环计数",
                     valueText = "$cycleCount 次",
-                    value = cycleCount.toFloat(),
-                    valueRange = 0f..1200f,
+                    value = cycleCount.toFloat()
+                        .coerceIn(0f, BatteryTelemetryParser.MAX_PLAUSIBLE_CYCLE_COUNT.toFloat()),
+                    valueRange = 0f..BatteryTelemetryParser.MAX_PLAUSIBLE_CYCLE_COUNT.toFloat(),
                     accent = DesignTokens.AccentTeal,
                     onValueChange = { viewModel.updateLabCycleCount(it.toInt()) }
                 )
                 LabSlider(
                     label = "04. 出厂设计容量 (真实生效)",
                     valueText = "${state.designCapacityMah} mAh",
-                    // v1.2.3 审计修复：Slider value 必须钳制在 valueRange 内——Compose Slider
-                    // 对越界 value 直接抛 IllegalArgumentException。真实设备设计容量
-                    // (Reader 三级链有效区间 500~20000 mAh) 可能超出滑杆 1000~15000
-                    // (如三防大电池机 23800mAh / 小电池设备 600mAh)，未钳制即崩溃。
+                    // value 钳制在 valueRange 内：区间已与 Reader 三级链合法区间
+                    // (500~25000 mAh) 对齐，正常设备恒在区间内；极端脏值防御性钳制。
                     // 数值文本仍显示真实设计容量，仅滑杆位置钳制
-                    value = state.designCapacityMah.coerceIn(1000, 15000).toFloat(),
-                    valueRange = 1000f..15000f,
+                    value = state.designCapacityMah.toFloat()
+                        .coerceIn(BatteryTelemetryParser.MIN_PLAUSIBLE_CAPACITY_MAH.toFloat(), BatteryTelemetryParser.MAX_PLAUSIBLE_CAPACITY_MAH.toFloat()),
+                    valueRange = BatteryTelemetryParser.MIN_PLAUSIBLE_CAPACITY_MAH.toFloat()..BatteryTelemetryParser.MAX_PLAUSIBLE_CAPACITY_MAH.toFloat(),
                     accent = DesignTokens.FeaturePurple,
                     onValueChange = { viewModel.updateLabDesignCapacity(it.toInt()) }
                 )

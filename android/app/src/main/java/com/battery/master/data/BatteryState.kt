@@ -70,7 +70,10 @@ data class BatteryState(
     val cycleCount: Int = 0,
 
     // 11、电流：瞬时电流 mA (充电流入为正，放电消耗为负)
-    val currentMa: Int = 0,
+    // v1.2.3 P0 审计修复：设备不支持 BATTERY_PROPERTY_CURRENT_NOW 时系统返回
+    // Int.MIN_VALUE，旧实现归一化成 0 mA 会使指标 12 充满判定 (0~25mA) 恒真。
+    // 现改为可空：null = 电流不可读，UI 显示 "—"，判定走 UNKNOWN 而非 true
+    val currentMa: Int? = null,
 
     // 12、完全充满时的容量 (mAh)
     // 仅当电量为 100% 且电流在 0-25 mA 之间时，才视为电池充满并记录
@@ -82,8 +85,24 @@ data class BatteryState(
     // 功率 (W)
     val powerWatts: Float = 0.0f,
 
-    // 是否符合充满判定标准
+    // 是否符合充满判定标准 (verdict == FULLY_CHARGED 的便捷布尔)
     val isFullChargeConditionMet: Boolean = false,
+
+    /**
+     * 指标 12 充满判定三态 (v1.2.3 P0 审计修复)
+     *
+     * 旧实现仅布尔判定，且电流不可读时归一化为 0 → 不支持 CURRENT_NOW 的机型
+     * 一到 100% 就谎报"已达充满判定"并把估算值写盘。现显式区分不可读场景。
+     */
+    val fullChargeVerdict: FullChargeVerdict = FullChargeVerdict.NOT_YET,
+
+    /**
+     * 指标 12 锁定容量来源 (v1.2.3 P0 审计修复)
+     *
+     * 真实锁定 (REAL) 与"一键模拟完全充满"演示值 (SIMULATED) 分离存储，
+     * 演示值不再冒充实测锁定值，UI 显式标注来源。
+     */
+    val fullChargeSource: FullChargeSource = FullChargeSource.NONE,
 
     // ===== 硬件信息汇总 =====
     // 默认值为中性估算文案 (采集层 HardwareInfoResolver 会立即以实测/档案值覆盖)；
@@ -102,7 +121,34 @@ data class BatteryState(
     val thermalThrottlingState: String = "正常供电 (无节流)"
 ) {
     // 别名兼容
-    val currentNowMa: Int get() = currentMa
+    val currentNowMa: Int? get() = currentMa
+}
+
+/**
+ * 指标 12 充满判定三态 (v1.2.3 P0 审计修复)
+ *
+ * - FULLY_CHARGED：电量 100% 且充电态下瞬时电流 |I| ≤ 25 mA (浮充截止区间)；
+ * - NOT_YET：条件未满足 (电量不足 / 电流超区间 / 未在充电)；
+ * - CURRENT_UNAVAILABLE：设备不支持 CURRENT_NOW 或读数不可用——
+ *   此时不得谎报充满，也不得把估算值当作"实测完全充满容量"锁定写盘。
+ */
+enum class FullChargeVerdict {
+    FULLY_CHARGED,
+    NOT_YET,
+    CURRENT_UNAVAILABLE
+}
+
+/**
+ * 指标 12 锁定容量来源 (v1.2.3 P0 审计修复)
+ *
+ * REAL：真实硬件判定锁定 (含持久化恢复)；
+ * SIMULATED："一键模拟完全充满"演示按钮写入的演示值 (独立 key 存储)；
+ * NONE：无任何锁定记录。
+ */
+enum class FullChargeSource {
+    REAL,
+    SIMULATED,
+    NONE
 }
 
 enum class BatteryStatus(val label: String) {

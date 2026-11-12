@@ -53,8 +53,14 @@ class FullChargeCapacityTest {
         assertTrue(BatteryTelemetryParser.isFullChargeCriteriaMet(100, 25))
         // 区间外
         assertFalse(BatteryTelemetryParser.isFullChargeCriteriaMet(100, 26))
-        assertFalse(BatteryTelemetryParser.isFullChargeCriteriaMet(100, -1))
+        // v1.2.3 P0 审计修复：符号无关判定——高通/三星部分内核充电时上报负值，
+        // 旧实现硬要求 [0,25] 使 -1 mA 浮充截止被漏判 (充满判定永不成立)
+        assertTrue(BatteryTelemetryParser.isFullChargeCriteriaMet(100, -1))
         assertFalse(BatteryTelemetryParser.isFullChargeCriteriaMet(100, -1600))
+        // v1.2.3 P0 审计修复：电流不可读 (null) 一律 false——旧实现把不可读
+        // 归一化为 0 mA，导致不支持 CURRENT_NOW 的机型在 100% 时判定恒真、
+        // 估算值被冒充实测锁定写盘
+        assertFalse(BatteryTelemetryParser.isFullChargeCriteriaMet(100, null))
         // 电量未满
         assertFalse(BatteryTelemetryParser.isFullChargeCriteriaMet(99, 16))
         assertFalse(BatteryTelemetryParser.isFullChargeCriteriaMet(0, 0))
@@ -84,8 +90,11 @@ class FullChargeCapacityTest {
         // 离开判定区间：保留上次锁定值不抹除
         assertEquals(4760, reader.lockFullChargeIfCriteriaMet(4760, 99, 16))
         assertEquals(4760, reader.lockFullChargeIfCriteriaMet(4760, 100, 26))
-        assertEquals(4760, reader.lockFullChargeIfCriteriaMet(4760, 100, -5))
         assertEquals(4760, reader.lockFullChargeIfCriteriaMet(4760, 58, 0))
+
+        // v1.2.3 P0 修复：符号无关——高通/三星内核充电时上报负电流，
+        // -5 mA 取绝对值落在判定带内 (同值重锁定并刷新时间戳)
+        assertEquals(4760, reader.lockFullChargeIfCriteriaMet(4760, 100, -5))
 
         // 非法容量 (sysfs 脏数据)：拒绝锁定垃圾值，保留上次有效锁定
         assertEquals(4760, reader.lockFullChargeIfCriteriaMet(0, 100, 16))
@@ -128,16 +137,23 @@ class FullChargeCapacityTest {
 
     @Test
     fun parser_overReportedLevel_stillMeetsFullChargeCriteria() {
-        val batteryManager = app.getSystemService(Context.BATTERY_SERVICE) as? BatteryManager
         // 部分定制 ROM 上报 level=101 / scale=100：旧实现 percentage=101，
         // `percentage == 100` 永远不成立 → 指标 12 充满判定永久失效
         val intent = Intent(Intent.ACTION_BATTERY_CHANGED).apply {
             putExtra(BatteryManager.EXTRA_LEVEL, 101)
             putExtra(BatteryManager.EXTRA_SCALE, 100)
         }
+        // v1.2.3 P0 审计修复：不支持 CURRENT_NOW 时 getIntProperty 返回 Int.MIN_VALUE，
+        // 归一化结果必须为 null (不可读) 而非 0 mA——故经 ShadowBatteryManager 注入
+        // 16000 μA = 16 mA 浮充读数，使判定带在归一化后可复现地成立
+        val batteryManager = app.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+        Shadows.shadowOf(batteryManager)
+            .setIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW, 16_000)
         val raw = BatteryTelemetryParser.parse(intent, batteryManager, 5000)
         assertEquals(100, raw.percentage)
+        assertEquals(16, raw.currentMa)
         assertTrue(raw.isFullChargeConditionMet)
+        // 展示态自洽：100% 且浮充 → 状态强制归一为 FULL
         assertEquals(BatteryStatus.FULL, raw.toBatteryState(4780, 1L).status)
     }
 
@@ -179,7 +195,13 @@ class FullChargeCapacityTest {
         var emitted: BatteryState? = null
         val receiver = BatteryReceiver(reader) { emitted = it }
 
-        // 100% 且浮充 (Robolectric 下 CURRENT_NOW 归一化为 0 mA，落在 0~25 判定带内)
+        // 100% 且浮充：经 ShadowBatteryManager 注入 CURRENT_NOW = 0 μA (浮充截止读数，
+        // 落在 0~25 mA 判定带内)。v1.2.3 P0 修复后不支持 CURRENT_NOW 的设备
+        // (默认 Int.MIN_VALUE → null) 不再谎报充满，判定带可读性必须显式注入
+        val batteryManager = app.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+        Shadows.shadowOf(batteryManager)
+            .setIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW, 0)
+
         val fullIntent = Intent(Intent.ACTION_BATTERY_CHANGED).apply {
             putExtra(BatteryManager.EXTRA_LEVEL, 100)
             putExtra(BatteryManager.EXTRA_SCALE, 100)
@@ -230,7 +252,8 @@ class FullChargeCapacityTest {
         assertEquals(100, state.percentage)
         assertTrue(state.isFullChargeConditionMet)
         assertEquals(BatteryStatus.FULL, state.status)
-        assertTrue(state.currentMa in 0..25)
+        // 模拟电流 16mA 落在浮充判定带内 (0~25 mA)
+        assertEquals(16, state.currentMa)
         assertNotNull(state.fullChargeCapacityMah)
         assertTrue(state.fullChargeCapacityMah!! > 0)
         assertTrue(state.lastFullChargeTimestamp!! > 0)

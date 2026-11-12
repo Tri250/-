@@ -12,6 +12,8 @@ import com.battery.master.data.BatteryState
 import com.battery.master.data.BatteryHealthQuality
 import com.battery.master.data.BatteryStatus
 import com.battery.master.data.CapacitySource
+import com.battery.master.data.FullChargeSource
+import com.battery.master.data.FullChargeVerdict
 import com.battery.master.receiver.BatteryReceiver
 import com.battery.master.service.BatteryHardwareReader
 import com.battery.master.service.BatteryTelemetryParser
@@ -220,7 +222,9 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
         val cur = _batteryState.value
         _labOverride.value = LabOverride(
             percentage = cur.percentage,
-            currentMa = cur.currentMa,
+            // v1.2.3 P0 审计修复：currentMa 可空，设备不支持 CURRENT_NOW 时
+            // 真实值为 null，LabOverride 非空字段以 0 兜底
+            currentMa = cur.currentMa ?: 0,
             voltageMv = cur.voltageMv,
             temperatureCelsius = cur.temperatureCelsius,
             status = cur.status,
@@ -256,7 +260,7 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
         val base = _labOverride.value ?: run {
             val cur = _batteryState.value
             LabOverride(
-                cur.percentage, cur.currentMa, cur.voltageMv, cur.temperatureCelsius,
+                cur.percentage, cur.currentMa ?: 0, cur.voltageMv, cur.temperatureCelsius,
                 cur.status, cur.healthQuality, cur.cycleCount
             )
         }
@@ -292,7 +296,7 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
                 transform(current ?: run {
                     val cur = _batteryState.value
                     LabOverride(
-                        cur.percentage, cur.currentMa, cur.voltageMv, cur.temperatureCelsius,
+                        cur.percentage, cur.currentMa ?: 0, cur.voltageMv, cur.temperatureCelsius,
                         cur.status, cur.healthQuality, cur.cycleCount
                     )
                 })
@@ -304,10 +308,17 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun updateLabPercentage(v: Int) = mutateLab { it.copy(percentage = v.coerceIn(0, 100)) }
-    fun updateLabCurrent(v: Int) = mutateLab { it.copy(currentMa = v.coerceIn(-2000, 6000)) }
-    fun updateLabVoltage(v: Int) = mutateLab { it.copy(voltageMv = v.coerceIn(3500, 4600)) }
-    fun updateLabTemperature(v: Float) = mutateLab { it.copy(temperatureCelsius = v.coerceIn(0f, 55f)) }
-    fun updateLabCycleCount(v: Int) = mutateLab { it.copy(cycleCount = v.coerceIn(0, 1200)) }
+    // v1.2.3 P1 审计修复：滑杆区间与解析器合法区间对齐 (旧实现 5 条滑杆区间
+    // 均窄于解析器钳制区间，真实合法值被静默压成边界值：如双电芯 8800mV 一碰变
+    // 4600mV、120W 快充 8000mA 一碰变 6000mA)。区间单源：BatteryTelemetryParser
+    fun updateLabCurrent(v: Int) =
+        mutateLab { it.copy(currentMa = v.coerceIn(-BatteryTelemetryParser.MAX_PLAUSIBLE_CURRENT_MA, BatteryTelemetryParser.MAX_PLAUSIBLE_CURRENT_MA)) }
+    fun updateLabVoltage(v: Int) =
+        mutateLab { it.copy(voltageMv = v.coerceIn(BatteryTelemetryParser.MIN_PLAUSIBLE_VOLTAGE_MV, BatteryTelemetryParser.MAX_PLAUSIBLE_VOLTAGE_MV)) }
+    fun updateLabTemperature(v: Float) =
+        mutateLab { it.copy(temperatureCelsius = v.coerceIn(BatteryTelemetryParser.MIN_PLAUSIBLE_TEMPERATURE_C, BatteryTelemetryParser.MAX_PLAUSIBLE_TEMPERATURE_C)) }
+    fun updateLabCycleCount(v: Int) =
+        mutateLab { it.copy(cycleCount = v.coerceIn(0, BatteryTelemetryParser.MAX_PLAUSIBLE_CYCLE_COUNT)) }
     fun updateLabStatus(v: BatteryStatus) = mutateLab { it.copy(status = v) }
     fun updateLabHealthQuality(v: BatteryHealthQuality) = mutateLab {
         val t = when (v) {
@@ -322,7 +333,30 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
 
     /** 设计容量滑杆：直接作用于 Reader 配置 (真实生效，与总览页校准入口同源) */
     fun updateLabDesignCapacity(v: Int) {
-        setDesignCapacity(v.coerceIn(1000, 15000))
+        // v1.2.3 P1 审计修复：移除 1000~15000 二次钳制——真实设备 (600mAh 小电池 /
+        // 23800mAh 三防大电池) 被静默改写成边界值会污染指标 01/02/03 至重启。
+        // 区间校验统一由 setDesignCapacity (500~25000, 与解析器常量单源) 承担
+        setDesignCapacity(v)
+    }
+
+    /** v1.2.3 P0 审计修复：清除指标 12 全部锁定记录 (真实 + 模拟演示值) */
+    fun clearFullChargeRecords() {
+        reader.clearFullChargeRecords()
+        _batteryState.update { state ->
+            state.copy(
+                fullChargeCapacityMah = null,
+                lastFullChargeTimestamp = null,
+                isFullChargeConditionMet = false,
+                fullChargeVerdict = FullChargeVerdict.NOT_YET,
+                fullChargeSource = FullChargeSource.NONE
+            )
+        }
+    }
+
+    /** v1.2.3 P1 审计修复：清除用户校准的设计容量，恢复系统自动探测 */
+    fun clearDesignCapacityCalibration() {
+        reader.clearDesignCapacityCalibration()
+        publish(reader.readBatteryTelemetry())
     }
 
     /**
@@ -334,8 +368,11 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
         // UI 回调入口兜底：合成展示态失败时保留上一帧，不逃逸到主线程
         try {
             val base = _batteryState.value
-            // 充满判定统一消费共享谓词 (与真实遥测通道同一实现)
-            val isFullMet = BatteryTelemetryParser.isFullChargeCriteriaMet(lab.percentage, lab.currentMa)
+            // v1.2.3 P0 审计修复：充满判定三态 (与真实通道同一实现)；
+            // 未处于充电/满电状态时不得判定充满，杜绝"健康=良好+49.2℃"式矛盾组合
+            val isLabCharging = lab.status == BatteryStatus.CHARGING || lab.status == BatteryStatus.FULL
+            val verdict = BatteryTelemetryParser.evaluateFullCharge(lab.percentage, lab.currentMa, isLabCharging)
+            val isFullMet = verdict == FullChargeVerdict.FULLY_CHARGED
             val effectiveStatus = if (isFullMet) BatteryStatus.FULL else lab.status
             // 四舍五入与真实遥测通道 (BatteryTelemetryParser) 及 Web 端口径一致，消除截断漂移
             val remaining = Math.round(base.currentCapacityMah * (lab.percentage / 100f))
@@ -350,8 +387,11 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
                 remainingCapacityMah = remaining.coerceAtMost(base.currentCapacityMah),
                 powerWatts = (abs(lab.voltageMv * lab.currentMa)) / 1_000_000f,
                 isFullChargeConditionMet = isFullMet,
+                fullChargeVerdict = verdict,
+                // 实验室注入的锁定值一律标注 SIMULATED，与真实锁定分离
                 fullChargeCapacityMah = if (isFullMet) (base.fullChargeCapacityMah ?: base.currentCapacityMah)
-                else base.fullChargeCapacityMah
+                else base.fullChargeCapacityMah,
+                fullChargeSource = if (isFullMet) FullChargeSource.SIMULATED else base.fullChargeSource
             )
         } catch (e: Throwable) {
             // 忽略：保持上一帧展示
@@ -359,8 +399,13 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
     }
 
     /**
-     * 一键模拟完全充满判定条件 (电量 100% 且瞬时电流 0~25mA)
-     * 模拟结果同时持久化，保持期结束后锁定容量依然可回显 (指标 12)
+     * 一键模拟完全充满判定条件 (电量 100% 且充电态瞬时电流 |I| ≤ 25mA)
+     * 模拟结果写入独立演示 key 持久化，保持期结束后可回显 (指标 12) 且标注"来源：模拟"，
+     * 不污染真实锁定记录；可在充满判定卡一键清除。
+     *
+     * v1.2.3 P0 审计修复：旧实现 persistFullChargeCapacity 把演示值写进真实锁定
+     * key——用户点一次演示按钮，指标 12 永久显示假容量且跨重启存在，UI 只标
+     * "历史锁定"不标"模拟"。
      *
      * v1.2.1 自检修复：容量非法 (≤0) 时拒绝写入持久化并保留上次有效锁定值，
      * 同步把剩余电量校准为当前容量，保证"100% 充满"展示态自洽。
@@ -372,14 +417,16 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
             val timestamp = System.currentTimeMillis()
             simulationHoldUntilMs = timestamp + SIMULATION_HOLD_MS
             val capacity = current.currentCapacityMah
-            // persistFullChargeCapacity 内部对非法容量/时间戳拒绝写入，保留上次有效锁定
-            reader.persistFullChargeCapacity(capacity, timestamp)
+            // v1.2.3 P0 审计修复：演示值写独立 key，真实锁定 (REAL) 优先展示
+            reader.persistSimulatedFullChargeCapacity(capacity, timestamp)
             val lockedCapacity = if (capacity > 0) capacity else current.fullChargeCapacityMah
             _batteryState.value = current.copy(
                 percentage = 100,
                 currentMa = SIMULATED_TRICKLE_CURRENT_MA,
                 status = BatteryStatus.FULL,
                 isFullChargeConditionMet = true,
+                fullChargeVerdict = FullChargeVerdict.FULLY_CHARGED,
+                fullChargeSource = FullChargeSource.SIMULATED,
                 fullChargeCapacityMah = lockedCapacity,
                 lastFullChargeTimestamp = timestamp,
                 remainingCapacityMah = lockedCapacity ?: current.remainingCapacityMah

@@ -1000,7 +1000,10 @@ fun BatteryScreen(
                 inputError = when {
                     capacityInput.isBlank() -> "请输入容量数值"
                     parsed == null || parsed <= 0 -> "容量必须为大于 0 的整数"
-                    parsed > 20000 -> "容量超出合理范围 (最大 20000 mAh)"
+                    parsed < BatteryTelemetryParser.MIN_PLAUSIBLE_CAPACITY_MAH ->
+                        "容量不能小于 \${BatteryTelemetryParser.MIN_PLAUSIBLE_CAPACITY_MAH} mAh"
+                    parsed > BatteryTelemetryParser.MAX_PLAUSIBLE_CAPACITY_MAH ->
+                        "容量超出合理范围 (最大 \${BatteryTelemetryParser.MAX_PLAUSIBLE_CAPACITY_MAH} mAh)"
                     else -> null
                 }
                 if (inputError == null && parsed != null) {

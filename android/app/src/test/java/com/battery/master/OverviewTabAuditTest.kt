@@ -9,7 +9,9 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
 import com.battery.master.data.BatteryStatus
+import com.battery.master.data.FullChargeSource
 import com.battery.master.service.BatteryHardwareReader
+import com.battery.master.service.BatteryTelemetryParser
 import com.battery.master.ui.BatteryScreen
 import com.battery.master.viewmodel.BatteryViewModel
 import org.junit.Assert.assertEquals
@@ -158,19 +160,22 @@ class OverviewTabAuditTest {
                 .fetchSemanticsNodes().isNotEmpty()
         }
 
-        // 3) 指标 12 卡片判定态刷新 (锁定容量已持久化)
+        // 3) 指标 12 卡片判定态刷新 (v1.2.3 文案更新为三态口径)
         composeRule.waitUntil(5_000) {
             composeRule.onAllNodes(
-                matcher = androidx.compose.ui.test.hasText("已满足 100% & 0-25 mA", substring = true),
+                matcher = androidx.compose.ui.test.hasText("已达充满判定", substring = true),
                 useUnmergedTree = true
             ).fetchSemanticsNodes().isNotEmpty()
         }
 
-        // 4) 持久化闭环：锁定容量经 StateFlow 可读 (4600 = 模拟锁定当前容量)，
-        //    时间戳经 Reader 公开字段跨实例回读 (跨重启恢复链路)
+        // 4) 持久化闭环：演示值写独立 SIMULATED key，全新 Reader 重启后
+        //    经 resolveFullChargeDisplay 兜底回显且来源标注 SIMULATED
+        //    (v1.2.3 P0 审计修复：旧实现写真实锁定 key，演示值冒充实测)
         val locked = viewModel.batteryState.value.fullChargeCapacityMah
         assert(locked != null && locked > 0)
-        assert(BatteryHardwareReader(app).lastFullChargeTimestamp != null)
+        val restarted = BatteryHardwareReader(app).resolveFullChargeDisplay()
+        assert(restarted.capacityMah == locked)
+        assert(restarted.source == FullChargeSource.SIMULATED)
     }
 
     // ===== 5. Hero 卡基础读数链路 =====
@@ -193,6 +198,9 @@ class OverviewTabAuditTest {
         // 设计容量三级回退链收敛合法区间 (Robolectric PowerProfile 反射返回
         // 框架内置 4000，sysfs 缺失 → 任一合法值均可，兜底链有专门测试覆盖)
         val designCapacity = BatteryViewModel(app).batteryState.value.designCapacityMah
-        assertTrue(designCapacity in 500..20000)
+        assertTrue(
+            designCapacity in BatteryTelemetryParser.MIN_PLAUSIBLE_CAPACITY_MAH..
+                BatteryTelemetryParser.MAX_PLAUSIBLE_CAPACITY_MAH
+        )
     }
 }
