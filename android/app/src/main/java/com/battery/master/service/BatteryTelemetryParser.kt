@@ -94,6 +94,23 @@ internal object BatteryTelemetryParser {
     const val MIN_PLAUSIBLE_CAPACITY_MAH = 500
     const val MAX_PLAUSIBLE_CAPACITY_MAH = 20_000
 
+    /** 指标 07 温度物理合理区间 (℃)：覆盖极寒存储到极端温升，区间外视为传感器故障 */
+    const val MIN_PLAUSIBLE_TEMPERATURE_C = -40f
+    const val MAX_PLAUSIBLE_TEMPERATURE_C = 120f
+
+    /** 指标 09 电压物理合理区间 (mV)：覆盖单电芯 3.0~4.5V 与双电芯串联整包 6~9V 加余量 */
+    const val MIN_PLAUSIBLE_VOLTAGE_MV = 2_000
+    const val MAX_PLAUSIBLE_VOLTAGE_MV = 12_000
+
+    /** 指标 09 电压不可信时的中性默认值 (mV)：与 EXTRA 缺失口径一致 */
+    const val DEFAULT_VOLTAGE_MV = 4_000
+
+    /** 指标 10 循环计数合理上限 (次)：真实电芯寿命约 2000 次，留 5 倍余量 */
+    const val MAX_PLAUSIBLE_CYCLE_COUNT = 10_000
+
+    /** 指标 11 瞬时电流合理区间 (mA)：±20A 已超任何手机物理上限 */
+    const val MAX_PLAUSIBLE_CURRENT_MA = 20_000
+
     /**
      * 指标 12 共享判定谓词：仅当电量 100% 且瞬时电流处于 0~25 mA 浮充截止区间时为 true。
      * 双通道与 UI 卡片统一消费此谓词语义，不在各处重算。
@@ -139,9 +156,12 @@ internal object BatteryTelemetryParser {
             else -> BatteryStatus.NOT_CHARGING
         }
 
-        // 7. 电池温度：EXTRA_TEMPERATURE 为 0.1℃ 精度 (默认 25.0℃)
+        // 7. 电池温度：EXTRA_TEMPERATURE 为 0.1℃ 精度 (默认 25.0℃)。
+        // v1.2.3 审计加固：传感器故障 ROM 会上报 -300℃/800℃ 等垃圾值，无钳制会
+        // 直接污染 UI 温度评估、温控节流态 (HardwareInfoResolver) 与内阻老化模型
         val tempTenths = intent?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 250) ?: 250
-        val temperatureCelsius = tempTenths / 10.0f
+        val temperatureCelsius = (tempTenths / 10.0f)
+            .coerceIn(MIN_PLAUSIBLE_TEMPERATURE_C, MAX_PLAUSIBLE_TEMPERATURE_C)
 
         // 8. 电池健康状况 (良好、过热、损坏、超压、未知)
         val healthInt = intent?.getIntExtra(BatteryManager.EXTRA_HEALTH, -1) ?: -1
@@ -153,8 +173,15 @@ internal object BatteryTelemetryParser {
             else -> BatteryHealthQuality.UNKNOWN
         }
 
-        // 9. 电压：毫伏 mV
-        val voltageMv = intent?.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 4000) ?: 4000
+        // 9. 电压：毫伏 mV。v1.2.3 审计加固：传感器故障值 (0/负/超大) 视为不可信，
+        // 回退中性默认 4000 mV (与 EXTRA 缺失口径一致)，避免 "0 mV" 荒谬展示
+        // 污染功率计算与快充协议档位推断
+        val rawVoltageMv = intent?.getIntExtra(BatteryManager.EXTRA_VOLTAGE, -1) ?: -1
+        val voltageMv = if (rawVoltageMv in MIN_PLAUSIBLE_VOLTAGE_MV..MAX_PLAUSIBLE_VOLTAGE_MV) {
+            rawVoltageMv
+        } else {
+            DEFAULT_VOLTAGE_MV
+        }
 
         // 11. 瞬时电流：CURRENT_NOW 规范返回微安 (μA)，部分旧内核返回毫安 (mA)，归一化为 mA
         val currentMicroAmp = batteryManager?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW) ?: 0
@@ -168,6 +195,9 @@ internal object BatteryTelemetryParser {
         if (cycleCount <= 0) {
             cycleCount = BatterySysfs.readInt("/sys/class/power_supply/battery/cycle_count") ?: 0
         }
+        // v1.2.3 审计加固：循环计数合理区间收敛——内核占位/脏数据 (如 65535) 会同时
+        // 污染指标 10 展示与内阻老化模型 (HardwareInfoResolver)，负值一律归一为 0
+        cycleCount = cycleCount.coerceIn(0, MAX_PLAUSIBLE_CYCLE_COUNT)
 
         // 3. 电池当前容量 (衰减后容量 mAh)
         // sysfs charge_full 经 readCapacityMah 双单位归一化 (规范 μAh，兼容 mAh 上报内核)

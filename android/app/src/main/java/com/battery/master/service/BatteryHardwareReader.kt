@@ -4,7 +4,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
+import com.battery.master.data.BatteryHealthQuality
 import com.battery.master.data.BatteryState
+import com.battery.master.data.BatteryStatus
 
 /**
  * Android 原生底层硬件与电量计 HAL 读取器
@@ -100,6 +102,10 @@ class BatteryHardwareReader(private val context: Context) {
             designCapacityMah = designCapacityMah,
             currentCapacityMah = currentCapacity,
             healthPercentage = healthPercent,
+            // v1.2.3 审计加固：采集全失败的降级态必须诚实——未知状态不得谎报"良好"，
+            // 未充电不得谎报"充电中"，避免用户在无数据环境下被错误指标误导
+            status = BatteryStatus.NOT_CHARGING,
+            healthQuality = BatteryHealthQuality.UNKNOWN,
             remainingCapacityMah = 0,
             voltageMv = 4000,
             temperatureCelsius = 25.0f,

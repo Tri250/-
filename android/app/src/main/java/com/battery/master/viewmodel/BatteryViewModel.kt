@@ -165,7 +165,16 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
             if (!isPlausible) return
             reader.designCapacityMah = capacityMah
             simulationHoldUntilMs = 0L // 手动改配置立即恢复真实遥测
-            publish(reader.readBatteryTelemetry())
+            if (_labOverride.value != null) {
+                // 链路闭环修复：实验室模拟中 publish 会冻结真实遥测覆盖，旧实现导致
+                // designCapacityMah 写入 Reader 后 _batteryState 不刷新——实验室
+                // "设计容量"滑杆数值回弹、指标 01/02/03 停止联动。显式刷新基底后
+                // 重放实验室覆盖层，保证 滑杆 → Reader 配置 → 指标 01/02/03 → UI 闭环
+                _batteryState.value = reader.readBatteryTelemetry()
+                publishLab()
+            } else {
+                publish(reader.readBatteryTelemetry())
+            }
         } catch (e: Throwable) {
             // 忽略：保持当前展示数据
         }

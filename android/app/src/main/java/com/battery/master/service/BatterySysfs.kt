@@ -35,7 +35,13 @@ internal object BatterySysfs {
      *    - 两者同单位 → 按 Android 官方规范默认 μA → /1000；
      * 3. 无 sysfs 时按官方规范默认 μA → /1000。
      */
-    fun normalizeCurrentToMilliAmps(raw: Int): Int {
+    fun normalizeCurrentToMilliAmps(raw: Int): Int =
+        normalizeCurrentToMilliAmpsInternal(raw).coerceIn(
+            -BatteryTelemetryParser.MAX_PLAUSIBLE_CURRENT_MA,
+            BatteryTelemetryParser.MAX_PLAUSIBLE_CURRENT_MA
+        )
+
+    private fun normalizeCurrentToMilliAmpsInternal(raw: Int): Int {
         if (raw == 0 || raw == Int.MIN_VALUE) return 0
         val absRaw = abs(raw)
         if (absRaw > 20000) return raw / 1000
