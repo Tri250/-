@@ -188,7 +188,9 @@ fun BatteryScreen(
                         number = "01",
                         title = "电池健康度",
                         value = "${String.format(Locale.US, "%.1f", state.healthPercentage)}%",
-                        sub = "出厂设计保持率",
+                        // v1.2.3 健康度真实性审计：标注容量来源——"sysfs 实测"为真实
+                        // 硬件状态，"0.92 降级估算"为无 sysfs 时的虚构值，不得混淆
+                        sub = "出厂设计保持率 [${state.currentCapacitySource.label}]",
                         accentColor = DesignTokens.BrandPrimary
                     )
                     CyberMetricCardItem(
@@ -211,7 +213,7 @@ fun BatteryScreen(
                         title = "电池当前容量",
                         value = "${state.currentCapacityMah}",
                         unit = "mAh",
-                        sub = "衰减后最大可用",
+                        sub = "衰减后最大可用 [${state.currentCapacitySource.label}]",
                         accentColor = DesignTokens.FeaturePurple
                     )
                     CyberMetricCardItem(
@@ -220,7 +222,7 @@ fun BatteryScreen(
                         title = "电池设计容量",
                         value = "${state.designCapacityMah}",
                         unit = "mAh",
-                        sub = "出厂铭牌标称",
+                        sub = "出厂铭牌标称 [${state.designCapacitySource.label}]",
                         accentColor = DesignTokens.InfoSky
                     )
                 }

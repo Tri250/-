@@ -41,8 +41,14 @@ class BatteryReceiver(
         // 安全转换：极端场景下系统服务异常返回时静默丢弃本次广播，轮询通道继续兜底
         val batteryManager = context.getSystemService(Context.BATTERY_SERVICE) as? BatteryManager ?: return
 
-        // 12 项指标统一经共享解析器提取 (与轮询通道单一实现，语义零漂移)
-        val raw = BatteryTelemetryParser.parse(intent, batteryManager, reader.designCapacityMah)
+        // 12 项指标统一经共享解析器提取 (与轮询通道单一实现，语义零漂移)；
+        // 设计容量来源随 Reader 单一数据源透传，双通道标注一致
+        val raw = BatteryTelemetryParser.parse(
+            intent,
+            batteryManager,
+            reader.designCapacityMah,
+            reader.designCapacitySource
+        )
 
         // 12. 完全充满时的容量：与轮询通道共享锁定逻辑，满足则锁定+持久化，
         // 未满足保留上次锁定值不抹除；先锁定再读时间戳保证回显值实时刷新

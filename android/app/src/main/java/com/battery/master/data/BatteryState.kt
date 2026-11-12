@@ -1,6 +1,31 @@
 package com.battery.master.data
 
 /**
+ * 容量数据来源等级 (v1.2.3 健康度真实性审计新增)
+ *
+ * 电池健康度 = 当前容量 / 设计容量，两项容量都可能来自实测或估算。
+ * 旧实现把 0.92 降级估算值与 sysfs 实测值以同等精度展示 (如无 sysfs 时显示
+ * 精确的 "92.0%")，虚构精度冒充真实测量；现按硬件字段既有模式显式标注来源，
+ * 保证用户可区分"真实状态"与"降级估算"。
+ */
+enum class CapacitySource(val label: String) {
+    /** Linux sysfs charge_full / charge_full_design 实测 */
+    SYSFS("sysfs 实测"),
+
+    /** PowerProfile 反射实测 (设计容量) */
+    POWER_PROFILE("PowerProfile 实测"),
+
+    /** 用户在设置中手动校准 */
+    CALIBRATED("用户校准"),
+
+    /** sysfs 不可读时按设计容量 × 0.92 降级估算 (非真实测量) */
+    ESTIMATED("0.92 降级估算"),
+
+    /** 全链路失败时的 5000 mAh 兜底 (非真实测量) */
+    FALLBACK("5000 mAh 兜底")
+}
+
+/**
  * 电池全部 12 项充放电指标数据模型 + 硬件信息汇总
  */
 data class BatteryState(
@@ -16,6 +41,12 @@ data class BatteryState(
 
     // 4、电池设计容量 (电池出厂容量 mAh，例如 5000 mAh)
     val designCapacityMah: Int = 5000,
+
+    /** 指标 03 当前容量数据来源 (sysfs 实测 / 0.92 降级估算)；指标 01 健康度同源 */
+    val currentCapacitySource: CapacitySource = CapacitySource.ESTIMATED,
+
+    /** 指标 04 设计容量数据来源 (PowerProfile / sysfs / 用户校准 / 5000 mAh 兜底) */
+    val designCapacitySource: CapacitySource = CapacitySource.FALLBACK,
 
     // 5、电量：当前电池电量的百分比 (0 - 100)
     val percentage: Int = 0,

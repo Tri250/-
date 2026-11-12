@@ -6,6 +6,7 @@ import android.os.Build
 import com.battery.master.data.BatteryHealthQuality
 import com.battery.master.data.BatteryState
 import com.battery.master.data.BatteryStatus
+import com.battery.master.data.CapacitySource
 
 /**
  * 原始电池遥测快照 (未施加指标 12 充满锁定)
@@ -27,7 +28,10 @@ internal data class RawBatteryTelemetry(
     val remainingCapacityMah: Int,
     val healthPercentage: Float,
     val powerWatts: Float,
-    val isFullChargeConditionMet: Boolean
+    val isFullChargeConditionMet: Boolean,
+    /** v1.2.3 健康度真实性审计：容量来源等级，透传至 UI 标注，区分实测与降级估算 */
+    val currentCapacitySource: CapacitySource = CapacitySource.ESTIMATED,
+    val designCapacitySource: CapacitySource = CapacitySource.FALLBACK
 ) {
     /**
      * 合成为展示态 BatteryState：
@@ -44,6 +48,8 @@ internal data class RawBatteryTelemetry(
             remainingCapacityMah = remainingCapacityMah,
             currentCapacityMah = currentCapacityMah,
             designCapacityMah = designCapacityMah,
+            currentCapacitySource = currentCapacitySource,
+            designCapacitySource = designCapacitySource,
             percentage = percentage,
             status = if (isFullChargeConditionMet) BatteryStatus.FULL else status,
             temperatureCelsius = temperatureCelsius,
@@ -124,11 +130,13 @@ internal object BatteryTelemetryParser {
      * @param intent 粘性广播/实时广播 Intent，允许为 null (查询失败时全字段走安全默认)
      * @param batteryManager 系统服务，允许为 null (定制 ROM 缺失 BATTERY_SERVICE)
      * @param designCapacityMah 指标 04 设计容量 (Reader 单一数据源，双通道共享)
+     * @param designCapacitySource 指标 04 设计容量来源 (Reader 三级回退链命中等级)
      */
     fun parse(
         intent: Intent?,
         batteryManager: BatteryManager?,
-        designCapacityMah: Int
+        designCapacityMah: Int,
+        designCapacitySource: CapacitySource = CapacitySource.FALLBACK
     ): RawBatteryTelemetry {
         val effectiveDesignCapacity =
             if (designCapacityMah > 0) designCapacityMah else BatteryHardwareReader.FALLBACK_DESIGN_CAPACITY
@@ -202,8 +210,13 @@ internal object BatteryTelemetryParser {
         // 3. 电池当前容量 (衰减后容量 mAh)
         // sysfs charge_full 经 readCapacityMah 双单位归一化 (规范 μAh，兼容 mAh 上报内核)
         // 与合理区间校验；不可读/脏数据一律回退设计容量估算值 (0.92 降级假设)，
-        // 避免非法容量流入指标 12 锁定与持久化
-        val currentCapacityMah = BatterySysfs.readCapacityMah("/sys/class/power_supply/battery/charge_full")
+        // 避免非法容量流入指标 12 锁定与持久化。
+        // v1.2.3 健康度真实性审计：区分实测与估算来源，UI 显式标注，
+        // 杜绝"精确的 92.0% 健康度"实为 0.92 虚构估算值的情况
+        val sysfsCurrentCapacity = BatterySysfs.readCapacityMah("/sys/class/power_supply/battery/charge_full")
+        val currentCapacitySource =
+            if (sysfsCurrentCapacity != null) CapacitySource.SYSFS else CapacitySource.ESTIMATED
+        val currentCapacityMah = sysfsCurrentCapacity
             ?: (effectiveDesignCapacity * 0.92f).toInt()
 
         // 2. 剩余电量 (mAh)
@@ -241,7 +254,9 @@ internal object BatteryTelemetryParser {
             remainingCapacityMah = remainingCapacityMah,
             healthPercentage = healthPercentage,
             powerWatts = powerWatts,
-            isFullChargeConditionMet = isFullChargeConditionMet
+            isFullChargeConditionMet = isFullChargeConditionMet,
+            currentCapacitySource = currentCapacitySource,
+            designCapacitySource = designCapacitySource
         )
     }
 }

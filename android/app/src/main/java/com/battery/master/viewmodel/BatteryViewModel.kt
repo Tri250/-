@@ -11,6 +11,7 @@ import androidx.lifecycle.viewModelScope
 import com.battery.master.data.BatteryState
 import com.battery.master.data.BatteryHealthQuality
 import com.battery.master.data.BatteryStatus
+import com.battery.master.data.CapacitySource
 import com.battery.master.receiver.BatteryReceiver
 import com.battery.master.service.BatteryHardwareReader
 import com.battery.master.service.BatteryTelemetryParser
@@ -164,6 +165,9 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
             val isPlausible = capacityMah in BatteryTelemetryParser.MIN_PLAUSIBLE_CAPACITY_MAH..BatteryTelemetryParser.MAX_PLAUSIBLE_CAPACITY_MAH
             if (!isPlausible) return
             reader.designCapacityMah = capacityMah
+            // v1.2.3 健康度真实性审计：用户手动校准是可信来源，标注 CALIBRATED，
+            // 与系统解析值 (PowerProfile/sysfs) 在 UI 上可区分
+            reader.designCapacitySource = CapacitySource.CALIBRATED
             simulationHoldUntilMs = 0L // 手动改配置立即恢复真实遥测
             if (_labOverride.value != null) {
                 // 链路闭环修复：实验室模拟中 publish 会冻结真实遥测覆盖，旧实现导致

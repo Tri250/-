@@ -7,6 +7,7 @@ import android.os.BatteryManager
 import com.battery.master.data.BatteryHealthQuality
 import com.battery.master.data.BatteryState
 import com.battery.master.data.BatteryStatus
+import com.battery.master.data.CapacitySource
 
 /**
  * Android 原生底层硬件与电量计 HAL 读取器
@@ -36,6 +37,11 @@ class BatteryHardwareReader(private val context: Context) {
     } catch (e: Throwable) {
         null
     }
+
+    // 指标 04 设计容量来源等级 (v1.2.3 健康度真实性审计)：
+    // 必须在 designCapacityMah 之前声明——getDesignCapacity 在其初始化期写入命中等级，
+    // 声明顺序错误会导致来源被随后的默认值覆盖
+    var designCapacitySource: CapacitySource = CapacitySource.FALLBACK
 
     // 默认或从数据库读取的出厂设计容量 (mAh)：构造时从系统解析一次，之后可被用户覆盖
     // (Receiver 事件通道共享此值，保证轮询/广播双通道数据一致，用户设置不被广播覆盖)
@@ -77,7 +83,12 @@ class BatteryHardwareReader(private val context: Context) {
         }
 
         // 12 项指标统一经共享解析器提取 (与广播通道 BatteryReceiver 单一实现，语义零漂移)
-        val raw = BatteryTelemetryParser.parse(batteryIntent, batteryManager, designCapacityMah)
+        val raw = BatteryTelemetryParser.parse(
+            batteryIntent,
+            batteryManager,
+            designCapacityMah,
+            designCapacitySource
+        )
 
         // 12. 完全充满时的容量：满足判定则锁定+持久化，未满足保留上次锁定值不抹除
         // 注意：必须先执行锁定 (内部可能刷新时间戳) 再读取 lastFullChargeTimestamp
@@ -100,7 +111,11 @@ class BatteryHardwareReader(private val context: Context) {
         }
         return BatteryState(
             designCapacityMah = designCapacityMah,
+            designCapacitySource = designCapacitySource,
             currentCapacityMah = currentCapacity,
+            // v1.2.3 审计修复：降级态当前容量为 0.92 估算，来源标注 ESTIMATED，
+            // 杜绝 UI 把估算值当实测展示
+            currentCapacitySource = CapacitySource.ESTIMATED,
             healthPercentage = healthPercent,
             // v1.2.3 审计加固：采集全失败的降级态必须诚实——未知状态不得谎报"良好"，
             // 未充电不得谎报"充电中"，避免用户在无数据环境下被错误指标误导
@@ -185,6 +200,7 @@ class BatteryHardwareReader(private val context: Context) {
                 // 四舍五入保留精度 (截断丢 1mAh)；NaN/越界一律降级下一级
                 val capacityMah = Math.round(capacity).toInt()
                 if (capacityMah in BatteryTelemetryParser.MIN_PLAUSIBLE_CAPACITY_MAH..BatteryTelemetryParser.MAX_PLAUSIBLE_CAPACITY_MAH) {
+                    designCapacitySource = CapacitySource.POWER_PROFILE
                     return capacityMah
                 }
             }
@@ -192,8 +208,12 @@ class BatteryHardwareReader(private val context: Context) {
 
         // sysfs 规范单位 μAh：readCapacityMah 内含双单位归一化与合理区间校验
         val sysfsDesign = BatterySysfs.readCapacityMah("/sys/class/power_supply/battery/charge_full_design")
-        if (sysfsDesign != null) return sysfsDesign
+        if (sysfsDesign != null) {
+            designCapacitySource = CapacitySource.SYSFS
+            return sysfsDesign
+        }
 
+        designCapacitySource = CapacitySource.FALLBACK
         return FALLBACK_DESIGN_CAPACITY
     }
 
