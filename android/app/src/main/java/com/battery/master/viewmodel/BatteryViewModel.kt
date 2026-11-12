@@ -389,8 +389,8 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
         /** 一键模拟充满后的保持期 (毫秒) */
         private const val SIMULATION_HOLD_MS = 15_000L
 
-        /** 一键模拟充满时展示的浮充电流 (mA)：判定区间中值，稳定落在 0~25 mA 截止带内 */
-        private val SIMULATED_TRICKLE_CURRENT_MA =
-            (BatteryTelemetryParser.FULL_CHARGE_TRICKLE_MIN_MA + BatteryTelemetryParser.FULL_CHARGE_TRICKLE_MAX_MA) / 2
+        /** 一键模拟充满时展示的浮充电流 (mA)：0~25 mA 判定区间内稳定采样点，
+         *  与全链路文案口径 (UI 按钮/实验室场景描述/源码镜像) 保持一致 */
+        private val SIMULATED_TRICKLE_CURRENT_MA = 16
     }
 }
