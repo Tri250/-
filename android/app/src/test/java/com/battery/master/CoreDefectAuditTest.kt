@@ -158,7 +158,7 @@ class CoreDefectAuditTest {
         // 历史演示值存在时发生真实锁定：演示值被清除，真实锁定优先展示
         BatteryHardwareReader(app).persistSimulatedFullChargeCapacity(4000, System.currentTimeMillis())
         val reader = BatteryHardwareReader(app)
-        reader.lockFullChargeIfCriteriaMat(4820, 100, 16, isCharging = true)
+        reader.lockFullChargeIfCriteriaMet(4820, 100, 16, isCharging = true)
 
         val display = reader.resolveFullChargeDisplay()
         assertEquals(FullChargeSource.REAL, display.source)

@@ -133,7 +133,7 @@ class BatteryHardwareReader(private val context: Context) {
     /**
      * v1.2.3 P0 审计修复：指标 12 展示值解析——真实锁定优先，模拟演示值兜底
      *
-     * 真实锁定 (lockFullChargeIfCriteriaMat 判定) 与"一键模拟完全充满"演示值
+     * 真实锁定 (lockFullChargeIfCriteriaMet 判定) 与"一键模拟完全充满"演示值
      * 分 key 存储，杜绝演示值冒充实测锁定跨重启存在；UI 依来源显式标注。
      */
     data class FullChargeDisplay(
