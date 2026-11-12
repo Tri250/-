@@ -1,7 +1,6 @@
 package com.battery.master
 
 import android.app.Application
-import android.os.Looper
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -14,7 +13,6 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.Shadows
 import org.robolectric.annotation.Config
 import java.util.Locale
 
@@ -45,10 +43,10 @@ class OverviewTabAuditTest {
         composeRule.setContent { BatteryScreen(viewModel = viewModel) }
     }
 
-    // viewModelScope(Dispatchers.Main) 协程在 Robolectric 下由 Main Looper 队列承载，
-    // Compose 测试规则只推进组合/动画时钟；断言前须显式排空主线程队列
-    private fun drainMainThread() {
-        Shadows.shadowOf(Looper.getMainLooper()).idle()
+    // Compose 测试官方同步原语：推进重组/动画/协程时钟
+    // (Robolectric looper.idle 与 Compose 测试时钟不同步，勿混用)
+    private fun advanceCompose() {
+        composeRule.waitForIdle()
     }
 
     // ===== 1. 12 项指标网格全量在场 =====
@@ -104,7 +102,7 @@ class OverviewTabAuditTest {
             viewModel.enterLabMode()
             viewModel.updateLabVoltage(4000)
             viewModel.updateLabCurrent(1000)
-            drainMainThread()
+            advanceCompose()
 
             // 旧实现 (无 Locale.US)：de_DE 下渲染 "4,00 W"，本断言失败
             composeRule.onNodeWithText("4.00 W", substring = true).assertExists()
@@ -123,7 +121,11 @@ class OverviewTabAuditTest {
         // B3 判定卡触发按钮在场
         composeRule.onNodeWithText("一键模拟完全充满 (100% + 16mA)").assertExists()
         composeRule.onNodeWithText("一键模拟完全充满 (100% + 16mA)").performClick()
-        drainMainThread()
+        advanceCompose()
+
+        // 按钮立即进入倒计时禁用态 (15 秒保持期窗口内，先于其他 waitUntil 断言)
+        composeRule.onNodeWithText("模拟保持中", substring = true).assertExists()
+        composeRule.onNodeWithText("模拟保持中", substring = true).assertIsNotEnabled()
 
         // Hero 状态标签切为"已充满"，核心读数切为 100% (缓动动画收敛后)
         composeRule.waitUntil(5_000) {
@@ -142,15 +144,6 @@ class OverviewTabAuditTest {
                 useUnmergedTree = true
             ).fetchSemanticsNodes().isNotEmpty()
         }
-
-        // 按钮进入倒计时禁用态 (15 秒保持期可见反馈)
-        composeRule.waitUntil(5_000) {
-            composeRule.onAllNodes(
-                matcher = androidx.compose.ui.test.hasText("模拟保持中", substring = true),
-                useUnmergedTree = true
-            ).fetchSemanticsNodes().isNotEmpty()
-        }
-        composeRule.onNodeWithText("模拟保持中", substring = true).assertIsNotEnabled()
     }
 
     // ===== 5. Hero 卡基础读数链路 =====
@@ -159,8 +152,7 @@ class OverviewTabAuditTest {
     fun heroCard_rendersCoreReadings() {
         mountShell()
 
-        drainMainThread()
-        // 电量百分比读数条在场 (初始值依赖协程时序，不锁定具体数字)
+        // 电量百分比读数条在场 (静态渲染，不依赖协程时序)
         composeRule.onNodeWithText("剩余电量", substring = true).assertExists()
         composeRule.onNodeWithText("mA ·", substring = true).assertExists()
         // Robolectric 环境设计容量兜底 5000
