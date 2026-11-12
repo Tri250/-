@@ -312,7 +312,7 @@ fun BatteryScreen(
                         // 指标 11：经 BatteryState.currentNowMa 别名读取 (激活别名，与 currentMa 同源)
                         value = "${if (state.currentNowMa > 0) "+${state.currentNowMa}" else state.currentNowMa}",
                         unit = "mA",
-                        sub = "功率 ${String.format("%.2f", state.powerWatts)} W",
+                        sub = "功率 ${String.format(Locale.US, "%.2f", state.powerWatts)} W",
                         accentColor = if (state.currentNowMa > 0) DesignTokens.BrandPrimary else DesignTokens.AccentCyanDark
                     )
                     CyberMetricCardItem(
@@ -557,7 +557,7 @@ fun CyberHeroBatteryCard(state: BatteryState) {
                 border = androidx.compose.foundation.BorderStroke(1.dp, DesignTokens.Border)
             ) {
                 Text(
-                    text = "${if (currentMa > 0) "+$currentMa" else currentMa} mA · ${String.format("%.2f", powerW)} W · ${(state.voltageMv / 1000f)} V",
+                    text = "${if (currentMa > 0) "+$currentMa" else currentMa} mA · ${String.format(Locale.US, "%.2f", powerW)} W · ${(state.voltageMv / 1000f)} V",
                     fontSize = DesignTokens.FontXs,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
