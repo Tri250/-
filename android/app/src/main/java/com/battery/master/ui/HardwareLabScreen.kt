@@ -229,7 +229,12 @@ fun HardwareLabScreen(viewModel: BatteryViewModel, state: BatteryState) {
                 LabSlider(
                     label = "04. 出厂设计容量 (真实生效)",
                     valueText = "${state.designCapacityMah} mAh",
-                    value = state.designCapacityMah.toFloat(),
+                    // v1.2.3 审计修复：Slider value 必须钳制在 valueRange 内——Compose Slider
+                    // 对越界 value 直接抛 IllegalArgumentException。真实设备设计容量
+                    // (Reader 三级链有效区间 500~20000 mAh) 可能超出滑杆 1000~15000
+                    // (如三防大电池机 23800mAh / 小电池设备 600mAh)，未钳制即崩溃。
+                    // 数值文本仍显示真实设计容量，仅滑杆位置钳制
+                    value = state.designCapacityMah.coerceIn(1000, 15000).toFloat(),
                     valueRange = 1000f..15000f,
                     accent = DesignTokens.FeaturePurple,
                     onValueChange = { viewModel.updateLabDesignCapacity(it.toInt()) }

@@ -306,7 +306,13 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
     fun updateLabCycleCount(v: Int) = mutateLab { it.copy(cycleCount = v.coerceIn(0, 1200)) }
     fun updateLabStatus(v: BatteryStatus) = mutateLab { it.copy(status = v) }
     fun updateLabHealthQuality(v: BatteryHealthQuality) = mutateLab {
-        val t = if (v == BatteryHealthQuality.OVERHEAT) 49.2f else it.temperatureCelsius
+        val t = when (v) {
+            BatteryHealthQuality.OVERHEAT -> 49.2f
+            // v1.2.3 审计修复：选非过热态时若温度仍停留在过热区 (>45°C，与解析器
+            // "严重发热"分级阈值一致)，回落中性室温 25°C——消除"健康=良好
+            // 但 49.2°C"的自相矛盾展示，保证健康枚举与温度指标链路闭环
+            else -> if (it.temperatureCelsius > 45f) 25.0f else it.temperatureCelsius
+        }
         it.copy(healthQuality = v, temperatureCelsius = t)
     }
 
