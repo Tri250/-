@@ -254,7 +254,10 @@ fun BatteryScreen(
                         modifier = Modifier.weight(1f),
                         number = "07",
                         title = "电池温度",
-                        value = "${state.temperatureCelsius}",
+                        // v1.2.3 审计修复：温度主值经 Locale.US 锚定——德语等逗号
+                        // 小数点 Locale 下 Float.toString 渲染 "32,6°C"，与全屏
+                        // 数值口径割裂；精度 0.1°C 与解析器一致
+                        value = String.format(Locale.US, "%.1f", state.temperatureCelsius),
                         unit = "°C",
                         // 温度评估口径与 Web 端三段制完全对齐 (>45 严重 / 38-45 偏热 / ≤0 过冷 / 其余正常)
                         sub = when {
@@ -288,7 +291,7 @@ fun BatteryScreen(
                         title = "电芯电压",
                         value = "${state.voltageMv}",
                         unit = "mV",
-                        sub = "电势差 ${(state.voltageMv / 1000f)} V",
+                        sub = "电势差 ${String.format(Locale.US, "%.2f", state.voltageMv / 1000f)} V",
                         accentColor = DesignTokens.InfoSky
                     )
                     CyberMetricCardItem(
@@ -557,7 +560,7 @@ fun CyberHeroBatteryCard(state: BatteryState) {
                 border = androidx.compose.foundation.BorderStroke(1.dp, DesignTokens.Border)
             ) {
                 Text(
-                    text = "${if (currentMa > 0) "+$currentMa" else currentMa} mA · ${String.format(Locale.US, "%.2f", powerW)} W · ${(state.voltageMv / 1000f)} V",
+                    text = "${if (currentMa > 0) "+$currentMa" else currentMa} mA · ${String.format(Locale.US, "%.2f", powerW)} W · ${String.format(Locale.US, "%.2f", state.voltageMv / 1000f)} V",
                     fontSize = DesignTokens.FontXs,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
@@ -648,7 +651,7 @@ fun HardwareSummaryCard(state: BatteryState, onCalibrateDesignCapacity: () -> Un
             Spacer(modifier = Modifier.height(8.dp))
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                HardwareItem(modifier = Modifier.weight(1f), label = "电芯内阻", value = "${state.internalResistanceMohm} mΩ")
+                HardwareItem(modifier = Modifier.weight(1f), label = "电芯内阻", value = "${String.format(Locale.US, "%.1f", state.internalResistanceMohm)} mΩ")
                 HardwareItem(modifier = Modifier.weight(1f), label = "化学材料体系", value = state.batteryChemistry)
             }
 
