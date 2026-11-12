@@ -151,9 +151,11 @@ jobs:
           fi
           echo "APK install metadata verified."
 
-      # 签名校验：正式签名构建必须通过 apksigner verify，防止未签名/损坏包发布
+      # 签名校验：无条件执行 apksigner verify（v1.2.4 P3 审计修复）——
+      # 旧实现仅在 keystore_available=true 时执行，debug 签名兜底的产物可跳过
+      # 签名校验并以 release 产物名义发布；现 debug 兜底时也校验签名完整性，
+      # 并显式告警披露签名类型，不再静默冒充正式签名
       - name: Verify APK Signature (apksigner)
-        if: env.keystore_available == 'true'
         run: |
           APK_PATH="${{ steps.find_apk.outputs.apk_path }}"
           APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n 1)
@@ -162,7 +164,11 @@ jobs:
             exit 0
           fi
           "$APKSIGNER" verify --verbose "$APK_PATH" | head -n 10 || { echo "::error::APK signature verification failed"; exit 1; }
-          echo "APK signature verified."
+          if [ "${{ env.keystore_available }}" = "true" ]; then
+            echo "APK signature verified (release keystore)."
+          else
+            echo "::warning::APK is debug-signed (release keystore not configured). Artifact will be named *-debug.apk and release notes disclose the debug signing."
+          fi
 
       # 版本化命名：从 build.gradle.kts 解析 versionName，产物文件名携带版本，便于安装与归档
       - name: Rename APK with Version Name
@@ -280,6 +286,23 @@ jobs:
           name: Android-Battery-Master-APK
           path: artifacts/
 
+      # v1.2.4 P3 审计修复：解析实际 APK 文件名与签名类型（release 密钥缺失时
+      # 兜底 debug 签名，产物名 *-debug.apk），发布说明不再硬编码
+      # "-release.apk / 正式 Release 签名"——debug 兜底包不再冒充正式签名发布
+      - name: Resolve APK File Name And Signing Mode
+        id: apkfile
+        run: |
+          APK_FILE=$(ls artifacts/*.apk | xargs -n1 basename)
+          echo "apk_file=$APK_FILE" >> "$GITHUB_OUTPUT"
+          if [[ "$APK_FILE" == *-debug.apk ]]; then
+            echo "signing_label=Debug 签名 (兜底，正式密钥未配置)" >> "$GITHUB_OUTPUT"
+            echo "signing_table=Android 原生 APK（**Debug 签名兜底**——正式密钥未配置，包体完整且可安装，但以 debug 密钥签名）" >> "$GITHUB_OUTPUT"
+          else
+            echo "signing_label=正式 Release 签名" >> "$GITHUB_OUTPUT"
+            echo "signing_table=Android 原生 APK（**正式 Release 签名**，R8 混淆 + 资源收缩，可直接安装）" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Resolved APK file: $APK_FILE"
+
       - name: Download Web Demo
         uses: actions/download-artifact@v4
         with:
@@ -305,12 +328,12 @@ jobs:
             ### 发布资产
             | 资产 | 说明 |
             | --- | --- |
-            | `Android-Battery-Master-v${{ steps.version.outputs.version_name }}-release.apk` | Android 原生 APK（**正式 Release 签名**，R8 混淆 + 资源收缩，可直接安装） |
+            | `${{ steps.apkfile.outputs.apk_file }}` | ${{ steps.apkfile.outputs.signing_table }} |
             | `web-demo-dist.zip` | Web 演示端静态产物（解压后任意静态服务器托管，或直接用浏览器打开 `index.html`） |
             | `SHA256SUMS.txt` | 全部资产 SHA256 校验和 |
 
             ### 安装说明
-            1. 下载 APK 后在设备上点击安装（需在系统设置中允许"安装未知来源应用"）。
+            1. 下载 APK 后在设备上点击安装（需在系统设置中允许"安装未知来源应用"）。签名类型：**${{ steps.apkfile.outputs.signing_label }}**。
             2. 首次启动授予**零运行时权限**：应用不申请任何敏感权限，安装后即可使用全部功能。
             3. 覆盖安装：版本号 `versionCode=${{ steps.version.outputs.version_code }}` 单调递增，直接安装即可覆盖旧版（含 v1.0.0，versionCode=1），数据不丢失。
 

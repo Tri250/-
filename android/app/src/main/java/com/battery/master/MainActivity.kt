@@ -63,4 +63,16 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    // v1.2.4 P3 审计修复：1Hz 轮询生命周期门控——退后台/锁屏暂停 sysfs 轮询
+    // (电池监测工具持续后台轮询属反向耗电缺陷)，回前台恢复；广播通道不受影响
+    override fun onResume() {
+        super.onResume()
+        batteryViewModel.setTelemetryPollingActive(true)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        batteryViewModel.setTelemetryPollingActive(false)
+    }
 }

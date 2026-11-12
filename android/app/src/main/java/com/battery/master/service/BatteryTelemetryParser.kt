@@ -31,7 +31,10 @@ internal data class RawBatteryTelemetry(
     val currentCapacityMah: Int,
     val remainingCapacityMah: Int,
     val healthPercentage: Float,
-    /** 瞬时功率 (W)；null = 电流不可读，禁止虚构 0W */
+    /** 指标 02 剩余电量口径 (v1.2.4 P2 审计)：库仑计实测 vs 百分比×容量估算 */
+    val remainingCapacitySource: CapacitySource = CapacitySource.ESTIMATED,
+    /** 瞬时功率 (W)；null = 电流不可读，禁止虚构 0W。
+     *  v1.2.4 P2 审计修复：随符号携带方向——充电 +W / 放电 −W (旧实现 abs 丢失方向) */
     val powerWatts: Float?,
     val isFullChargeConditionMet: Boolean,
     /** v1.2.3 P0 审计修复：充满判定三态，替代单一布尔 (不可读 ≠ 未满足) */
@@ -56,6 +59,7 @@ internal data class RawBatteryTelemetry(
         return BatteryState(
             healthPercentage = healthPercentage,
             remainingCapacityMah = remainingCapacityMah,
+            remainingCapacitySource = remainingCapacitySource,
             currentCapacityMah = currentCapacityMah,
             designCapacityMah = designCapacityMah,
             currentCapacitySource = currentCapacitySource,
@@ -122,6 +126,15 @@ internal object BatteryTelemetryParser {
     /** 指标 07 温度物理合理区间 (℃)：覆盖极寒存储到极端温升，区间外视为传感器故障 */
     const val MIN_PLAUSIBLE_TEMPERATURE_C = -40f
     const val MAX_PLAUSIBLE_TEMPERATURE_C = 120f
+
+    /**
+     * 指标 07 温度分级阈值单源 (v1.2.4 P2 审计修复)：
+     * 温度卡 (BatteryScreen) 与温控节流态 (HardwareInfoResolver) 统一消费本常量对。
+     * 旧实现两套阈值互相打架：38.0~38.5℃ 卡片"偏热预警"而节流标签"正常供电"，
+     * 44~45℃ 节流标签"过热急停"而卡片仅"偏热预警"——同屏自相矛盾。
+     */
+    const val TEMP_WARM_THRESHOLD_C = 38f
+    const val TEMP_OVERHEAT_THRESHOLD_C = 45f
 
     /** 指标 09 电压物理合理区间 (mV)：覆盖单电芯 3.0~4.5V 与双电芯串联整包 6~9V 加余量 */
     const val MIN_PLAUSIBLE_VOLTAGE_MV = 2_000
@@ -278,12 +291,18 @@ internal object BatteryTelemetryParser {
         // 避免库仑计读数抖动导致指标 2 大于指标 3。
         // v1.2.3 审计修复：四舍五入替代浮点截断 (toInt)，与 Web 端 Math.round 口径一致，
         // 消除 1mAh 级精度漂移 (如 4600 mAh × 53% 旧实现折算 2437 而非 2438)
+        // v1.2.4 P2 审计修复：双口径来源显式标注——CHARGE_COUNTER 为系统库仑计
+        // 剩余电荷实测 (COULOMB_COUNTER)，回退分支为 百分比 × 当前容量 估算 (ESTIMATED)。
+        // 两条口径量纲基准不同 (机型间不可比、运行中切换会跳变)，UI 显式标注口径
         val chargeCounterUah = batteryManager?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER) ?: 0
-        val remainingCapacityMah = if (chargeCounterUah > 0 && chargeCounterUah != Int.MIN_VALUE) {
+        val remainingIsMeasured = chargeCounterUah > 0 && chargeCounterUah != Int.MIN_VALUE
+        val remainingCapacityMah = if (remainingIsMeasured) {
             Math.round(chargeCounterUah / 1000f).coerceAtMost(currentCapacityMah)
         } else {
             Math.round(currentCapacityMah * (percentage / 100f))
         }
+        val remainingCapacitySource =
+            if (remainingIsMeasured) CapacitySource.COULOMB_COUNTER else CapacitySource.ESTIMATED
 
         // 1. 电池健康度 (%)：当前容量 / 设计容量，钳制 0~100 防 NaN 外溢
         val healthPercentage =
@@ -295,8 +314,11 @@ internal object BatteryTelemetryParser {
         val fullChargeVerdict = evaluateFullCharge(percentage, currentMa, isCharging)
         val isFullChargeConditionMet = fullChargeVerdict == FullChargeVerdict.FULLY_CHARGED
 
-        // 瞬时功率 (W = V × I)：电流不可读时为 null，UI 显示 "—" 而非虚构 0W
-        val powerWatts: Float? = currentMa?.let { (voltageMv.toFloat() * abs(it)) / 1_000_000f }
+        // 瞬时功率 (W = V × I)：电流不可读时为 null，UI 显示 "—" 而非虚构 0W。
+        // v1.2.4 P2 审计修复：移除 abs()——currentMa 已按"充电为正、放电为负"
+        // 符号归一，功率随符号携带方向 (充电 +W / 放电 −W)；旧实现 abs 后
+        // 放电 1150 mA 与充电 1150 mA 同显正功率，充放方向信息丢失
+        val powerWatts: Float? = currentMa?.let { voltageMv.toFloat() * it / 1_000_000f }
 
         return RawBatteryTelemetry(
             percentage = percentage,
@@ -309,6 +331,7 @@ internal object BatteryTelemetryParser {
             designCapacityMah = effectiveDesignCapacity,
             currentCapacityMah = currentCapacityMah,
             remainingCapacityMah = remainingCapacityMah,
+            remainingCapacitySource = remainingCapacitySource,
             healthPercentage = healthPercentage,
             powerWatts = powerWatts,
             isFullChargeConditionMet = isFullChargeConditionMet,

@@ -30,6 +30,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.battery.master.BuildConfig
@@ -45,6 +46,7 @@ import com.battery.master.viewmodel.BatteryViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.abs
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -215,7 +217,10 @@ fun BatteryScreen(
                         title = "剩余电量",
                         value = "${state.remainingCapacityMah}",
                         unit = "mAh",
-                        sub = "当前可用电荷量",
+                        // v1.2.4 P2 审计修复：双口径来源显式标注——"库仑计实测"
+                        // (CHARGE_COUNTER) 与"百分比×容量估算"量纲基准不同，
+                        // 机型间不可比、运行中切换会跳变，旧实现无任何口径标注
+                        sub = "当前可用电荷量 [${state.remainingCapacitySource.label}]",
                         accentColor = DesignTokens.AccentCyanDark
                     )
                 }
@@ -277,16 +282,22 @@ fun BatteryScreen(
                         // 数值口径割裂；精度 0.1°C 与解析器一致
                         value = String.format(Locale.US, "%.1f", state.temperatureCelsius),
                         unit = "°C",
-                        // 温度评估口径与 Web 端三段制完全对齐 (>45 严重 / 38-45 偏热 / ≤0 过冷 / 其余正常)
+                        // v1.2.4 P2 审计修复：温度分级阈值与温控节流态单源 (解析器常量)，
+                        // 旧实现 >45/≥38 与节流态 ≥44/≥38.5 打架 (44~45℃ 标签"过热急停"
+                        // 而卡片仅"偏热预警"、38~38.5℃ 反之，同屏自相矛盾)
                         sub = when {
-                            state.temperatureCelsius > 45 -> "严重发热 (>45°C)"
-                            state.temperatureCelsius >= 38 -> "偏热预警 (38-45°C)"
+                            state.temperatureCelsius >= BatteryTelemetryParser.TEMP_OVERHEAT_THRESHOLD_C ->
+                                "严重发热 (≥${BatteryTelemetryParser.TEMP_OVERHEAT_THRESHOLD_C.toInt()}°C)"
+                            state.temperatureCelsius >= BatteryTelemetryParser.TEMP_WARM_THRESHOLD_C ->
+                                "偏热预警 (${BatteryTelemetryParser.TEMP_WARM_THRESHOLD_C.toInt()}-${BatteryTelemetryParser.TEMP_OVERHEAT_THRESHOLD_C.toInt()}°C)"
                             state.temperatureCelsius <= 0 -> "过冷保护 (≤0°C)"
                             else -> "温度正常"
                         },
                         accentColor = when {
-                            state.temperatureCelsius > 45 || state.temperatureCelsius <= 0 -> DesignTokens.DangerRose
-                            state.temperatureCelsius >= 38 -> DesignTokens.WarningAmber
+                            state.temperatureCelsius >= BatteryTelemetryParser.TEMP_OVERHEAT_THRESHOLD_C ||
+                                state.temperatureCelsius <= 0 -> DesignTokens.DangerRose
+                            state.temperatureCelsius >= BatteryTelemetryParser.TEMP_WARM_THRESHOLD_C ->
+                                DesignTokens.WarningAmber
                             else -> DesignTokens.BrandPrimary
                         }
                     )
@@ -335,7 +346,15 @@ fun BatteryScreen(
                         // 时显示 "—"，旧实现归一化为 0 会虚构 "0 mA / 0.00 W" 读数
                         value = state.currentNowMa?.let { if (it > 0) "+$it" else "$it" } ?: "—",
                         unit = if (state.currentNowMa != null) "mA" else "",
-                        sub = "功率 ${state.currentNowMa?.let { String.format(Locale.US, "%.2f", state.powerWatts) + " W" } ?: "— W"}",
+                        // v1.2.4 P2 审计修复：功率随符号携带方向 (充电 +W / 放电 −W)，
+                        // 旧实现解析层 abs 后充放同显正功率，方向丢失
+                        sub = "功率 " + when {
+                            state.currentNowMa == null -> "— W"
+                            state.currentNowMa > 0 -> "+${String.format(Locale.US, "%.2f", state.powerWatts)} W"
+                            state.currentNowMa < 0 ->
+                                "-${String.format(Locale.US, "%.2f", abs(state.powerWatts))} W"
+                            else -> String.format(Locale.US, "%.2f", state.powerWatts) + " W"
+                        },
                         accentColor = if ((state.currentNowMa ?: 0) > 0) DesignTokens.BrandPrimary else DesignTokens.AccentCyanDark
                     )
                     CyberMetricCardItem(
@@ -595,7 +614,9 @@ fun CyberHeroBatteryCard(state: BatteryState) {
                     text = buildString {
                         append(if (currentMa != null) "${if (currentMa > 0) "+$currentMa" else currentMa} mA" else "— mA")
                         append(" · ")
-                        append(if (currentMa != null) "${String.format(Locale.US, "%.2f", powerW)} W" else "— W")
+                        // v1.2.4 P2 审计修复：功率随符号携带方向 (充电 +W / 放电 −W，
+                        // 负值由 String.format 自然输出 "-")，不再 abs 抹平方向
+                        append(if (currentMa != null) "${if (powerW > 0) "+" else ""}${String.format(Locale.US, "%.2f", powerW)} W" else "— W")
                         append(" · ")
                         append("${String.format(Locale.US, "%.2f", state.voltageMv / 1000f)} V")
                     },
@@ -683,13 +704,26 @@ fun HardwareSummaryCard(state: BatteryState, onCalibrateDesignCapacity: () -> Un
             // ===== 电源子系统区块 =====
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 HardwareItem(modifier = Modifier.weight(1f), label = "电源管理 IC", value = state.pmicModel)
-                HardwareItem(modifier = Modifier.weight(1f), label = "快充协议", value = state.fastChargeProtocol)
+                // 快充协议实际值形如 "超级快充 (45.0 W) · 澎湃秒充 [品牌档案]"，
+                // 半宽 chip 内单行必然截断，允许两行完整展示 (与 CPU 架构行同策略)
+                HardwareItem(
+                    modifier = Modifier.weight(1f),
+                    label = "快充协议",
+                    value = state.fastChargeProtocol,
+                    maxLines = 2
+                )
             }
 
             Spacer(modifier = Modifier.height(8.dp))
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                HardwareItem(modifier = Modifier.weight(1f), label = "电芯内阻", value = "${String.format(Locale.US, "%.1f", state.internalResistanceMohm)} mΩ")
+                // v1.2.4 P2 审计修复：内阻为工程估算模型 (系统无实测 API)，
+                // 显式标注，不再与 [DT 实测] 字段并排冒充实测
+                HardwareItem(
+                    modifier = Modifier.weight(1f),
+                    label = "电芯内阻",
+                    value = "${String.format(Locale.US, "%.1f", state.internalResistanceMohm)} mΩ [工程估算]"
+                )
                 HardwareItem(modifier = Modifier.weight(1f), label = "化学材料体系", value = state.batteryChemistry)
             }
 
@@ -729,13 +763,17 @@ fun HardwareItem(modifier: Modifier = Modifier, label: String, value: String, ma
         Column(modifier = Modifier.padding(10.dp)) {
             Text(text = label, fontSize = DesignTokens.Font2xs, color = DesignTokens.TextTertiary)
             Spacer(modifier = Modifier.height(2.dp))
+            // v1.2.4 P2 审计修复：补 overflow = Ellipsis——旧实现默认 Clip 且
+            // 无省略号，"快充协议"等长值 (如 "超级快充 (45.0 W) · 澎湃秒充 [品牌档案]")
+            // 在半宽 chip 内被静默硬裁切，用户无从得知内容被截断
             Text(
                 text = value,
                 fontSize = DesignTokens.Font2xs,
                 fontWeight = FontWeight.Bold,
                 fontFamily = FontFamily.Monospace,
                 color = DesignTokens.TextPrimary,
-                maxLines = maxLines
+                maxLines = maxLines,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }

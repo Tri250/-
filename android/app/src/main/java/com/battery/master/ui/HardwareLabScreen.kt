@@ -111,22 +111,42 @@ fun HardwareLabScreen(viewModel: BatteryViewModel, state: BatteryState) {
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    // 退出模拟：恢复真实遥测
-                    Button(
-                        onClick = { viewModel.exitLabMode() },
-                        enabled = labActive,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = DesignTokens.DangerContainer,
-                            disabledContainerColor = DesignTokens.Border,
-                            disabledContentColor = DesignTokens.TextDisabled
-                        )
-                    ) {
-                        Text(
-                            text = "恢复真实硬件遥测",
-                            fontSize = DesignTokens.FontXs,
-                            fontWeight = FontWeight.Bold
-                        )
+                    // v1.2.4 P3 审计修复：显式"进入模拟"入口——旧实现 enterLabMode()
+                    // 全无 UI 调用点 (死代码)，进入提示音 TONE_PROP_ACK 永不触发；
+                    // 现提供显式进入 (带提示音反馈)，与隐式滑杆进入并存
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        OutlinedButton(
+                            onClick = { viewModel.enterLabMode() },
+                            enabled = !labActive,
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = DesignTokens.BrandPrimaryLight,
+                                disabledContentColor = DesignTokens.TextDisabled
+                            ),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = "进入模拟模式",
+                                fontSize = DesignTokens.FontXs,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Button(
+                            onClick = { viewModel.exitLabMode() },
+                            enabled = labActive,
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = DesignTokens.DangerContainer,
+                                disabledContainerColor = DesignTokens.Border,
+                                disabledContentColor = DesignTokens.TextDisabled
+                            )
+                        ) {
+                            Text(
+                                text = "恢复真实硬件遥测",
+                                fontSize = DesignTokens.FontXs,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
             }

@@ -12,6 +12,9 @@ enum class CapacitySource(val label: String) {
     /** Linux sysfs charge_full / charge_full_design 实测 */
     SYSFS("sysfs 实测"),
 
+    /** BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER 库仑计剩余电荷实测 (指标 02) */
+    COULOMB_COUNTER("库仑计实测"),
+
     /** PowerProfile 反射实测 (设计容量) */
     POWER_PROFILE("PowerProfile 实测"),
 
@@ -35,6 +38,13 @@ data class BatteryState(
 
     // 2、剩余电量 (mAh，例如 3800 mAh)
     val remainingCapacityMah: Int = 0,
+
+    /**
+     * 指标 02 剩余电量口径 (v1.2.4 P2 审计修复)：
+     * COULOMB_COUNTER = 系统库仑计实测；ESTIMATED = 百分比 × 当前容量 估算。
+     * 两条口径量纲基准不同 (机型间不可比、运行中切换会跳变)，UI 显式标注口径来源
+     */
+    val remainingCapacitySource: CapacitySource = CapacitySource.ESTIMATED,
 
     // 3、电池当前容量 (电池衰减后的容量 mAh，例如 4700 mAh)
     val currentCapacityMah: Int = 4600,

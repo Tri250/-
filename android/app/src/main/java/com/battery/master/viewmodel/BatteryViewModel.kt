@@ -24,7 +24,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlin.math.abs
 
 /**
  * 硬件实验室一键模拟场景 (与 Web 端 HardwareSimulationLab 对齐)
@@ -74,6 +73,17 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
     // 广播注册状态标记：仅成功注册后才允许注销，防止 onCleared 重复注销崩溃
     private var isReceiverRegistered = false
 
+    // v1.2.4 P3 审计修复：1Hz 轮询生命周期门控——退后台/锁屏后暂停主线程
+    // sysfs 读取与 StateFlow 刷新 (电池监测工具持续后台轮询属反向耗电缺陷)；
+    // 广播通道保留 (系统事件驱动，无自轮询开销)，回前台立即恢复
+    @Volatile
+    private var telemetryPollingActive = true
+
+    /** 前后台切换由 Activity 调用：true=恢复 1Hz 轮询，false=暂停 (广播通道不受影响) */
+    fun setTelemetryPollingActive(active: Boolean) {
+        telemetryPollingActive = active
+    }
+
     init {
         // 注册容错：部分定制 ROM 可能拒绝动态注册，失败时退化为纯轮询通道，保证 UI 不崩溃
         try {
@@ -119,6 +129,14 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
             }
             isReceiverRegistered = false
         }
+        // v1.2.4 P3 审计修复：释放 ToneGenerator native 对象——旧实现仅在播放异常
+        // 分支释放，ViewModel 销毁时懒创建的实例泄漏 (每次带实验室的页面销毁泄漏一个)
+        try {
+            labToneGenerator?.release()
+        } catch (e: Throwable) {
+            // 释放异常不阻塞清理
+        }
+        labToneGenerator = null
         super.onCleared()
     }
 
@@ -149,7 +167,10 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
             while (isActive) {
                 // 启动闪退治理：轮询体整体兜底，硬件读取异常只跳过本拍，协程不中断
                 try {
-                    publish(reader.readBatteryTelemetry())
+                    // v1.2.4 P3 审计修复：后台态跳过读取与发布 (保持 1s 节奏，回前台无缝恢复)
+                    if (telemetryPollingActive) {
+                        publish(reader.readBatteryTelemetry())
+                    }
                 } catch (e: Throwable) {
                     // 读取失败静默跳过，1 秒后重试
                 }
@@ -385,7 +406,11 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
                 healthQuality = lab.healthQuality,
                 cycleCount = lab.cycleCount,
                 remainingCapacityMah = remaining.coerceAtMost(base.currentCapacityMah),
-                powerWatts = (abs(lab.voltageMv * lab.currentMa)) / 1_000_000f,
+                // v1.2.4 P2 审计修复：实验室剩余电量 = 百分比 × 当前容量 (估算口径)，
+                // 显式标注 ESTIMATED，避免继承真实通道的 COULOMB_COUNTER 标注
+                remainingCapacitySource = CapacitySource.ESTIMATED,
+                // v1.2.4 P2 审计修复：移除 abs()——功率随符号携带方向 (充电 +W / 放电 −W)
+                powerWatts = (lab.voltageMv * lab.currentMa) / 1_000_000f,
                 isFullChargeConditionMet = isFullMet,
                 fullChargeVerdict = verdict,
                 // 实验室注入的锁定值一律标注 SIMULATED，与真实锁定分离
@@ -429,6 +454,9 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
                 fullChargeSource = FullChargeSource.SIMULATED,
                 fullChargeCapacityMah = lockedCapacity,
                 lastFullChargeTimestamp = timestamp,
+                // v1.2.4 P2 审计修复：模拟态剩余电量按 100% 校准为当前容量 (估算口径)，
+                // 显式标注，不继承真实通道的库仑计实测标注
+                remainingCapacitySource = CapacitySource.ESTIMATED,
                 remainingCapacityMah = lockedCapacity ?: current.remainingCapacityMah
             )
         } catch (e: Throwable) {

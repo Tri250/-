@@ -64,14 +64,24 @@ internal object HardwareInfoResolver {
         // SoC 主控五字段：型号 / 厂商 / 制程 / CPU / GPU (SoCHardwareProfile 全量检测链)
         val soc = SoCHardwareProfile.resolveSoc()
 
-        // 温控节流状态：按电芯温度推导 (阈值与 Web 端一致)
+        // 温控节流状态：按电芯温度推导。
+        // v1.2.4 P2 审计修复：1) 阈值与温度卡统一单源 (BatteryTelemetryParser 常量)——
+        // 旧实现 44/38.5℃ 与温度卡 45/38℃ 打架 (38~38.5℃ 卡片"偏热"而标签"正常"、
+        // 44~45℃ 标签"急停"而卡片仅"偏热"，同屏自相矛盾)；2) 移除臆造的
+        // "限制 50%"/"限流 15%" 百分比——系统无任何 API 上报节流比例，虚构精度
+        // 冒充实测；标注 [工程估算] 与 SoC 字段既有来源标注模式一致
         val thermalThrottlingState = when {
-            temperatureCelsius >= 44f -> "过热急停 (限制 50%)"
-            temperatureCelsius >= 38.5f -> "温控保护 (限流 15%)"
+            temperatureCelsius >= BatteryTelemetryParser.TEMP_OVERHEAT_THRESHOLD_C ->
+                "过热急停 [工程估算]"
+            temperatureCelsius >= BatteryTelemetryParser.TEMP_WARM_THRESHOLD_C ->
+                "温控限流 [工程估算]"
             else -> "正常供电 (无节流)"
         }
 
-        // 电芯动态内阻：基础值 + 循环老化 + 高温附加估算模型 (与 Web 端一致)
+        // 电芯动态内阻：基础值 + 循环老化 + 高温附加估算模型 (与 Web 端一致)。
+        // v1.2.4 P2 审计修复：此为工程估算模型而非实测 (真实内阻需库仑计放电曲线
+        // 标定，系统无 API)，UI 显式追加 [工程估算] 标注，不再与 [DT 实测] 字段
+        // 并排冒充实测展示
         val internalResistance = 14.8f +
             (cycleCount.coerceAtLeast(0) / 300f) * 1.5f +
             if (temperatureCelsius > 40f) (temperatureCelsius - 40f) * 0.3f else 0f

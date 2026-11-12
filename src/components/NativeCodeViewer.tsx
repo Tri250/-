@@ -519,12 +519,16 @@ class BatteryHardwareReader(private val context: Context) {
 
         // 2. 剩余电量（mAh）
         // 不变式：剩余电量恒 ≤ 当前可用容量，与 Web 端 (百分比 × 当前容量) 口径一致，
-        // 避免库仑计读数抖动导致指标 2 大于指标 3
-        val remainingCapacityMah = if (chargeCounterUah > 0 && chargeCounterUah != Int.MIN_VALUE) {
+        // 避免库仑计读数抖动导致指标 2 大于指标 3。
+        // v1.2.4 P2 审计修复：双口径来源显式标注 (库仑计实测 / 估算)
+        val remainingIsMeasured = chargeCounterUah > 0 && chargeCounterUah != Int.MIN_VALUE
+        val remainingCapacityMah = if (remainingIsMeasured) {
             (chargeCounterUah / 1000).coerceAtMost(currentCapacityMah)
         } else {
             (currentCapacityMah * (percentage / 100f)).toInt()
         }
+        val remainingCapacitySource = if (remainingIsMeasured) CapacitySource.COULOMB_COUNTER
+        else CapacitySource.ESTIMATED
 
         // 1. 电池健康度 (%)
         val healthPercentage = ((currentCapacityMah.toFloat() / designCapacityMah) * 100f).coerceIn(0f, 100f)
@@ -534,8 +538,10 @@ class BatteryHardwareReader(private val context: Context) {
         val isFullChargeConditionMet = (percentage == 100 && currentNowMa in 0..25)
         val fullChargeCapacityMah = lockFullChargeIfCriteriaMet(currentCapacityMah, percentage, currentNowMa)
 
-        // 计算瞬时功率 (W = V * I)
-        val powerWatts = (voltageMv.toFloat() * abs(currentNowMa)) / 1_000_000f
+        // 计算瞬时功率 (W = V * I)。
+        // v1.2.4 P2 审计修复：移除 abs()——电流已按"充电为正、放电为负"符号归一，
+        // 功率随符号携带方向 (充电 +W / 放电 −W)；旧实现 abs 后方向丢失
+        val powerWatts = (voltageMv.toFloat() * currentNowMa) / 1_000_000f
 
         // 动态解析硬件信息摘要 (真实可读字段 + 快充档位功率推断 + 诚实未上报标注)
         val hardware = HardwareInfoResolver.resolve(temperatureCelsius, cycleCount, powerWatts)
@@ -543,6 +549,7 @@ class BatteryHardwareReader(private val context: Context) {
         return BatteryState(
             healthPercentage = healthPercentage,
             remainingCapacityMah = remainingCapacityMah,
+            remainingCapacitySource = remainingCapacitySource,
             currentCapacityMah = currentCapacityMah,
             designCapacityMah = designCapacityMah,
             percentage = percentage,
@@ -848,7 +855,10 @@ fun BatteryScreen(
                         title = "剩余电量",
                         value = "\${state.remainingCapacityMah}",
                         unit = "mAh",
-                        sub = "当前可用电荷量",
+                        // v1.2.4 P2 审计修复：双口径来源显式标注——"库仑计实测"
+                        // (CHARGE_COUNTER) 与"百分比×容量估算"量纲基准不同，
+                        // 机型间不可比、运行中切换会跳变，旧实现无任何口径标注
+                        sub = "当前可用电荷量 [\${state.remainingCapacitySource.label}]",
                         accentColor = DesignTokens.AccentCyanDark
                     )
                 }
@@ -907,15 +917,16 @@ fun BatteryScreen(
                         title = "电池温度",
                         value = "\${state.temperatureCelsius}",
                         unit = "°C",
-                        // 温度评估口径与 Web 端三段制完全对齐 (>45 严重 / 38-45 偏热 / ≤0 过冷 / 其余正常)
+                        // v1.2.4 P2 审计修复：温度分级阈值与温控节流态单源
+                        // (解析器常量 38°C/45°C)，旧实现两套阈值打架同屏自相矛盾
                         sub = when {
-                            state.temperatureCelsius > 45 -> "严重发热 (>45°C)"
+                            state.temperatureCelsius >= 45 -> "严重发热 (≥45°C)"
                             state.temperatureCelsius >= 38 -> "偏热预警 (38-45°C)"
                             state.temperatureCelsius <= 0 -> "过冷保护 (≤0°C)"
                             else -> "温度正常"
                         },
                         accentColor = when {
-                            state.temperatureCelsius > 45 || state.temperatureCelsius <= 0 -> DesignTokens.DangerRose
+                            state.temperatureCelsius >= 45 || state.temperatureCelsius <= 0 -> DesignTokens.DangerRose
                             state.temperatureCelsius >= 38 -> DesignTokens.WarningAmber
                             else -> DesignTokens.BrandPrimary
                         }
@@ -963,7 +974,13 @@ fun BatteryScreen(
                         // 指标 11：经 BatteryState.currentNowMa 别名读取 (激活别名，与 currentMa 同源)
                         value = "\${if (state.currentNowMa > 0) "+\${state.currentNowMa}" else state.currentNowMa}",
                         unit = "mA",
-                        sub = "功率 \${String.format("%.2f", state.powerWatts)} W",
+                        // v1.2.4 P2 审计修复：功率随符号携带方向 (充电 +W / 放电 −W)，
+                        // 旧实现解析层 abs 后充放同显正功率，方向丢失
+                        sub = "功率 " + (if (state.currentNowMa > 0)
+                            "+\${String.format("%.2f", state.powerWatts)} W"
+                        else if (state.currentNowMa < 0)
+                            "-\${String.format("%.2f", kotlin.math.abs(state.powerWatts))} W"
+                        else "\${String.format("%.2f", state.powerWatts)} W"),
                         accentColor = if (state.currentNowMa > 0) DesignTokens.BrandPrimary else DesignTokens.AccentCyanDark
                     )
                     CyberMetricCardItem(
@@ -1288,13 +1305,26 @@ fun HardwareSummaryCard(state: BatteryState, onCalibrateDesignCapacity: () -> Un
             // ===== 电源子系统区块 =====
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 HardwareItem(modifier = Modifier.weight(1f), label = "电源管理 IC", value = state.pmicModel)
-                HardwareItem(modifier = Modifier.weight(1f), label = "快充协议", value = state.fastChargeProtocol)
+                // 快充协议实际值形如 "超级快充 (45.0 W) · 澎湃秒充 [品牌档案]"，
+                // 半宽 chip 内单行必然截断，允许两行完整展示 (与 CPU 架构行同策略)
+                HardwareItem(
+                    modifier = Modifier.weight(1f),
+                    label = "快充协议",
+                    value = state.fastChargeProtocol,
+                    maxLines = 2
+                )
             }
 
             Spacer(modifier = Modifier.height(8.dp))
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                HardwareItem(modifier = Modifier.weight(1f), label = "电芯内阻", value = "\${state.internalResistanceMohm} mΩ")
+                // v1.2.4 P2 审计修复：内阻为工程估算模型 (系统无实测 API)，
+                // 显式标注，不再与 [DT 实测] 字段并排冒充实测
+                HardwareItem(
+                    modifier = Modifier.weight(1f),
+                    label = "电芯内阻",
+                    value = "\${String.format(java.util.Locale.US, "%.1f", state.internalResistanceMohm)} mΩ [工程估算]"
+                )
                 HardwareItem(modifier = Modifier.weight(1f), label = "化学材料体系", value = state.batteryChemistry)
             }
 
@@ -1334,13 +1364,17 @@ fun HardwareItem(modifier: Modifier = Modifier, label: String, value: String, ma
         Column(modifier = Modifier.padding(10.dp)) {
             Text(text = label, fontSize = DesignTokens.Font2xs, color = DesignTokens.TextTertiary)
             Spacer(modifier = Modifier.height(2.dp))
+            // v1.2.4 P2 审计修复：补 overflow = Ellipsis——旧实现默认 Clip 且
+            // 无省略号，"快充协议"等长值在半宽 chip 内被静默硬裁切，用户无从
+            // 得知内容被截断
             Text(
                 text = value,
                 fontSize = DesignTokens.Font2xs,
                 fontWeight = FontWeight.Bold,
                 fontFamily = FontFamily.Monospace,
                 color = DesignTokens.TextPrimary,
-                maxLines = maxLines
+                maxLines = maxLines,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }
@@ -1842,13 +1876,17 @@ class BatteryReceiver(
 
         // 2. 剩余电量 (mAh)
         // 从 BATTERY_PROPERTY_CHARGE_COUNTER 获取 (uAh -> mAh)，或由百分比折算
-        // 不变式：剩余电量恒 ≤ 当前可用容量，与轮询通道口径一致
+        // 不变式：剩余电量恒 ≤ 当前可用容量，与轮询通道口径一致。
+        // v1.2.4 P2 审计修复：双口径来源显式标注 (库仑计实测 / 估算)
         val chargeCounterUah = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER)
-        val remainingCapacityMah = if (chargeCounterUah > 0 && chargeCounterUah != Int.MIN_VALUE) {
+        val remainingIsMeasured = chargeCounterUah > 0 && chargeCounterUah != Int.MIN_VALUE
+        val remainingCapacityMah = if (remainingIsMeasured) {
             (chargeCounterUah / 1000).coerceAtMost(currentCapacityMah)
         } else {
             (currentCapacityMah * (percentage / 100.0f)).toInt()
         }
+        val remainingCapacitySource = if (remainingIsMeasured) CapacitySource.COULOMB_COUNTER
+        else CapacitySource.ESTIMATED
 
         // 1. 电池健康度 (%)
         val healthPercentage = ((currentCapacityMah.toFloat() / designCapacityMah) * 100).coerceIn(0f, 100f)
@@ -1859,8 +1897,9 @@ class BatteryReceiver(
         val isFullCriteriaMet = percentage == 100 && (currentMa in 0..25)
         val fullChargeCapacityMah = reader.lockFullChargeIfCriteriaMet(currentCapacityMah, percentage, currentMa)
 
-        // 瞬时功率 (W = V × I)：与轮询通道一致，始终计算
-        val powerWatts = (voltageMv.toFloat() * abs(currentMa)) / 1_000_000f
+        // 瞬时功率 (W = V × I)：与轮询通道一致，始终计算。
+        // v1.2.4 P2 审计修复：移除 abs()——功率随符号携带方向 (充电 +W / 放电 −W)
+        val powerWatts = (voltageMv.toFloat() * currentMa) / 1_000_000f
 
         // 动态解析硬件信息摘要 (真实可读字段 + 快充档位功率推断 + 诚实未上报标注)
         val hardware = HardwareInfoResolver.resolve(temperatureCelsius, cycleCount, powerWatts)
@@ -1868,6 +1907,7 @@ class BatteryReceiver(
         val updatedState = BatteryState(
             healthPercentage = healthPercentage,
             remainingCapacityMah = remainingCapacityMah,
+            remainingCapacitySource = remainingCapacitySource,
             currentCapacityMah = currentCapacityMah,
             designCapacityMah = designCapacityMah,
             percentage = percentage,
@@ -1916,6 +1956,11 @@ data class BatteryState(
 
     // 2、剩余电量 (mAh，例如 3800 mAh)
     val remainingCapacityMah: Int = 0,
+
+    // 2a、剩余电量口径标注：库仑计实测 (CHARGE_COUNTER) / 百分比×容量估算
+    // v1.2.4 P2 审计修复：两条口径量纲基准不同 (机型间不可比、运行中切换会跳变)，
+    // UI 显式标注口径来源，不再混用无标注
+    val remainingCapacitySource: CapacitySource = CapacitySource.ESTIMATED,
 
     // 3、电池当前容量 (电池衰减后的容量 mAh，例如 4700 mAh)
     val currentCapacityMah: Int = 5000,
@@ -1982,6 +2027,15 @@ enum class BatteryStatus(val label: String) {
     DISCHARGING("放电中"),
     FULL("已充满"),
     NOT_CHARGING("未充电")
+}
+
+enum class CapacitySource(val label: String) {
+    SYSFS("sysfs 实测"),
+    COULOMB_COUNTER("库仑计实测"),
+    POWER_PROFILE("PowerProfile 反射实测"),
+    CALIBRATED("用户校准"),
+    ESTIMATED("估算"),
+    FALLBACK("兜底默认")
 }
 
 enum class BatteryHealthQuality(val label: String) {
@@ -2326,7 +2380,11 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
                 healthQuality = lab.healthQuality,
                 cycleCount = lab.cycleCount,
                 remainingCapacityMah = remaining.coerceAtMost(base.currentCapacityMah),
-                powerWatts = (abs(lab.voltageMv * lab.currentMa)) / 1_000_000f,
+                // v1.2.4 P2 审计修复：实验室剩余电量 = 百分比 × 当前容量 (估算口径)，
+                // 显式标注 ESTIMATED，避免继承真实通道的 COULOMB_COUNTER 标注
+                remainingCapacitySource = CapacitySource.ESTIMATED,
+                // v1.2.4 P2 审计修复：移除 abs()——功率随符号携带方向 (充电 +W / 放电 −W)
+                powerWatts = (lab.voltageMv * lab.currentMa) / 1_000_000f,
                 isFullChargeConditionMet = isFullMet,
                 fullChargeCapacityMah = if (isFullMet) (base.fullChargeCapacityMah ?: base.currentCapacityMah)
                 else base.fullChargeCapacityMah
@@ -2492,14 +2550,20 @@ internal object HardwareInfoResolver {
         // SoC 主控五字段：型号 / 厂商 / 制程 / CPU / GPU (SoCHardwareProfile 全量检测链)
         val soc = SoCHardwareProfile.resolveSoc()
 
-        // 温控节流状态：按电芯温度推导 (阈值与 Web 端一致)
+        // 温控节流状态：按电芯温度推导。
+        // v1.2.4 P2 审计修复：1) 阈值与温度卡统一单源 (解析器常量 38°C/45°C)——
+        // 旧实现 44/38.5°C 与温度卡 45/38°C 打架 (38~38.5°C / 44~45°C 同屏自相矛盾)；
+        // 2) 移除臆造的 "限制 50%"/"限流 15%" 百分比——系统无任何 API 上报节流比例，
+        // 虚构精度冒充实测；标注 [工程估算] 与 SoC 字段既有来源标注模式一致
         val thermalThrottlingState = when {
-            temperatureCelsius >= 44f -> "过热急停 (限制 50%)"
-            temperatureCelsius >= 38.5f -> "温控保护 (限流 15%)"
+            temperatureCelsius >= 45f -> "过热急停 [工程估算]"
+            temperatureCelsius >= 38f -> "温控限流 [工程估算]"
             else -> "正常供电 (无节流)"
         }
 
-        // 电芯动态内阻：基础值 + 循环老化 + 高温附加估算模型 (与 Web 端一致)
+        // 电芯动态内阻：基础值 + 循环老化 + 高温附加估算模型 (与 Web 端一致)。
+        // v1.2.4 P2 审计修复：此为工程估算模型而非实测 (真实内阻需库仑计放电曲线
+        // 标定，系统无 API)，UI 显式追加 [工程估算] 标注
         val internalResistance = 14.8f +
             (cycleCount.coerceAtLeast(0) / 300f) * 1.5f +
             if (temperatureCelsius > 40f) (temperatureCelsius - 40f) * 0.3f else 0f
@@ -3470,22 +3534,42 @@ fun HardwareLabScreen(viewModel: BatteryViewModel, state: BatteryState) {
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    // 退出模拟：恢复真实遥测
-                    Button(
-                        onClick = { viewModel.exitLabMode() },
-                        enabled = labActive,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = DesignTokens.DangerContainer,
-                            disabledContainerColor = DesignTokens.Border,
-                            disabledContentColor = DesignTokens.TextDisabled
-                        )
-                    ) {
-                        Text(
-                            text = "恢复真实硬件遥测",
-                            fontSize = DesignTokens.FontXs,
-                            fontWeight = FontWeight.Bold
-                        )
+                    // v1.2.4 P3 审计修复：显式"进入模拟"入口——旧实现 enterLabMode()
+                    // 全无 UI 调用点 (死代码)，进入提示音 TONE_PROP_ACK 永不触发；
+                    // 现提供显式进入 (带提示音反馈)，与隐式滑杆进入并存
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        OutlinedButton(
+                            onClick = { viewModel.enterLabMode() },
+                            enabled = !labActive,
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = DesignTokens.BrandPrimaryLight,
+                                disabledContentColor = DesignTokens.TextDisabled
+                            ),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = "进入模拟模式",
+                                fontSize = DesignTokens.FontXs,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Button(
+                            onClick = { viewModel.exitLabMode() },
+                            enabled = labActive,
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = DesignTokens.DangerContainer,
+                                disabledContainerColor = DesignTokens.Border,
+                                disabledContentColor = DesignTokens.TextDisabled
+                            )
+                        ) {
+                            Text(
+                                text = "恢复真实硬件遥测",
+                                fontSize = DesignTokens.FontXs,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
             }
