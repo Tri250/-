@@ -170,29 +170,22 @@ internal object BatteryTelemetryParser {
         }
 
         // 3. 电池当前容量 (衰减后容量 mAh)
-        // sysfs charge_full 为 μAh；合理区间外视为单位异常/脏数据，回退设计容量估算值，
+        // sysfs charge_full 经 readCapacityMah 双单位归一化 (规范 μAh，兼容 mAh 上报内核)
+        // 与合理区间校验；不可读/脏数据一律回退设计容量估算值 (0.92 降级假设)，
         // 避免非法容量流入指标 12 锁定与持久化
-        val fallbackCapacityMah = (effectiveDesignCapacity * 0.92f).toInt()
-        val sysfsMaxCapacityUah = BatterySysfs.readInt("/sys/class/power_supply/battery/charge_full")
-        val currentCapacityMah = if (sysfsMaxCapacityUah != null && sysfsMaxCapacityUah > 0) {
-            val sysfsCapacityMah = sysfsMaxCapacityUah / 1000
-            if (sysfsCapacityMah in MIN_PLAUSIBLE_CAPACITY_MAH..MAX_PLAUSIBLE_CAPACITY_MAH) {
-                sysfsCapacityMah
-            } else {
-                fallbackCapacityMah
-            }
-        } else {
-            fallbackCapacityMah
-        }
+        val currentCapacityMah = BatterySysfs.readCapacityMah("/sys/class/power_supply/battery/charge_full")
+            ?: (effectiveDesignCapacity * 0.92f).toInt()
 
         // 2. 剩余电量 (mAh)
         // 不变式：剩余电量恒 ≤ 当前可用容量，与 Web 端 (百分比 × 当前容量) 口径一致，
-        // 避免库仑计读数抖动导致指标 2 大于指标 3
+        // 避免库仑计读数抖动导致指标 2 大于指标 3。
+        // v1.2.3 审计修复：四舍五入替代浮点截断 (toInt)，与 Web 端 Math.round 口径一致，
+        // 消除 1mAh 级精度漂移 (如 4600 mAh × 53% 旧实现折算 2437 而非 2438)
         val chargeCounterUah = batteryManager?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER) ?: 0
         val remainingCapacityMah = if (chargeCounterUah > 0 && chargeCounterUah != Int.MIN_VALUE) {
-            (chargeCounterUah / 1000).coerceAtMost(currentCapacityMah)
+            Math.round(chargeCounterUah / 1000f).coerceAtMost(currentCapacityMah)
         } else {
-            (currentCapacityMah * (percentage / 100f)).toInt()
+            Math.round(currentCapacityMah * (percentage / 100f))
         }
 
         // 1. 电池健康度 (%)：当前容量 / 设计容量，钳制 0~100 防 NaN 外溢

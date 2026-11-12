@@ -49,4 +49,29 @@ internal object BatterySysfs {
         }
         return raw / 1000
     }
+
+    /**
+     * 容量原始值 → mAh 双单位归一化 (指标 03 当前容量 / 指标 04 设计容量共用)
+     *
+     * 背景：charge_full / charge_full_design 规范单位为 μAh，但个别内核以 mAh 上报。
+     * 判定链 (合理区间与 BatteryTelemetryParser 常量单源一致)：
+     * 1. round(raw / 1000) ∈ [500, 20000] → 规范 μAh，四舍五入取整返回；
+     * 2. raw ∈ [500, 20000] → μAh 单位下 0.5~20 mAh 电芯物理上不存在，
+     *    必为 mAh 上报内核 → 直接返回原始值；
+     * 3. 其余 (0 / 负值 / 越界) 一律视为脏数据返回 null，由调用方回退设计容量估算值。
+     */
+    fun parseCapacityMah(raw: Int): Int? {
+        if (raw <= 0 || raw == Int.MIN_VALUE) return null
+        val microAhCapacityMah = Math.round(raw / 1000f)
+        if (microAhCapacityMah in BatteryTelemetryParser.MIN_PLAUSIBLE_CAPACITY_MAH..BatteryTelemetryParser.MAX_PLAUSIBLE_CAPACITY_MAH) {
+            return microAhCapacityMah
+        }
+        if (raw in BatteryTelemetryParser.MIN_PLAUSIBLE_CAPACITY_MAH..BatteryTelemetryParser.MAX_PLAUSIBLE_CAPACITY_MAH) {
+            return raw
+        }
+        return null
+    }
+
+    /** 读取 sysfs 容量节点并归一化为 mAh；不可读或脏数据返回 null */
+    fun readCapacityMah(path: String): Int? = readInt(path)?.let(::parseCapacityMah)
 }

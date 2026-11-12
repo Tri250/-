@@ -36,6 +36,7 @@ import com.battery.master.data.BatteryHealthQuality
 import com.battery.master.data.BatteryState
 import com.battery.master.data.BatteryStatus
 import com.battery.master.model.BatteryInfo
+import com.battery.master.service.BatteryTelemetryParser
 import com.battery.master.viewmodel.BatteryViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -177,7 +178,7 @@ fun BatteryScreen(
                         modifier = Modifier.weight(1f),
                         number = "01",
                         title = "电池健康度",
-                        value = "${String.format("%.1f", state.healthPercentage)}%",
+                        value = "${String.format(Locale.US, "%.1f", state.healthPercentage)}%",
                         sub = "出厂设计保持率",
                         accentColor = DesignTokens.BrandPrimary
                     )
@@ -344,7 +345,10 @@ fun BatteryScreen(
                 inputError = when {
                     capacityInput.isBlank() -> "请输入容量数值"
                     parsed == null || parsed <= 0 -> "容量必须为大于 0 的整数"
-                    parsed > 20000 -> "容量超出合理范围 (最大 20000 mAh)"
+                    parsed < BatteryTelemetryParser.MIN_PLAUSIBLE_CAPACITY_MAH ->
+                        "容量不能小于 ${BatteryTelemetryParser.MIN_PLAUSIBLE_CAPACITY_MAH} mAh"
+                    parsed > BatteryTelemetryParser.MAX_PLAUSIBLE_CAPACITY_MAH ->
+                        "容量超出合理范围 (最大 ${BatteryTelemetryParser.MAX_PLAUSIBLE_CAPACITY_MAH} mAh)"
                     else -> null
                 }
                 if (inputError == null && parsed != null) {

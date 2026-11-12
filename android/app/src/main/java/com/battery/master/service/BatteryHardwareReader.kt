@@ -86,17 +86,30 @@ class BatteryHardwareReader(private val context: Context) {
     }
 
     /** 安全默认态：任何采集都不可用时 UI 仍有可渲染的中性数据 (保留已锁定的指标 12 不丢失) */
-    private fun buildSafeDefaultState(): BatteryState = BatteryState(
-        currentCapacityMah = (designCapacityMah * 0.92f).toInt(),
-        remainingCapacityMah = 0,
-        voltageMv = 4000,
-        temperatureCelsius = 25.0f,
-        percentage = 0,
-        socModel = "平台 SoC 解析中",
-        pmicModel = "平台级 PMIC 电源管理 [工程估算]",
-        fullChargeCapacityMah = lastRecordedFullCapacity,
-        lastFullChargeTimestamp = lastFullChargeTimestamp
-    )
+    private fun buildSafeDefaultState(): BatteryState {
+        // v1.2.3 审计修复：默认态内部自洽——设计容量回显 Reader 实际配置
+        // (旧实现固定 5000，与用户校准值漂移)；健康度按同一口径
+        // = 当前容量 / 设计容量 × 100 计算，消除"健康度 100% 但当前容量仅 92%"的自相矛盾展示
+        val currentCapacity = (designCapacityMah * 0.92f).toInt()
+        val healthPercent = if (designCapacityMah > 0) {
+            (currentCapacity * 100f / designCapacityMah).coerceIn(0f, 100f)
+        } else {
+            100f
+        }
+        return BatteryState(
+            designCapacityMah = designCapacityMah,
+            currentCapacityMah = currentCapacity,
+            healthPercentage = healthPercent,
+            remainingCapacityMah = 0,
+            voltageMv = 4000,
+            temperatureCelsius = 25.0f,
+            percentage = 0,
+            socModel = "平台 SoC 解析中",
+            pmicModel = "平台级 PMIC 电源管理 [工程估算]",
+            fullChargeCapacityMah = lastRecordedFullCapacity,
+            lastFullChargeTimestamp = lastFullChargeTimestamp
+        )
+    }
 
     /**
      * 持久化指标 12 的充满锁定容量与时间戳 (供 ViewModel 模拟充满时调用)
@@ -145,6 +158,12 @@ class BatteryHardwareReader(private val context: Context) {
      * 指标 04 设计容量三级回退链：
      * PowerProfile 反射 -> sysfs charge_full_design -> 主流 5000mAh 兜底
      *
+     * v1.2.3 审计加固：三级输出统一施加 MIN/MAX_PLAUSIBLE_CAPACITY_MAH (500~20000 mAh)
+     * 合理区间校验 (与 BatteryTelemetryParser 单源一致)，任一级越界即降级下一级——
+     * 杜绝单位异常/脏数据设计容量污染指标 01 (健康度分母)、02 (剩余电量基准)、
+     * 03 (当前容量估算基准)。旧实现 PowerProfile 仅判 >0、sysfs 无任何区间校验，
+     * mAh 上报内核会把 5000 mAh 误算成 5 mAh 并级联污染全部容量体系。
+     *
      * 注意：PowerProfile 构造在部分 OEM ROM 上会抛出 ExceptionInInitializerError /
      * NoClassDefFoundError 等 Error (非 Exception)，必须按 Throwable 捕获，
      * 否则会直接引发启动闪退。
@@ -156,11 +175,18 @@ class BatteryHardwareReader(private val context: Context) {
             val powerProfile = constructor.newInstance(context)
             val getBatteryCapacityMethod = powerProfileClass.getMethod("getBatteryCapacity")
             val capacity = getBatteryCapacityMethod.invoke(powerProfile) as? Double
-            if (capacity != null && capacity > 0) return capacity.toInt()
+            if (capacity != null) {
+                // 四舍五入保留精度 (截断丢 1mAh)；NaN/越界一律降级下一级
+                val capacityMah = Math.round(capacity).toInt()
+                if (capacityMah in BatteryTelemetryParser.MIN_PLAUSIBLE_CAPACITY_MAH..BatteryTelemetryParser.MAX_PLAUSIBLE_CAPACITY_MAH) {
+                    return capacityMah
+                }
+            }
         } catch (e: Throwable) {}
 
-        val sysfsDesign = BatterySysfs.readInt("/sys/class/power_supply/battery/charge_full_design")
-        if (sysfsDesign != null && sysfsDesign > 0) return sysfsDesign / 1000
+        // sysfs 规范单位 μAh：readCapacityMah 内含双单位归一化与合理区间校验
+        val sysfsDesign = BatterySysfs.readCapacityMah("/sys/class/power_supply/battery/charge_full_design")
+        if (sysfsDesign != null) return sysfsDesign
 
         return FALLBACK_DESIGN_CAPACITY
     }

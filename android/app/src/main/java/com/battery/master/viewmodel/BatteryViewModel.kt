@@ -158,6 +158,11 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
     fun setDesignCapacity(capacityMah: Int) {
         // 启动闪退治理：UI 回调入口兜底，写配置/读遥测异常不逃逸到主线程
         try {
+            // v1.2.3 审计加固：设计容量是指标 01/02/03 的分母与估算基准，
+            // 区间外非法值 (≤0 / 越界) 一律拒绝写入，与 BatteryTelemetryParser
+            // 合理区间常量单源一致，防止级联污染三项指标
+            val isPlausible = capacityMah in BatteryTelemetryParser.MIN_PLAUSIBLE_CAPACITY_MAH..BatteryTelemetryParser.MAX_PLAUSIBLE_CAPACITY_MAH
+            if (!isPlausible) return
             reader.designCapacityMah = capacityMah
             simulationHoldUntilMs = 0L // 手动改配置立即恢复真实遥测
             publish(reader.readBatteryTelemetry())
@@ -313,7 +318,8 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
             // 充满判定统一消费共享谓词 (与真实遥测通道同一实现)
             val isFullMet = BatteryTelemetryParser.isFullChargeCriteriaMet(lab.percentage, lab.currentMa)
             val effectiveStatus = if (isFullMet) BatteryStatus.FULL else lab.status
-            val remaining = (base.currentCapacityMah * (lab.percentage / 100f)).toInt()
+            // 四舍五入与真实遥测通道 (BatteryTelemetryParser) 及 Web 端口径一致，消除截断漂移
+            val remaining = Math.round(base.currentCapacityMah * (lab.percentage / 100f))
             _batteryState.value = base.copy(
                 percentage = lab.percentage,
                 currentMa = lab.currentMa,
