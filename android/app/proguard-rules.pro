@@ -16,3 +16,11 @@
 
 # 硬件反射目标：PowerProfile 为 @hide 系统类，仅声明不告警
 -dontwarn com.android.internal.os.PowerProfile
+
+# v1.2.5 稳定性加固：ViewModel 经 SavedStateViewModelFactory / NewInstanceFactory
+# 反射实例化 (Class.getDeclaredConstructor().newInstance())。显式保留构造器成员，
+# 防止 R8 在反射调用点无法回溯到具体子类时移除构造器导致启动即崩溃
+# (类名仍参与全量混淆，不影响混淆/裁剪宣称)
+-keepclassmembers class * extends androidx.lifecycle.ViewModel {
+    <init>(...);
+}

@@ -9,6 +9,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.battery.master.ui.BatteryScreen
 import com.battery.master.viewmodel.BatteryViewModel
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -119,9 +120,12 @@ class AppShellAuditTest {
     fun aboutCard_versionBadgeInjectedFromBuildConfig() {
         mountShell()
 
-        // 徽章文案与构建配置严格一致 (v1.2.4 / versionCode 9)
+        // 徽章文案与构建配置严格一致 (单源注入；版本号语义校验避免每次 bump 逐字失效)
         composeRule.onNodeWithText("v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})").assertExists()
-        assertEquals("1.2.4", BuildConfig.VERSION_NAME)
-        assertEquals(9, BuildConfig.VERSION_CODE)
+        assertTrue(
+            "versionName 必须为语义化三段版本",
+            Regex("""\d+\.\d+\.\d+""").matches(BuildConfig.VERSION_NAME)
+        )
+        assertTrue("versionCode 必须单调递增 (v1.2.4=9)", BuildConfig.VERSION_CODE >= 10)
     }
 }

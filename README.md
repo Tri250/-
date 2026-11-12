@@ -106,6 +106,18 @@
 
 ---
 
+## 🛡️ 全端稳定性加固 (v1.2.5)
+
+全面自检（稳定性/性能/兼容性/权限管理/安装卸载）发现的加固项：
+
+- **R8 ViewModel 反射构造器加固**：`ViewModel` 经 `SavedStateViewModelFactory`/`NewInstanceFactory` 反射实例化，显式 `-keepclassmembers` 保留构造器成员（类名仍全量混淆），消除 v1.2.4 全量混淆后反射调用点无法回溯导致启动即崩溃的最坏情形。
+- **倒计时协程空转治理**：模拟保持期倒计时在无模拟时段由固定 4Hz（250ms）唤醒降为 500ms 低频轮询（触发后 0.5s 内进入高频），消除全生命周期无意义主线程唤醒。
+- **安装属性自检**：versionCode 10 单调递增支持覆盖安装，tag↔versionName 一致性校验、aapt2 badging 校验、SHA256 校验和与无条件 `apksigner verify` 均已在 CI 门禁持续生效。
+- **零权限口径**：清单零权限声明与"关于 APP"卡片零权限说明一致；备份规则（`full-backup-content` / `data-extraction-rules`）全量排除应用数据，卸载即彻底清除。
+- **版本升级**：versionName 1.2.5 / versionCode 10。
+
+---
+
 ## 👨‍💻 开发者
 
 - **某厂大牛马【带娃的小陈工】** — 抖音 / 小红书 平台

@@ -105,13 +105,24 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
     /**
      * 模拟保持期倒计时：每 250ms 刷新剩余秒数，让用户明确感知
      * "模拟数据生效中、N 秒后恢复真实遥测"，避免误以为界面卡死
+     *
+     * v1.2.5 性能审计修复：无模拟时段降频空转——旧实现全生命周期固定 4Hz 唤醒
+     * (250ms)，即使 99% 的时间无模拟在跑也持续消耗主线程时钟；现无保持期时
+     * 以 500ms 低频轮询保持期开始信号 (触发后 0.5s 内即进入高频倒计时)，
+     * 活跃保持期内维持 250ms 高频刷新
      */
     private fun startSimulationCountdown() {
         viewModelScope.launch {
             while (isActive) {
                 try {
                     val remainingMs = simulationHoldUntilMs - System.currentTimeMillis()
-                    _simulationRemainingSec.value = if (remainingMs > 0) (remainingMs + 999) / 1000 else 0L
+                    if (remainingMs <= 0L) {
+                        _simulationRemainingSec.value = 0L
+                        // 无模拟：低频空转等待下一次保持期开始
+                        delay(500)
+                        continue
+                    }
+                    _simulationRemainingSec.value = (remainingMs + 999) / 1000
                 } catch (e: Throwable) {
                     // 倒计时异常不致命，下一拍继续刷新
                 }
