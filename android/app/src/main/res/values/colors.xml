@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <color name="ic_launcher_background">#020617</color>
-    <color name="neon_emerald">#10B981</color>
-</resources>
+<!--
+  外壳层审计修复：neon_emerald / ic_launcher_background 两个色值在全工程
+  (kotlin/res/manifest) 均无引用 (启动图标 drawable 直接内联 #090d16 / #10B981)，
+  且 release 构建开启 isShrinkResources 会被剔除，此处移除死资源。
+  新增色值请直接引用 com.battery.master.ui.theme.DesignTokens 单源令牌。
+-->
+<resources />

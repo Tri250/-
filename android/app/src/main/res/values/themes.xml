@@ -3,8 +3,11 @@
     <!-- Dark Cyberpunk Theme for Battery Master -->
     <style name="Theme.AndroidBatteryMaster" parent="android:Theme.Material.NoActionBar">
         <!-- 窗口背景与 Scaffold 首帧容器色 (#030712) 保持一致，消除启动瞬间色差跳变 -->
-        <item name="android:statusBarColor">#020617</item>
-        <item name="android:navigationBarColor">#020617</item>
         <item name="android:windowBackground">#030712</item>
+        <!-- 外壳层审计修复：显式声明状态栏图标为亮色 (暗底正确对比度)。
+             系统栏配色由 MainActivity enableEdgeToEdge 统一控制 (透明 + 亮图标)，
+             主题层不再声明 statusBarColor/navigationBarColor——API 35 起该属性
+             已 deprecated 且会被 edge-to-edge 覆盖，属死配置 -->
+        <item name="android:windowLightStatusBar">false</item>
     </style>
 </resources>

@@ -19,6 +19,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,14 +51,18 @@ fun BatteryScreen(
     // 经 BatteryInfo (BatteryState 业务别名) 消费 ViewModel 兼容别名 batteryInfo
     val state: BatteryInfo by viewModel.batteryInfo.collectAsState()
 
-    // 指标 04 设计容量校准对话框开关 (激活 ViewModel.setDesignCapacity)
-    var showDesignCapacityDialog by remember { mutableStateOf(false) }
+    // 指标 04 设计容量校准对话框开关 (激活 ViewModel.setDesignCapacity)。
+    // 外壳层审计修复：rememberSaveable 保证旋转/折叠屏/字体变更等配置变更重建后
+    // 对话框不丢失，用户输入上下文不被打断
+    var showDesignCapacityDialog by rememberSaveable { mutableStateOf(false) }
 
     // 一键模拟充满保持期剩余秒数 (0 = 无模拟，UI 倒计时反馈)
     val simulationRemainingSec by viewModel.simulationRemainingSec.collectAsState()
 
-    // 顶层双 Tab：状态总览 / 硬件实验室 (对齐 Web 端 AndroidNavBar 信息架构)
-    var selectedTab by remember { mutableStateOf(0) }
+    // 顶层双 Tab：状态总览 / 硬件实验室 (对齐 Web 端 AndroidNavBar 信息架构)。
+    // 外壳层审计修复：rememberSaveable 保证配置变更重建后停留在当前 Tab，
+    // 用户在硬件实验室的调试上下文不丢失
+    var selectedTab by rememberSaveable { mutableStateOf(0) }
     val tabTitles = listOf("状态总览", "硬件实验室")
 
     Scaffold(
@@ -84,7 +89,9 @@ fun BatteryScreen(
                                 fontFamily = FontFamily.Monospace
                             )
                             Text(
-                                text = "Android 15 电池 AIDL 硬件抽象层 · 原生硬件遥测",
+                                // 外壳层审计修复：副标题按真实运行 API 动态渲染。
+                                // 旧实现硬编码 "Android 15"，在 minSdk 26~34 设备上宣称失实
+                                text = "API ${android.os.Build.VERSION.SDK_INT} 电池硬件抽象层 · 原生硬件遥测",
                                 fontSize = DesignTokens.Font2xs,
                                 color = DesignTokens.AccentCyanDark,
                                 fontFamily = FontFamily.Monospace
@@ -114,7 +121,9 @@ fun BatteryScreen(
                     Tab(
                         selected = selectedTab == index,
                         onClick = { selectedTab = index },
-                        modifier = Modifier.height(44.dp)
+                        // 外壳层审计修复：heightIn(min) 替代固定 height，
+                        // 系统字体缩放至最大档时 Tab 文本不再被裁剪 (无障碍)
+                        modifier = Modifier.heightIn(min = 44.dp)
                     ) {
                         Text(
                             text = title,
