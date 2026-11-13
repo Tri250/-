@@ -222,7 +222,10 @@ class BatteryHardwareReader(private val context: Context) {
             status = BatteryStatus.NOT_CHARGING,
             healthQuality = BatteryHealthQuality.UNKNOWN,
             remainingCapacityMah = 0,
+            // v2.0.0-alpha.7 指标 09：降级态电压为中性默认值而非实测——标注未实测，
+            // UI 显示 "—"，不伪装成真实读数
             voltageMv = 4000,
+            voltageMeasured = false,
             temperatureCelsius = 25.0f,
             percentage = 0,
             socModel = "平台 SoC 解析中",

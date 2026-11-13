@@ -713,7 +713,10 @@ class BatteryHardwareReader(private val context: Context) {
             status = BatteryStatus.NOT_CHARGING,
             healthQuality = BatteryHealthQuality.UNKNOWN,
             remainingCapacityMah = 0,
+            // v2.0.0-alpha.7 指标 09：降级态电压为中性默认值而非实测——标注未实测，
+            // UI 显示 "—"，不伪装成真实读数
             voltageMv = 4000,
+            voltageMeasured = false,
             temperatureCelsius = 25.0f,
             percentage = 0,
             socModel = "平台 SoC 解析中",
@@ -1308,9 +1311,15 @@ fun BatteryScreen(
                         modifier = Modifier.weight(1f),
                         number = "09",
                         title = "电芯电压",
-                        value = "\${state.voltageMv}",
-                        unit = "mV",
-                        sub = "电势差 \${String.format(Locale.US, "%.2f", state.voltageMv / 1000f)} V",
+                        // v2.0.0-alpha.7 指标 09 诚实口径：双通道均不可得时显示 "—"
+                        // 而非伪装成读数的中性默认 4000 mV
+                        value = if (state.voltageMeasured) "\${state.voltageMv}" else "—",
+                        unit = if (state.voltageMeasured) "mV" else "",
+                        sub = if (state.voltageMeasured)
+                            "电势差 \${String.format(Locale.US, "%.2f", state.voltageMv / 1000f)} V · " +
+                                BatteryTelemetryParser.voltageStateLabel(state.voltageMv, state.voltageMeasured)
+                        else
+                            "EXTRA_VOLTAGE/sysfs voltage_now 双通道不可读",
                         accentColor = DesignTokens.InfoSky
                     )
                     CyberMetricCardItem(
@@ -1636,9 +1645,11 @@ fun CyberHeroBatteryCard(state: BatteryState) {
                         append(" · ")
                         // v1.2.4 P2 审计修复：功率随符号携带方向 (充电 +W / 放电 −W，
                         // 负值由 String.format 自然输出 "-")，不再 abs 抹平方向
-                        append(if (currentMa != null) "\${if (powerW > 0) "+" else ""}\${String.format(Locale.US, "%.2f", powerW)} W" else "— W")
+                        // v2.0.0-alpha.7：电压未实测时功率不可推导 (V×I 造假)，显示 "— W"
+                        append(if (currentMa != null && state.voltageMeasured) "\${if (powerW > 0) "+" else ""}\${String.format(Locale.US, "%.2f", powerW)} W" else "— W")
                         append(" · ")
-                        append("\${String.format(Locale.US, "%.2f", state.voltageMv / 1000f)} V")
+                        // v2.0.0-alpha.7：电压未实测时 Hero 不展示伪装读数 (默认 4000 mV)
+                        append(if (state.voltageMeasured) "\${String.format(Locale.US, "%.2f", state.voltageMv / 1000f)} V" else "— V")
                     },
                     fontSize = DesignTokens.FontXs,
                     fontFamily = FontFamily.Monospace,
@@ -3094,6 +3105,11 @@ data class BatteryState(
     // 默认 4000 中性典型值 (与 Parser 故障回退一致)；0 是故障断言值
     val voltageMv: Int = 4000,
 
+    // v2.0.0-alpha.7：电压是否实测 (EXTRA_VOLTAGE/sysfs voltage_now 双通道任一命中)。
+    // false = 双通道均不可得，voltageMv 仅中性默认值，UI 显示 "—" 并标注
+    // "双通道不可读"，且功率 (V×I) 一并置空——杜绝伪造电压参与功率推导
+    val voltageMeasured: Boolean = true,
+
     // 10、循环计数：电池充放电的次数
     val cycleCount: Int = 0,
 
@@ -4248,19 +4264,35 @@ internal object BatterySysfs {
     private fun readEnergyNodeCapacityMah(node: String): Int? {
         val energyUwh = readAcrossDirs(node) { readInt(it) } ?: return null
         if (energyUwh <= 0 || energyUwh == Int.MIN_VALUE) return null
-        val voltageMv = readVoltageNowMilliVolts() ?: NOMINAL_VOLTAGE_MV
+        val voltageMv = nominalVoltageForEnergyConversion()
         val capacityMah: Int = Math.round(energyUwh.toDouble() / voltageMv).toInt()
         return if (capacityMah in BatteryTelemetryParser.MIN_PLAUSIBLE_CAPACITY_MAH..
             BatteryTelemetryParser.MAX_PLAUSIBLE_CAPACITY_MAH
         ) capacityMah else null
     }
 
-    /** energy 系节点折算用实测电压 (mV)：voltage_now 规范 μV → mV，钳制标称窗口 */
-    private fun readVoltageNowMilliVolts(): Int? {
+    /**
+     * v2.0.0-alpha.7：sysfs 实时电压第二通道 (指标 09)——原始读数，不施加钳制。
+     *
+     * EXTRA_VOLTAGE (Intent 广播通道) 与 voltage_now (sysfs 通道) 是两条独立硬件通路：
+     * 部分 ROM 广播缺失 EXTRA_VOLTAGE 但 sysfs 节点完好，旧解析层单通道消费
+     * 导致这类设备电压恒显默认 4000 mV。本函数作为解析层第二回退通道，
+     * 规范单位 μV → mV；脏数据 (非正/Int.MIN_VALUE) 返回 null。
+     * 注：不钳制——钳制语义属 energy 容量折算专用 (nominalVoltageForEnergyConversion)，
+     * 遥测主通道必须呈现真实读数并如实标注测量状态。
+     */
+    fun readVoltageNowMilliVolts(): Int? {
         val uV = readAcrossDirs("voltage_now") { readInt(it) } ?: return null
         if (uV <= 0 || uV == Int.MIN_VALUE) return null
-        return Math.round(uV / 1000f).toInt().coerceIn(MIN_NOMINAL_VOLTAGE_MV, MAX_NOMINAL_VOLTAGE_MV)
+        return Math.round(uV / 1000f).toInt()
     }
+
+    /** energy 系容量折算专用标称电压 (mV)：实测值钳制到标称窗口 [3400, 4000]
+     *  (满充 4.4V+/关机 3.3V- 极值会引入 ~10% 折算失真)，不可读回落标称 3850 mV。
+     *  与遥测主通道 [readVoltageNowMilliVolts] 的"原始呈现"语义分离，互不干扰 */
+    private fun nominalVoltageForEnergyConversion(): Int =
+        readVoltageNowMilliVolts()?.coerceIn(MIN_NOMINAL_VOLTAGE_MV, MAX_NOMINAL_VOLTAGE_MV)
+            ?: NOMINAL_VOLTAGE_MV
 
     /** energy 折算标称电压窗口 (mV)：窗口外 (满充/关机极值) 回落标称 3850 mV */
     private const val NOMINAL_VOLTAGE_MV = 3850

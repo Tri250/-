@@ -227,6 +227,17 @@
 - **测试**：新增 10 用例（energy 折算 4 场景含电压钳制/优先级、单点估算 5 场景含门限与 100% 精确读数、端到端 UI 92.3% 真实显示）——全量 **141 用例全绿**；4 份源码快照（sysfs/reader/state/compose）逐字同步，Web 构建通过。
 - **版本升级**：versionName 2.0.0-alpha.6 / versionCode 18，Release 标记预发布。
 
+## ⚡ v2.0.0-alpha.7 · 指标 09 电芯电压自检修复优化
+
+针对指标 09（电芯电压）建立「sysfs 读取→解析→遥测快照→展示态→UI→功率推导→快充档位」全链路清单逐项审计，发现并修复 4 处真实缺陷：
+
+- **缺陷 V1 · EXTRA_VOLTAGE 单通道（解析层）**：[BatteryTelemetryParser.kt](android/app/src/main/java/com/battery/master/service/BatteryTelemetryParser.kt) 电压仅消费广播 Extra 单通道——部分 ROM 广播缺电压 Extra 但 sysfs `voltage_now` 节点完好，这类设备电压恒显默认 4000 mV。修复：`EXTRA_VOLTAGE（广播实测）→ sysfs voltage_now（内核实测，μV→mV）` 双通道回退，合理区间 [2000, 12000] 校验两通道同等执行。[BatterySysfs.kt](android/app/src/main/java/com/battery/master/service/BatterySysfs.kt) `readVoltageNowMilliVolts()` 公开化为原始遥测通道（去除 energy 折算专用的标称窗口钳制，钳制语义收敛至新私有函数 `nominalVoltageForEnergyConversion()`，互不干扰）。
+- **缺陷 V2 · 中性默认值伪装成读数（诚实口径）**：双通道均不可得时 4000 mV 中性默认值被直接当真实读数展示。修复：`voltageMeasured` 标志全链路透传（RawBatteryTelemetry → BatteryState → UI），[BatteryScreen.kt](android/app/src/main/java/com/battery/master/ui/BatteryScreen.kt) 09 卡在未实测时显示 "—" 并标注"EXTRA_VOLTAGE/sysfs voltage_now 双通道不可读"，Hero 行显示 "— V"；[BatteryHardwareReader.kt](android/app/src/main/java/com/battery/master/service/BatteryHardwareReader.kt) 降级安全默认态同步标注未实测。
+- **缺陷 V3 · 伪造电压 × 真实电流 = 虚构功率（高危）**：电压未实测时解析层仍用默认 4000 mV × 真实电流推导功率——虚构瓦数污染 Hero 功率展示，并使 [HardwareInfoResolver](android/app/src/main/java/com/battery/master/service/HardwareInfoResolver.kt) 快充档位推断（≥45W 超级快充/≥18W 快充）被默认值凑出的瓦数误触发。修复：`voltageMeasured=false` 时 `powerWatts=null`（UI "— W"、档位不触发），功率诚实性与电压通道联动。
+- **缺陷 V4 · 电压状态分级缺失（UI 单源）**：09 卡无电压健康状态判读。修复：新增 `voltageStateLabel()` 分级单源（<3.4V 低电压保护区 / <3.6V 电压偏低 / ≤4.2V 正常工作区间 / ≤4.4V 接近满充 / ≤5.0V 电压异常偏高 / >5.0V 多电芯串联整包），09 卡副标题显示"电势差 X V · 分级"，与温度阈值单源（TEMP_WARM_THRESHOLD_C）同款治理，杜绝双处阈值口径漂移。
+- **测试**：新增 10 用例（sysfs 原始通道不钳制/脏数据 null、解析层双通道回退/未实测诚实态/功率门控正反组、分级标签 8 边界、Reader 降级态、端到端 09 卡数值+分级+Hero 三处显示）——全量 **151 用例全绿**；4 份源码快照（sysfs/reader/state/compose）逐字同步，Web 构建通过。
+- **版本升级**：versionName 2.0.0-alpha.7 / versionCode 19，Release 标记预发布。
+
 ---
 
 ## 👨‍💻 开发者
@@ -282,7 +293,7 @@ git push -u origin main
 只要在本地打上 `v*` 格式的版本标签（**必须与 `android/app/build.gradle.kts` 中的 `versionName` 一致**，CI 会强制校验）并推送到 GitHub，GitHub Actions 会自动创建 GitHub Release 并将 APK 文件挂载在 Release 附件中：
 
 ```bash
-# 示例：当前版本 versionName=2.0.0-alpha.6 (versionCode=18)
+# 示例：当前版本 versionName=2.0.0-alpha.7 (versionCode=19)
 git tag v1.2.6
 git push origin v1.2.6
 ```

@@ -464,4 +464,175 @@ class MetricsSelfCheckAuditTest {
         // 旧"(估算)"口径必须消失
         composeRule.onNodeWithText("(估算)", substring = true).assertDoesNotExist()
     }
+
+    // ==================== v2.0.0-alpha.7：指标 09 电芯电压 (双通道 + 诚实口径) ====================
+    //
+    // 本轮自检发现并修复的缺陷：
+    // 缺陷 V1：EXTRA_VOLTAGE 单通道——部分 ROM 广播缺电压 Extra 但 sysfs voltage_now
+    //   节点完好，旧实现使这类设备电压恒显默认 4000 mV。
+    //   修复：EXTRA_VOLTAGE (广播实测) → sysfs voltage_now (内核实测) 双通道回退。
+    // 缺陷 V2：双通道均不可得时 4000 mV 中性默认值被伪装成真实读数展示。
+    //   修复：voltageMeasured 标志全链路透传，UI 显示 "—" 并标注"双通道不可读"。
+    // 缺陷 V3：默认 4000 mV × 真实电流 = 虚构功率，污染 Hero 功率展示与
+    //   HardwareInfoResolver 快充档位推断。
+    //   修复：电压未实测时 powerWatts 置 null (UI "— W"、档位不触发)。
+    // 缺陷 V4：09 卡无电压状态分级 (低电压/正常/满充/异常/多电芯)。
+    //   修复：voltageStateLabel 单源分级，09 卡与 Hero 统一消费。
+
+    @Test
+    fun sysfs_voltageNow_rawChannelNotClamped() {
+        // 原始通道语义：4400 mV (满充极值) 不得被 energy 折算的标称窗口 [3400,4000] 钳制——
+        // 旧实现 readVoltageNowMilliVolts 私有且带 coerceIn，遥测无法复用
+        val dir = installGaugeProbe(mapOf("voltage_now" to "4400000"))
+        try {
+            assertEquals(4400, BatterySysfs.readVoltageNowMilliVolts())
+        } finally {
+            cleanupProbe(dir)
+        }
+    }
+
+    @Test
+    fun sysfs_voltageNow_dirtyData_returnsNull() {
+        // 0 / 负值 (传感器故障) → null，由解析层兜底判定未实测
+        val dir = installGaugeProbe(mapOf("voltage_now" to "-1200000"))
+        try {
+            assertEquals(null, BatterySysfs.readVoltageNowMilliVolts())
+            File(dir, "voltage_now").writeText("0\n")
+            assertEquals(null, BatterySysfs.readVoltageNowMilliVolts())
+        } finally {
+            cleanupProbe(dir)
+        }
+    }
+
+    @Test
+    fun parser_voltage_extraChannel_measured() {
+        // 广播通道命中：EXTRA_VOLTAGE=4150 → 实测透传
+        val raw = BatteryTelemetryParser.parse(
+            batteryIntent { putExtra(BatteryManager.EXTRA_VOLTAGE, 4150) },
+            batteryManager(), 5000
+        )
+        assertEquals(4150, raw.voltageMv)
+        assertTrue(raw.voltageMeasured)
+        val state = raw.toBatteryState(null, null)
+        assertTrue(state.voltageMeasured)
+    }
+
+    @Test
+    fun parser_voltage_sysfsFallbackChannel_measured() {
+        // 广播缺 EXTRA_VOLTAGE + sysfs voltage_now=4123456 μV → 4123 mV 内核实测
+        // (V1 修复：旧实现单通道恒显默认 4000)
+        val dir = installGaugeProbe(mapOf("voltage_now" to "4123456"))
+        try {
+            val raw = BatteryTelemetryParser.parse(batteryIntent {}, batteryManager(), 5000)
+            assertEquals(4123, raw.voltageMv)
+            assertTrue(raw.voltageMeasured)
+        } finally {
+            cleanupProbe(dir)
+        }
+    }
+
+    @Test
+    fun parser_voltage_dualChannelUnavailable_honestUnmeasured() {
+        // 双通道均不可得：值收敛中性默认 4000 但 voltageMeasured=false (V2 修复)
+        BatterySysfs.installProbeResultForTest(emptyList())
+        val raw = BatteryTelemetryParser.parse(batteryIntent {}, batteryManager(), 5000)
+        assertEquals(4000, raw.voltageMv)
+        assertFalse(raw.voltageMeasured)
+        val state = raw.toBatteryState(null, null)
+        assertFalse(state.voltageMeasured)
+    }
+
+    @Test
+    fun parser_power_gatedByVoltageMeasurement() {
+        // V3 修复：电压未实测时真实电流 (1150 mA) 不得与默认 4000 mV 相乘——
+        // 旧实现虚构 4.6 W 功率 (污染 Hero 展示与快充档位推断)
+        BatterySysfs.installProbeResultForTest(emptyList())
+        Shadows.shadowOf(batteryManager())
+            .setIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW, 1_150_000)
+        val unmeasured = BatteryTelemetryParser.parse(
+            batteryIntent {
+                putExtra(BatteryManager.EXTRA_LEVEL, 58)
+                putExtra(BatteryManager.EXTRA_SCALE, 100)
+                putExtra(BatteryManager.EXTRA_STATUS, BatteryManager.BATTERY_STATUS_CHARGING)
+            },
+            batteryManager(), 5000
+        )
+        assertEquals(1150, unmeasured.currentMa)
+        assertFalse(unmeasured.voltageMeasured)
+        assertEquals(null, unmeasured.powerWatts)
+        assertEquals(0f, unmeasured.toBatteryState(null, null).powerWatts)
+
+        // 对照组：电压实测 (EXTRA_VOLTAGE=4000) → 功率正常推导 4.6 W
+        val measured = BatteryTelemetryParser.parse(
+            batteryIntent {
+                putExtra(BatteryManager.EXTRA_VOLTAGE, 4000)
+                putExtra(BatteryManager.EXTRA_STATUS, BatteryManager.BATTERY_STATUS_CHARGING)
+            },
+            batteryManager(), 5000
+        )
+        assertTrue(measured.voltageMeasured)
+        assertEquals(4.6f, measured.powerWatts!!, 0.01f)
+    }
+
+    @Test
+    fun voltageStateLabel_gradesSingleSource() {
+        // 分级阈值单源：<3400 保护区 / <3600 偏低 / ≤4200 正常 / ≤4400 接近满充 /
+        // ≤5000 异常偏高 / >5000 多电芯串联；未实测 → 双通道不可读
+        with(BatteryTelemetryParser) {
+            assertEquals("低电压保护区", voltageStateLabel(3300, true))
+            assertEquals("电压偏低", voltageStateLabel(3500, true))
+            assertEquals("正常工作区间", voltageStateLabel(3800, true))
+            assertEquals("正常工作区间", voltageStateLabel(4200, true))
+            assertEquals("接近满充", voltageStateLabel(4300, true))
+            assertEquals("电压异常偏高", voltageStateLabel(4600, true))
+            assertEquals("多电芯串联整包", voltageStateLabel(7400, true))
+            assertEquals("双通道不可读", voltageStateLabel(4000, false))
+        }
+    }
+
+    @Test
+    fun reader_degradedState_voltageMarkedUnmeasured() {
+        // Reader 降级态 (采集全失败)：电压 4000 仅为中性默认，必须标注未实测
+        val state = newReader().readBatteryTelemetry()
+        assertFalse(state.voltageMeasured)
+        assertEquals(4000, state.voltageMv)
+    }
+
+    @Test
+    fun screen_voltage_measured_displaysValueAndGrade() {
+        // 端到端：广播 EXTRA_VOLTAGE=4150 → 09 卡显示数值 + 分级，Hero 显示 4.15 V
+        BatterySysfs.installProbeResultForTest(emptyList())
+        Shadows.shadowOf(batteryManager())
+            .setIntProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER, 2_400_000)
+        app.sendStickyBroadcast(
+            batteryIntent {
+                putExtra(BatteryManager.EXTRA_LEVEL, 52)
+                putExtra(BatteryManager.EXTRA_SCALE, 100)
+                putExtra(BatteryManager.EXTRA_VOLTAGE, 4150)
+            }
+        )
+        val vm = BatteryViewModel(app)
+        composeRule.setContent { BatteryScreen(viewModel = vm) }
+        composeRule.waitForIdle()
+
+        assertTrue(vm.batteryState.value.voltageMeasured)
+        composeRule.onNodeWithText("4150").assertExists()
+        composeRule.onNodeWithText("电势差 4.15 V · 正常工作区间").assertExists()
+        // Hero 行完整口径 (电流不可读 → "— mA · — W"，电压实测 → "4.15 V")
+        composeRule.onNodeWithText("— mA · — W · 4.15 V").assertExists()
+    }
+
+    @Test
+    fun screen_voltage_unmeasured_coherentEmptyState() {
+        // 端到端：双通道均不可得 → 09 卡 "—/双通道不可读"，Hero "— V"、"— W"
+        // (旧实现伪装显示 "4000 mV / 4.00 V")
+        BatterySysfs.installProbeResultForTest(emptyList())
+        val vm = BatteryViewModel(app)
+        composeRule.setContent { BatteryScreen(viewModel = vm) }
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithText("EXTRA_VOLTAGE/sysfs voltage_now 双通道不可读").assertExists()
+        composeRule.onNodeWithText("mV").assertDoesNotExist()
+        composeRule.onNodeWithText("— V", substring = true).assertExists()
+    }
 }

@@ -105,6 +105,11 @@ data class BatteryState(
     // 默认 4000 中性典型值 (与 Parser 故障回退一致)；0 是故障断言值
     val voltageMv: Int = 4000,
 
+    // v2.0.0-alpha.7：电压是否实测 (EXTRA_VOLTAGE/sysfs voltage_now 双通道任一命中)。
+    // false = 双通道均不可得，voltageMv 仅中性默认值，UI 显示 "—" 并标注
+    // "双通道不可读"，且功率 (V×I) 一并置空——杜绝伪造电压参与功率推导
+    val voltageMeasured: Boolean = true,
+
     // 10、循环计数：电池充放电的次数
     val cycleCount: Int = 0,
 

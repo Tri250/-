@@ -283,19 +283,35 @@ internal object BatterySysfs {
     private fun readEnergyNodeCapacityMah(node: String): Int? {
         val energyUwh = readAcrossDirs(node) { readInt(it) } ?: return null
         if (energyUwh <= 0 || energyUwh == Int.MIN_VALUE) return null
-        val voltageMv = readVoltageNowMilliVolts() ?: NOMINAL_VOLTAGE_MV
+        val voltageMv = nominalVoltageForEnergyConversion()
         val capacityMah: Int = Math.round(energyUwh.toDouble() / voltageMv).toInt()
         return if (capacityMah in BatteryTelemetryParser.MIN_PLAUSIBLE_CAPACITY_MAH..
             BatteryTelemetryParser.MAX_PLAUSIBLE_CAPACITY_MAH
         ) capacityMah else null
     }
 
-    /** energy 系节点折算用实测电压 (mV)：voltage_now 规范 μV → mV，钳制标称窗口 */
-    private fun readVoltageNowMilliVolts(): Int? {
+    /**
+     * v2.0.0-alpha.7：sysfs 实时电压第二通道 (指标 09)——原始读数，不施加钳制。
+     *
+     * EXTRA_VOLTAGE (Intent 广播通道) 与 voltage_now (sysfs 通道) 是两条独立硬件通路：
+     * 部分 ROM 广播缺失 EXTRA_VOLTAGE 但 sysfs 节点完好，旧解析层单通道消费
+     * 导致这类设备电压恒显默认 4000 mV。本函数作为解析层第二回退通道，
+     * 规范单位 μV → mV；脏数据 (非正/Int.MIN_VALUE) 返回 null。
+     * 注：不钳制——钳制语义属 energy 容量折算专用 (nominalVoltageForEnergyConversion)，
+     * 遥测主通道必须呈现真实读数并如实标注测量状态。
+     */
+    fun readVoltageNowMilliVolts(): Int? {
         val uV = readAcrossDirs("voltage_now") { readInt(it) } ?: return null
         if (uV <= 0 || uV == Int.MIN_VALUE) return null
-        return Math.round(uV / 1000f).toInt().coerceIn(MIN_NOMINAL_VOLTAGE_MV, MAX_NOMINAL_VOLTAGE_MV)
+        return Math.round(uV / 1000f).toInt()
     }
+
+    /** energy 系容量折算专用标称电压 (mV)：实测值钳制到标称窗口 [3400, 4000]
+     *  (满充 4.4V+/关机 3.3V- 极值会引入 ~10% 折算失真)，不可读回落标称 3850 mV。
+     *  与遥测主通道 [readVoltageNowMilliVolts] 的"原始呈现"语义分离，互不干扰 */
+    private fun nominalVoltageForEnergyConversion(): Int =
+        readVoltageNowMilliVolts()?.coerceIn(MIN_NOMINAL_VOLTAGE_MV, MAX_NOMINAL_VOLTAGE_MV)
+            ?: NOMINAL_VOLTAGE_MV
 
     /** energy 折算标称电压窗口 (mV)：窗口外 (满充/关机极值) 回落标称 3850 mV */
     private const val NOMINAL_VOLTAGE_MV = 3850

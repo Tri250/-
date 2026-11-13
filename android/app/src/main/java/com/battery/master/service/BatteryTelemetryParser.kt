@@ -27,6 +27,10 @@ internal data class RawBatteryTelemetry(
     val temperatureCelsius: Float,
     val healthQuality: BatteryHealthQuality,
     val voltageMv: Int,
+    /** v2.0.0-alpha.7：电压是否实测 (EXTRA_VOLTAGE 或 sysfs voltage_now 双通道任一命中)。
+     *  false = 双通道均不可得，voltageMv 仅为中性默认 4000，UI 不得当作真实读数展示，
+     *  且不得参与 V×I 功率推导 (伪造电压 × 真实电流 = 虚构功率) */
+    val voltageMeasured: Boolean = false,
     /** v1.2.3 P0 审计修复：null = 设备不支持 CURRENT_NOW / 读数不可用 */
     val currentMa: Int?,
     val cycleCount: Int,
@@ -97,6 +101,7 @@ internal data class RawBatteryTelemetry(
             temperatureCelsius = temperatureCelsius,
             healthQuality = healthQuality,
             voltageMv = voltageMv,
+            voltageMeasured = voltageMeasured,
             cycleCount = cycleCount,
             currentMa = currentMa,
             fullChargeCapacityMah = fullChargeCapacityMah,
@@ -175,6 +180,33 @@ internal object BatteryTelemetryParser {
 
     /** 指标 09 电压不可信时的中性默认值 (mV)：与 EXTRA 缺失口径一致 */
     const val DEFAULT_VOLTAGE_MV = 4_000
+
+    /**
+     * v2.0.0-alpha.7 指标 09 电压状态分级阈值单源 (mV)：
+     * UI 09 卡片/Hero 统一消费，杜绝双处阈值口径漂移 (同 TEMP_WARM_THRESHOLD_C 先例)。
+     * 窗口按单电芯锂电物理特性划定：3.4V 过放保护区 / 3.6V 标称下限 /
+     * 4.2V 标称满充上限 / 4.4V 商用快充满充上限；>5.0V 视为多电芯串联整包电压
+     */
+    const val VOLTAGE_PROTECT_MV = 3_400
+    const val VOLTAGE_LOW_WARN_MV = 3_600
+    const val VOLTAGE_NOMINAL_FULL_MV = 4_200
+    const val VOLTAGE_NEAR_FULL_MV = 4_400
+    const val VOLTAGE_MULTI_CELL_MV = 5_000
+
+    /**
+     * v2.0.0-alpha.7 指标 09 电压状态分级标签 (单源)。
+     * @param measured false = EXTRA_VOLTAGE 与 sysfs voltage_now 双通道均不可得，
+     *        返回"双通道不可读"——中性默认 4000 mV 不得伪装成真实读数
+     */
+    fun voltageStateLabel(voltageMv: Int, measured: Boolean): String = when {
+        !measured -> "双通道不可读"
+        voltageMv < VOLTAGE_PROTECT_MV -> "低电压保护区"
+        voltageMv < VOLTAGE_LOW_WARN_MV -> "电压偏低"
+        voltageMv <= VOLTAGE_NOMINAL_FULL_MV -> "正常工作区间"
+        voltageMv <= VOLTAGE_NEAR_FULL_MV -> "接近满充"
+        voltageMv <= VOLTAGE_MULTI_CELL_MV -> "电压异常偏高"
+        else -> "多电芯串联整包"
+    }
 
     /** 指标 10 循环计数合理上限 (次)：真实电芯寿命约 2000 次，留 5 倍余量 */
     const val MAX_PLAUSIBLE_CYCLE_COUNT = 10_000
@@ -286,11 +318,26 @@ internal object BatteryTelemetryParser {
         // 9. 电压：毫伏 mV。v1.2.3 审计加固：传感器故障值 (0/负/超大) 视为不可信，
         // 回退中性默认 4000 mV (与 EXTRA 缺失口径一致)，避免 "0 mV" 荒谬展示
         // 污染功率计算与快充协议档位推断
+        // v2.0.0-alpha.7 指标 09 自检修复：单通道 → 双通道。EXTRA_VOLTAGE 与
+        // sysfs voltage_now 是两条独立硬件通路，部分 ROM 广播缺电压 Extra 但
+        // sysfs 节点完好，旧单通道实现使这类设备电压恒显 4000 mV 默认值。
+        // 通道优先级：EXTRA_VOLTAGE (系统广播实测) → sysfs voltage_now (内核实测)；
+        // 双通道均不可得时 voltageMeasured=false，UI 显示 "—" 而非伪装读数
         val rawVoltageMv = intent?.getIntExtra(BatteryManager.EXTRA_VOLTAGE, -1) ?: -1
-        val voltageMv = if (rawVoltageMv in MIN_PLAUSIBLE_VOLTAGE_MV..MAX_PLAUSIBLE_VOLTAGE_MV) {
-            rawVoltageMv
+        val sysfsVoltageMv = BatterySysfs.readVoltageNowMilliVolts()
+        val voltageMv: Int
+        val voltageMeasured: Boolean
+        if (rawVoltageMv in MIN_PLAUSIBLE_VOLTAGE_MV..MAX_PLAUSIBLE_VOLTAGE_MV) {
+            voltageMv = rawVoltageMv
+            voltageMeasured = true
+        } else if (sysfsVoltageMv != null &&
+            sysfsVoltageMv in MIN_PLAUSIBLE_VOLTAGE_MV..MAX_PLAUSIBLE_VOLTAGE_MV
+        ) {
+            voltageMv = sysfsVoltageMv
+            voltageMeasured = true
         } else {
-            DEFAULT_VOLTAGE_MV
+            voltageMv = DEFAULT_VOLTAGE_MV
+            voltageMeasured = false
         }
 
         // 11. 瞬时电流：CURRENT_NOW 规范返回微安 (μA)，部分旧内核返回毫安 (mA)，归一化为 mA
@@ -378,7 +425,11 @@ internal object BatteryTelemetryParser {
         // v1.2.4 P2 审计修复：移除 abs()——currentMa 已按"充电为正、放电为负"
         // 符号归一，功率随符号携带方向 (充电 +W / 放电 −W)；旧实现 abs 后
         // 放电 1150 mA 与充电 1150 mA 同显正功率，充放方向信息丢失
-        val powerWatts: Float? = currentMa?.let { voltageMv.toFloat() * it / 1_000_000f }
+        // v2.0.0-alpha.7 指标 09 自检修复：电压未实测时功率同样置 null——
+        // 中性默认 4000 mV × 真实电流 = 虚构功率，会污染 Hero 功率展示与
+        // HardwareInfoResolver 快充档位推断 (默认值恰好可凑出"快充"瓦数)
+        val powerWatts: Float? =
+            if (voltageMeasured) currentMa?.let { voltageMv.toFloat() * it / 1_000_000f } else null
 
         // v2.0.0-alpha.1 自检修复：内阻引擎样本采集接线——旧实现全局只有
         // snapshot() 消费 (toBatteryState / HardwareInfoResolver) 而无 observe()
@@ -393,6 +444,7 @@ internal object BatteryTelemetryParser {
             temperatureCelsius = temperatureCelsius,
             healthQuality = healthQuality,
             voltageMv = voltageMv,
+            voltageMeasured = voltageMeasured,
             currentMa = currentMa,
             cycleCount = cycleCount,
             designCapacityMah = effectiveDesignCapacity,

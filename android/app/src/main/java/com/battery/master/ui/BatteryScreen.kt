@@ -350,9 +350,15 @@ fun BatteryScreen(
                         modifier = Modifier.weight(1f),
                         number = "09",
                         title = "电芯电压",
-                        value = "${state.voltageMv}",
-                        unit = "mV",
-                        sub = "电势差 ${String.format(Locale.US, "%.2f", state.voltageMv / 1000f)} V",
+                        // v2.0.0-alpha.7 指标 09 诚实口径：双通道均不可得时显示 "—"
+                        // 而非伪装成读数的中性默认 4000 mV
+                        value = if (state.voltageMeasured) "${state.voltageMv}" else "—",
+                        unit = if (state.voltageMeasured) "mV" else "",
+                        sub = if (state.voltageMeasured)
+                            "电势差 ${String.format(Locale.US, "%.2f", state.voltageMv / 1000f)} V · " +
+                                BatteryTelemetryParser.voltageStateLabel(state.voltageMv, state.voltageMeasured)
+                        else
+                            "EXTRA_VOLTAGE/sysfs voltage_now 双通道不可读",
                         accentColor = DesignTokens.InfoSky
                     )
                     CyberMetricCardItem(
@@ -678,9 +684,11 @@ fun CyberHeroBatteryCard(state: BatteryState) {
                         append(" · ")
                         // v1.2.4 P2 审计修复：功率随符号携带方向 (充电 +W / 放电 −W，
                         // 负值由 String.format 自然输出 "-")，不再 abs 抹平方向
-                        append(if (currentMa != null) "${if (powerW > 0) "+" else ""}${String.format(Locale.US, "%.2f", powerW)} W" else "— W")
+                        // v2.0.0-alpha.7：电压未实测时功率不可推导 (V×I 造假)，显示 "— W"
+                        append(if (currentMa != null && state.voltageMeasured) "${if (powerW > 0) "+" else ""}${String.format(Locale.US, "%.2f", powerW)} W" else "— W")
                         append(" · ")
-                        append("${String.format(Locale.US, "%.2f", state.voltageMv / 1000f)} V")
+                        // v2.0.0-alpha.7：电压未实测时 Hero 不展示伪装读数 (默认 4000 mV)
+                        append(if (state.voltageMeasured) "${String.format(Locale.US, "%.2f", state.voltageMv / 1000f)} V" else "— V")
                     },
                     fontSize = DesignTokens.FontXs,
                     fontFamily = FontFamily.Monospace,

@@ -466,6 +466,10 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
                 percentage = lab.percentage,
                 currentMa = lab.currentMa,
                 voltageMv = lab.voltageMv,
+                // v2.0.0-alpha.7：实验室注入的模拟电压是用户显式输入值 (模拟语义已由
+                // 警示横幅全程标注)，合成态标记实测保持 09 卡/Hero 与滑杆联动一致；
+                // 真实通道的 voltageMeasured=false 不会跨入模拟态
+                voltageMeasured = true,
                 temperatureCelsius = lab.temperatureCelsius,
                 status = effectiveStatus,
                 healthQuality = lab.healthQuality,
