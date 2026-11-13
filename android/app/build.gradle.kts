@@ -36,13 +36,12 @@ android {
                 storePassword = releaseKeystorePass
                 keyAlias = releaseKeyAlias ?: "battery-master"
                 keyPassword = releaseKeyPass
-                // v1.2.6 P3 审计修复：显式启用全签名方案 (v1/v2/v3/v3.1)——
-                // v3 轮换证明在 targetSdk 30+ 设备必需，v3.1 (Android 13+) 支持
-                // 密钥轮换新证据格式；旧实现依赖 AGP 默认行为，不同配置下可能缺 v3+
+                // v1.2.6 P3 审计修复：显式启用签名方案 (v1/v2/v3)——v3 轮换证明在
+                // targetSdk 30+ 设备必需；旧实现依赖 AGP 默认行为，不同配置下可能缺 v3。
+                // 注：v3.1 (Android 13+) DSL 需 AGP 8.9+，当前 AGP 8.7.2 由默认行为覆盖
                 enableV1Signing = true
                 enableV2Signing = true
                 enableV3Signing = true
-                enableV3_1Signing = true
             }
         }
     }
