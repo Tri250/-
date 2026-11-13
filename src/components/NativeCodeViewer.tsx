@@ -648,26 +648,20 @@ class BatteryHardwareReader(private val context: Context) {
 
     /** 安全默认态：任何采集都不可用时 UI 仍有可渲染的中性数据 (保留已锁定的指标 12 不丢失) */
     private fun buildSafeDefaultState(): BatteryState {
-        // v1.2.3 审计修复：默认态内部自洽——设计容量回显 Reader 实际配置
-        // (旧实现固定 5000，与用户校准值漂移)；健康度按同一口径
-        // = 当前容量 / 设计容量 × 100 计算，消除"健康度 100% 但当前容量仅 92%"的自相矛盾展示
-        val currentCapacity = (designCapacityMah * 0.92f).toInt()
-        val healthPercent = if (designCapacityMah > 0) {
-            (currentCapacity * 100f / designCapacityMah).coerceIn(0f, 100f)
-        } else {
-            100f
-        }
+        // v2.0.0-alpha.1 用户口径修正：采集全失败的降级态不再按 0.92 出厂保持率
+        // 虚构"当前容量/健康度"——容量不可测 (0)、来源 UNAVAILABLE、健康度 0，
+        // UI 显示"无法测算"。是多少就是多少，测不到就不展示。
         // v1.2.3 P0 审计修复：采集全失败时电流不可读 → 判定 CURRENT_UNAVAILABLE，
         // 不得谎报"已达充满判定"
         val display = resolveFullChargeDisplay()
         return BatteryState(
             designCapacityMah = designCapacityMah,
             designCapacitySource = designCapacitySource,
-            currentCapacityMah = currentCapacity,
-            // v1.2.3 审计修复：降级态当前容量为 0.92 估算，来源标注 ESTIMATED，
-            // 杜绝 UI 把估算值当实测展示
-            currentCapacitySource = CapacitySource.ESTIMATED,
-            healthPercentage = healthPercent,
+            currentCapacityMah = 0,
+            hasMeasuredCapacity = false,
+            // 降级态容量不可测算，来源标注 UNAVAILABLE，杜绝 UI 把估算值当实测展示
+            currentCapacitySource = CapacitySource.UNAVAILABLE,
+            healthPercentage = 0f,
             // v1.2.3 审计加固：采集全失败的降级态必须诚实——未知状态不得谎报"良好"，
             // 未充电不得谎报"充电中"，避免用户在无数据环境下被错误指标误导
             status = BatteryStatus.NOT_CHARGING,
@@ -902,6 +896,7 @@ import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import com.battery.master.ui.theme.DesignTokens
 import androidx.compose.foundation.border
@@ -917,8 +912,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -967,7 +965,9 @@ fun BatteryScreen(
     // 外壳层审计修复：rememberSaveable 保证配置变更重建后停留在当前 Tab，
     // 用户在硬件实验室的调试上下文不丢失
     var selectedTab by rememberSaveable { mutableStateOf(0) }
-    val tabTitles = listOf("状态总览", "硬件实验室")
+    // v2.0.0-alpha.1：对齐 Web 端 4 Tab 信息架构——总览 / 遥测分析 / 健康档案 / 硬件实验室
+    // (Web 端的"原生源码/工程总览"属 Web 演示页说明性内容，不适用于 Android 端，不搬移)
+    val tabTitles = listOf("状态总览", "遥测分析", "健康档案", "硬件实验室")
 
     Scaffold(
         containerColor = DesignTokens.BgDeep, // Deep Cyber AMOLED Black
@@ -1099,23 +1099,29 @@ fun BatteryScreen(
                         modifier = Modifier.weight(1f),
                         number = "01",
                         title = "电池健康度",
-                        value = "\${String.format(Locale.US, "%.1f", state.healthPercentage)}%",
-                        // v1.2.3 健康度真实性审计：标注容量来源——"sysfs 实测"为真实
-                        // 硬件状态，"0.92 降级估算"为无 sysfs 时的虚构值，不得混淆
-                        sub = "出厂设计保持率 [\${state.currentCapacitySource.label}]",
-                        accentColor = DesignTokens.BrandPrimary
+                        // v2.0.0-alpha.1 用户口径修正：健康度是多少就是多少——
+                        // 电量计节点不可读时显示"无法测算"，不再按 0.92 出厂保持率虚构
+                        value = if (state.hasMeasuredCapacity)
+                            "\${String.format(Locale.US, "%.1f", state.healthPercentage)}%" else "—",
+                        // 标注容量来源——"sysfs 实测"为真实硬件状态，
+                        // "不可测算"为无电量计节点时的诚实空态，不得虚构
+                        sub = if (state.hasMeasuredCapacity) "实测健康度 [\${state.currentCapacitySource.label}]"
+                              else "无法测算 [\${state.currentCapacitySource.label}]",
+                        accentColor = if (state.hasMeasuredCapacity) DesignTokens.BrandPrimary else DesignTokens.TextTertiary
                     )
                     CyberMetricCardItem(
                         modifier = Modifier.weight(1f),
                         number = "02",
                         title = "剩余电量",
-                        value = "\${state.remainingCapacityMah}",
-                        unit = "mAh",
+                        // v2.0.0-alpha.1：剩余电量口径基准=当前可用容量，容量不可测时同显 "—"
+                        value = if (state.hasMeasuredCapacity) "\${state.remainingCapacityMah}" else "—",
+                        unit = if (state.hasMeasuredCapacity) "mAh" else "",
                         // v1.2.4 P2 审计修复：双口径来源显式标注——"库仑计实测"
                         // (CHARGE_COUNTER) 与"百分比×容量估算"量纲基准不同，
                         // 机型间不可比、运行中切换会跳变，旧实现无任何口径标注
-                        sub = "当前可用电荷量 [\${state.remainingCapacitySource.label}]",
-                        accentColor = DesignTokens.AccentCyanDark
+                        sub = if (state.hasMeasuredCapacity) "当前可用电荷量 [\${state.remainingCapacitySource.label}]"
+                              else "无法测算 [容量未实测]",
+                        accentColor = if (state.hasMeasuredCapacity) DesignTokens.AccentCyanDark else DesignTokens.TextTertiary
                     )
                 }
             }
@@ -1126,10 +1132,12 @@ fun BatteryScreen(
                         modifier = Modifier.weight(1f),
                         number = "03",
                         title = "电池当前容量",
-                        value = "\${state.currentCapacityMah}",
-                        unit = "mAh",
-                        sub = "衰减后最大可用 [\${state.currentCapacitySource.label}]",
-                        accentColor = DesignTokens.FeaturePurple
+                        // v2.0.0-alpha.1：容量不可测显示 "—" (0 为非法哨兵，不再虚构估算值)
+                        value = if (state.hasMeasuredCapacity) "\${state.currentCapacityMah}" else "—",
+                        unit = if (state.hasMeasuredCapacity) "mAh" else "",
+                        sub = if (state.hasMeasuredCapacity) "衰减后最大可用 [\${state.currentCapacitySource.label}]"
+                              else "无法测算 [\${state.currentCapacitySource.label}]",
+                        accentColor = if (state.hasMeasuredCapacity) DesignTokens.FeaturePurple else DesignTokens.TextTertiary
                     )
                     CyberMetricCardItem(
                         modifier = Modifier.weight(1f),
@@ -1278,6 +1286,19 @@ fun BatteryScreen(
                 Spacer(modifier = Modifier.height(28.dp))
             }
         }
+            } else if (tab == 1) {
+                // v2.0.0-alpha.1：遥测分析 Tab (对齐 Web 端 TELEMETRY 视图)——
+                // 实时硬件遥测曲线 + 功率/温度评估 + 采集链路状态
+                TelemetryAnalysisScreen(state)
+            } else if (tab == 2) {
+                // v2.0.0-alpha.1：健康档案 Tab (对齐 Web 端 HEALTH 视图)——
+                // 健康度实测大数字 + 内阻/寿命预测 + 诊断建议 + 充满判定卡
+                HealthProfileScreen(
+                    state = state,
+                    simulationRemainingSec = simulationRemainingSec,
+                    onTriggerTest = { viewModel.triggerFullChargeSimulation() },
+                    onClearRecords = { viewModel.clearFullChargeRecords() }
+                )
             } else {
                 // 硬件实验室 Tab：场景模拟 / 滑杆调参 / 健康枚举 / 提示音
                 HardwareLabScreen(viewModel = viewModel, state = state)
@@ -2083,6 +2104,453 @@ fun AboutAppCard() {
         }
     }
 }
+
+/**
+ * v2.0.0-alpha.1：遥测分析 Tab (对齐 Web 端 TELEMETRY 视图，Android 独有真实数据)
+ *
+ * - 实时硬件遥测曲线 (Compose Canvas 自绘，零三方依赖)：电压/电流/温度 1Hz 滑窗 120 秒；
+ * - 功率与温度评估卡 (38/45℃ 分级单源解析器常量)；
+ * - 采集链路状态卡：电量计探测链命中节点 / 库仑计 / CURRENT_NOW / 内阻引擎滑窗——
+ *   这是 Android 端真机才能提供的真实采集通道透视，Web 模拟端无法实现。
+ */
+@Composable
+fun TelemetryAnalysisScreen(state: BatteryState) {
+    // 滑动窗口：1Hz 遥测追加上限 120 点 (~2 分钟)；remember 存活于本 Tab 作用域，
+    // 切 Tab (Crossfade 保留状态) 不清空，进程重建则重新积累
+    val history = remember { mutableStateListOf<BatteryState>() }
+    LaunchedEffect(state) {
+        history.add(state)
+        while (history.size > 120) history.removeAt(0)
+    }
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        item {
+            Text(
+                text = "高频硬件遥测分析",
+                fontWeight = FontWeight.Bold,
+                fontSize = DesignTokens.FontXs,
+                letterSpacing = 1.sp,
+                color = DesignTokens.TextPrimary,
+                fontFamily = FontFamily.Monospace,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+            Text(
+                text = "实时捕获充放电电流 (mA)、电芯端电压 (mV) 与热敏传感器温度曲线",
+                fontSize = DesignTokens.Font2xs,
+                color = DesignTokens.TextTertiary,
+                fontFamily = FontFamily.Monospace,
+                modifier = Modifier.padding(top = 2.dp)
+            )
+        }
+
+        // 实时遥测曲线 (Compose Canvas 自绘)
+        item {
+            TelemetryChartPanel(history)
+        }
+
+        // 功率与温度评估 (与 Web 端 Summary Cards 对齐，复用 12 指标卡样式)
+        item {
+            val currentNow = state.currentNowMa
+            val powerW = state.powerWatts
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                CyberMetricCardItem(
+                    modifier = Modifier.weight(1f),
+                    number = "P",
+                    title = "充放电功率",
+                    value = when {
+                        currentNow == null -> "—"
+                        powerW >= 0f -> "+\${String.format(Locale.US, "%.2f", powerW)}"
+                        else -> "-\${String.format(Locale.US, "%.2f", abs(powerW))}"
+                    },
+                    unit = if (currentNow != null) "W" else "",
+                    sub = when {
+                        currentNow == null -> "电流不可读，不虚构 0W"
+                        currentNow > 0 -> "充电输入 P = V × I"
+                        currentNow < 0 -> "放电输出 P = V × |I|"
+                        else -> "浮充截止"
+                    },
+                    accentColor = if ((currentNow ?: 0) > 0) DesignTokens.BrandPrimary else DesignTokens.AccentCyanDark
+                )
+                CyberMetricCardItem(
+                    modifier = Modifier.weight(1f),
+                    number = "T",
+                    title = "电池温度评估",
+                    value = String.format(Locale.US, "%.1f", state.temperatureCelsius),
+                    unit = "°C",
+                    sub = when {
+                        state.temperatureCelsius >= BatteryTelemetryParser.TEMP_OVERHEAT_THRESHOLD_C ->
+                            "严重发热 (≥\${BatteryTelemetryParser.TEMP_OVERHEAT_THRESHOLD_C.toInt()}°C)"
+                        state.temperatureCelsius >= BatteryTelemetryParser.TEMP_WARM_THRESHOLD_C ->
+                            "偏热预警 (\${BatteryTelemetryParser.TEMP_WARM_THRESHOLD_C.toInt()}-\${BatteryTelemetryParser.TEMP_OVERHEAT_THRESHOLD_C.toInt()}°C)"
+                        state.temperatureCelsius <= 0 -> "过冷保护 (≤0°C)"
+                        else -> "温度正常"
+                    },
+                    accentColor = when {
+                        state.temperatureCelsius >= BatteryTelemetryParser.TEMP_OVERHEAT_THRESHOLD_C ||
+                            state.temperatureCelsius <= 0 -> DesignTokens.DangerRose
+                        state.temperatureCelsius >= BatteryTelemetryParser.TEMP_WARM_THRESHOLD_C ->
+                            DesignTokens.WarningAmber
+                        else -> DesignTokens.BrandPrimary
+                    }
+                )
+            }
+        }
+
+        // 采集链路状态卡 (Android 真机独有：真实数据来源透视)
+        item {
+            TelemetrySourceCard(state)
+        }
+
+        item { Spacer(modifier = Modifier.height(28.dp)) }
+    }
+}
+
+/**
+ * 实时遥测曲线面板：Compose Canvas 自绘三通道折线 (电压/电流/温度)，
+ * 各通道独立归一化到面板高度，横轴为最近 120 个采样点 (~2 分钟 @1Hz)。
+ */
+@Composable
+fun TelemetryChartPanel(history: List<BatteryState>) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(DesignTokens.BgSurface, RoundedCornerShape(DesignTokens.RadiusCard))
+            .border(1.dp, DesignTokens.Border, RoundedCornerShape(DesignTokens.RadiusCard))
+            .padding(14.dp)
+    ) {
+        Text(
+            text = "实时遥测曲线 (最近 \${history.size} 个采样点)",
+            fontSize = DesignTokens.Font2xs,
+            color = DesignTokens.TextSecondary,
+            fontFamily = FontFamily.Monospace,
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Canvas(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(180.dp)
+        ) {
+            if (history.size < 2) return@Canvas
+            // 背景网格 (4 条水平参考线)
+            val gridColor = DesignTokens.Border
+            for (i in 1..3) {
+                val y = size.height * i / 4f
+                drawLine(gridColor, Offset(0f, y), Offset(size.width, y), strokeWidth = 1f)
+            }
+            fun drawSeries(
+                pick: (BatteryState) -> Float,
+                lo: Float, hi: Float, color: Color
+            ) {
+                if (hi - lo <= 0f) return
+                val n = history.size
+                val path = Path()
+                history.forEachIndexed { idx, s ->
+                    val x = size.width * idx / (n - 1).coerceAtLeast(1)
+                    val norm = ((pick(s) - lo) / (hi - lo)).coerceIn(0f, 1f)
+                    val y = size.height * (1f - norm)
+                    if (idx == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                }
+                drawPath(path, color, style = Stroke(width = 4f))
+            }
+            // 电压 (3000~5000 mV 典型电芯窗口)、电流 (-6000~6000 mA)、温度 (0~60°C)
+            drawSeries({ it.voltageMv.toFloat() }, 3000f, 5000f, DesignTokens.InfoSky)
+            drawSeries({ (it.currentNowMa ?: 0).toFloat() }, -6000f, 6000f, DesignTokens.BrandPrimary)
+            drawSeries({ it.temperatureCelsius }, 0f, 60f, DesignTokens.WarningAmber)
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            listOf("电压 mV" to DesignTokens.InfoSky, "电流 mA" to DesignTokens.BrandPrimary, "温度 °C" to DesignTokens.WarningAmber)
+                .forEach { (label, color) ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .background(color, RoundedCornerShape(2.dp))
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = label,
+                            fontSize = DesignTokens.Font2xs,
+                            color = DesignTokens.TextTertiary,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                }
+        }
+    }
+}
+
+/**
+ * 采集链路状态卡：透视真实数据来源——探测链命中节点、库仑计/CURRENT_NOW 支持性、
+ * 内阻引擎滑窗状态。Android 真机独有视图，Web 模拟端无法提供。
+ */
+@Composable
+fun TelemetrySourceCard(state: BatteryState) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(DesignTokens.BgSurface, RoundedCornerShape(DesignTokens.RadiusCard))
+            .border(1.dp, DesignTokens.Border, RoundedCornerShape(DesignTokens.RadiusCard))
+            .padding(14.dp)
+    ) {
+        Text(
+            text = "采集链路状态 (真实数据来源透视)",
+            fontSize = DesignTokens.FontXs,
+            color = Color.White,
+            fontWeight = FontWeight.Bold,
+            fontFamily = FontFamily.Monospace
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        val currentNow = state.currentNowMa
+        val rows = listOf(
+            "电量计节点" to state.gaugeNodePath,
+            "当前容量来源" to state.currentCapacitySource.label,
+            "库仑计剩余电荷" to state.remainingCapacitySource.label,
+            "CURRENT_NOW 瞬时电流" to if (currentNow != null) "支持 (读数 \${if (currentNow > 0) "+$currentNow" else "$currentNow"} mA)" else "不可读 (显示 —)",
+            "内阻引擎滑窗" to "n=\${state.engineSampleCount} · \${state.engineConfidenceLabel}",
+            "采集通道" to "粘性广播 + 1Hz 轮询双通道 (单解析器)"
+        )
+        rows.forEach { (label, value) ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = label,
+                    fontSize = DesignTokens.Font2xs,
+                    color = DesignTokens.TextTertiary,
+                    fontFamily = FontFamily.Monospace
+                )
+                Text(
+                    text = value,
+                    fontSize = DesignTokens.Font2xs,
+                    color = DesignTokens.TextPrimary,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
+/**
+ * v2.0.0-alpha.1：健康档案 Tab (对齐 Web 端 HEALTH 视图)
+ *
+ * - 健康度实测大数字 (是多少就是多少——容量不可测显式"无法测算")；
+ * - 内阻实测与循环寿命预测 (v2.0.0-alpha 批次B 引擎输出)；
+ * - 健康诊断建议 (对齐 Web BatteryHealthAdvice 分级文案)；
+ * - 充满判定卡 (复用总览同款组件) + 校准规范说明。
+ */
+@Composable
+fun HealthProfileScreen(
+    state: BatteryState,
+    simulationRemainingSec: Long,
+    onTriggerTest: () -> Unit,
+    onClearRecords: () -> Unit
+) {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        // 健康度大数字卡
+        item {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(DesignTokens.BgSurface, RoundedCornerShape(DesignTokens.RadiusCard))
+                    .border(1.dp, DesignTokens.Border, RoundedCornerShape(DesignTokens.RadiusCard))
+                    .padding(16.dp)
+            ) {
+                Text(
+                    text = "电池健康度 (实测口径)",
+                    fontSize = DesignTokens.Font2xs,
+                    color = DesignTokens.TextTertiary,
+                    fontFamily = FontFamily.Monospace
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                if (state.hasMeasuredCapacity) {
+                    Text(
+                        text = "\${String.format(Locale.US, "%.1f", state.healthPercentage)}%",
+                        fontSize = 40.sp,
+                        fontWeight = FontWeight.Black,
+                        color = DesignTokens.BrandPrimary,
+                        fontFamily = FontFamily.Monospace
+                    )
+                    Text(
+                        text = "当前容量 / 设计容量 · [\${state.currentCapacitySource.label} + \${state.designCapacitySource.label}]",
+                        fontSize = DesignTokens.Font2xs,
+                        color = DesignTokens.TextTertiary,
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                } else {
+                    Text(
+                        text = "无法测算",
+                        fontSize = 40.sp,
+                        fontWeight = FontWeight.Black,
+                        color = DesignTokens.TextTertiary,
+                        fontFamily = FontFamily.Monospace
+                    )
+                    Text(
+                        text = "电量计节点 (\${state.gaugeNodePath}) 未上报 charge_full——健康度=当前容量/设计容量，测不到就不虚构",
+                        fontSize = DesignTokens.Font2xs,
+                        color = DesignTokens.TextTertiary,
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+            }
+        }
+
+        // 内阻实测 + 循环寿命预测
+        item {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                CyberMetricCardItem(
+                    modifier = Modifier.weight(1f),
+                    number = "R",
+                    title = "电芯内阻",
+                    value = if (state.internalResistanceMohm > 0f)
+                        String.format(Locale.US, "%.1f", state.internalResistanceMohm) else "—",
+                    unit = if (state.internalResistanceMohm > 0f) "mΩ" else "",
+                    sub = state.internalResistanceLabel,
+                    accentColor = DesignTokens.AccentTeal
+                )
+                CyberMetricCardItem(
+                    modifier = Modifier.weight(1f),
+                    number = "C",
+                    title = "充放电循环",
+                    value = if (state.cycleCount > 0) "\${state.cycleCount}" else "—",
+                    unit = if (state.cycleCount > 0) "次" else "",
+                    sub = state.healthForecastText
+                        ?: if (state.cycleCount > 0) "Cycle Count" else "系统未上报循环数据",
+                    accentColor = DesignTokens.AccentTeal
+                )
+            }
+        }
+
+        // 健康诊断建议 (对齐 Web BatteryHealthAdvice 分级)
+        item {
+            HealthAdviceCard(state)
+        }
+
+        // 充满判定卡 (复用总览同款组件——双入口)
+        item {
+            FullChargeConditionCard(
+                state,
+                simulationRemainingSec = simulationRemainingSec,
+                onTriggerTest = onTriggerTest,
+                onClearRecords = onClearRecords
+            )
+        }
+
+        // 校准规范说明 (对齐 Web HEALTH Tab 说明区)
+        item {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(DesignTokens.BgSurface, RoundedCornerShape(DesignTokens.RadiusCard))
+                    .border(1.dp, DesignTokens.Border, RoundedCornerShape(DesignTokens.RadiusCard))
+                    .padding(14.dp)
+            ) {
+                Text(
+                    text = "完全充满校准规范详细说明",
+                    fontSize = DesignTokens.FontXs,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "为什么电量到 100% 还不算完全充满？Android 电源管理为提升体验，通常在恒压 (CV) 阶段初期就提前把 UI 显示为 100%——此时仍有数百 mA 电流持续注入 (饱和浮充)，并非真正充满。",
+                    fontSize = DesignTokens.Font2xs,
+                    color = DesignTokens.TextSecondary,
+                    fontFamily = FontFamily.Monospace,
+                    lineHeight = 18.sp
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "0-25 mA 截止电流门限：按锂离子电池充电终止标准，当充电电流自然衰减至 0.005C (0~25 mA) 时才达到完全饱和截止，此时测得的容量最准确，被库仑计固化为「完全充满时的容量」。",
+                    fontSize = DesignTokens.Font2xs,
+                    color = DesignTokens.TextSecondary,
+                    fontFamily = FontFamily.Monospace,
+                    lineHeight = 18.sp
+                )
+            }
+        }
+
+        item { Spacer(modifier = Modifier.height(28.dp)) }
+    }
+}
+
+/**
+ * 健康诊断建议卡：按硬件健康枚举 / 实测温度 / 循环计数 / 实测健康度分级给出真实建议
+ * (对齐 Web 端 BatteryHealthAdvice；全部基于实测字段，无实测数据时诚实提示)
+ */
+@Composable
+fun HealthAdviceCard(state: BatteryState) {
+    val (advice, accent) = when {
+        state.healthQuality == BatteryHealthQuality.OVERHEAT ->
+            "系统上报电池过热，请立即停止充电并移除热源，恢复常温后再观察" to DesignTokens.DangerRose
+        state.healthQuality == BatteryHealthQuality.DEAD ->
+            "系统上报电池损坏，建议前往官方售后检测更换电芯" to DesignTokens.DangerRose
+        state.healthQuality == BatteryHealthQuality.OVER_VOLTAGE ->
+            "系统上报电芯超压，请断开充电器并避免继续快充，尽快检修" to DesignTokens.DangerRose
+        state.temperatureCelsius >= BatteryTelemetryParser.TEMP_OVERHEAT_THRESHOLD_C ->
+            "当前 \${BatteryTelemetryParser.TEMP_OVERHEAT_THRESHOLD_C.toInt()}°C 以上：高温会加速电芯老化，建议停止高负载与快充" to DesignTokens.DangerRose
+        state.temperatureCelsius >= BatteryTelemetryParser.TEMP_WARM_THRESHOLD_C ->
+            "当前 \${BatteryTelemetryParser.TEMP_WARM_THRESHOLD_C.toInt()}-\${BatteryTelemetryParser.TEMP_OVERHEAT_THRESHOLD_C.toInt()}°C 偏热：建议移除保护壳、避免边充边玩" to DesignTokens.WarningAmber
+        state.cycleCount >= 800 ->
+            "循环已超 \${state.cycleCount} 次 (锂聚合物 80% 健康基线约 800 次)：留意续航衰减，考虑更换" to DesignTokens.WarningAmber
+        state.hasMeasuredCapacity && state.healthPercentage in 1f..79.9f ->
+            "实测健康度 \${String.format(Locale.US, "%.1f", state.healthPercentage)}% 低于 80% 基线：电池老化明显，建议规划更换" to DesignTokens.WarningAmber
+        !state.hasMeasuredCapacity ->
+            "电量计节点未上报容量数据，健康度无法测算——其余遥测 (电压/电流/温度) 均为真实读数" to DesignTokens.TextTertiary
+        else ->
+            "各项硬件指标均在正常区间，继续保持良好充放电习惯即可" to DesignTokens.BrandPrimary
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(DesignTokens.BgSurface, RoundedCornerShape(DesignTokens.RadiusCard))
+            .border(1.dp, DesignTokens.Border, RoundedCornerShape(DesignTokens.RadiusCard))
+            .padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(10.dp)
+                .background(accent, RoundedCornerShape(DesignTokens.RadiusChip))
+        )
+        Spacer(modifier = Modifier.width(10.dp))
+        Column {
+            Text(
+                text = "健康诊断建议",
+                fontSize = DesignTokens.Font2xs,
+                color = DesignTokens.TextTertiary,
+                fontFamily = FontFamily.Monospace
+            )
+            Text(
+                text = advice,
+                fontSize = DesignTokens.FontXs,
+                color = DesignTokens.TextPrimary,
+                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace,
+                lineHeight = 18.sp,
+                modifier = Modifier.padding(top = 2.dp)
+            )
+        }
+    }
+}
 `,
   },
   {
@@ -2225,8 +2693,8 @@ android {
         applicationId = "com.battery.master"
         minSdk = 26
         targetSdk = 36
-        versionCode = 12
-        versionName = "2.0.0-alpha"
+        versionCode = 13
+        versionName = "2.0.0-alpha.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -2432,8 +2900,15 @@ enum class CapacitySource(val label: String) {
     /** 用户在设置中手动校准 */
     CALIBRATED("用户校准"),
 
-    /** sysfs 不可读时按设计容量 × 0.92 降级估算 (非真实测量) */
-    ESTIMATED("0.92 降级估算"),
+    /** sysfs 全链路不可读时按设计容量估算 (非真实测量，v2.0.0-alpha.1 起不再虚构数值) */
+    ESTIMATED("降级估算"),
+
+    /**
+     * v2.0.0-alpha.1 用户口径修正：电量计节点 (charge_full) 全链路不可读——
+     * 不再按出厂保持率 (0.92) 虚构"当前容量/健康度"，数值显示 "—"，
+     * 健康度标注"无法测算"。是多少就是多少，测不到就不展示
+     */
+    UNAVAILABLE("不可测算"),
 
     /** 全链路失败时的 5000 mAh 兜底 (非真实测量) */
     FALLBACK("5000 mAh 兜底")
@@ -2444,8 +2919,9 @@ enum class CapacitySource(val label: String) {
  */
 data class BatteryState(
     // 1、电池健康度 (百分比，例如 94.5%)
-    // 默认值与 BatteryHardwareReader 安全默认态同口径 (0.92 × 设计容量)，中性自洽
-    val healthPercentage: Float = 92.0f,
+    // v2.0.0-alpha.1：hasMeasuredCapacity=false 时为 0 (UI 显示"无法测算")——
+    // 旧实现 0.92×设计容量的虚构健康度已移除，是多少就是多少
+    val healthPercentage: Float = 0f,
 
     // 2、剩余电量 (mAh，例如 3800 mAh)
     val remainingCapacityMah: Int = 0,
@@ -2458,7 +2934,14 @@ data class BatteryState(
     val remainingCapacitySource: CapacitySource = CapacitySource.ESTIMATED,
 
     // 3、电池当前容量 (电池衰减后的容量 mAh，例如 4700 mAh)
-    val currentCapacityMah: Int = 4600,
+    // 0 = 电量计节点不可读 (非真实测量)；合法实测区间 500~25000
+    val currentCapacityMah: Int = 0,
+
+    /**
+     * v2.0.0-alpha.1：当前容量是否实测 (sysfs/bms/maxfg 探测链命中)。
+     * false 时指标 01 健康度/指标 03 当前容量显示 "— 无法测算"，不虚构数值
+     */
+    val hasMeasuredCapacity: Boolean = false,
 
     // 4、电池设计容量 (电池出厂容量 mAh，例如 5000 mAh)
     val designCapacityMah: Int = 5000,
@@ -2549,6 +3032,18 @@ data class BatteryState(
      * 仅健康度实测 (当前容量 sysfs + 设计容量非兜底) 时输出；估算健康度不做外推
      */
     val healthForecastText: String? = null,
+
+    /**
+     * v2.0.0-alpha.1：电量计探测链命中节点 (如 "bms"/"maxfg"/"battery")，
+     * 遥测分析 Tab 展示真实数据来源路径；"无" = 全链路未命中
+     */
+    val gaugeNodePath: String = "无",
+
+    /**
+     * v2.0.0-alpha.1：内阻引擎滑窗样本数与置信度 (遥测分析 Tab 采集链路卡展示)
+     */
+    val engineSampleCount: Int = 0,
+    val engineConfidenceLabel: String = "UNAVAILABLE",
 
     val halVersion: String = "Android BatteryManager API",
     val cellStructure: String = "标准单电芯封装 [工程估算]",
@@ -3013,6 +3508,9 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
         // UI 回调入口兜底：合成展示态失败时保留上一帧，不逃逸到主线程
         try {
             val base = _batteryState.value
+            // v2.0.0-alpha.1：模拟基准容量——真实通道容量不可测 (0) 时退回设计容量，
+            // 保证实验室演示环境自洽 (UI 已全程标注 [模拟]，不冒充实测)
+            val labBaseCapacity = base.currentCapacityMah.takeIf { it > 0 } ?: base.designCapacityMah
             // v1.2.3 P0 审计修复：充满判定三态 (与真实通道同一实现)；
             // 未处于充电/满电状态时不得判定充满，杜绝"健康=良好+49.2℃"式矛盾组合
             val isLabCharging = lab.status == BatteryStatus.CHARGING || lab.status == BatteryStatus.FULL
@@ -3020,7 +3518,7 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
             val isFullMet = verdict == FullChargeVerdict.FULLY_CHARGED
             val effectiveStatus = if (isFullMet) BatteryStatus.FULL else lab.status
             // 四舍五入与真实遥测通道 (BatteryTelemetryParser) 及 Web 端口径一致，消除截断漂移
-            val remaining = Math.round(base.currentCapacityMah * (lab.percentage / 100f))
+            val remaining = Math.round(labBaseCapacity * (lab.percentage / 100f))
             _batteryState.value = base.copy(
                 percentage = lab.percentage,
                 currentMa = lab.currentMa,
@@ -3029,7 +3527,7 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
                 status = effectiveStatus,
                 healthQuality = lab.healthQuality,
                 cycleCount = lab.cycleCount,
-                remainingCapacityMah = remaining.coerceAtMost(base.currentCapacityMah),
+                remainingCapacityMah = remaining.coerceAtMost(labBaseCapacity),
                 // v1.2.4 P2 审计修复：实验室剩余电量 = 百分比 × 当前容量 (估算口径)，
                 // 显式标注 ESTIMATED，避免继承真实通道的 COULOMB_COUNTER 标注
                 remainingCapacitySource = CapacitySource.ESTIMATED,
@@ -3038,7 +3536,7 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
                 isFullChargeConditionMet = isFullMet,
                 fullChargeVerdict = verdict,
                 // 实验室注入的锁定值一律标注 SIMULATED，与真实锁定分离
-                fullChargeCapacityMah = if (isFullMet) (base.fullChargeCapacityMah ?: base.currentCapacityMah)
+                fullChargeCapacityMah = if (isFullMet) (base.fullChargeCapacityMah ?: labBaseCapacity)
                 else base.fullChargeCapacityMah,
                 fullChargeSource = if (isFullMet) FullChargeSource.SIMULATED else base.fullChargeSource
             )
@@ -3068,7 +3566,10 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
             // v1.2.6 P2 审计修复：同步置剩余秒数——旧实现等倒计时协程下一拍 (最多 500ms
             // 低频空转间隔) 才刷新，触发瞬间 UI 倒计时存在 0~500ms 显示 0 的竞态窗口
             _simulationRemainingSec.value = (SIMULATION_HOLD_MS + 999) / 1000
-            val capacity = current.currentCapacityMah
+            // v2.0.0-alpha.1：演示容量不再取真实通道 currentCapacityMah——电量计节点
+            // 不可读时该值为 0，被持久化区间校验拒绝导致 SIMULATED key 永不写入
+            // (回显来源 NONE)。演示模式语义 = 固定演示电芯，UI 全程标注 [模拟]，不冒充实测
+            val capacity = current.currentCapacityMah.takeIf { it > 0 } ?: SIMULATED_DEMO_CAPACITY_MAH
             // v1.2.3 P0 审计修复：演示值写独立 key，真实锁定 (REAL) 优先展示
             reader.persistSimulatedFullChargeCapacity(capacity, timestamp)
             val lockedCapacity = if (capacity > 0) capacity else current.fullChargeCapacityMah
@@ -3081,6 +3582,10 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
                 fullChargeSource = FullChargeSource.SIMULATED,
                 fullChargeCapacityMah = lockedCapacity,
                 lastFullChargeTimestamp = timestamp,
+                // v2.0.0-alpha.1：模拟态展示自洽——当前容量同步为演示容量 (0 会导致
+                // "当前容量 0 mAh / 剩余 4760 mAh"矛盾展示)；UI 全程标注 [模拟] 来源
+                hasMeasuredCapacity = lockedCapacity != null,
+                currentCapacityMah = lockedCapacity ?: 0,
                 // v1.2.4 P2 审计修复：模拟态剩余电量按 100% 校准为当前容量 (估算口径)，
                 // 显式标注，不继承真实通道的库仑计实测标注
                 remainingCapacitySource = CapacitySource.ESTIMATED,
@@ -3094,6 +3599,12 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
     companion object {
         /** 一键模拟充满后的保持期 (毫秒) */
         private const val SIMULATION_HOLD_MS = 15_000L
+
+        /**
+         * 一键模拟充满的演示电芯容量 (mAh)：电量计节点不可读 (容量=0) 时的固定演示基准，
+         * 模拟态 UI 全程标注 [模拟] 来源，不冒充实测
+         */
+        private const val SIMULATED_DEMO_CAPACITY_MAH = 4760
 
         /** 一键模拟充满时展示的浮充电流 (mA)：0~25 mA 判定区间内稳定采样点，
          *  与全链路文案口径 (UI 按钮/实验室场景描述/源码镜像) 保持一致 */
@@ -3311,6 +3822,15 @@ internal object BatterySysfs {
     private fun gaugeDirsOrDefault(): List<String> {
         val dirs = resolveGaugeDirs()
         return if (dirs.isNotEmpty()) dirs else listOf("$DEFAULT_SCAN_ROOT/battery")
+    }
+
+    /**
+     * v2.0.0-alpha.1：探测链命中节点标签 (如 "bms"/"maxfg"/"battery")，
+     * 遥测分析 Tab 采集链路卡展示真实数据来源；探测为空回退 battery
+     */
+    fun gaugeNodeLabel(): String {
+        val dirs = resolveGaugeDirs()
+        return if (dirs.isNotEmpty()) java.io.File(dirs.first()).name else "battery"
     }
 
     private fun <T> readAcrossDirs(node: String, transform: (String) -> T?): T? =

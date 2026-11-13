@@ -4,53 +4,83 @@ import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import com.battery.master.data.CapacitySource
 import com.battery.master.service.BatteryHardwareReader
+import com.battery.master.service.BatterySysfs
 import com.battery.master.service.BatteryTelemetryParser
 import com.battery.master.viewmodel.BatteryViewModel
+import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import java.io.File
+import java.nio.file.Files
 
 /**
  * 指标 01 电池健康度真实性审计回归测试 (Robolectric，无模拟器)
  *
- * 覆盖 v1.2.3 健康度真实性审计修复点：
- * 1. 无 sysfs charge_full 实测时，当前容量收敛到 设计容量 × 0.92 降级估算，
- *    来源必须标注 ESTIMATED——杜绝"精确的 92.0% 健康度"实为虚构估算值的情况；
+ * v2.0.0-alpha.1 用户口径修正：**健康度是多少就是多少，不按出厂保持率虚构**。
+ * 覆盖修复点：
+ * 1. 电量计节点 (charge_full) 全链路不可读 → 当前容量=0、来源 UNAVAILABLE、
+ *    健康度=0 且 hasMeasuredCapacity=false——旧实现 0.92×设计容量的虚构
+ *    "92.0% 健康度"已彻底移除，UI 显示 "— 无法测算"；
  * 2. Reader 设计容量三级回退链 (PowerProfile/sysfs/5000 兜底) 的值与来源等级
  *    一一对应，不得出现"值为兜底却标注实测"的错标；
- * 3. 用户手动校准后来源标注 CALIBRATED，健康度按新分母实时重算 (92% 不变式)；
+ * 3. 探测链注入真实电量计节点后，用户手动校准 (CALIBRATED 分母) 下健康度
+ *    按实测容量/新分母实时重算；
  * 4. 区间外非法校准被拒绝且来源不被污染；
  * 5. 降级态与双通道 (轮询/广播) 消费同一来源标注，语义零漂移。
- *
- * 环境假设 (与既有测试一致)：CI/桌面环境无电池 sysfs 节点 →
- * 指标 03 来源恒为 ESTIMATED。
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class HealthAuthenticityAuditTest {
 
     private val app: Application get() = ApplicationProvider.getApplicationContext()
+    private var probeRoot: File? = null
 
-    // ===== 1. 估算值必须显式标注来源，不得冒充实测 =====
+    @Before
+    fun resetProbe() {
+        BatterySysfs.installProbeResultForTest(emptyList())
+    }
+
+    @After
+    fun cleanupProbe() {
+        BatterySysfs.installProbeResultForTest(emptyList())
+        probeRoot?.deleteRecursively()
+        probeRoot = null
+    }
+
+    /** 注入临时 bms 电量计节点，模拟真实电量计挂载 (μAh 上报内核) */
+    private fun installGaugeNodes(chargeFullUah: Int, chargeFullDesignUah: Int? = null) {
+        val root = Files.createTempDirectory("gauge_probe").toFile().also { probeRoot = it }
+        val bms = File(root, "bms").apply { mkdirs() }
+        File(bms, "charge_full").writeText("$chargeFullUah\n")
+        chargeFullDesignUah?.let { File(bms, "charge_full_design").writeText("$it\n") }
+        BatterySysfs.installProbeResultForTest(listOf(bms.absolutePath))
+    }
+
+    // ===== 1. 容量不可测 = 无法测算，不得虚构健康度 =====
 
     @Test
-    fun healthPercentage_withoutSysfs_isEstimatedNotMeasured() {
+    fun healthPercentage_withoutGaugeNode_isUnavailableNotFabricated() {
         val raw = BatteryTelemetryParser.parse(null, null, 5000)
 
-        // 无 sysfs：当前容量 = 5000 × 0.92 = 4600，来源必须是 ESTIMATED 而非 SYSFS
-        assertEquals(CapacitySource.ESTIMATED, raw.currentCapacitySource)
+        // 无电量计节点：当前容量=0 (非法哨兵)、来源 UNAVAILABLE、健康度=0
+        assertEquals(CapacitySource.UNAVAILABLE, raw.currentCapacitySource)
         assertEquals(CapacitySource.FALLBACK, raw.designCapacitySource)
-        assertEquals(4600, raw.currentCapacityMah)
-        // 4600 / 5000 = 92.0%——精确值但必须带 [0.92 降级估算] 标注
-        assertEquals(92.0f, raw.healthPercentage, 0.01f)
+        assertEquals(0, raw.currentCapacityMah)
+        assertEquals(0f, raw.healthPercentage, 0.001f)
+        assertFalse(raw.hasMeasuredCapacity)
+        // 旧实现 4600 (5000×0.92) 与 92.0% 虚构值必须不存在——是多少就是多少
 
-        // 来源经 toBatteryState 透传至展示态 (UI 副标题消费此字段)
+        // 来源经 toBatteryState 透传至展示态 (UI "— 无法测算" 空态消费此字段)
         val state = raw.toBatteryState(null, null)
-        assertEquals(CapacitySource.ESTIMATED, state.currentCapacitySource)
+        assertEquals(CapacitySource.UNAVAILABLE, state.currentCapacitySource)
         assertEquals(CapacitySource.FALLBACK, state.designCapacitySource)
+        assertFalse(state.hasMeasuredCapacity)
     }
 
     // ===== 2. Reader 三级链：值与来源等级一一对应 =====
@@ -70,29 +100,32 @@ class HealthAuthenticityAuditTest {
             )
         }
 
-        // 遥测态与 Reader 配置同源 (双通道单一数据源，语义零漂移)
+        // 无电量计节点时遥测态：容量不可测算 (诚实空态，非虚构估算)
         val state = reader.readBatteryTelemetry()
         assertEquals(source, state.designCapacitySource)
-        assertEquals(CapacitySource.ESTIMATED, state.currentCapacitySource)
-
-        // 健康度与容量口径严格自洽：health = current / design × 100
-        val expected = (state.currentCapacityMah * 100f / state.designCapacityMah).coerceIn(0f, 100f)
-        assertEquals(expected, state.healthPercentage, 0.01f)
+        assertEquals(CapacitySource.UNAVAILABLE, state.currentCapacitySource)
+        assertFalse(state.hasMeasuredCapacity)
+        assertEquals(0, state.currentCapacityMah)
+        assertEquals(0f, state.healthPercentage, 0.001f)
     }
 
-    // ===== 3. 用户校准：来源标注 CALIBRATED，健康度按新分母重算 =====
+    // ===== 3. 实测容量 + 用户校准：健康度按真实分母重算 =====
 
     @Test
-    fun userCalibration_marksCalibratedAndRecomputesHealth() {
+    fun userCalibration_withMeasuredCapacity_recomputesHealth() {
+        // 注入真实电量计：charge_full=4890000 μAh (4890 mAh)
+        installGaugeNodes(chargeFullUah = 4_890_000)
         val viewModel = BatteryViewModel(app)
         viewModel.setDesignCapacity(6000)
 
         val state = viewModel.batteryState.value
         assertEquals(CapacitySource.CALIBRATED, state.designCapacitySource)
         assertEquals(6000, state.designCapacityMah)
-        // 6000 × 0.92 = 5520 → 健康度 92.0% (口径不变，分母更新)
-        assertEquals(5520, state.currentCapacityMah)
-        assertEquals(92.0f, state.healthPercentage, 0.01f)
+        assertTrue(state.hasMeasuredCapacity)
+        assertEquals(4890, state.currentCapacityMah)
+        assertEquals(CapacitySource.SYSFS, state.currentCapacitySource)
+        // 实测 4890 / 校准 6000 = 81.5%——是多少就是多少 (真实分母真实分子)
+        assertEquals(81.5f, state.healthPercentage, 0.05f)
     }
 
     // ===== 4. 非法校准被拒绝，来源不被污染 =====
@@ -111,13 +144,13 @@ class HealthAuthenticityAuditTest {
         assertEquals(valueBefore, viewModel.batteryState.value.designCapacityMah)
     }
 
-    // ===== 5. 降级态来源标注诚实 (估算不得谎报实测) =====
+    // ===== 5. 降级态来源标注诚实 (不可测算不得谎报实测) =====
 
     @Test
     fun telemetrySources_alwaysHonest() {
         val reader = BatteryHardwareReader(app)
         val state = reader.readBatteryTelemetry()
-        // 任何采集结果都必须携带合法来源等级 (UI 据此渲染 [实测]/[估算] 标注)
+        // 任何采集结果都必须携带合法来源等级 (UI 据此渲染 [实测]/[不可测算] 标注)
         assertTrue(state.currentCapacitySource in CapacitySource.values().toList())
         assertTrue(state.designCapacitySource in CapacitySource.values().toList())
     }

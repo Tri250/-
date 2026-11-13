@@ -157,26 +157,20 @@ class BatteryHardwareReader(private val context: Context) {
 
     /** 安全默认态：任何采集都不可用时 UI 仍有可渲染的中性数据 (保留已锁定的指标 12 不丢失) */
     private fun buildSafeDefaultState(): BatteryState {
-        // v1.2.3 审计修复：默认态内部自洽——设计容量回显 Reader 实际配置
-        // (旧实现固定 5000，与用户校准值漂移)；健康度按同一口径
-        // = 当前容量 / 设计容量 × 100 计算，消除"健康度 100% 但当前容量仅 92%"的自相矛盾展示
-        val currentCapacity = (designCapacityMah * 0.92f).toInt()
-        val healthPercent = if (designCapacityMah > 0) {
-            (currentCapacity * 100f / designCapacityMah).coerceIn(0f, 100f)
-        } else {
-            100f
-        }
+        // v2.0.0-alpha.1 用户口径修正：采集全失败的降级态不再按 0.92 出厂保持率
+        // 虚构"当前容量/健康度"——容量不可测 (0)、来源 UNAVAILABLE、健康度 0，
+        // UI 显示"无法测算"。是多少就是多少，测不到就不展示。
         // v1.2.3 P0 审计修复：采集全失败时电流不可读 → 判定 CURRENT_UNAVAILABLE，
         // 不得谎报"已达充满判定"
         val display = resolveFullChargeDisplay()
         return BatteryState(
             designCapacityMah = designCapacityMah,
             designCapacitySource = designCapacitySource,
-            currentCapacityMah = currentCapacity,
-            // v1.2.3 审计修复：降级态当前容量为 0.92 估算，来源标注 ESTIMATED，
-            // 杜绝 UI 把估算值当实测展示
-            currentCapacitySource = CapacitySource.ESTIMATED,
-            healthPercentage = healthPercent,
+            currentCapacityMah = 0,
+            hasMeasuredCapacity = false,
+            // 降级态容量不可测算，来源标注 UNAVAILABLE，杜绝 UI 把估算值当实测展示
+            currentCapacitySource = CapacitySource.UNAVAILABLE,
+            healthPercentage = 0f,
             // v1.2.3 审计加固：采集全失败的降级态必须诚实——未知状态不得谎报"良好"，
             // 未充电不得谎报"充电中"，避免用户在无数据环境下被错误指标误导
             status = BatteryStatus.NOT_CHARGING,

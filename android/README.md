@@ -9,6 +9,7 @@
 1. **电池健康度（%）**：
    - 算法：`currentCapacityMah / designCapacityMah * 100f`
    - 计算可用活性容量与出厂标称的比值。
+   - v2.0.0-alpha.1 诚实口径：健康度是多少就是多少——电量计节点（探测链 bms/maxfg/battery）不可读时显示"无法测算"，不再按出厂保持率（0.92）虚构健康度。
 
 2. **剩余电量（mAh）**：
    - 原生接口：`batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER)`（微安时换算为毫安时）。

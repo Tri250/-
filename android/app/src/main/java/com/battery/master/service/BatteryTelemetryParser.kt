@@ -31,7 +31,10 @@ internal data class RawBatteryTelemetry(
     val currentMa: Int?,
     val cycleCount: Int,
     val designCapacityMah: Int,
+    /** v2.0.0-alpha.1：0 = 电量计节点全链路不可读 (旧 0.92 估算已移除，是多少就是多少) */
     val currentCapacityMah: Int,
+    /** v2.0.0-alpha.1：当前容量是否实测 (探测链命中 charge_full) */
+    val hasMeasuredCapacity: Boolean,
     val remainingCapacityMah: Int,
     val healthPercentage: Float,
     /** 指标 02 剩余电量口径 (v1.2.4 P2 审计)：库仑计实测 vs 百分比×容量估算 */
@@ -59,6 +62,8 @@ internal data class RawBatteryTelemetry(
         fullChargeSource: FullChargeSource = FullChargeSource.NONE
     ): BatteryState {
         val hardware = HardwareInfoResolver.resolve(temperatureCelsius, cycleCount, powerWatts ?: 0f)
+        // v2.0.0-alpha.1：遥测分析 Tab 采集链路卡——探测链命中节点 + 引擎滑窗状态
+        val engineSnapshot = BatteryHealthEngine.snapshot()
         // v2.0.0-alpha 批次B：循环寿命预测——仅健康度两项容量均实测时输出，
         // 估算健康度 (0.92 兜底) 不参与外推，避免估算值被放大成"精确的剩余循环数"
         val healthMeasured = currentCapacitySource == CapacitySource.SYSFS &&
@@ -73,6 +78,7 @@ internal data class RawBatteryTelemetry(
             remainingCapacityMah = remainingCapacityMah,
             remainingCapacitySource = remainingCapacitySource,
             currentCapacityMah = currentCapacityMah,
+            hasMeasuredCapacity = hasMeasuredCapacity,
             designCapacityMah = designCapacityMah,
             currentCapacitySource = currentCapacitySource,
             designCapacitySource = designCapacitySource,
@@ -100,6 +106,9 @@ internal data class RawBatteryTelemetry(
             internalResistanceMohm = hardware.internalResistanceMohm,
             internalResistanceLabel = hardware.internalResistanceLabel,
             healthForecastText = healthForecastText,
+            gaugeNodePath = BatterySysfs.gaugeNodeLabel(),
+            engineSampleCount = engineSnapshot.sampleCount,
+            engineConfidenceLabel = engineSnapshot.confidence.name,
             halVersion = hardware.halVersion,
             cellStructure = hardware.cellStructure,
             thermalThrottlingState = hardware.thermalThrottlingState
@@ -305,17 +314,20 @@ internal object BatteryTelemetryParser {
 
         // 3. 电池当前容量 (衰减后容量 mAh)
         // sysfs charge_full 经 readCapacityMah 双单位归一化 (规范 μAh，兼容 mAh 上报内核)
-        // 与合理区间校验；不可读/脏数据一律回退设计容量估算值 (0.92 降级假设)，
-        // 避免非法容量流入指标 12 锁定与持久化。
+        // 与合理区间校验。
         // v1.2.3 健康度真实性审计：区分实测与估算来源，UI 显式标注，
         // 杜绝"精确的 92.0% 健康度"实为 0.92 虚构估算值的情况
         // v2.0.0-alpha 批次A：charge_full 改走多节点探测链
         // (bms/maxfg/dc 平台的 battery 目录无 charge_full，旧硬编码路径必然降级估算)
+        // v2.0.0-alpha.1 用户口径修正：移除 0.92 出厂保持率估算——探测链全链路不可读时
+        // 当前容量=0 (非法哨兵)、来源=UNAVAILABLE、健康度=0 且 hasMeasuredCapacity=false，
+        // UI 显示 "— 无法测算"。是多少就是多少，测不到就不展示，不再虚构数值。
+        // 附带收益：0 被锁定链路的合理区间校验拒绝，估算值冒充实测锁定的通路彻底关闭
         val sysfsCurrentCapacity = BatterySysfs.readChargeFull()
+        val hasMeasuredCapacity = sysfsCurrentCapacity != null
         val currentCapacitySource =
-            if (sysfsCurrentCapacity != null) CapacitySource.SYSFS else CapacitySource.ESTIMATED
-        val currentCapacityMah = sysfsCurrentCapacity
-            ?: (effectiveDesignCapacity * 0.92f).toInt()
+            if (hasMeasuredCapacity) CapacitySource.SYSFS else CapacitySource.UNAVAILABLE
+        val currentCapacityMah = sysfsCurrentCapacity ?: 0
 
         // 2. 剩余电量 (mAh)
         // 不变式：剩余电量恒 ≤ 当前可用容量，与 Web 端 (百分比 × 当前容量) 口径一致，
@@ -328,16 +340,23 @@ internal object BatteryTelemetryParser {
         val chargeCounterUah = batteryManager?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER) ?: 0
         val remainingIsMeasured = chargeCounterUah > 0 && chargeCounterUah != Int.MIN_VALUE
         val remainingCapacityMah = if (remainingIsMeasured) {
-            Math.round(chargeCounterUah / 1000f).coerceAtMost(currentCapacityMah)
+            // v2.0.0-alpha.1：容量实测时钳制"剩余 ≤ 当前容量"防读数抖动；
+            // 容量不可测 (0) 时库仑计读数仍是真实测量，不得被钳制归零
+            val measuredMah = Math.round(chargeCounterUah / 1000f)
+            if (hasMeasuredCapacity) measuredMah.coerceAtMost(currentCapacityMah) else measuredMah
         } else {
             Math.round(currentCapacityMah * (percentage / 100f))
         }
         val remainingCapacitySource =
             if (remainingIsMeasured) CapacitySource.COULOMB_COUNTER else CapacitySource.ESTIMATED
 
-        // 1. 电池健康度 (%)：当前容量 / 设计容量，钳制 0~100 防 NaN 外溢
+        // 1. 电池健康度 (%)：当前容量 / 设计容量，钳制 0~100 防 NaN 外溢。
+        // v2.0.0-alpha.1：容量不可测 (0) 时健康度=0 且 hasMeasuredCapacity=false，
+        // UI 显示"无法测算"——不再按出厂保持率虚构健康度
         val healthPercentage =
-            ((currentCapacityMah.toFloat() / effectiveDesignCapacity) * 100f).coerceIn(0f, 100f)
+            if (hasMeasuredCapacity) {
+                ((currentCapacityMah.toFloat() / effectiveDesignCapacity) * 100f).coerceIn(0f, 100f)
+            } else 0f
 
         // 12. 完全充满判定：100% 且充电态 |电流| ≤ 25 mA (三态判定，双通道一致)
         // v1.2.3 P0 审计修复：旧实现电流不可读时归一化为 0 → 判定恒真，
@@ -362,6 +381,7 @@ internal object BatteryTelemetryParser {
             cycleCount = cycleCount,
             designCapacityMah = effectiveDesignCapacity,
             currentCapacityMah = currentCapacityMah,
+            hasMeasuredCapacity = hasMeasuredCapacity,
             remainingCapacityMah = remainingCapacityMah,
             remainingCapacitySource = remainingCapacitySource,
             healthPercentage = healthPercentage,

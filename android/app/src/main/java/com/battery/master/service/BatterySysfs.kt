@@ -203,6 +203,15 @@ internal object BatterySysfs {
         return if (dirs.isNotEmpty()) dirs else listOf("$DEFAULT_SCAN_ROOT/battery")
     }
 
+    /**
+     * v2.0.0-alpha.1：探测链命中节点标签 (如 "bms"/"maxfg"/"battery")，
+     * 遥测分析 Tab 采集链路卡展示真实数据来源；探测为空回退 battery
+     */
+    fun gaugeNodeLabel(): String {
+        val dirs = resolveGaugeDirs()
+        return if (dirs.isNotEmpty()) java.io.File(dirs.first()).name else "battery"
+    }
+
     private fun <T> readAcrossDirs(node: String, transform: (String) -> T?): T? =
         gaugeDirsOrDefault().firstNotNullOfOrNull { dir -> transform("$dir/$node") }
 

@@ -21,8 +21,15 @@ enum class CapacitySource(val label: String) {
     /** 用户在设置中手动校准 */
     CALIBRATED("用户校准"),
 
-    /** sysfs 不可读时按设计容量 × 0.92 降级估算 (非真实测量) */
-    ESTIMATED("0.92 降级估算"),
+    /** sysfs 全链路不可读时按设计容量估算 (非真实测量，v2.0.0-alpha.1 起不再虚构数值) */
+    ESTIMATED("降级估算"),
+
+    /**
+     * v2.0.0-alpha.1 用户口径修正：电量计节点 (charge_full) 全链路不可读——
+     * 不再按出厂保持率 (0.92) 虚构"当前容量/健康度"，数值显示 "—"，
+     * 健康度标注"无法测算"。是多少就是多少，测不到就不展示
+     */
+    UNAVAILABLE("不可测算"),
 
     /** 全链路失败时的 5000 mAh 兜底 (非真实测量) */
     FALLBACK("5000 mAh 兜底")
@@ -33,8 +40,9 @@ enum class CapacitySource(val label: String) {
  */
 data class BatteryState(
     // 1、电池健康度 (百分比，例如 94.5%)
-    // 默认值与 BatteryHardwareReader 安全默认态同口径 (0.92 × 设计容量)，中性自洽
-    val healthPercentage: Float = 92.0f,
+    // v2.0.0-alpha.1：hasMeasuredCapacity=false 时为 0 (UI 显示"无法测算")——
+    // 旧实现 0.92×设计容量的虚构健康度已移除，是多少就是多少
+    val healthPercentage: Float = 0f,
 
     // 2、剩余电量 (mAh，例如 3800 mAh)
     val remainingCapacityMah: Int = 0,
@@ -47,7 +55,14 @@ data class BatteryState(
     val remainingCapacitySource: CapacitySource = CapacitySource.ESTIMATED,
 
     // 3、电池当前容量 (电池衰减后的容量 mAh，例如 4700 mAh)
-    val currentCapacityMah: Int = 4600,
+    // 0 = 电量计节点不可读 (非真实测量)；合法实测区间 500~25000
+    val currentCapacityMah: Int = 0,
+
+    /**
+     * v2.0.0-alpha.1：当前容量是否实测 (sysfs/bms/maxfg 探测链命中)。
+     * false 时指标 01 健康度/指标 03 当前容量显示 "— 无法测算"，不虚构数值
+     */
+    val hasMeasuredCapacity: Boolean = false,
 
     // 4、电池设计容量 (电池出厂容量 mAh，例如 5000 mAh)
     val designCapacityMah: Int = 5000,
@@ -138,6 +153,18 @@ data class BatteryState(
      * 仅健康度实测 (当前容量 sysfs + 设计容量非兜底) 时输出；估算健康度不做外推
      */
     val healthForecastText: String? = null,
+
+    /**
+     * v2.0.0-alpha.1：电量计探测链命中节点 (如 "bms"/"maxfg"/"battery")，
+     * 遥测分析 Tab 展示真实数据来源路径；"无" = 全链路未命中
+     */
+    val gaugeNodePath: String = "无",
+
+    /**
+     * v2.0.0-alpha.1：内阻引擎滑窗样本数与置信度 (遥测分析 Tab 采集链路卡展示)
+     */
+    val engineSampleCount: Int = 0,
+    val engineConfidenceLabel: String = "UNAVAILABLE",
 
     val halVersion: String = "Android BatteryManager API",
     val cellStructure: String = "标准单电芯封装 [工程估算]",

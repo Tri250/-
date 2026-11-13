@@ -404,6 +404,9 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
         // UI 回调入口兜底：合成展示态失败时保留上一帧，不逃逸到主线程
         try {
             val base = _batteryState.value
+            // v2.0.0-alpha.1：模拟基准容量——真实通道容量不可测 (0) 时退回设计容量，
+            // 保证实验室演示环境自洽 (UI 已全程标注 [模拟]，不冒充实测)
+            val labBaseCapacity = base.currentCapacityMah.takeIf { it > 0 } ?: base.designCapacityMah
             // v1.2.3 P0 审计修复：充满判定三态 (与真实通道同一实现)；
             // 未处于充电/满电状态时不得判定充满，杜绝"健康=良好+49.2℃"式矛盾组合
             val isLabCharging = lab.status == BatteryStatus.CHARGING || lab.status == BatteryStatus.FULL
@@ -411,7 +414,7 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
             val isFullMet = verdict == FullChargeVerdict.FULLY_CHARGED
             val effectiveStatus = if (isFullMet) BatteryStatus.FULL else lab.status
             // 四舍五入与真实遥测通道 (BatteryTelemetryParser) 及 Web 端口径一致，消除截断漂移
-            val remaining = Math.round(base.currentCapacityMah * (lab.percentage / 100f))
+            val remaining = Math.round(labBaseCapacity * (lab.percentage / 100f))
             _batteryState.value = base.copy(
                 percentage = lab.percentage,
                 currentMa = lab.currentMa,
@@ -420,7 +423,7 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
                 status = effectiveStatus,
                 healthQuality = lab.healthQuality,
                 cycleCount = lab.cycleCount,
-                remainingCapacityMah = remaining.coerceAtMost(base.currentCapacityMah),
+                remainingCapacityMah = remaining.coerceAtMost(labBaseCapacity),
                 // v1.2.4 P2 审计修复：实验室剩余电量 = 百分比 × 当前容量 (估算口径)，
                 // 显式标注 ESTIMATED，避免继承真实通道的 COULOMB_COUNTER 标注
                 remainingCapacitySource = CapacitySource.ESTIMATED,
@@ -429,7 +432,7 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
                 isFullChargeConditionMet = isFullMet,
                 fullChargeVerdict = verdict,
                 // 实验室注入的锁定值一律标注 SIMULATED，与真实锁定分离
-                fullChargeCapacityMah = if (isFullMet) (base.fullChargeCapacityMah ?: base.currentCapacityMah)
+                fullChargeCapacityMah = if (isFullMet) (base.fullChargeCapacityMah ?: labBaseCapacity)
                 else base.fullChargeCapacityMah,
                 fullChargeSource = if (isFullMet) FullChargeSource.SIMULATED else base.fullChargeSource
             )
@@ -459,7 +462,10 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
             // v1.2.6 P2 审计修复：同步置剩余秒数——旧实现等倒计时协程下一拍 (最多 500ms
             // 低频空转间隔) 才刷新，触发瞬间 UI 倒计时存在 0~500ms 显示 0 的竞态窗口
             _simulationRemainingSec.value = (SIMULATION_HOLD_MS + 999) / 1000
-            val capacity = current.currentCapacityMah
+            // v2.0.0-alpha.1：演示容量不再取真实通道 currentCapacityMah——电量计节点
+            // 不可读时该值为 0，被持久化区间校验拒绝导致 SIMULATED key 永不写入
+            // (回显来源 NONE)。演示模式语义 = 固定演示电芯，UI 全程标注 [模拟]，不冒充实测
+            val capacity = current.currentCapacityMah.takeIf { it > 0 } ?: SIMULATED_DEMO_CAPACITY_MAH
             // v1.2.3 P0 审计修复：演示值写独立 key，真实锁定 (REAL) 优先展示
             reader.persistSimulatedFullChargeCapacity(capacity, timestamp)
             val lockedCapacity = if (capacity > 0) capacity else current.fullChargeCapacityMah
@@ -472,6 +478,10 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
                 fullChargeSource = FullChargeSource.SIMULATED,
                 fullChargeCapacityMah = lockedCapacity,
                 lastFullChargeTimestamp = timestamp,
+                // v2.0.0-alpha.1：模拟态展示自洽——当前容量同步为演示容量 (0 会导致
+                // "当前容量 0 mAh / 剩余 4760 mAh"矛盾展示)；UI 全程标注 [模拟] 来源
+                hasMeasuredCapacity = lockedCapacity != null,
+                currentCapacityMah = lockedCapacity ?: 0,
                 // v1.2.4 P2 审计修复：模拟态剩余电量按 100% 校准为当前容量 (估算口径)，
                 // 显式标注，不继承真实通道的库仑计实测标注
                 remainingCapacitySource = CapacitySource.ESTIMATED,
@@ -485,6 +495,12 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
     companion object {
         /** 一键模拟充满后的保持期 (毫秒) */
         private const val SIMULATION_HOLD_MS = 15_000L
+
+        /**
+         * 一键模拟充满的演示电芯容量 (mAh)：电量计节点不可读 (容量=0) 时的固定演示基准，
+         * 模拟态 UI 全程标注 [模拟] 来源，不冒充实测
+         */
+        private const val SIMULATED_DEMO_CAPACITY_MAH = 4760
 
         /** 一键模拟充满时展示的浮充电流 (mA)：0~25 mA 判定区间内稳定采样点，
          *  与全链路文案口径 (UI 按钮/实验室场景描述/源码镜像) 保持一致 */

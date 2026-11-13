@@ -91,6 +91,9 @@ class StartupCrashRegressionTest {
         val reader = BatteryHardwareReader(app)
         val state = reader.readBatteryTelemetry()
         assertTrue(state.percentage in 0..100)
-        assertTrue(state.currentCapacityMah > 0)
+        // v2.0.0-alpha.1 用户口径修正：无电量计节点时容量=0 (诚实空态"无法测算")，
+        // 不再虚构 0.92 估算值——渲染层可安全展示 0 与空态文案即视为可渲染
+        assertTrue(state.currentCapacityMah >= 0)
+        assertTrue(state.designCapacityMah > 0)
     }
 }

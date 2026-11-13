@@ -45,6 +45,7 @@ class BatteryHealthEngineTest {
         cycleCount = 120,
         designCapacityMah = 5000,
         currentCapacityMah = 4600,
+        hasMeasuredCapacity = true,
         remainingCapacityMah = 2600,
         healthPercentage = 92f,
         powerWatts = currentMa?.let { voltageMv * it / 1_000_000f },

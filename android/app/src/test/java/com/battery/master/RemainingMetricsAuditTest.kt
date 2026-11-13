@@ -162,6 +162,15 @@ class RemainingMetricsAuditTest {
 
     @Test
     fun viewModel_labDesignCapacitySlider_updatesStateClosedLoop() {
+        // v2.0.0-alpha.1：注入探测链实测容量 (4890000 μAh → 4890 mAh)——
+        // 旧 0.92 估算已移除，校准联动验证走真实实测分母路径
+        val bms = java.io.File(
+            java.nio.file.Files.createTempDirectory("rm_probe").toFile().absolutePath,
+            "bms"
+        ).apply { mkdirs() }
+        java.io.File(bms, "charge_full").writeText("4890000\n")
+        BatterySysfs.installProbeResultForTest(listOf(bms.absolutePath))
+
         val vm = BatteryViewModel(app)
 
         // 进入实验室：真实遥测冻结，覆盖层以当前真实值为基准
@@ -175,9 +184,11 @@ class RemainingMetricsAuditTest {
         // 旧实现：publish 被实验室覆盖层拦截 → designCapacityMah 保持 5000，
         // 滑杆数值回弹。现必须刷新
         assertEquals(6800, after.designCapacityMah)
-        // 基底刷新后指标 01/02/03 同口径联动：当前容量 = 0.92 × 6800 = 6256，健康度 92%
-        assertEquals(6256, after.currentCapacityMah)
-        assertEquals(92.0f, after.healthPercentage, 0.01f)
+        // 基底刷新后指标 01/03 同口径联动：实测容量 4890 不变，健康度 = 4890/6800 = 71.9%
+        // (是多少就是多少——旧口径 0.92×6800=6256/92% 虚构联动已移除)
+        assertEquals(4890, after.currentCapacityMah)
+        assertTrue(after.hasMeasuredCapacity)
+        assertEquals(71.9f, after.healthPercentage, 0.15f)
         // 实验室覆盖层其余参数 (电量等) 不受设计容量变更影响；
         // 电流需具体数值驱动滑杆：真实通道不可读 (null) 时落入 0 mA 展示，属模拟态预期行为
         assertEquals(before.percentage, after.percentage)
@@ -187,7 +198,11 @@ class RemainingMetricsAuditTest {
         vm.exitLabMode()
         val real = vm.batteryState.value
         assertEquals(6800, real.designCapacityMah)
-        assertEquals(6256, real.currentCapacityMah)
+        assertEquals(4890, real.currentCapacityMah)
+        assertEquals(71.9f, real.healthPercentage, 0.15f)
+
+        BatterySysfs.installProbeResultForTest(emptyList())
+        bms.deleteRecursively()
     }
 
     @Test

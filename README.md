@@ -153,6 +153,21 @@
 
 ---
 
+## 🎯 v2.0.0-alpha.1 · 健康度诚实口径 + 四 Tab 信息架构
+
+**用户口径修正（核心）**：电池健康度**是多少就是多少，不再按出厂保持率虚构**：
+
+- **0.92 出厂保持率估算彻底移除**（[BatteryTelemetryParser.kt](android/app/src/main/java/com/battery/master/service/BatteryTelemetryParser.kt)）：电量计节点（charge_full）全链路不可读时，旧实现虚构 `0.92×设计容量` 的"当前容量"再得出精确的"92.0% 健康度"——现已改为容量=0（非法哨兵）、来源 `UNAVAILABLE`（不可测算）、健康度=0 且 `hasMeasuredCapacity=false`，UI 指标 01/02/03 显示 **"— 无法测算"**，测不到就不展示；附带收益：0 被锁定链路合理区间校验拒绝，估算值冒充实测锁定的通路彻底关闭。
+- **库仑计钳制语义修正**：容量不可测时 CHARGE_COUNTER 实测剩余电量不再被 `coerceAtMost(0)` 钳制成 0——实测读数仍是真实测量；容量实测时保留"剩余 ≤ 当前容量"防抖钳制。
+- **模拟态展示自洽**：一键模拟充满的演示容量固定化（不再依赖真实通道容量，电量计不可读时旧实现 SIMULATED key 永不写入且出现"当前 0 mAh / 剩余 4760 mAh"矛盾）；实验室模拟基准容量在真实容量不可测时退回设计容量，全程 [模拟] 标注。
+- **健康档案 Tab 新增**（对齐 Web 端 HEALTH 视图）：健康度实测大数字（无法测算显式空态）、内阻实测卡、循环寿命预测卡、健康诊断建议（过热/损坏/超压/高温/偏热/循环超基线/健康度<80% 七级文案）、充满判定卡双入口、完全充满校准规范说明。
+- **遥测分析 Tab 新增**（对齐 Web 端 TELEMETRY 视图，Android 真机独有）：Compose Canvas 自绘三通道实时曲线（电压/电流/温度，1Hz 滑窗 120 秒，零三方依赖）、功率/温度评估卡（38/45℃ 单源分级）、**采集链路状态卡**（探测链命中节点 bms/maxfg、库仑计/CURRENT_NOW 支持性、内阻引擎滑窗 n=样本数·置信度——真实数据来源透视，Web 模拟端无法实现）。
+- **Android 端取舍**（与 Web 对比）：Web 端的"原生源码镜像/工程总览"属 Web 演示页说明性内容，不适用于 Android 端，不搬移；Web 端 HEALTH/TELEMETRY 视图按上述补齐。
+- **测试**：全量改造为诚实口径（无节点 → 空态断言；需实测的用例改走 `BatterySysfs.installProbeResultForTest` 探测链临时节点注入，验证真实锁定/校准联动路径），`HealthAuthenticityAuditTest` 重写为 v2.0.0-alpha.1 口径。
+- **版本升级**：versionName 2.0.0-alpha.1 / versionCode 13，Release 标记预发布。
+
+---
+
 ## 👨‍💻 开发者
 
 - **某厂大牛马【带娃的小陈工】** — 抖音 / 小红书 平台
@@ -206,7 +221,7 @@ git push -u origin main
 只要在本地打上 `v*` 格式的版本标签（**必须与 `android/app/build.gradle.kts` 中的 `versionName` 一致**，CI 会强制校验）并推送到 GitHub，GitHub Actions 会自动创建 GitHub Release 并将 APK 文件挂载在 Release 附件中：
 
 ```bash
-# 示例：当前版本 versionName=2.0.0-alpha (versionCode=12)
+# 示例：当前版本 versionName=2.0.0-alpha.1 (versionCode=13)
 git tag v1.2.6
 git push origin v1.2.6
 ```

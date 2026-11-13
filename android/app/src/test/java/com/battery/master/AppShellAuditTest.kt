@@ -126,6 +126,6 @@ class AppShellAuditTest {
             "versionName 必须为语义化版本 (允许 alpha/beta/rc/dev 预发布后缀，如 2.0.0-alpha)",
             Regex("""\d+\.\d+\.\d+(-[\w.]+)?""").matches(BuildConfig.VERSION_NAME)
         )
-        assertTrue("versionCode 必须单调递增 (v2.0.0-alpha=12)", BuildConfig.VERSION_CODE >= 10)
+        assertTrue("versionCode 必须单调递增 (v2.0.0-alpha.1=13)", BuildConfig.VERSION_CODE >= 10)
     }
 }

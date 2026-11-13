@@ -9,12 +9,15 @@ import com.battery.master.service.BatterySysfs
 import com.battery.master.service.BatteryTelemetryParser
 import com.battery.master.viewmodel.BatteryViewModel
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import java.io.File
+import java.nio.file.Files
 
 /**
  * 指标 01/02/03/04 容量体系审计回归测试 (Robolectric，无模拟器)
@@ -70,15 +73,26 @@ class CapacityMetricsAuditTest {
             putExtra(BatteryManager.EXTRA_SCALE, 100)
             putExtra(BatteryManager.EXTRA_STATUS, BatteryManager.BATTERY_STATUS_DISCHARGING)
         }
-        // batteryManager 传 null：CHARGE_COUNTER 不可用 → 走百分比折算通道
-        val raw = BatteryTelemetryParser.parse(intent, null, 5000)
+        // batteryManager 传 null：CHARGE_COUNTER 不可用 → 走百分比折算通道；
+        // v2.0.0-alpha.1：注入探测链实测容量 (4890000 μAh → 4890 mAh)，
+        // 旧实现 0.92 降级估算 (4600) 已移除——健康度口径是多少就是多少
+        val bms = Files.createTempDirectory("cap_probe").toFile()
+        File(bms, "charge_full").writeText("4890000\n")
+        BatterySysfs.installProbeResultForTest(listOf(bms.absolutePath))
+        try {
+            val raw = BatteryTelemetryParser.parse(intent, null, 5000)
 
-        // 指标 03：sysfs 不可读 → 0.92 × 5000 = 4600 mAh 降级估算
-        assertEquals(4600, raw.currentCapacityMah)
-        // 指标 02：round(4600 × 53%) = 2438 (旧实现浮点截断得 2437，漂移 1mAh)
-        assertEquals(2438, raw.remainingCapacityMah)
-        // 不变式：剩余电量 ≤ 当前可用容量
-        assertTrue(raw.remainingCapacityMah <= raw.currentCapacityMah)
+            // 指标 03：探测链命中 → 实测 4890 mAh [sysfs 实测]
+            assertEquals(4890, raw.currentCapacityMah)
+            assertTrue(raw.hasMeasuredCapacity)
+            // 指标 02：round(4890 × 53%) = 2592 (旧实现浮点截断得 2591，漂移 1mAh)
+            assertEquals(2592, raw.remainingCapacityMah)
+            // 不变式：剩余电量 ≤ 当前可用容量
+            assertTrue(raw.remainingCapacityMah <= raw.currentCapacityMah)
+        } finally {
+            BatterySysfs.installProbeResultForTest(emptyList())
+            bms.deleteRecursively()
+        }
     }
 
     @Test
@@ -87,14 +101,31 @@ class CapacityMetricsAuditTest {
             putExtra(BatteryManager.EXTRA_LEVEL, 100)
             putExtra(BatteryManager.EXTRA_SCALE, 100)
         }
-        val raw = BatteryTelemetryParser.parse(intent, null, 5000)
+        // 实测路径：注入 charge_full = 5000000 μAh (5000 mAh)，设计容量兜底 5000
+        val bms = Files.createTempDirectory("cap_probe").toFile()
+        File(bms, "charge_full").writeText("5000000\n")
+        BatterySysfs.installProbeResultForTest(listOf(bms.absolutePath))
+        try {
+            val raw = BatteryTelemetryParser.parse(intent, null, 5000)
 
-        assertEquals(100, raw.percentage)
-        // 100% 折算恰好等于当前容量 (不变式上界，无截断损耗)
-        assertEquals(raw.currentCapacityMah, raw.remainingCapacityMah)
-        // 指标 01：健康度 = 当前容量 / 设计容量 × 100，钳制 0~100
-        assertEquals(92.0f, raw.healthPercentage, 0.01f)
-        assertTrue(raw.healthPercentage in 0f..100f)
+            assertEquals(100, raw.percentage)
+            assertTrue(raw.hasMeasuredCapacity)
+            // 100% 折算恰好等于当前容量 (不变式上界，无截断损耗)
+            assertEquals(raw.currentCapacityMah, raw.remainingCapacityMah)
+            // 指标 01：健康度 = 当前容量 / 设计容量 × 100，钳制 0~100
+            assertEquals(100f, raw.healthPercentage, 0.01f)
+            assertTrue(raw.healthPercentage in 0f..100f)
+        } finally {
+            BatterySysfs.installProbeResultForTest(emptyList())
+            bms.deleteRecursively()
+        }
+
+        // 空态路径 (v2.0.0-alpha.1 口径)：无电量计节点 → 容量 0、健康度 0，
+        // 旧实现 0.92 虚构的 92.0% 已移除——测不到就不展示
+        val noGauge = BatteryTelemetryParser.parse(intent, null, 5000)
+        assertEquals(0, noGauge.currentCapacityMah)
+        assertEquals(0f, noGauge.healthPercentage, 0.001f)
+        assertFalse(noGauge.hasMeasuredCapacity)
     }
 
     // ===== 指标 04：设计容量回退链与入口防线 =====

@@ -11,6 +11,7 @@ import com.battery.master.data.FullChargeSource
 import com.battery.master.data.FullChargeVerdict
 import com.battery.master.receiver.BatteryReceiver
 import com.battery.master.service.BatteryHardwareReader
+import com.battery.master.service.BatterySysfs
 import com.battery.master.service.BatteryTelemetryParser
 import com.battery.master.viewmodel.BatteryViewModel
 import com.battery.master.viewmodel.LabScenario
@@ -24,6 +25,8 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows
 import org.robolectric.annotation.Config
+import java.io.File
+import java.nio.file.Files
 
 /**
  * 指标 12「完全充满容量」全量深度自检回归测试 (Robolectric，无模拟器)
@@ -175,23 +178,34 @@ class FullChargeCapacityTest {
             putExtra(BatteryManager.EXTRA_VOLTAGE, 4187)
             putExtra(BatteryManager.EXTRA_HEALTH, BatteryManager.BATTERY_HEALTH_GOOD)
         }
-        val raw = BatteryTelemetryParser.parse(intent, batteryManager, 5000)
+        // v2.0.0-alpha.1：注入探测链实测容量 (4890000 μAh → 4890 mAh)——
+        // 无电量计节点时容量=0 诚实空态，映射断言走真实实测路径
+        val bms = Files.createTempDirectory("fc_probe").toFile()
+        File(bms, "charge_full").writeText("4890000\n")
+        BatterySysfs.installProbeResultForTest(listOf(bms.absolutePath))
+        try {
+            val raw = BatteryTelemetryParser.parse(intent, batteryManager, 5000)
 
-        assertEquals(58, raw.percentage)
-        assertEquals(BatteryStatus.CHARGING, raw.status)
-        assertEquals(32.6f, raw.temperatureCelsius, 0.01f)
-        assertEquals(4187, raw.voltageMv)
-        assertTrue(raw.currentCapacityMah > 0)
-        // 剩余电量 = 当前容量 × 百分比 (不变式：≤ 当前容量)
-        assertEquals((raw.currentCapacityMah * 58 / 100), raw.remainingCapacityMah)
-        // 健康度 = 当前容量 / 设计容量，钳制 0~100
-        assertTrue(raw.healthPercentage in 0f..100f)
-        assertFalse(raw.isFullChargeConditionMet)
-        // 展示态合成：硬件摘要字段全部非空 (带来源标注)
-        val state = raw.toBatteryState(null, null)
-        assertTrue(state.socModel.isNotEmpty())
-        assertTrue(state.pmicModel.isNotEmpty())
-        assertNull(state.fullChargeCapacityMah)
+            assertEquals(58, raw.percentage)
+            assertEquals(BatteryStatus.CHARGING, raw.status)
+            assertEquals(32.6f, raw.temperatureCelsius, 0.01f)
+            assertEquals(4187, raw.voltageMv)
+            assertTrue(raw.hasMeasuredCapacity)
+            assertEquals(4890, raw.currentCapacityMah)
+            // 剩余电量 = 当前容量 × 百分比 (不变式：≤ 当前容量)
+            assertEquals((raw.currentCapacityMah * 58 / 100), raw.remainingCapacityMah)
+            // 健康度 = 当前容量 / 设计容量，钳制 0~100
+            assertTrue(raw.healthPercentage in 0f..100f)
+            assertFalse(raw.isFullChargeConditionMet)
+            // 展示态合成：硬件摘要字段全部非空 (带来源标注)
+            val state = raw.toBatteryState(null, null)
+            assertTrue(state.socModel.isNotEmpty())
+            assertTrue(state.pmicModel.isNotEmpty())
+            assertNull(state.fullChargeCapacityMah)
+        } finally {
+            BatterySysfs.installProbeResultForTest(emptyList())
+            bms.deleteRecursively()
+        }
     }
 
     // ===== 5. 广播通道集成：与 Reader 共享锁定语义 =====
@@ -201,6 +215,12 @@ class FullChargeCapacityTest {
         val reader = BatteryHardwareReader(app)
         var emitted: BatteryState? = null
         val receiver = BatteryReceiver(reader) { emitted = it }
+
+        // v2.0.0-alpha.1：注入探测链实测容量 (4890000 μAh → 4890 mAh)——
+        // 旧 0.92 估算冒充实测锁定已移除，真实锁定必须来自实测电量计节点
+        val bms = Files.createTempDirectory("rx_probe").toFile()
+        File(bms, "charge_full").writeText("4890000\n")
+        BatterySysfs.installProbeResultForTest(listOf(bms.absolutePath))
 
         // 100% 且浮充：经 ShadowBatteryManager 注入 CURRENT_NOW = 0 μA (浮充截止读数，
         // 落在 0~25 mA 判定带内)。v1.2.3 P0 修复后不支持 CURRENT_NOW 的设备
@@ -222,6 +242,7 @@ class FullChargeCapacityTest {
         val fullState = emitted!!
         assertTrue(fullState.isFullChargeConditionMet)
         assertEquals(BatteryStatus.FULL, fullState.status)
+        assertTrue(fullState.hasMeasuredCapacity)
         assertTrue(fullState.fullChargeCapacityMah!! > 0)
         assertEquals(fullState.currentCapacityMah, fullState.fullChargeCapacityMah)
         assertTrue(fullState.lastFullChargeTimestamp!! > 0)
@@ -246,6 +267,9 @@ class FullChargeCapacityTest {
         assertEquals(BatteryStatus.CHARGING, partialState.status)
         assertEquals(fullState.fullChargeCapacityMah, partialState.fullChargeCapacityMah)
         assertEquals(fullState.lastFullChargeTimestamp, partialState.lastFullChargeTimestamp)
+
+        BatterySysfs.installProbeResultForTest(emptyList())
+        bms.deleteRecursively()
     }
 
     // ===== 6. ViewModel 一键模拟完全充满 =====
