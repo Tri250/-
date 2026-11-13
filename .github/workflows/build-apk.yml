@@ -137,7 +137,8 @@ jobs:
             echo "::error::BatteryViewModel missing from mapping.txt"
             exit 1
           fi
-          RENAMED=$(echo "$VM_LINE" | awk '{print $2}' | sed 's/:$//' | tr '.' '/')
+          # mapping 行格式: `original -> renamed:`，混淆名在第 3 列
+          RENAMED=$(echo "$VM_LINE" | awk '{print $3}' | sed 's/:$//' | tr '.' '/')
           grep -q "void <init>(android.app.Application)" "$MAPPING" || {
             echo "::error::BatteryViewModel (Application) constructor not retained by R8 keep rules"
             exit 1
