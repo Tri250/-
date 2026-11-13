@@ -67,8 +67,8 @@ data class BatteryState(
     // 4、电池设计容量 (电池出厂容量 mAh，例如 5000 mAh)
     val designCapacityMah: Int = 5000,
 
-    /** 指标 03 当前容量数据来源 (sysfs 实测 / 0.92 降级估算)；指标 01 健康度同源 */
-    val currentCapacitySource: CapacitySource = CapacitySource.ESTIMATED,
+    /** 指标 03 当前容量数据来源 (sysfs 实测 / 不可测算 UNAVAILABLE)；指标 01 健康度同源 */
+    val currentCapacitySource: CapacitySource = CapacitySource.UNAVAILABLE,
 
     /** 指标 04 设计容量数据来源 (PowerProfile / sysfs / 用户校准 / 5000 mAh 兜底) */
     val designCapacitySource: CapacitySource = CapacitySource.FALLBACK,

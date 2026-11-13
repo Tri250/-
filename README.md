@@ -168,6 +168,18 @@
 
 ---
 
+## 🔍 v2.0.0-alpha.2 · 新增内容彻底自检修复
+
+针对 v2.0.0-alpha.1 新增修改的全量自检，发现并修复 **3 项预期范围不一致缺陷**：
+
+- **P0 · 内阻引擎死链路（功能未达预期范围）**：全局只有 `BatteryHealthEngine.snapshot()` 消费（toBatteryState / HardwareInfoResolver）而**无任何 `observe()` 调用**——滑窗永远 n=0、内阻永远"[工程估算]"，遥测分析 Tab 宣称的"运行时测算/引擎滑窗"是死数据。修复：解析出口（[BatteryTelemetryParser.parse()](android/app/src/main/java/com/battery/master/service/BatteryTelemetryParser.kt)）统一喂样，双通道同拍重复读数由引擎内部去重、浮充/不可读电流被采样守卫拒绝；`TelemetryAndHealthTabAuditTest.engineWiring_parseFeedsSamples_reflectedInBatteryState` 端到端断言 30 样本喂入 → 滑窗 31 → BatteryState.engineSampleCount 透传，防退化。
+- **P1 · 健康档案内阻卡臆造值**：无引擎测算时卡片展示 14.8 mΩ 工程估算值，与"是多少就是多少"口径冲突。修复：仅 `[运行时测算·置信度 n=N]` 时才展示数值，无测算显示"—"；总览硬件栏保留 v1.2.4 `[工程估算]` 显式标注口径。
+- **P2 · 口径双轨漂移**：`healthMeasured` 循环寿命预测门限另写 `currentCapacitySource==SYSFS` 判定，与 `hasMeasuredCapacity` 字段存在漂移风险 → 统一单源；`BatteryState.currentCapacitySource` 默认值与注释同步为 UNAVAILABLE 诚实口径。
+- **测试**：新增 `TelemetryAndHealthTabAuditTest`（5 用例：四 Tab 导航 / 遥测曲线+采集链路卡 / 无法测算空态 / 内阻诚实口径 / 引擎接线端到端），全量 **106 用例全绿**。
+- **版本升级**：versionName 2.0.0-alpha.2 / versionCode 14，Release 标记预发布。
+
+---
+
 ## 👨‍💻 开发者
 
 - **某厂大牛马【带娃的小陈工】** — 抖音 / 小红书 平台
@@ -221,7 +233,7 @@ git push -u origin main
 只要在本地打上 `v*` 格式的版本标签（**必须与 `android/app/build.gradle.kts` 中的 `versionName` 一致**，CI 会强制校验）并推送到 GitHub，GitHub Actions 会自动创建 GitHub Release 并将 APK 文件挂载在 Release 附件中：
 
 ```bash
-# 示例：当前版本 versionName=2.0.0-alpha.1 (versionCode=13)
+# 示例：当前版本 versionName=2.0.0-alpha.2 (versionCode=14)
 git tag v1.2.6
 git push origin v1.2.6
 ```

@@ -2419,9 +2419,12 @@ fun HealthProfileScreen(
                     modifier = Modifier.weight(1f),
                     number = "R",
                     title = "电芯内阻",
-                    value = if (state.internalResistanceMohm > 0f)
+                    // v2.0.0-alpha.1 自检修复：与"是多少就是多少"口径对齐——仅引擎
+                    // 运行时测算 (ΔV/ΔI 回归) 有结果时展示数值；无测算不展示臆造
+                    // 工程估算值 (总览硬件栏保留 [工程估算] 显式标注口径)
+                    value = if (state.internalResistanceLabel.startsWith("[运行时测算"))
                         String.format(Locale.US, "%.1f", state.internalResistanceMohm) else "—",
-                    unit = if (state.internalResistanceMohm > 0f) "mΩ" else "",
+                    unit = if (state.internalResistanceLabel.startsWith("[运行时测算")) "mΩ" else "",
                     sub = state.internalResistanceLabel,
                     accentColor = DesignTokens.AccentTeal
                 )
@@ -2693,8 +2696,8 @@ android {
         applicationId = "com.battery.master"
         minSdk = 26
         targetSdk = 36
-        versionCode = 13
-        versionName = "2.0.0-alpha.1"
+        versionCode = 14
+        versionName = "2.0.0-alpha.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -2946,8 +2949,8 @@ data class BatteryState(
     // 4、电池设计容量 (电池出厂容量 mAh，例如 5000 mAh)
     val designCapacityMah: Int = 5000,
 
-    /** 指标 03 当前容量数据来源 (sysfs 实测 / 0.92 降级估算)；指标 01 健康度同源 */
-    val currentCapacitySource: CapacitySource = CapacitySource.ESTIMATED,
+    /** 指标 03 当前容量数据来源 (sysfs 实测 / 不可测算 UNAVAILABLE)；指标 01 健康度同源 */
+    val currentCapacitySource: CapacitySource = CapacitySource.UNAVAILABLE,
 
     /** 指标 04 设计容量数据来源 (PowerProfile / sysfs / 用户校准 / 5000 mAh 兜底) */
     val designCapacitySource: CapacitySource = CapacitySource.FALLBACK,

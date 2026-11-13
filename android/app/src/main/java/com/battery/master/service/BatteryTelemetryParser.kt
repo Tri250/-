@@ -65,8 +65,10 @@ internal data class RawBatteryTelemetry(
         // v2.0.0-alpha.1：遥测分析 Tab 采集链路卡——探测链命中节点 + 引擎滑窗状态
         val engineSnapshot = BatteryHealthEngine.snapshot()
         // v2.0.0-alpha 批次B：循环寿命预测——仅健康度两项容量均实测时输出，
-        // 估算健康度 (0.92 兜底) 不参与外推，避免估算值被放大成"精确的剩余循环数"
-        val healthMeasured = currentCapacitySource == CapacitySource.SYSFS &&
+        // 估算健康度不参与外推，避免估算值被放大成"精确的剩余循环数"。
+        // v2.0.0-alpha.1：healthMeasured 与 hasMeasuredCapacity 单源对齐 (旧实现
+        // 另写 currentCapacitySource==SYSFS 判定，两处口径存在漂移风险)
+        val healthMeasured = hasMeasuredCapacity &&
             designCapacitySource in BatteryTelemetryParser.MEASURED_DESIGN_SOURCES
         val healthForecastText = BatteryHealthEngine.forecastText(
             healthPercentage,
@@ -370,7 +372,13 @@ internal object BatteryTelemetryParser {
         // 放电 1150 mA 与充电 1150 mA 同显正功率，充放方向信息丢失
         val powerWatts: Float? = currentMa?.let { voltageMv.toFloat() * it / 1_000_000f }
 
-        return RawBatteryTelemetry(
+        // v2.0.0-alpha.1 自检修复：内阻引擎样本采集接线——旧实现全局只有
+        // snapshot() 消费 (toBatteryState / HardwareInfoResolver) 而无 observe()
+        // 调用，滑窗永远 n=0、内阻永远 "[工程估算]"，遥测分析 Tab 宣称的
+        // "运行时测算/引擎滑窗"是死链路。现于解析出口统一喂入引擎：
+        // 广播与轮询双通道同拍重复读数由引擎内部去重 (时间戳+读数签名)，
+        // 浮充电流与不可读电流被引擎采样守卫拒绝，不会污染窗口
+        val raw = RawBatteryTelemetry(
             percentage = percentage,
             status = status,
             isCharging = isCharging,
@@ -391,5 +399,9 @@ internal object BatteryTelemetryParser {
             currentCapacitySource = currentCapacitySource,
             designCapacitySource = designCapacitySource
         )
+
+        // 见上方接线说明：解析出口喂入内阻引擎 (去重/采样守卫均在引擎内完成)
+        BatteryHealthEngine.observe(raw)
+        return raw
     }
 }
