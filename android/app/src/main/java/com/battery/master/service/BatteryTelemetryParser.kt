@@ -73,6 +73,9 @@ internal data class RawBatteryTelemetry(
         // v2.0.0-alpha.1：healthMeasured 与 hasMeasuredCapacity 单源对齐 (旧实现
         // 另写 currentCapacitySource==SYSFS 判定，两处口径存在漂移风险)
         val healthMeasured = hasMeasuredCapacity &&
+            // v2.0.0-alpha.6：库仑计单点估算 (±电量格舍入误差) 不参与循环寿命外推，
+            // 避免估算值被放大成"精确的剩余循环数"
+            currentCapacitySource != CapacitySource.INSTANT_COULOMB &&
             designCapacitySource in BatteryTelemetryParser.MEASURED_DESIGN_SOURCES
         val healthForecastText = BatteryHealthEngine.forecastText(
             healthPercentage,

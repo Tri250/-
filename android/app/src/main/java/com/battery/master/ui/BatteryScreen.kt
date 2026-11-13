@@ -216,9 +216,15 @@ fun BatteryScreen(
                         value = if (state.hasMeasuredCapacity)
                             "${String.format(Locale.US, "%.1f", state.healthPercentage)}%" else "—",
                         // 标注容量来源——"sysfs 实测"为真实硬件状态，
-                        // "不可测算"为无电量计节点时的诚实空态，不得虚构
-                        sub = if (state.hasMeasuredCapacity) "实测健康度 [${state.currentCapacitySource.label}]"
-                              else "无法测算 [${state.currentCapacitySource.label}]",
+                        // "不可测算"为无电量计节点时的诚实空态，不得虚构。
+                        // v2.0.0-alpha.6：回归采样中 (n>0 未收敛) 显示采样进度
+                        // 而非死空态——用户可预期健康度将在覆盖 ≥30% 后真实显示
+                        sub = when {
+                            state.hasMeasuredCapacity -> "实测健康度 [${state.currentCapacitySource.label}]"
+                            state.capacityRegressionInfo.isNotEmpty() ->
+                                "回归采样中 · ${state.capacityRegressionInfo} · 覆盖≥30%收敛"
+                            else -> "无法测算 [${state.currentCapacitySource.label}]"
+                        },
                         accentColor = if (state.hasMeasuredCapacity) DesignTokens.BrandPrimary else DesignTokens.TextTertiary
                     )
                     CyberMetricCardItem(

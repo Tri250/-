@@ -152,9 +152,11 @@ internal object BatterySysfs {
 
     private const val DEFAULT_SCAN_ROOT = "/sys/class/power_supply"
 
-    /** 电量计特征节点：命中越多越可信是该平台的真实电量计目录 */
+    /** 电量计特征节点：命中越多越可信是该平台的真实电量计目录
+     *  (v2.0.0-alpha.6：energy 系节点加入签名——energy_full-only 机型识别) */
     private val gaugeSignatureNodes = listOf(
-        "charge_full_design", "charge_full", "current_now", "cycle_count", "temp", "voltage_now"
+        "charge_full_design", "charge_full", "energy_full_design", "energy_full",
+        "current_now", "cycle_count", "temp", "voltage_now"
     )
 
     /**
@@ -255,11 +257,50 @@ internal object BatterySysfs {
     private fun <T> readAcrossDirs(node: String, transform: (String) -> T?): T? =
         gaugeDirsOrDefault().firstNotNullOfOrNull { dir -> transform("$dir/$node") }
 
-    /** v2.0.0-alpha 批次A：跨电量计目录链读取 charge_full (衰减后容量，μAh/mAh 双归一) */
-    fun readChargeFull(): Int? = readAcrossDirs("charge_full") { readCapacityMah(it) }
+    /** v2.0.0-alpha 批次A：跨电量计目录链读取 charge_full (衰减后容量，μAh/mAh 双归一)
+     *  v2.0.0-alpha.6：charge_full 全链不可读时回退 energy_full (μWh 经实测电压折算)——
+     *  部分设备 (Pixel 部分世代/联发科平台) 只导出 energy 系节点，旧探测链直接错过，
+     *  指标 01/03 永远"无法测算" */
+    fun readChargeFull(): Int? =
+        readAcrossDirs("charge_full") { readCapacityMah(it) }
+            ?: readEnergyNodeCapacityMah("energy_full")
 
-    /** v2.0.0-alpha 批次A：跨电量计目录链读取 charge_full_design (设计容量) */
-    fun readChargeFullDesign(): Int? = readAcrossDirs("charge_full_design") { readCapacityMah(it) }
+    /** v2.0.0-alpha 批次A：跨电量计目录链读取 charge_full_design (设计容量)
+     *  v2.0.0-alpha.6：同理回退 energy_full_design 折算 */
+    fun readChargeFullDesign(): Int? =
+        readAcrossDirs("charge_full_design") { readCapacityMah(it) }
+            ?: readEnergyNodeCapacityMah("energy_full_design")
+
+    /**
+     * v2.0.0-alpha.6：energy 系节点 (μWh) → 容量 (mAh) 物理折算。
+     *
+     * power_supply class 规范：energy_full / energy_full_design 单位 μWh，
+     * Q(mAh) = E(μWh) / V(mV) (E = Q·V/1000，量纲恒等变形)。
+     * 折算电压取节点 voltage_now (规范单位 μV → mV)，钳制到标称窗口 [3400, 4000] mV——
+     * 满充 4.4V+/关机 3.3V- 极值会引入 ~10% 折算失真，窗口外回落标称 3850 mV
+     * (锂电行业标称电压惯例)；节点不可读同样用标称值兜底。
+     */
+    private fun readEnergyNodeCapacityMah(node: String): Int? {
+        val energyUwh = readAcrossDirs(node) { readInt(it) } ?: return null
+        if (energyUwh <= 0 || energyUwh == Int.MIN_VALUE) return null
+        val voltageMv = readVoltageNowMilliVolts() ?: NOMINAL_VOLTAGE_MV
+        val capacityMah: Int = Math.round(energyUwh.toDouble() / voltageMv).toInt()
+        return if (capacityMah in BatteryTelemetryParser.MIN_PLAUSIBLE_CAPACITY_MAH..
+            BatteryTelemetryParser.MAX_PLAUSIBLE_CAPACITY_MAH
+        ) capacityMah else null
+    }
+
+    /** energy 系节点折算用实测电压 (mV)：voltage_now 规范 μV → mV，钳制标称窗口 */
+    private fun readVoltageNowMilliVolts(): Int? {
+        val uV = readAcrossDirs("voltage_now") { readInt(it) } ?: return null
+        if (uV <= 0 || uV == Int.MIN_VALUE) return null
+        return Math.round(uV / 1000f).toInt().coerceIn(MIN_NOMINAL_VOLTAGE_MV, MAX_NOMINAL_VOLTAGE_MV)
+    }
+
+    /** energy 折算标称电压窗口 (mV)：窗口外 (满充/关机极值) 回落标称 3850 mV */
+    private const val NOMINAL_VOLTAGE_MV = 3850
+    private const val MIN_NOMINAL_VOLTAGE_MV = 3400
+    private const val MAX_NOMINAL_VOLTAGE_MV = 4000
 
     /** v2.0.0-alpha 批次A：跨电量计目录链读取 cycle_count (循环计数) */
     fun readCycleCount(): Int? = readAcrossDirs("cycle_count") { readInt(it) }

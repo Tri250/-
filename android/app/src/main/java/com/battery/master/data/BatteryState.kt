@@ -18,6 +18,14 @@ enum class CapacitySource(val label: String) {
     /** 库仑计积分回归实测满充容量 (Δ电荷/Δ百分比 最小二乘，节点不可读时的真实通道) */
     COULOMB_REGRESSION("库仑计回归"),
 
+    /**
+     * v2.0.0-alpha.6：库仑计单点瞬时满充容量估算 (回归收敛前的立即通道)。
+     * F = CHARGE_COUNTER 实测剩余电荷 ÷ 实时百分比 × 100——纯传感器读数物理推导
+     * (AccuBattery 单点形式)，无出厂保持率假设；±百分比舍入误差由 p≥20 门限钳制，
+     * 回归收敛后自动升级为高置信通道
+     */
+    INSTANT_COULOMB("库仑计单点估算"),
+
     /** PowerProfile 反射实测 (设计容量) */
     POWER_PROFILE("PowerProfile 实测"),
 

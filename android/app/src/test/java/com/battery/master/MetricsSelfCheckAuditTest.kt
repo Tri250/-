@@ -10,6 +10,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.battery.master.data.BatteryState
 import com.battery.master.data.CapacitySource
 import com.battery.master.data.FullChargeVerdict
+import com.battery.master.service.BatteryHardwareReader
 import com.battery.master.service.BatterySysfs
 import com.battery.master.service.BatteryTelemetryParser
 import com.battery.master.ui.BatteryScreen
@@ -200,33 +201,179 @@ class MetricsSelfCheckAuditTest {
         }
     }
 
-    // ==================== 缺陷 B (UI)：Hero 与指标 02 卡三分支口径一致 ====================
+    // ==================== v2.0.0-alpha.6：指标 01 健康度真实显示 (三通道) ====================
 
-    private fun mountRealScreenWithCoulombOnlyState(): BatteryViewModel {
-        // 真实链路组装：无电量计节点 + 库仑计可读 → VM 状态即容量不可测/剩余实测
+    private fun installGaugeProbe(nodes: Map<String, String>): File {
+        val dir = File(Files.createTempDirectory("gauge_probe").toFile(), "battery").apply { mkdirs() }
+        nodes.forEach { (k, v) -> File(dir, k).writeText(v) }
+        BatterySysfs.installProbeResultForTest(listOf(dir.absolutePath))
+        return dir
+    }
+
+    private fun cleanupProbe(dir: File) {
         BatterySysfs.installProbeResultForTest(emptyList())
+        dir.deleteRecursively()
+    }
+
+    private fun newReader(): BatteryHardwareReader {
+        BatterySysfs.installProbeResultForTest(emptyList())
+        val reader = BatteryHardwareReader(app)
+        reader.resetCapacityRegressionForTest()
+        return reader
+    }
+
+    private fun sendBatterySticky(level: Int, chargeCounterUah: Int) {
         Shadows.shadowOf(batteryManager())
-            .setIntProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER, 2_400_000)
-        return BatteryViewModel(app)
+            .setIntProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER, chargeCounterUah)
+        app.sendStickyBroadcast(
+            batteryIntent {
+                putExtra(BatteryManager.EXTRA_LEVEL, level)
+                putExtra(BatteryManager.EXTRA_SCALE, 100)
+            }
+        )
+    }
+
+    // ===== 通道一：sysfs energy_full 探测扩展 (energy-only 机型) =====
+
+    @Test
+    fun sysfs_energyFullFallback_convertedToMah() {
+        // energy-only 机型：charge_full 缺席，energy_full=18_480_000 μWh
+        // @ voltage_now=3_850_000 μV → 18480000/3850 = 4800 mAh
+        val dir = installGaugeProbe(mapOf("energy_full" to "18480000", "voltage_now" to "3850000"))
+        try {
+            assertEquals(4800, BatterySysfs.readChargeFull())
+        } finally {
+            cleanupProbe(dir)
+        }
     }
 
     @Test
-    fun screen_coulombMeasuredCapacityUnmeasured_coherentDisplay() {
-        val vm = mountRealScreenWithCoulombOnlyState()
+    fun sysfs_energyFullDesignFallback_convertedToMah() {
+        // 设计容量同款折算：energy_full_design=19_250_000 μWh → 5000 mAh
+        val dir = installGaugeProbe(mapOf("energy_full_design" to "19250000", "voltage_now" to "3850000"))
+        try {
+            assertEquals(5000, BatterySysfs.readChargeFullDesign())
+        } finally {
+            cleanupProbe(dir)
+        }
+    }
+
+    @Test
+    fun sysfs_chargeFullPriority_overEnergyFull() {
+        // 规范节点在场时优先 (μAh 直接读数零折算误差，energy 折算仅兜底)
+        val dir = installGaugeProbe(
+            mapOf(
+                "charge_full" to "4890000", "energy_full" to "18480000",
+                "voltage_now" to "3850000"
+            )
+        )
+        try {
+            assertEquals(4890, BatterySysfs.readChargeFull())
+        } finally {
+            cleanupProbe(dir)
+        }
+    }
+
+    @Test
+    fun sysfs_energyFull_voltageClampedToNominalWindow() {
+        // 满充电压 4.4V 超出标称窗口 [3400, 4000] → 钳制 4000 → 18480000/4000 = 4620，
+        // 防满充/关机电压极值引入 ~10% 折算失真
+        val dir = installGaugeProbe(mapOf("energy_full" to "18480000", "voltage_now" to "4400000"))
+        try {
+            assertEquals(4620, BatterySysfs.readChargeFull())
+        } finally {
+            cleanupProbe(dir)
+        }
+    }
+
+    // ===== 通道二：库仑计单点瞬时估算 (回归收敛前的立即显示) =====
+
+    @Test
+    fun reader_instantCoulombEstimate_fusedWhenSysfsMissing() {
+        // 无 sysfs + CHARGE_COUNTER 实测 2400 mAh @52% → F=4615 mAh → 健康度 92.3%
+        // 旧实现：回归未收敛 (需覆盖 30%) → 永远"无法测算"
+        sendBatterySticky(52, 2_400_000)
+        val reader = newReader()
+        // 固定设计容量：避开 Robolectric ShadowPowerProfile 环境差异 (与回归集成测试同款)
+        reader.designCapacityMah = 5000
+        val state = reader.readBatteryTelemetry()
+        assertTrue(state.hasMeasuredCapacity)
+        assertEquals(CapacitySource.INSTANT_COULOMB, state.currentCapacitySource)
+        assertEquals(4615, state.currentCapacityMah)
+        assertEquals(92.3f, state.healthPercentage, 0.01f)
+        // 剩余电量保留库仑计实测读数 (F×p/100 ≡ c/1000 恒等)
+        assertEquals(2400, state.remainingCapacityMah)
+        assertEquals(CapacitySource.COULOMB_COUNTER, state.remainingCapacitySource)
+    }
+
+    @Test
+    fun reader_instantEstimate_belowThreshold_honestUnmeasured() {
+        // p=15 < 20 门限 (±1% 电量格舍入误差 >5%) → 不估，诚实"无法测算"
+        sendBatterySticky(15, 2_400_000)
+        val state = newReader().readBatteryTelemetry()
+        assertFalse(state.hasMeasuredCapacity)
+        assertEquals(CapacitySource.UNAVAILABLE, state.currentCapacitySource)
+        assertEquals(0, state.currentCapacityMah)
+    }
+
+    @Test
+    fun reader_instantEstimate_outOfPlausibleRange_notEstimated() {
+        // 500 mAh 剩余 @40% → F=1250 mAh 越出物理区间 [1500, 15000] → 读数毛刺不估
+        sendBatterySticky(40, 500_000)
+        val state = newReader().readBatteryTelemetry()
+        assertFalse(state.hasMeasuredCapacity)
+        assertEquals(CapacitySource.UNAVAILABLE, state.currentCapacitySource)
+    }
+
+    @Test
+    fun reader_instantEstimate_atFullPercentage_exactReading() {
+        // 100% 时库仑计读数即满充电荷 → F=4800 精确 (4800/5000 → 96.0%)
+        sendBatterySticky(100, 4_800_000)
+        val reader = newReader()
+        reader.designCapacityMah = 5000
+        val state = reader.readBatteryTelemetry()
+        assertTrue(state.hasMeasuredCapacity)
+        assertEquals(4800, state.currentCapacityMah)
+        assertEquals(96.0f, state.healthPercentage, 0.01f)
+    }
+
+    @Test
+    fun reader_regressionSamplingProgress_reportedWhilePending() {
+        // 采样中：p 15→16 且电荷同步上升 → 提交 1 个有效样本 (n=1 积累中)，
+        // p=16 仍低于单点门限 → 诚实未测算但显示采样进度
+        val reader = newReader()
+        sendBatterySticky(15, 2_300_000)
+        reader.readBatteryTelemetry()
+        sendBatterySticky(16, 2_345_000)
+        val state = reader.readBatteryTelemetry()
+        assertFalse(state.hasMeasuredCapacity)
+        assertEquals("n=1 · 积累中", state.capacityRegressionInfo)
+    }
+
+    // ===== 通道三 (UI)：单点估算健康度端到端真实显示 =====
+
+    @Test
+    fun screen_instantEstimate_healthDisplaysEndToEnd() {
+        // 真实链路组装：无 sysfs 探测链 + 库仑计实测 2400 mAh @52%
+        // → 01 健康度卡立即显示 92.3% (旧实现显示 "— 无法测算")
+        BatterySysfs.installProbeResultForTest(emptyList())
+        sendBatterySticky(52, 2_400_000)
+        val vm = BatteryViewModel(app)
+        // 固定设计容量 (用户校准通道)：避开 Robolectric ShadowPowerProfile 环境差异，
+        // setDesignCapacity 立即重读发布 → 健康度 = 4615/5000 = 92.3%
+        vm.setDesignCapacity(5000)
         composeRule.setContent { BatteryScreen(viewModel = vm) }
         composeRule.waitForIdle()
 
         val state = vm.batteryState.value
-        assertFalse(state.hasMeasuredCapacity)
-        assertEquals(CapacitySource.COULOMB_COUNTER, state.remainingCapacitySource)
+        assertTrue(state.hasMeasuredCapacity)
+        assertEquals(CapacitySource.INSTANT_COULOMB, state.currentCapacitySource)
 
-        // Hero 行：库仑计实测分支 (旧实现渲染 "2400 / 0 mAh" 矛盾读数)
-        composeRule.onNodeWithText("剩余电量: 2400 mAh · 库仑计实测", substring = true)
-            .assertExists()
-        // 指标 02 卡：实测值 + 库仑计口径标注 (旧实现显示 "—" 丢弃实测值)
-        composeRule.onNodeWithText("库仑计实测剩余电荷 [容量未实测]", substring = true)
-            .assertExists()
-        // 旧实现的矛盾读数必须消失
+        // 01 健康度卡：数值 + 单点估算来源诚实标注
+        composeRule.onNodeWithText("92.3%").assertExists()
+        composeRule.onNodeWithText("实测健康度 [库仑计单点估算]").assertExists()
+        // Hero 分式口径回归保护 (F×p/100 ≡ c/1000，无 "X / 0 mAh" 矛盾读数)
+        composeRule.onNodeWithText("剩余电量: 2400 / 4615 mAh").assertExists()
         composeRule.onNodeWithText("/ 0 mAh", substring = true).assertDoesNotExist()
     }
 

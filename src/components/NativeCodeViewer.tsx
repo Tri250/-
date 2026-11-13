@@ -626,20 +626,38 @@ class BatteryHardwareReader(private val context: Context) {
         // 实例，双通道同拍重复遥测由"百分比未变化不提交样本"天然去重
         capacityRegressor.observe(raw.percentage, raw.chargeCounterUah)
         val regressedFullMah = capacityRegressor.fullCapacityMah()
-        val fused = if (!raw.hasMeasuredCapacity && regressedFullMah != null) {
-            // 剩余电量同步改走百分比×回归满容量口径 (库仑计绝对读数本身仍实测可用，
-            // 但量纲基准应与当前容量单源一致，避免指标 02/03 基准漂移)
-            raw.copy(
-                currentCapacityMah = regressedFullMah,
-                hasMeasuredCapacity = true,
-                currentCapacitySource = CapacitySource.COULOMB_REGRESSION,
-                capacityRegressionInfo = capacityRegressor.infoLabel(),
-                healthPercentage = ((regressedFullMah.toFloat() / raw.designCapacityMah) * 100f).coerceIn(0f, 100f),
-                remainingCapacityMah = Math.round(regressedFullMah * (raw.percentage / 100f)),
-                remainingCapacitySource = CapacitySource.ESTIMATED
-            )
-        } else {
-            raw.copy(capacityRegressionInfo = capacityRegressor.infoLabel())
+        // v2.0.0-alpha.6：库仑计单点瞬时满充容量估算——回归收敛前的立即通道。
+        // 真实使用痛点：sysfs 不可读机型上回归需累计 30 个百分点覆盖才收敛，
+        // 刚安装期间健康度只能"无法测算"。单点估算 F = CHARGE_COUNTER 实测
+        // 剩余电荷 ÷ 实时百分比 × 100，纯传感器读数物理推导 (无出厂保持率假设)，
+        // 回归收敛后自动升级 (融合优先级 sysfs > 回归 > 单点)
+        val instantFullMah = estimateInstantFullCapacity(raw.chargeCounterUah, raw.percentage)
+        val fused = when {
+            !raw.hasMeasuredCapacity && regressedFullMah != null -> {
+                // 剩余电量同步改走百分比×回归满容量口径 (库仑计绝对读数本身仍实测可用，
+                // 但量纲基准应与当前容量单源一致，避免指标 02/03 基准漂移)
+                raw.copy(
+                    currentCapacityMah = regressedFullMah,
+                    hasMeasuredCapacity = true,
+                    currentCapacitySource = CapacitySource.COULOMB_REGRESSION,
+                    capacityRegressionInfo = capacityRegressor.infoLabel(),
+                    healthPercentage = ((regressedFullMah.toFloat() / raw.designCapacityMah) * 100f).coerceIn(0f, 100f),
+                    remainingCapacityMah = Math.round(regressedFullMah * (raw.percentage / 100f)),
+                    remainingCapacitySource = CapacitySource.ESTIMATED
+                )
+            }
+            !raw.hasMeasuredCapacity && instantFullMah != null -> {
+                // 单点估算分支：剩余电量保留解析层库仑计实测读数 (数学上
+                // F×p/100 ≡ c/1000 恒等，无基准漂移可能)，口径 COULOMB_COUNTER
+                raw.copy(
+                    currentCapacityMah = instantFullMah,
+                    hasMeasuredCapacity = true,
+                    currentCapacitySource = CapacitySource.INSTANT_COULOMB,
+                    capacityRegressionInfo = capacityRegressor.infoLabel(),
+                    healthPercentage = ((instantFullMah.toFloat() / raw.designCapacityMah) * 100f).coerceIn(0f, 100f)
+                )
+            }
+            else -> raw.copy(capacityRegressionInfo = capacityRegressor.infoLabel())
         }
 
         // 12. 完全充满时的容量：满足判定则锁定+持久化，未满足保留上次锁定值不抹除
@@ -904,6 +922,30 @@ class BatteryHardwareReader(private val context: Context) {
 
         /** 设计容量兜底值：与 BatteryState 默认口径一致 */
         const val FALLBACK_DESIGN_CAPACITY = 5000
+
+        /** 单点估算百分比门限：p<20 时 ±1% 舍入引入误差 >5%，不估 (诚实不输出) */
+        const val INSTANT_ESTIMATE_MIN_PERCENTAGE = 20
+    }
+
+    /**
+     * v2.0.0-alpha.6：库仑计单点瞬时满充容量估算。
+     *
+     * F = CHARGE_COUNTER 实测剩余电荷 ÷ 实时百分比 × 100 (mAh)——与回归通道同款
+     * 物理原理 (Δ电荷/Δ百分比) 的单点形式，纯传感器读数推导，无出厂保持率假设。
+     * 质量门限：
+     * - 电荷不可读 (≤0) 不估；
+     * - 百分比 < 20 不估 (±1% 电量格舍入误差超过 5%，输出即失真)；
+     * - 结果越界回归引擎同款物理区间 [1500, 15000] mAh 不估 (读数毛刺/校准跳变)。
+     *
+     * @return 估算满充容量 (mAh)；任一门限不满足返回 null (诚实不输出)
+     */
+    private fun estimateInstantFullCapacity(chargeCounterUah: Long, percentage: Int): Int? {
+        if (chargeCounterUah <= 0) return null
+        if (percentage < INSTANT_ESTIMATE_MIN_PERCENTAGE) return null
+        val fullMah = Math.round(chargeCounterUah.toDouble() / percentage * 100.0 / 1000.0).toInt()
+        return if (fullMah in BatteryCapacityRegressor.MIN_PLAUSIBLE_FULL_MAH..
+            BatteryCapacityRegressor.MAX_PLAUSIBLE_FULL_MAH
+        ) fullMah else null
     }
 }
 `,
@@ -1132,9 +1174,15 @@ fun BatteryScreen(
                         value = if (state.hasMeasuredCapacity)
                             "\${String.format(Locale.US, "%.1f", state.healthPercentage)}%" else "—",
                         // 标注容量来源——"sysfs 实测"为真实硬件状态，
-                        // "不可测算"为无电量计节点时的诚实空态，不得虚构
-                        sub = if (state.hasMeasuredCapacity) "实测健康度 [\${state.currentCapacitySource.label}]"
-                              else "无法测算 [\${state.currentCapacitySource.label}]",
+                        // "不可测算"为无电量计节点时的诚实空态，不得虚构。
+                        // v2.0.0-alpha.6：回归采样中 (n>0 未收敛) 显示采样进度
+                        // 而非死空态——用户可预期健康度将在覆盖 ≥30% 后真实显示
+                        sub = when {
+                            state.hasMeasuredCapacity -> "实测健康度 [\${state.currentCapacitySource.label}]"
+                            state.capacityRegressionInfo.isNotEmpty() ->
+                                "回归采样中 · \${state.capacityRegressionInfo} · 覆盖≥30%收敛"
+                            else -> "无法测算 [\${state.currentCapacitySource.label}]"
+                        },
                         accentColor = if (state.hasMeasuredCapacity) DesignTokens.BrandPrimary else DesignTokens.TextTertiary
                     )
                     CyberMetricCardItem(
@@ -2959,6 +3007,14 @@ enum class CapacitySource(val label: String) {
     /** 库仑计积分回归实测满充容量 (Δ电荷/Δ百分比 最小二乘，节点不可读时的真实通道) */
     COULOMB_REGRESSION("库仑计回归"),
 
+    /**
+     * v2.0.0-alpha.6：库仑计单点瞬时满充容量估算 (回归收敛前的立即通道)。
+     * F = CHARGE_COUNTER 实测剩余电荷 ÷ 实时百分比 × 100——纯传感器读数物理推导
+     * (AccuBattery 单点形式)，无出厂保持率假设；±百分比舍入误差由 p≥20 门限钳制，
+     * 回归收敛后自动升级为高置信通道
+     */
+    INSTANT_COULOMB("库仑计单点估算"),
+
     /** PowerProfile 反射实测 (设计容量) */
     POWER_PROFILE("PowerProfile 实测"),
 
@@ -4061,9 +4117,11 @@ internal object BatterySysfs {
 
     private const val DEFAULT_SCAN_ROOT = "/sys/class/power_supply"
 
-    /** 电量计特征节点：命中越多越可信是该平台的真实电量计目录 */
+    /** 电量计特征节点：命中越多越可信是该平台的真实电量计目录
+     *  (v2.0.0-alpha.6：energy 系节点加入签名——energy_full-only 机型识别) */
     private val gaugeSignatureNodes = listOf(
-        "charge_full_design", "charge_full", "current_now", "cycle_count", "temp", "voltage_now"
+        "charge_full_design", "charge_full", "energy_full_design", "energy_full",
+        "current_now", "cycle_count", "temp", "voltage_now"
     )
 
     /**
@@ -4164,11 +4222,50 @@ internal object BatterySysfs {
     private fun <T> readAcrossDirs(node: String, transform: (String) -> T?): T? =
         gaugeDirsOrDefault().firstNotNullOfOrNull { dir -> transform("$dir/$node") }
 
-    /** v2.0.0-alpha 批次A：跨电量计目录链读取 charge_full (衰减后容量，μAh/mAh 双归一) */
-    fun readChargeFull(): Int? = readAcrossDirs("charge_full") { readCapacityMah(it) }
+    /** v2.0.0-alpha 批次A：跨电量计目录链读取 charge_full (衰减后容量，μAh/mAh 双归一)
+     *  v2.0.0-alpha.6：charge_full 全链不可读时回退 energy_full (μWh 经实测电压折算)——
+     *  部分设备 (Pixel 部分世代/联发科平台) 只导出 energy 系节点，旧探测链直接错过，
+     *  指标 01/03 永远"无法测算" */
+    fun readChargeFull(): Int? =
+        readAcrossDirs("charge_full") { readCapacityMah(it) }
+            ?: readEnergyNodeCapacityMah("energy_full")
 
-    /** v2.0.0-alpha 批次A：跨电量计目录链读取 charge_full_design (设计容量) */
-    fun readChargeFullDesign(): Int? = readAcrossDirs("charge_full_design") { readCapacityMah(it) }
+    /** v2.0.0-alpha 批次A：跨电量计目录链读取 charge_full_design (设计容量)
+     *  v2.0.0-alpha.6：同理回退 energy_full_design 折算 */
+    fun readChargeFullDesign(): Int? =
+        readAcrossDirs("charge_full_design") { readCapacityMah(it) }
+            ?: readEnergyNodeCapacityMah("energy_full_design")
+
+    /**
+     * v2.0.0-alpha.6：energy 系节点 (μWh) → 容量 (mAh) 物理折算。
+     *
+     * power_supply class 规范：energy_full / energy_full_design 单位 μWh，
+     * Q(mAh) = E(μWh) / V(mV) (E = Q·V/1000，量纲恒等变形)。
+     * 折算电压取节点 voltage_now (规范单位 μV → mV)，钳制到标称窗口 [3400, 4000] mV——
+     * 满充 4.4V+/关机 3.3V- 极值会引入 ~10% 折算失真，窗口外回落标称 3850 mV
+     * (锂电行业标称电压惯例)；节点不可读同样用标称值兜底。
+     */
+    private fun readEnergyNodeCapacityMah(node: String): Int? {
+        val energyUwh = readAcrossDirs(node) { readInt(it) } ?: return null
+        if (energyUwh <= 0 || energyUwh == Int.MIN_VALUE) return null
+        val voltageMv = readVoltageNowMilliVolts() ?: NOMINAL_VOLTAGE_MV
+        val capacityMah: Int = Math.round(energyUwh.toDouble() / voltageMv).toInt()
+        return if (capacityMah in BatteryTelemetryParser.MIN_PLAUSIBLE_CAPACITY_MAH..
+            BatteryTelemetryParser.MAX_PLAUSIBLE_CAPACITY_MAH
+        ) capacityMah else null
+    }
+
+    /** energy 系节点折算用实测电压 (mV)：voltage_now 规范 μV → mV，钳制标称窗口 */
+    private fun readVoltageNowMilliVolts(): Int? {
+        val uV = readAcrossDirs("voltage_now") { readInt(it) } ?: return null
+        if (uV <= 0 || uV == Int.MIN_VALUE) return null
+        return Math.round(uV / 1000f).toInt().coerceIn(MIN_NOMINAL_VOLTAGE_MV, MAX_NOMINAL_VOLTAGE_MV)
+    }
+
+    /** energy 折算标称电压窗口 (mV)：窗口外 (满充/关机极值) 回落标称 3850 mV */
+    private const val NOMINAL_VOLTAGE_MV = 3850
+    private const val MIN_NOMINAL_VOLTAGE_MV = 3400
+    private const val MAX_NOMINAL_VOLTAGE_MV = 4000
 
     /** v2.0.0-alpha 批次A：跨电量计目录链读取 cycle_count (循环计数) */
     fun readCycleCount(): Int? = readAcrossDirs("cycle_count") { readInt(it) }

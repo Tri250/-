@@ -98,8 +98,10 @@ class BatteryHealthDisplayIntegrationTest {
         val batteryManager =
             app.getSystemService(android.content.Context.BATTERY_SERVICE) as BatteryManager
 
-        // 仅 5 个百分点跨度 (<30)：诚实门限未过 → 仍显示"无法测算"，不冒充实测
-        for (p in 100 downTo 96) {
+        // 仅 5 个百分点跨度 (<30)：回归诚实门限未过；且全程 p<20 低于
+        // v2.0.0-alpha.6 库仑计单点估算门限 (±1% 电量格舍入误差 >5% 不估)——
+        // 双门限都未过 → 仍显示"无法测算"，不冒充实测
+        for (p in 19 downTo 15) {
             Shadows.shadowOf(batteryManager).setIntProperty(
                 BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER, (3800L * p * 10L).toInt()
             )

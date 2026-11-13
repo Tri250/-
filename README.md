@@ -217,6 +217,16 @@
 - **测试**：新增 [MetricsSelfCheckAuditTest](android/app/src/test/java/com/battery/master/MetricsSelfCheckAuditTest.kt) 13 用例（mA 内核归一化三场景 + 充满判定连带污染集成验证 / 库仑计实测保留与钳制不变式 / Hero-指标 02 三分支口径一致性端到端 / 链路卡回归标注三分支 / 判定卡标题口径）——全量 **132 用例全绿**。
 - **版本升级**：versionName 2.0.0-alpha.5 / versionCode 17，Release 标记预发布。
 
+## ⚡ v2.0.0-alpha.6 · 指标 01 电池健康度真实显示修复
+
+真实设备反馈"01 电池健康度不显示"（sysfs 电量计节点不可读机型上，回归通道需累计 30 个百分点覆盖才收敛，刚安装期间恒显"无法测算"）。本次新增三条真实通道并保持诚实标注，健康度在安装后即可真实显示：
+
+- **通道一 · sysfs `energy_full` 探测扩展**：部分设备（Pixel 部分世代/联发科平台）只导出 `energy_full`/`energy_full_design`（μWh）而不导出 `charge_full`（μAh）——[BatterySysfs.kt](android/app/src/main/java/com/battery/master/service/BatterySysfs.kt) 探测链新增 energy 系节点物理折算 `Q(mAh) = E(μWh) / V(mV)`，折算电压取节点 `voltage_now`（μV→mV）并钳制标称窗口 [3400, 4000] mV（满充 4.4V/关机 3.3V 极值回落标称 3850 mV 防失真）；`charge_full` 在场时仍优先（零折算误差），energy 系仅兜底。energy-only 机型 sysfs 实测通道直接打通（指标 01/03/04 同时受益）。
+- **通道二 · 库仑计单点瞬时估算（立即显示）**：[BatteryHardwareReader.kt](android/app/src/main/java/com/battery/master/service/BatteryHardwareReader.kt) 新增融合分支 `F = CHARGE_COUNTER 实测剩余电荷 ÷ 实时百分比 × 100`——纯传感器读数物理推导（AccuBattery 单点形式），无出厂保持率假设。质量门限：电荷不可读不估、百分比 <20 不估（±1% 电量格舍入误差 >5%）、结果越出物理区间 [1500, 15000] mAh 不估。融合优先级 sysfs 实测 > 库仑计回归 > 单点估算，回归收敛后自动升级为高置信通道；单点估算不参与循环寿命外推（防止估算值被放大成"精确的剩余循环数"）。剩余电量保留库仑计实测读数（`F×p/100 ≡ c/1000` 恒等，无口径漂移）。
+- **通道三 · 采样进度诚实显示**：01 卡在双门限均未过时显示"回归采样中 · n=N · 覆盖≥30%收敛"而非死空态，用户可预期健康度显示时点。
+- **测试**：新增 10 用例（energy 折算 4 场景含电压钳制/优先级、单点估算 5 场景含门限与 100% 精确读数、端到端 UI 92.3% 真实显示）——全量 **141 用例全绿**；4 份源码快照（sysfs/reader/state/compose）逐字同步，Web 构建通过。
+- **版本升级**：versionName 2.0.0-alpha.6 / versionCode 18，Release 标记预发布。
+
 ---
 
 ## 👨‍💻 开发者
@@ -272,7 +282,7 @@ git push -u origin main
 只要在本地打上 `v*` 格式的版本标签（**必须与 `android/app/build.gradle.kts` 中的 `versionName` 一致**，CI 会强制校验）并推送到 GitHub，GitHub Actions 会自动创建 GitHub Release 并将 APK 文件挂载在 Release 附件中：
 
 ```bash
-# 示例：当前版本 versionName=2.0.0-alpha.5 (versionCode=17)
+# 示例：当前版本 versionName=2.0.0-alpha.6 (versionCode=18)
 git tag v1.2.6
 git push origin v1.2.6
 ```
