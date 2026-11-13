@@ -225,15 +225,27 @@ fun BatteryScreen(
                         modifier = Modifier.weight(1f),
                         number = "02",
                         title = "剩余电量",
-                        // v2.0.0-alpha.1：剩余电量口径基准=当前可用容量，容量不可测时同显 "—"
-                        value = if (state.hasMeasuredCapacity) "${state.remainingCapacityMah}" else "—",
-                        unit = if (state.hasMeasuredCapacity) "mAh" else "",
+                        // v2.0.0-alpha.5 自检修复：库仑计实测读数不再被容量空态隐藏——
+                        // 容量不可测但 CHARGE_COUNTER 可读时，剩余电荷仍是系统库仑计
+                        // 真实测量，旧实现统一显示 "—" 丢弃实测值，且 Hero 行同口径矛盾
+                        value = if (state.hasMeasuredCapacity ||
+                            state.remainingCapacitySource == CapacitySource.COULOMB_COUNTER)
+                            "${state.remainingCapacityMah}" else "—",
+                        unit = if (state.hasMeasuredCapacity ||
+                            state.remainingCapacitySource == CapacitySource.COULOMB_COUNTER) "mAh" else "",
                         // v1.2.4 P2 审计修复：双口径来源显式标注——"库仑计实测"
                         // (CHARGE_COUNTER) 与"百分比×容量估算"量纲基准不同，
                         // 机型间不可比、运行中切换会跳变，旧实现无任何口径标注
-                        sub = if (state.hasMeasuredCapacity) "当前可用电荷量 [${state.remainingCapacitySource.label}]"
-                              else "无法测算 [容量未实测]",
-                        accentColor = if (state.hasMeasuredCapacity) DesignTokens.AccentCyanDark else DesignTokens.TextTertiary
+                        sub = when {
+                            state.hasMeasuredCapacity ->
+                                "当前可用电荷量 [${state.remainingCapacitySource.label}]"
+                            state.remainingCapacitySource == CapacitySource.COULOMB_COUNTER ->
+                                "库仑计实测剩余电荷 [容量未实测]"
+                            else -> "无法测算 [容量未实测]"
+                        },
+                        accentColor = if (state.hasMeasuredCapacity ||
+                            state.remainingCapacitySource == CapacitySource.COULOMB_COUNTER)
+                            DesignTokens.AccentCyanDark else DesignTokens.TextTertiary
                     )
                 }
             }
@@ -624,8 +636,17 @@ fun CyberHeroBatteryCard(state: BatteryState) {
                 )
 
             // 2. 剩余电量 (mAh)
+            // v2.0.0-alpha.5 自检修复：三分支口径与指标 02 卡片完全一致——
+            // 旧实现无条件渲染 "X / Y mAh"，容量不可测机型显示 "2400 / 0 mAh"
+            // 矛盾读数 (库仑计实测值被塞进分母为 0 的槽位)
             Text(
-                text = "剩余电量: ${state.remainingCapacityMah} / ${state.currentCapacityMah} mAh",
+                text = when {
+                    state.hasMeasuredCapacity ->
+                        "剩余电量: ${state.remainingCapacityMah} / ${state.currentCapacityMah} mAh"
+                    state.remainingCapacitySource == CapacitySource.COULOMB_COUNTER ->
+                        "剩余电量: ${state.remainingCapacityMah} mAh · 库仑计实测"
+                    else -> "剩余电量: — (容量未实测)"
+                },
                 fontSize = DesignTokens.FontXs,
                 fontWeight = FontWeight.Medium,
                 fontFamily = FontFamily.Monospace,
@@ -905,7 +926,11 @@ fun FullChargeConditionCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "12. 完全充满时的容量 (估算)",
+                    // v2.0.0-alpha.5 自检修复：标题口径更正为"(实测)"——锁定守卫
+                    // (容量 ≤0 拒绝锁定 + 0 哨兵语义) 已保证真实锁定值仅来自
+                    // sysfs/库仑计回归实测容量，旧"(估算)"标题与实测口径不符；
+                    // 模拟演示值由"来源: 模拟" chip 显式区分
+                    text = "12. 完全充满时的容量 (实测)",
                     fontWeight = FontWeight.Bold,
                     fontSize = DesignTokens.FontXs,
                     color = Color.White
@@ -1420,7 +1445,12 @@ fun TelemetrySourceCard(state: BatteryState) {
         val rows = listOf(
             "电量计节点" to state.gaugeNodePath,
             "当前容量来源" to state.currentCapacitySource.label,
-            "满容量回归" to state.capacityRegressionInfo.ifEmpty { "未启用 (无有效库仑计样本)" },
+            // v2.0.0-alpha.5 自检修复：空标注不再是单一"未启用"——sysfs 实测优先时
+            // 回归通道仍在持续积累样本作备用，旧文案"未启用 (无有效库仑计样本)"失实
+            "满容量回归" to state.capacityRegressionInfo.ifEmpty {
+                if (state.hasMeasuredCapacity) "备用通道 (sysfs 实测优先)"
+                else "未启用 (无有效库仑计样本)"
+            },
             "库仑计剩余电荷" to state.remainingCapacitySource.label,
             "CURRENT_NOW 瞬时电流" to if (currentNow != null) "支持 (读数 ${if (currentNow > 0) "+$currentNow" else "$currentNow"} mA)" else "不可读 (显示 —)",
             "内阻引擎滑窗" to "n=${state.engineSampleCount} · ${state.engineConfidenceLabel}",

@@ -65,6 +65,11 @@ internal object BatterySysfs {
         val absRaw = abs(raw)
         if (absRaw > 20000) return raw / 1000
 
+        // v2.0.0-alpha.5 自检修复：先取电量计容量上报单位惯例 (同一驱动对
+        // charge_full 与 current_now 的单位一致——mAh 上报内核两者皆 mA，
+        // 规范 μAh 内核两者皆 μA)，供下方歧义分支裁决
+        val milliStyleGauge = gaugeReportsMilliAmpStyleUnits()
+
         // v2.0.0-alpha 批次A：电流单位判定参照改为多节点探测链
         // (bms/maxfg 平台的 battery 目录无 current_now，旧硬编码路径拿不到参照)
         val sysfsCurrent = readCurrentNow()
@@ -72,9 +77,41 @@ internal object BatterySysfs {
             val ratio = abs(sysfsCurrent).toFloat() / absRaw
             if (ratio in 500f..2000f) return raw
             if (ratio in (1f / 2000f)..(1f / 500f)) return raw / 1000
+            // 同源同值 (ratio≈1)：μA 内核与 mA 内核均落入此分支，量纲无法由比值裁决。
+            // v2.0.0-alpha.5 修复：按电量计容量单位惯例裁决——mAh 上报内核的
+            // current_now 亦为 mA，直接采用原始值。旧实现一律 /1000，使 mA 上报
+            // 内核的 1150 mA 充电被系统性低报为 1 mA，连带污染指标 12 充满判定
+            // (100% 时 1150 mA 落入 0~25 mA 浮充区间被误判"已充满")
+            if (ratio in 0.5f..2f && milliStyleGauge) return raw
             return raw / 1000
         }
+        // sysfs 电流参照缺失：同样按容量单位惯例裁决 (mA 上报内核原始值即 mA)。
+        // 旧实现无 sysfs 参照时一律 /1000，同类低报通路
+        if (milliStyleGauge) return raw
         return raw / 1000
+    }
+
+    /**
+     * v2.0.0-alpha.5 自检修复：电量计容量上报单位惯例检测。
+     *
+     * 同一电量计驱动对 charge_full 与 current_now 的单位惯例一致：
+     * charge_full 以 mAh 上报的内核 (见 [parseCapacityMah] 分支 2)，current_now 亦为 mA；
+     * 规范 μAh 内核 current_now 亦为 μA。该提示仅用于 current_now 归一化的歧义裁决——
+     * BatteryManager 属性与 sysfs 同源同值 (ratio≈1) 时比值无法区分 μA/mA 内核
+     * (两者均为 ratio==1)，按容量单位惯例裁决。
+     *
+     * @return true = mAh 上报内核 (current_now 亦为 mA)；false = 规范 μAh 内核或节点不可读
+     */
+    private fun gaugeReportsMilliAmpStyleUnits(): Boolean {
+        val raw = readAcrossDirs("charge_full") { readInt(it) } ?: return false
+        val microAhCapacityMah = Math.round(raw / 1000f)
+        if (microAhCapacityMah in BatteryTelemetryParser.MIN_PLAUSIBLE_CAPACITY_MAH..
+            BatteryTelemetryParser.MAX_PLAUSIBLE_CAPACITY_MAH
+        ) {
+            return false // 规范 μAh 上报内核
+        }
+        return raw in BatteryTelemetryParser.MIN_PLAUSIBLE_CAPACITY_MAH..
+            BatteryTelemetryParser.MAX_PLAUSIBLE_CAPACITY_MAH // mAh 上报内核
     }
 
     /**
