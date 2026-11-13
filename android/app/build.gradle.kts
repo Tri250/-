@@ -24,8 +24,8 @@ android {
         applicationId = "com.battery.master"
         minSdk = 26
         targetSdk = 36
-        versionCode = 15
-        versionName = "2.0.0-alpha.3"
+        versionCode = 16
+        versionName = "2.0.0-alpha.4"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

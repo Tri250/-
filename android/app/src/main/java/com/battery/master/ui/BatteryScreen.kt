@@ -1420,6 +1420,7 @@ fun TelemetrySourceCard(state: BatteryState) {
         val rows = listOf(
             "电量计节点" to state.gaugeNodePath,
             "当前容量来源" to state.currentCapacitySource.label,
+            "满容量回归" to state.capacityRegressionInfo.ifEmpty { "未启用 (无有效库仑计样本)" },
             "库仑计剩余电荷" to state.remainingCapacitySource.label,
             "CURRENT_NOW 瞬时电流" to if (currentNow != null) "支持 (读数 ${if (currentNow > 0) "+$currentNow" else "$currentNow"} mA)" else "不可读 (显示 —)",
             "内阻引擎滑窗" to "n=${state.engineSampleCount} · ${state.engineConfidenceLabel}",
@@ -1496,7 +1497,10 @@ fun HealthProfileScreen(
                         fontFamily = FontFamily.Monospace
                     )
                     Text(
-                        text = "当前容量 / 设计容量 · [${state.currentCapacitySource.label} + ${state.designCapacitySource.label}]",
+                        text = if (state.capacityRegressionInfo.isEmpty())
+                            "当前容量 / 设计容量 · [${state.currentCapacitySource.label} + ${state.designCapacitySource.label}]"
+                        else
+                            "当前容量 / 设计容量 · [${state.currentCapacitySource.label}·${state.capacityRegressionInfo} + ${state.designCapacitySource.label}]",
                         fontSize = DesignTokens.Font2xs,
                         color = DesignTokens.TextTertiary,
                         fontFamily = FontFamily.Monospace,

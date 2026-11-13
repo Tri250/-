@@ -40,6 +40,12 @@ class BatteryHardwareReader(private val context: Context) {
         null
     }
 
+    /** v2.0.0-alpha.4：库仑计积分回归实测满充容量 (跨会话统计量持久化，Reader 生命周期单实例) */
+    private val capacityRegressor = BatteryCapacityRegressor(context)
+
+    /** 测试入口：清空回归统计量 (Robolectric 各用例隔离) */
+    fun resetCapacityRegressionForTest() = capacityRegressor.resetForTest()
+
     // 指标 04 设计容量来源等级 (v1.2.3 健康度真实性审计)：
     // 必须在 designCapacityMah 之前声明——getDesignCapacity 在其初始化期写入命中等级，
     // 声明顺序错误会导致来源被随后的默认值覆盖
@@ -123,16 +129,38 @@ class BatteryHardwareReader(private val context: Context) {
         // 与广播通道共享同一进程级样本窗口
         BatteryHealthEngine.observe(raw)
 
+        // v2.0.0-alpha.4：库仑计积分回归实测满充容量——sysfs charge_full 不可读时
+        // 的真实健康度通道 (官方库仑计 API 电荷积分，无出厂保持率假设)。
+        // 回归喂样仅在轮询通道本处统一进行：广播通道与轮询通道共享同一 Reader
+        // 实例，双通道同拍重复遥测由"百分比未变化不提交样本"天然去重
+        capacityRegressor.observe(raw.percentage, raw.chargeCounterUah)
+        val regressedFullMah = capacityRegressor.fullCapacityMah()
+        val fused = if (!raw.hasMeasuredCapacity && regressedFullMah != null) {
+            // 剩余电量同步改走百分比×回归满容量口径 (库仑计绝对读数本身仍实测可用，
+            // 但量纲基准应与当前容量单源一致，避免指标 02/03 基准漂移)
+            raw.copy(
+                currentCapacityMah = regressedFullMah,
+                hasMeasuredCapacity = true,
+                currentCapacitySource = CapacitySource.COULOMB_REGRESSION,
+                capacityRegressionInfo = capacityRegressor.infoLabel(),
+                healthPercentage = ((regressedFullMah.toFloat() / raw.designCapacityMah) * 100f).coerceIn(0f, 100f),
+                remainingCapacityMah = Math.round(regressedFullMah * (raw.percentage / 100f)),
+                remainingCapacitySource = CapacitySource.ESTIMATED
+            )
+        } else {
+            raw.copy(capacityRegressionInfo = capacityRegressor.infoLabel())
+        }
+
         // 12. 完全充满时的容量：满足判定则锁定+持久化，未满足保留上次锁定值不抹除
         // 注意：必须先执行锁定 (内部可能刷新时间戳) 再读取 lastFullChargeTimestamp
         // v1.2.6 P2 审计修复：充电态判定单源——直接消费解析器输出的 raw.isCharging
         // (含 EXTRA_PLUGGED 通道判定)，与广播通道完全一致，消除本地重复推导漂移
-        lockFullChargeIfCriteriaMet(raw.currentCapacityMah, raw.percentage, raw.currentMa, raw.isCharging)
+        lockFullChargeIfCriteriaMet(fused.currentCapacityMah, fused.percentage, fused.currentMa, fused.isCharging)
         // v1.2.3 P0 审计修复：真实锁定 (REAL) 与模拟演示值 (SIMULATED) 分离，
         // 真实优先，无真实锁定时才回显演示值并标注来源
         val display = resolveFullChargeDisplay()
 
-        return raw.toBatteryState(display.capacityMah, display.timestampMs, display.source)
+        return fused.toBatteryState(display.capacityMah, display.timestampMs, display.source)
     }
 
     /**

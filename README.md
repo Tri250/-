@@ -193,6 +193,20 @@
 
 ---
 
+## ⚡ v2.0.0-alpha.4 · 电池健康度真实显示——库仑计积分回归通道
+
+针对"健康度是否可以真实显示"彻底解决：新增**库仑计积分回归实测满充容量**通道（[BatteryCapacityRegressor.kt](android/app/src/main/java/com/battery/master/service/BatteryCapacityRegressor.kt)），sysfs `charge_full` 节点不可读的机型（SELinux 拒绝/ROM 未导出——大量机型形态）不再卡死"无法测算"。
+
+- **物理原理**（AccuBattery 同款，纯电荷积分、零出厂保持率假设）：官方库仑计 API `BATTERY_PROPERTY_CHARGE_COUNTER`（API 21+）报告剩余电荷；百分比变化 Δp 与电荷变化 Δc 线性相关——过原点最小二乘回归 k̂ = ΣΔpΔc/ΣΔp²，满充容量 = k̂×100。测出来是多少就是多少。
+- **质量门限**：Δp/Δc 异号（校准跳变）拒绝并重置跟踪点；单样本隐含满容量越界 [1500, 15000] mAh（读数毛刺）拒绝；电荷断档跳段——异常残留基准不得污染后续帧。
+- **置信分级**（覆盖广度 Σ|Δp| 驱动，充放电双向积累）：跨度 <30 PENDING 不输出（诚实不输出）；≥30 MEDIUM；≥80 且 n≥12 HIGH。
+- **统计量跨会话持久化**：OLS 统计量 (n/Σx/Σy/Σx²/Σxy/跨度) 存 SharedPreferences——真实使用越用越准。
+- **融合与标注**：Reader 在 sysfs 实测缺席且回归收敛时融合回归满容量（来源 `COULOMB_REGRESSION`），健康度随之真实显示；sysfs 实测恢复时优先级自动回落 sysfs；健康档案卡/遥测采集链路卡展示 "n=N · 置信度" 标注。
+- **测试**：新增 10 用例（OLS 收敛/置信分级/PENDING 诚实门限/跳变与离群拒绝/断档跳段/跨实例持久化/端到端健康度 76% 真实显示/未收敛仍显示无法测算/sysfs 优先级回落）——全量 **119 用例全绿**。
+- **版本升级**：versionName 2.0.0-alpha.4 / versionCode 16，Release 标记预发布。
+
+---
+
 ## 👨‍💻 开发者
 
 - **某厂大牛马【带娃的小陈工】** — 抖音 / 小红书 平台
@@ -246,7 +260,7 @@ git push -u origin main
 只要在本地打上 `v*` 格式的版本标签（**必须与 `android/app/build.gradle.kts` 中的 `versionName` 一致**，CI 会强制校验）并推送到 GitHub，GitHub Actions 会自动创建 GitHub Release 并将 APK 文件挂载在 Release 附件中：
 
 ```bash
-# 示例：当前版本 versionName=2.0.0-alpha.3 (versionCode=15)
+# 示例：当前版本 versionName=2.0.0-alpha.4 (versionCode=16)
 git tag v1.2.6
 git push origin v1.2.6
 ```

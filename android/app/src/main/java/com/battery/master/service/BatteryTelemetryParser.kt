@@ -45,6 +45,10 @@ internal data class RawBatteryTelemetry(
     val isFullChargeConditionMet: Boolean,
     /** v1.2.3 P0 审计修复：充满判定三态，替代单一布尔 (不可读 ≠ 未满足) */
     val fullChargeVerdict: FullChargeVerdict = FullChargeVerdict.NOT_YET,
+    /** v2.0.0-alpha.4：库仑计原始读数 (μAh，0=不可读)——回归通道喂样输入 */
+    val chargeCounterUah: Long = 0,
+    /** v2.0.0-alpha.4：库仑计回归通道状态标注 (Reader 融合时填入，透传 UI) */
+    val capacityRegressionInfo: String = "",
     /** v1.2.3 健康度真实性审计：容量来源等级，透传至 UI 标注，区分实测与降级估算 */
     val currentCapacitySource: CapacitySource = CapacitySource.ESTIMATED,
     val designCapacitySource: CapacitySource = CapacitySource.FALLBACK
@@ -83,6 +87,7 @@ internal data class RawBatteryTelemetry(
             hasMeasuredCapacity = hasMeasuredCapacity,
             designCapacityMah = designCapacityMah,
             currentCapacitySource = currentCapacitySource,
+            capacityRegressionInfo = capacityRegressionInfo,
             designCapacitySource = designCapacitySource,
             percentage = percentage,
             status = if (isFullChargeConditionMet) BatteryStatus.FULL else status,
@@ -397,7 +402,8 @@ internal object BatteryTelemetryParser {
             isFullChargeConditionMet = isFullChargeConditionMet,
             fullChargeVerdict = fullChargeVerdict,
             currentCapacitySource = currentCapacitySource,
-            designCapacitySource = designCapacitySource
+            designCapacitySource = designCapacitySource,
+            chargeCounterUah = if (remainingIsMeasured) chargeCounterUah.toLong() else 0L
         )
 
         // 见上方接线说明：解析出口喂入内阻引擎 (去重/采样守卫均在引擎内完成)

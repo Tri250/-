@@ -15,6 +15,9 @@ enum class CapacitySource(val label: String) {
     /** BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER 库仑计剩余电荷实测 (指标 02) */
     COULOMB_COUNTER("库仑计实测"),
 
+    /** 库仑计积分回归实测满充容量 (Δ电荷/Δ百分比 最小二乘，节点不可读时的真实通道) */
+    COULOMB_REGRESSION("库仑计回归"),
+
     /** PowerProfile 反射实测 (设计容量) */
     POWER_PROFILE("PowerProfile 实测"),
 
@@ -67,8 +70,11 @@ data class BatteryState(
     // 4、电池设计容量 (电池出厂容量 mAh，例如 5000 mAh)
     val designCapacityMah: Int = 5000,
 
-    /** 指标 03 当前容量数据来源 (sysfs 实测 / 不可测算 UNAVAILABLE)；指标 01 健康度同源 */
+    /** 指标 03 当前容量数据来源 (sysfs 实测 / 库仑计回归 / 不可测算 UNAVAILABLE)；指标 01 健康度同源 */
     val currentCapacitySource: CapacitySource = CapacitySource.UNAVAILABLE,
+
+    /** v2.0.0-alpha.4：库仑计回归实测通道状态标注 (如 "n=14 · 中置信"，空=未启用) */
+    val capacityRegressionInfo: String = "",
 
     /** 指标 04 设计容量数据来源 (PowerProfile / sysfs / 用户校准 / 5000 mAh 兜底) */
     val designCapacitySource: CapacitySource = CapacitySource.FALLBACK,
