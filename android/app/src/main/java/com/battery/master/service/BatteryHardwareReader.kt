@@ -119,6 +119,10 @@ class BatteryHardwareReader(private val context: Context) {
             designCapacitySource
         )
 
+        // v2.0.0-alpha 批次B：轮询通道喂样健康引擎 (ΔV/ΔI 内阻滑窗 + 温度 EWMA)，
+        // 与广播通道共享同一进程级样本窗口
+        BatteryHealthEngine.observe(raw)
+
         // 12. 完全充满时的容量：满足判定则锁定+持久化，未满足保留上次锁定值不抹除
         // 注意：必须先执行锁定 (内部可能刷新时间戳) 再读取 lastFullChargeTimestamp
         // v1.2.6 P2 审计修复：充电态判定单源——直接消费解析器输出的 raw.isCharging
@@ -352,8 +356,9 @@ class BatteryHardwareReader(private val context: Context) {
             }
         } catch (e: Throwable) {}
 
-        // sysfs 规范单位 μAh：readCapacityMah 内含双单位归一化与合理区间校验
-        val sysfsDesign = BatterySysfs.readCapacityMah("/sys/class/power_supply/battery/charge_full_design")
+        // sysfs 规范单位 μAh：v2.0.0-alpha 批次A 改走多节点探测链 (含双单位归一化与区间校验)，
+        // bms/maxfg/dc 平台的 charge_full_design 不在 battery 目录
+        val sysfsDesign = BatterySysfs.readChargeFullDesign()
         if (sysfsDesign != null) {
             designCapacitySource = CapacitySource.SYSFS
             return sysfsDesign

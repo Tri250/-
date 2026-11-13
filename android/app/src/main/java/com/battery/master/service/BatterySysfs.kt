@@ -65,7 +65,9 @@ internal object BatterySysfs {
         val absRaw = abs(raw)
         if (absRaw > 20000) return raw / 1000
 
-        val sysfsCurrent = readInt("/sys/class/power_supply/battery/current_now")
+        // v2.0.0-alpha 批次A：电流单位判定参照改为多节点探测链
+        // (bms/maxfg 平台的 battery 目录无 current_now，旧硬编码路径拿不到参照)
+        val sysfsCurrent = readCurrentNow()
         if (sysfsCurrent != null && abs(sysfsCurrent) > 0) {
             val ratio = abs(sysfsCurrent).toFloat() / absRaw
             if (ratio in 500f..2000f) return raw
@@ -99,4 +101,120 @@ internal object BatterySysfs {
 
     /** 读取 sysfs 容量节点并归一化为 mAh；不可读或脏数据返回 null */
     fun readCapacityMah(path: String): Int? = readInt(path)?.let(::parseCapacityMah)
+
+    // ===== v2.0.0-alpha 批次A：多节点电量计探测链 =====
+    //
+    // 背景：/sys/class/power_supply/battery 并非全平台都挂载完整电量计节点——
+    // 高通 QG 平台与小米澎湃 G1 挂 bms、Pixel (Maxim) 挂 maxfg、OPPO/一加双电芯挂 dc。
+    // 旧实现硬编码 battery 目录，这些机型 charge_full/charge_full_design/current_now
+    // 全部不可读，指标 03/04 降级 0.92 估算、指标 11 电流符号校准缺少 sysfs 参照。
+    // 探测链：按品牌预设优先级 + 特征节点评分自动选出真实电量计目录，探测一次缓存。
+
+    /** 探测根目录可注入 (单元测试用临时目录验证目录优先级逻辑) */
+    @Volatile internal var scanRootOverride: String? = null
+
+    private const val DEFAULT_SCAN_ROOT = "/sys/class/power_supply"
+
+    /** 电量计特征节点：命中越多越可信是该平台的真实电量计目录 */
+    private val gaugeSignatureNodes = listOf(
+        "charge_full_design", "charge_full", "current_now", "cycle_count", "temp", "voltage_now"
+    )
+
+    /**
+     * 机型预设节点联动：品牌 → 优先探测目录 (排名分先后)。
+     * 预设仅在目录真实存在且含足够电量计特征节点时生效，不存在自动滑落到
+     * battery 目录与其余评分目录，预设错误不会导致误读
+     */
+    private val brandPreferredGaugeDirs = listOf(
+        "xiaomi" to listOf("bms", "maxfg"),
+        "redmi" to listOf("bms", "maxfg"),
+        "poco" to listOf("bms", "maxfg"),
+        "google" to listOf("maxfg", "bms"),
+        "oppo" to listOf("dc", "bms"),
+        "oneplus" to listOf("dc", "bms"),
+        "realme" to listOf("dc", "bms"),
+        "vivo" to listOf("bms", "battery"),
+        "iqoo" to listOf("bms", "battery"),
+        "samsung" to listOf("battery", "bms"),
+        "honor" to listOf("battery", "bms"),
+        "huawei" to listOf("battery", "bms"),
+        "asus" to listOf("maxfg", "battery"),
+        "motorola" to listOf("battery", "bms"),
+        "nubia" to listOf("bms", "battery"),
+        "zte" to listOf("bms", "battery")
+    )
+
+    // 探测结果缓存：探测一次 (空结果也缓存，避免不可读设备每秒重扫 power_supply)
+    @Volatile private var probed = false
+    @Volatile private var cachedGaugeDirs: List<String> = emptyList()
+
+    /** 电量计目录评分：特征节点命中数 (存在且可读) */
+    private fun scoreGaugeDir(dir: File): Int =
+        gaugeSignatureNodes.count { node ->
+            runCatching { File(dir, node).let { it.exists() && it.canRead() } }.getOrDefault(false)
+        }
+
+    /**
+     * 纯函数 (测试可直接驱动)：扫描 power_supply 根目录并给出电量计目录优先级链。
+     * 优先级：品牌预设目录 (存在且评分≥2) > battery > 其余按评分降序；
+     * 评分 <2 (至少两个特征节点) 的目录视为噪声目录不参与
+     */
+    internal fun selectGaugeDirs(root: File, brandKey: String): List<String> {
+        val brand = brandKey.lowercase()
+        val scored = runCatching {
+            root.listFiles()?.filter { it.isDirectory }?.map { it to scoreGaugeDir(it) }
+        }.getOrNull() ?: return emptyList()
+        val valid = scored.filter { it.second >= 2 }
+        if (valid.isEmpty()) return emptyList()
+
+        val ordered = mutableListOf<File>()
+        val preferred = brandPreferredGaugeDirs
+            .firstOrNull { brand.startsWith(it.first) }?.second ?: emptyList()
+        preferred.forEach { name -> valid.firstOrNull { it.first.name == name }?.let { ordered.add(it.first) } }
+        valid.filter { it.first.name == "battery" && it.first !in ordered }.forEach { ordered.add(it.first) }
+        valid.sortedByDescending { it.second }.forEach { if (it.first !in ordered) ordered.add(it.first) }
+        return ordered.map { it.absolutePath }
+    }
+
+    /** 运行时探测 (带缓存与 Throwable 兜底)；测试可经 installProbeResultForTest 注入 */
+    private fun resolveGaugeDirs(): List<String> {
+        if (probed) return cachedGaugeDirs
+        probed = true
+        cachedGaugeDirs = try {
+            selectGaugeDirs(
+                File(scanRootOverride ?: DEFAULT_SCAN_ROOT),
+                android.os.Build.MANUFACTURER.lowercase()
+            )
+        } catch (e: Throwable) {
+            emptyList()
+        }
+        return cachedGaugeDirs
+    }
+
+    /** 测试注入探测结果 (Robolectric 桌面环境无真实 /sys) */
+    internal fun installProbeResultForTest(dirs: List<String>) {
+        probed = true
+        cachedGaugeDirs = dirs
+    }
+
+    /** 电量计目录优先级链 (含兜底)：探测为空时回退经典 battery 路径，兼容只读受限环境 */
+    private fun gaugeDirsOrDefault(): List<String> {
+        val dirs = resolveGaugeDirs()
+        return if (dirs.isNotEmpty()) dirs else listOf("$DEFAULT_SCAN_ROOT/battery")
+    }
+
+    private fun <T> readAcrossDirs(node: String, transform: (String) -> T?): T? =
+        gaugeDirsOrDefault().firstNotNullOfOrNull { dir -> transform("$dir/$node") }
+
+    /** v2.0.0-alpha 批次A：跨电量计目录链读取 charge_full (衰减后容量，μAh/mAh 双归一) */
+    fun readChargeFull(): Int? = readAcrossDirs("charge_full") { readCapacityMah(it) }
+
+    /** v2.0.0-alpha 批次A：跨电量计目录链读取 charge_full_design (设计容量) */
+    fun readChargeFullDesign(): Int? = readAcrossDirs("charge_full_design") { readCapacityMah(it) }
+
+    /** v2.0.0-alpha 批次A：跨电量计目录链读取 cycle_count (循环计数) */
+    fun readCycleCount(): Int? = readAcrossDirs("cycle_count") { readInt(it) }
+
+    /** v2.0.0-alpha 批次A：跨电量计目录链读取 current_now 原始值 (μA/mA 单位判定参照) */
+    fun readCurrentNow(): Int? = readAcrossDirs("current_now") { readInt(it) }
 }

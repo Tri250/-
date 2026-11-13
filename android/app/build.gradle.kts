@@ -17,14 +17,15 @@ val hasReleaseSigning = releaseKeystoreFile != null &&
 
 android {
     namespace = "com.battery.master"
-    compileSdk = 35
+    // v2.0.0-alpha 批次G：compileSdk/targetSdk 升至 36 (Android 16)
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.battery.master"
         minSdk = 26
-        targetSdk = 35
-        versionCode = 11
-        versionName = "1.2.6"
+        targetSdk = 36
+        versionCode = 12
+        versionName = "2.0.0-alpha"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -38,10 +39,14 @@ android {
                 keyPassword = releaseKeyPass
                 // v1.2.6 P3 审计修复：显式启用签名方案 (v1/v2/v3)——v3 轮换证明在
                 // targetSdk 30+ 设备必需；旧实现依赖 AGP 默认行为，不同配置下可能缺 v3。
-                // 注：v3.1 (Android 13+) DSL 需 AGP 8.9+，当前 AGP 8.7.2 由默认行为覆盖
+                // v2.0.0-alpha 批次G：升级 AGP 8.10.1 后经 javap 实证 DSL 仅提供
+                // enableV1/V2/V3/V4Signing——v3.1 (轮换密钥证明) 无 DSL 开关，且该方案
+                // 仅对已实际执行密钥轮换的密钥库有意义，当前单层密钥库由 v3 覆盖；
+                // 同步显式启用 v4 (增量安装/文件级校验，不影响 v2/v3 兼容性)
                 enableV1Signing = true
                 enableV2Signing = true
                 enableV3Signing = true
+                enableV4Signing = true
             }
         }
     }

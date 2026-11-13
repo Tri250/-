@@ -15,6 +15,8 @@ internal data class HardwareTelemetry(
     val batteryChemistry: String,
     val fastChargeProtocol: String,
     val internalResistanceMohm: Float,
+    /** v2.0.0-alpha 批次B：内阻来源标注 (运行时测算·置信度 / 工程估算) */
+    val internalResistanceLabel: String,
     val halVersion: String,
     val cellStructure: String,
     val thermalThrottlingState: String
@@ -51,6 +53,7 @@ internal object HardwareInfoResolver {
                 batteryChemistry = "锂离子/聚合物电芯 (主流体系) [工程估算]",
                 fastChargeProtocol = "USB PD / QC 兼容快充 [工程估算]",
                 internalResistanceMohm = 14.8f,
+                internalResistanceLabel = "[工程估算]",
                 halVersion = "Android ${Build.VERSION.RELEASE} BatteryManager API",
                 cellStructure = "标准单电芯封装 [工程估算]",
                 thermalThrottlingState = "正常供电 (无节流)"
@@ -78,13 +81,19 @@ internal object HardwareInfoResolver {
             else -> "正常供电 (无节流)"
         }
 
-        // 电芯动态内阻：基础值 + 循环老化 + 高温附加估算模型 (与 Web 端一致)。
-        // v1.2.4 P2 审计修复：此为工程估算模型而非实测 (真实内阻需库仑计放电曲线
-        // 标定，系统无 API)，UI 显式追加 [工程估算] 标注，不再与 [DT 实测] 字段
-        // 并排冒充实测展示
-        val internalResistance = 14.8f +
-            (cycleCount.coerceAtLeast(0) / 300f) * 1.5f +
-            if (temperatureCelsius > 40f) (temperatureCelsius - 40f) * 0.3f else 0f
+        // 电芯内阻 (v2.0.0-alpha 批次B)：健康引擎 ΔV/ΔI 滑窗回归实测优先，
+        // 无有效测算样本 (样本不足/跨度不足/回归越界) 时回退工程估算模型。
+        // 工程估算公式 (与 Web 端一致)：基础值 + 循环老化 + 高温附加
+        val resistanceSnapshot = BatteryHealthEngine.snapshot()
+        val (internalResistance, internalResistanceLabel) = if (resistanceSnapshot.resistanceMohm != null) {
+            val measured = (resistanceSnapshot.resistanceMohm * 10f).toInt() / 10f
+            measured to resistanceSnapshot.sourceLabel
+        } else {
+            val estimate = 14.8f +
+                (cycleCount.coerceAtLeast(0) / 300f) * 1.5f +
+                if (temperatureCelsius > 40f) (temperatureCelsius - 40f) * 0.3f else 0f
+            ((estimate * 10f).toInt() / 10f) to "[工程估算]"
+        }
 
         // 快充协议：体系名（sysfs 实测优先 → 品牌档案 → 工程估算）+ 实时功率档位组合，
         // 未充电时保留体系名并标注"待充电协商"，不再输出空洞的"系统未上报"
@@ -112,7 +121,8 @@ internal object HardwareInfoResolver {
             pmicModel = profile.pmicModel,
             batteryChemistry = profile.batteryChemistry,
             fastChargeProtocol = fastChargeProtocol,
-            internalResistanceMohm = (internalResistance * 10f).toInt() / 10f,
+            internalResistanceMohm = internalResistance,
+            internalResistanceLabel = internalResistanceLabel,
             halVersion = "Android ${Build.VERSION.RELEASE} Battery AIDL HAL",
             cellStructure = profile.cellStructure,
             thermalThrottlingState = thermalThrottlingState

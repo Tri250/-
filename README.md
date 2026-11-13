@@ -138,6 +138,21 @@
 
 ---
 
+## 🚀 2.0 大版本升级 · alpha 批次 (v2.0.0-alpha)
+
+2.0 定位：从「实时读数工具」升级为「电池健康档案与预测工具」，所有改动围绕**数据真实性**与**数据连续性**两条主线。alpha 批次交付 A（采集层）+ B（健康度引擎）+ G（工程升级）三组：
+
+- **批次A · 多节点 sysfs 探测链**：`/sys/class/power_supply/battery` 并非全平台挂载完整电量计——高通 QG/小米澎湃 G1 挂 `bms`、Pixel (Maxim) 挂 `maxfg`、OPPO/一加双电芯挂 `dc`。新增目录探测链（品牌预设优先级 > battery > 特征节点评分降序，探测一次缓存），`charge_full` / `charge_full_design` / `current_now` / `cycle_count` 四类节点改走探测链——bms/maxfg 平台指标 03/04/10/11 从恒降级 0.92 估算升级为实测，估算兜底占比真实下降。
+- **批次B · 电池健康度引擎**（`BatteryHealthEngine`，双通道共享）：
+  - **动态内阻实测**：统一模型 `V = OCV + I·R`（充电/放电斜率同为 +R），对 96 样本滑窗（约 96 秒 1Hz 遥测）做最小二乘回归，斜率 ×1000 = R(mΩ)；浮充电流（|I|<150mA）不参与、双通道同拍重复样本去重、回归越出 2~200 mΩ 物理区间清窗重来不展示脏值；
+  - **三级置信度**：样本数 × 电流跨度双门限（HIGH ≥40 样本且 ≥1200mA / MEDIUM ≥20 且 ≥600 / LOW ≥10 且 ≥300），不足显式 UNAVAILABLE——UI 内阻卡来源随置信度标注「[运行时测算·高置信 n=48]」，无有效测算回退「[工程估算]」，不冒充实测；
+  - **循环寿命预测**：基线模型（锂聚合物 800 次完整循环 SOH≈80%，0.025%/次）叠加温度压力项（平均温度每高出 25℃ 基线 1℃，单次损耗上调 2%，EWMA 平滑）；**诚实前提**：仅健康度实测（当前容量 SYSFS + 设计容量非兜底）时输出「预计还可循环约 N 次 [模型预测]」，0.92 估算健康度不参与外推放大。指标 10 卡片副标题动态展示。
+- **批次G · 工程升级**：AGP 8.7.2 → 8.10.1（官方支持 compileSdk/targetSdk 36）、Gradle 8.9 → 8.11.1、compileSdk/targetSdk 35 → 36 (Android 16)、签名方案显式启用 v4（经 javap 实证 AGP 8.10.1 DSL 无 v3.1 开关，v3.1 仅对已实际执行密钥轮换的密钥库有意义，v1.2.6 时期的"v3.1 待 AGP 8.9+"注释失实并已校正）；CI 同步升级 SDK/Gradle 版本，Release 自动识别 alpha/beta/rc/dev 版本号并标记 **prerelease**。
+- **回归测试**：`BatteryHealthEngineTest`（回归收敛/双极性/诚实降级/脏窗防护/采样守卫/预测口径 11 用例，纯 JVM）+ `BatteryNodeCatalogTest`（目录优先级/品牌预设/跨目录读取/解析器 SYSFS 升级集成，临时目录驱动）。
+- **版本升级**：versionName 2.0.0-alpha / versionCode 12，Release 标记预发布。
+
+---
+
 ## 👨‍💻 开发者
 
 - **某厂大牛马【带娃的小陈工】** — 抖音 / 小红书 平台
@@ -191,7 +206,7 @@ git push -u origin main
 只要在本地打上 `v*` 格式的版本标签（**必须与 `android/app/build.gradle.kts` 中的 `versionName` 一致**，CI 会强制校验）并推送到 GitHub，GitHub Actions 会自动创建 GitHub Release 并将 APK 文件挂载在 Release 附件中：
 
 ```bash
-# 示例：当前版本 versionName=1.2.6 (versionCode=11)
+# 示例：当前版本 versionName=2.0.0-alpha (versionCode=12)
 git tag v1.2.6
 git push origin v1.2.6
 ```

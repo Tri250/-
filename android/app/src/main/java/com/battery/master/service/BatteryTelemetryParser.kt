@@ -59,6 +59,15 @@ internal data class RawBatteryTelemetry(
         fullChargeSource: FullChargeSource = FullChargeSource.NONE
     ): BatteryState {
         val hardware = HardwareInfoResolver.resolve(temperatureCelsius, cycleCount, powerWatts ?: 0f)
+        // v2.0.0-alpha 批次B：循环寿命预测——仅健康度两项容量均实测时输出，
+        // 估算健康度 (0.92 兜底) 不参与外推，避免估算值被放大成"精确的剩余循环数"
+        val healthMeasured = currentCapacitySource == CapacitySource.SYSFS &&
+            designCapacitySource in BatteryTelemetryParser.MEASURED_DESIGN_SOURCES
+        val healthForecastText = BatteryHealthEngine.forecastText(
+            healthPercentage,
+            cycleCount,
+            healthMeasured
+        )
         return BatteryState(
             healthPercentage = healthPercentage,
             remainingCapacityMah = remainingCapacityMah,
@@ -89,6 +98,8 @@ internal data class RawBatteryTelemetry(
             batteryChemistry = hardware.batteryChemistry,
             fastChargeProtocol = hardware.fastChargeProtocol,
             internalResistanceMohm = hardware.internalResistanceMohm,
+            internalResistanceLabel = hardware.internalResistanceLabel,
+            healthForecastText = healthForecastText,
             halVersion = hardware.halVersion,
             cellStructure = hardware.cellStructure,
             thermalThrottlingState = hardware.thermalThrottlingState
@@ -151,6 +162,16 @@ internal object BatteryTelemetryParser {
 
     /** 指标 11 瞬时电流合理区间 (mA)：±20A 已超任何手机物理上限 */
     const val MAX_PLAUSIBLE_CURRENT_MA = 20_000
+
+    /**
+     * v2.0.0-alpha 批次B：设计容量"实测来源"集合 (循环寿命预测前提)。
+     * 用户校准值视为用户自己的出厂规格参与外推；0.92 估算与 5000 兜底不参与
+     */
+    val MEASURED_DESIGN_SOURCES = setOf(
+        CapacitySource.SYSFS,
+        CapacitySource.POWER_PROFILE,
+        CapacitySource.CALIBRATED
+    )
 
     /**
      * 指标 12 充满判定谓词 (量纲口径)：电量 100% 且 |瞬时电流| ≤ 25 mA 浮充截止区间。
@@ -275,7 +296,8 @@ internal object BatteryTelemetryParser {
             cycleCount = intent?.getIntExtra(BatteryManager.EXTRA_CYCLE_COUNT, 0) ?: 0
         }
         if (cycleCount <= 0) {
-            cycleCount = BatterySysfs.readInt("/sys/class/power_supply/battery/cycle_count") ?: 0
+            // v2.0.0-alpha 批次A：多节点探测链 (bms/maxfg/dc 平台的循环计数不在 battery 目录)
+            cycleCount = BatterySysfs.readCycleCount() ?: 0
         }
         // v1.2.3 审计加固：循环计数合理区间收敛——内核占位/脏数据 (如 65535) 会同时
         // 污染指标 10 展示与内阻老化模型 (HardwareInfoResolver)，负值一律归一为 0
@@ -287,7 +309,9 @@ internal object BatteryTelemetryParser {
         // 避免非法容量流入指标 12 锁定与持久化。
         // v1.2.3 健康度真实性审计：区分实测与估算来源，UI 显式标注，
         // 杜绝"精确的 92.0% 健康度"实为 0.92 虚构估算值的情况
-        val sysfsCurrentCapacity = BatterySysfs.readCapacityMah("/sys/class/power_supply/battery/charge_full")
+        // v2.0.0-alpha 批次A：charge_full 改走多节点探测链
+        // (bms/maxfg/dc 平台的 battery 目录无 charge_full，旧硬编码路径必然降级估算)
+        val sysfsCurrentCapacity = BatterySysfs.readChargeFull()
         val currentCapacitySource =
             if (sysfsCurrentCapacity != null) CapacitySource.SYSFS else CapacitySource.ESTIMATED
         val currentCapacityMah = sysfsCurrentCapacity

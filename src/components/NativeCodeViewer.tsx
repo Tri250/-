@@ -75,13 +75,14 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.9'
+          # v2.0.0-alpha 批次G：AGP 8.10.1 要求 Gradle 8.11.1+
+          gradle-version: '8.11.1'
 
       - name: Ensure Android SDK Components
         run: |
           if [ -d "$ANDROID_HOME/cmdline-tools/latest/bin" ]; then
             yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 || true
-            $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0" || true
+            $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" || true
           elif [ -d "$ANDROID_HOME/tools/bin" ]; then
             yes | $ANDROID_HOME/tools/bin/sdkmanager --licenses > /dev/null 2>&1 || true
           fi
@@ -162,7 +163,8 @@ jobs:
             echo "::error::BatteryViewModel missing from mapping.txt"
             exit 1
           fi
-          RENAMED=$(echo "$VM_LINE" | awk '{print $2}' | sed 's/:$//' | tr '.' '/')
+          # mapping 行格式: \`original -> renamed:\`，混淆名在第 3 列
+          RENAMED=$(echo "$VM_LINE" | awk '{print $3}' | sed 's/:$//' | tr '.' '/')
           grep -q "void <init>(android.app.Application)" "$MAPPING" || {
             echo "::error::BatteryViewModel (Application) constructor not retained by R8 keep rules"
             exit 1
@@ -378,6 +380,18 @@ jobs:
           echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
           echo "Release version resolved: v$VERSION_NAME (versionCode=$VERSION_CODE)"
 
+      # v2.0.0-alpha 批次G：alpha/beta/rc/dev 版本自动标记 GitHub Release 为预发布
+      - name: Resolve Pre-release Flag
+        id: prerelease
+        run: |
+          VERSION_NAME="\${{ steps.version.outputs.version_name }}"
+          if [[ "$VERSION_NAME" =~ (alpha|beta|rc|dev) ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Pre-release flag: $(grep -o 'prerelease=.*' "$GITHUB_OUTPUT" | cut -d= -f2)"
+
       - name: Download Android APK
         uses: actions/download-artifact@v4
         with:
@@ -458,7 +472,8 @@ jobs:
             *以下为自动生成的提交记录*
           generate_release_notes: true
           draft: false
-          prerelease: false
+          # v2.0.0-alpha 批次G：预发布版本 (alpha/beta/rc/dev) 自动标记 prerelease
+          prerelease: \${{ steps.prerelease.outputs.prerelease }}
           fail_on_unmatched_files: true
           files: |
             artifacts/*.apk
@@ -594,6 +609,10 @@ class BatteryHardwareReader(private val context: Context) {
             designCapacityMah,
             designCapacitySource
         )
+
+        // v2.0.0-alpha 批次B：轮询通道喂样健康引擎 (ΔV/ΔI 内阻滑窗 + 温度 EWMA)，
+        // 与广播通道共享同一进程级样本窗口
+        BatteryHealthEngine.observe(raw)
 
         // 12. 完全充满时的容量：满足判定则锁定+持久化，未满足保留上次锁定值不抹除
         // 注意：必须先执行锁定 (内部可能刷新时间戳) 再读取 lastFullChargeTimestamp
@@ -828,8 +847,9 @@ class BatteryHardwareReader(private val context: Context) {
             }
         } catch (e: Throwable) {}
 
-        // sysfs 规范单位 μAh：readCapacityMah 内含双单位归一化与合理区间校验
-        val sysfsDesign = BatterySysfs.readCapacityMah("/sys/class/power_supply/battery/charge_full_design")
+        // sysfs 规范单位 μAh：v2.0.0-alpha 批次A 改走多节点探测链 (含双单位归一化与区间校验)，
+        // bms/maxfg/dc 平台的 charge_full_design 不在 battery 目录
+        val sysfsDesign = BatterySysfs.readChargeFullDesign()
         if (sysfsDesign != null) {
             designCapacitySource = CapacitySource.SYSFS
             return sysfsDesign
@@ -1203,7 +1223,10 @@ fun BatteryScreen(
                         title = "充放电循环",
                         value = if (state.cycleCount > 0) "\${state.cycleCount}" else "—",
                         unit = if (state.cycleCount > 0) "次" else "",
-                        sub = if (state.cycleCount > 0) "Cycle Count" else "系统未上报循环数据",
+                        // v2.0.0-alpha 批次B：健康度实测时展示循环寿命预测 (模型外推)，
+                        // 估算健康度不预测——保持 "Cycle Count" 原口径
+                        sub = state.healthForecastText
+                            ?: if (state.cycleCount > 0) "Cycle Count" else "系统未上报循环数据",
                         accentColor = DesignTokens.AccentTeal
                     )
                 }
@@ -1594,12 +1617,14 @@ fun HardwareSummaryCard(state: BatteryState, onCalibrateDesignCapacity: () -> Un
             Spacer(modifier = Modifier.height(8.dp))
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                // v1.2.4 P2 审计修复：内阻为工程估算模型 (系统无实测 API)，
-                // 显式标注，不再与 [DT 实测] 字段并排冒充实测
+                // v1.2.4 P2 审计修复 + v2.0.0-alpha 批次B：内阻来源随引擎置信度显式标注——
+                // ΔV/ΔI 滑窗回归实测显示 "[运行时测算·高置信 n=48]"，
+                // 样本不足时仍回退估算模型并标注 "[工程估算]"
                 HardwareItem(
                     modifier = Modifier.weight(1f),
                     label = "电芯内阻",
-                    value = "\${String.format(Locale.US, "%.1f", state.internalResistanceMohm)} mΩ [工程估算]"
+                    value = "\${String.format(Locale.US, "%.1f", state.internalResistanceMohm)} mΩ \${state.internalResistanceLabel}",
+                    maxLines = 2
                 )
                 HardwareItem(modifier = Modifier.weight(1f), label = "化学材料体系", value = state.batteryChemistry)
             }
@@ -2098,7 +2123,8 @@ fun AboutAppCard() {
 
     </application>
 
-</manifest>`,
+</manifest>
+`,
   },
   {
     id: 'res_themes',
@@ -2192,14 +2218,15 @@ val hasReleaseSigning = releaseKeystoreFile != null &&
 
 android {
     namespace = "com.battery.master"
-    compileSdk = 35
+    // v2.0.0-alpha 批次G：compileSdk/targetSdk 升至 36 (Android 16)
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.battery.master"
         minSdk = 26
-        targetSdk = 35
-        versionCode = 11
-        versionName = "1.2.6"
+        targetSdk = 36
+        versionCode = 12
+        versionName = "2.0.0-alpha"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -2211,13 +2238,16 @@ android {
                 storePassword = releaseKeystorePass
                 keyAlias = releaseKeyAlias ?: "battery-master"
                 keyPassword = releaseKeyPass
-                // v1.2.6 P3 审计修复：显式启用全签名方案 (v1/v2/v3/v3.1)——
-                // v3 轮换证明在 targetSdk 30+ 设备必需，v3.1 (Android 13+) 支持
-                // 密钥轮换新证据格式；旧实现依赖 AGP 默认行为，不同配置下可能缺 v3+
+                // v1.2.6 P3 审计修复：显式启用签名方案 (v1/v2/v3)——v3 轮换证明在
+                // targetSdk 30+ 设备必需；旧实现依赖 AGP 默认行为，不同配置下可能缺 v3。
+                // v2.0.0-alpha 批次G：升级 AGP 8.10.1 后经 javap 实证 DSL 仅提供
+                // enableV1/V2/V3/V4Signing——v3.1 (轮换密钥证明) 无 DSL 开关，且该方案
+                // 仅对已实际执行密钥轮换的密钥库有意义，当前单层密钥库由 v3 覆盖；
+                // 同步显式启用 v4 (增量安装/文件级校验，不影响 v2/v3 兼容性)
                 enableV1Signing = true
                 enableV2Signing = true
                 enableV3Signing = true
-                enableV3_1Signing = true
+                enableV4Signing = true
             }
         }
     }
@@ -2310,6 +2340,7 @@ import android.content.Intent
 import android.os.BatteryManager
 import com.battery.master.data.BatteryState
 import com.battery.master.service.BatteryHardwareReader
+import com.battery.master.service.BatteryHealthEngine
 import com.battery.master.service.BatteryTelemetryParser
 
 /**
@@ -2358,6 +2389,9 @@ class BatteryReceiver(
         // 未满足保留上次锁定值不抹除；先锁定再读时间戳保证回显值实时刷新
         // v1.2.6 P2 审计修复：充电态判定单源——直接消费解析器输出的 raw.isCharging
         // (含 EXTRA_PLUGGED 通道判定)，杜绝广播通道本地重复推导与解析口径漂移
+        // v2.0.0-alpha 批次B：广播通道喂样健康引擎 (ΔV/ΔI 内阻滑窗 + 温度 EWMA)
+        BatteryHealthEngine.observe(raw)
+
         reader.lockFullChargeIfCriteriaMet(raw.currentCapacityMah, raw.percentage, raw.currentMa, raw.isCharging)
 
         // v1.2.3 P0 审计修复：真实锁定 (REAL) 与模拟演示值 (SIMULATED) 分离，
@@ -2503,6 +2537,19 @@ data class BatteryState(
     val batteryChemistry: String = "锂离子/聚合物电芯 (主流体系) [工程估算]",
     val fastChargeProtocol: String = "USB PD / QC 兼容快充 [工程估算]",
     val internalResistanceMohm: Float = 0f,
+
+    /**
+     * v2.0.0-alpha 批次B：内阻数据来源标注。
+     * "[运行时测算·高置信 n=48]" = ΔV/ΔI 滑窗回归实测；"[工程估算]" = 回退估算模型
+     */
+    val internalResistanceLabel: String = "[工程估算]",
+
+    /**
+     * v2.0.0-alpha 批次B：循环寿命预测文案 (如 "预计还可循环约 480 次 [模型预测]")。
+     * 仅健康度实测 (当前容量 sysfs + 设计容量非兜底) 时输出；估算健康度不做外推
+     */
+    val healthForecastText: String? = null,
+
     val halVersion: String = "Android BatteryManager API",
     val cellStructure: String = "标准单电芯封装 [工程估算]",
     val thermalThrottlingState: String = "正常供电 (无节流)"
@@ -3128,7 +3175,9 @@ internal object BatterySysfs {
         val absRaw = abs(raw)
         if (absRaw > 20000) return raw / 1000
 
-        val sysfsCurrent = readInt("/sys/class/power_supply/battery/current_now")
+        // v2.0.0-alpha 批次A：电流单位判定参照改为多节点探测链
+        // (bms/maxfg 平台的 battery 目录无 current_now，旧硬编码路径拿不到参照)
+        val sysfsCurrent = readCurrentNow()
         if (sysfsCurrent != null && abs(sysfsCurrent) > 0) {
             val ratio = abs(sysfsCurrent).toFloat() / absRaw
             if (ratio in 500f..2000f) return raw
@@ -3162,6 +3211,122 @@ internal object BatterySysfs {
 
     /** 读取 sysfs 容量节点并归一化为 mAh；不可读或脏数据返回 null */
     fun readCapacityMah(path: String): Int? = readInt(path)?.let(::parseCapacityMah)
+
+    // ===== v2.0.0-alpha 批次A：多节点电量计探测链 =====
+    //
+    // 背景：/sys/class/power_supply/battery 并非全平台都挂载完整电量计节点——
+    // 高通 QG 平台与小米澎湃 G1 挂 bms、Pixel (Maxim) 挂 maxfg、OPPO/一加双电芯挂 dc。
+    // 旧实现硬编码 battery 目录，这些机型 charge_full/charge_full_design/current_now
+    // 全部不可读，指标 03/04 降级 0.92 估算、指标 11 电流符号校准缺少 sysfs 参照。
+    // 探测链：按品牌预设优先级 + 特征节点评分自动选出真实电量计目录，探测一次缓存。
+
+    /** 探测根目录可注入 (单元测试用临时目录验证目录优先级逻辑) */
+    @Volatile internal var scanRootOverride: String? = null
+
+    private const val DEFAULT_SCAN_ROOT = "/sys/class/power_supply"
+
+    /** 电量计特征节点：命中越多越可信是该平台的真实电量计目录 */
+    private val gaugeSignatureNodes = listOf(
+        "charge_full_design", "charge_full", "current_now", "cycle_count", "temp", "voltage_now"
+    )
+
+    /**
+     * 机型预设节点联动：品牌 → 优先探测目录 (排名分先后)。
+     * 预设仅在目录真实存在且含足够电量计特征节点时生效，不存在自动滑落到
+     * battery 目录与其余评分目录，预设错误不会导致误读
+     */
+    private val brandPreferredGaugeDirs = listOf(
+        "xiaomi" to listOf("bms", "maxfg"),
+        "redmi" to listOf("bms", "maxfg"),
+        "poco" to listOf("bms", "maxfg"),
+        "google" to listOf("maxfg", "bms"),
+        "oppo" to listOf("dc", "bms"),
+        "oneplus" to listOf("dc", "bms"),
+        "realme" to listOf("dc", "bms"),
+        "vivo" to listOf("bms", "battery"),
+        "iqoo" to listOf("bms", "battery"),
+        "samsung" to listOf("battery", "bms"),
+        "honor" to listOf("battery", "bms"),
+        "huawei" to listOf("battery", "bms"),
+        "asus" to listOf("maxfg", "battery"),
+        "motorola" to listOf("battery", "bms"),
+        "nubia" to listOf("bms", "battery"),
+        "zte" to listOf("bms", "battery")
+    )
+
+    // 探测结果缓存：探测一次 (空结果也缓存，避免不可读设备每秒重扫 power_supply)
+    @Volatile private var probed = false
+    @Volatile private var cachedGaugeDirs: List<String> = emptyList()
+
+    /** 电量计目录评分：特征节点命中数 (存在且可读) */
+    private fun scoreGaugeDir(dir: File): Int =
+        gaugeSignatureNodes.count { node ->
+            runCatching { File(dir, node).let { it.exists() && it.canRead() } }.getOrDefault(false)
+        }
+
+    /**
+     * 纯函数 (测试可直接驱动)：扫描 power_supply 根目录并给出电量计目录优先级链。
+     * 优先级：品牌预设目录 (存在且评分≥2) > battery > 其余按评分降序；
+     * 评分 <2 (至少两个特征节点) 的目录视为噪声目录不参与
+     */
+    internal fun selectGaugeDirs(root: File, brandKey: String): List<String> {
+        val brand = brandKey.lowercase()
+        val scored = runCatching {
+            root.listFiles()?.filter { it.isDirectory }?.map { it to scoreGaugeDir(it) }
+        }.getOrNull() ?: return emptyList()
+        val valid = scored.filter { it.second >= 2 }
+        if (valid.isEmpty()) return emptyList()
+
+        val ordered = mutableListOf<File>()
+        val preferred = brandPreferredGaugeDirs
+            .firstOrNull { brand.startsWith(it.first) }?.second ?: emptyList()
+        preferred.forEach { name -> valid.firstOrNull { it.first.name == name }?.let { ordered.add(it.first) } }
+        valid.filter { it.first.name == "battery" && it.first !in ordered }.forEach { ordered.add(it.first) }
+        valid.sortedByDescending { it.second }.forEach { if (it.first !in ordered) ordered.add(it.first) }
+        return ordered.map { it.absolutePath }
+    }
+
+    /** 运行时探测 (带缓存与 Throwable 兜底)；测试可经 installProbeResultForTest 注入 */
+    private fun resolveGaugeDirs(): List<String> {
+        if (probed) return cachedGaugeDirs
+        probed = true
+        cachedGaugeDirs = try {
+            selectGaugeDirs(
+                File(scanRootOverride ?: DEFAULT_SCAN_ROOT),
+                android.os.Build.MANUFACTURER.lowercase()
+            )
+        } catch (e: Throwable) {
+            emptyList()
+        }
+        return cachedGaugeDirs
+    }
+
+    /** 测试注入探测结果 (Robolectric 桌面环境无真实 /sys) */
+    internal fun installProbeResultForTest(dirs: List<String>) {
+        probed = true
+        cachedGaugeDirs = dirs
+    }
+
+    /** 电量计目录优先级链 (含兜底)：探测为空时回退经典 battery 路径，兼容只读受限环境 */
+    private fun gaugeDirsOrDefault(): List<String> {
+        val dirs = resolveGaugeDirs()
+        return if (dirs.isNotEmpty()) dirs else listOf("$DEFAULT_SCAN_ROOT/battery")
+    }
+
+    private fun <T> readAcrossDirs(node: String, transform: (String) -> T?): T? =
+        gaugeDirsOrDefault().firstNotNullOfOrNull { dir -> transform("$dir/$node") }
+
+    /** v2.0.0-alpha 批次A：跨电量计目录链读取 charge_full (衰减后容量，μAh/mAh 双归一) */
+    fun readChargeFull(): Int? = readAcrossDirs("charge_full") { readCapacityMah(it) }
+
+    /** v2.0.0-alpha 批次A：跨电量计目录链读取 charge_full_design (设计容量) */
+    fun readChargeFullDesign(): Int? = readAcrossDirs("charge_full_design") { readCapacityMah(it) }
+
+    /** v2.0.0-alpha 批次A：跨电量计目录链读取 cycle_count (循环计数) */
+    fun readCycleCount(): Int? = readAcrossDirs("cycle_count") { readInt(it) }
+
+    /** v2.0.0-alpha 批次A：跨电量计目录链读取 current_now 原始值 (μA/mA 单位判定参照) */
+    fun readCurrentNow(): Int? = readAcrossDirs("current_now") { readInt(it) }
 }
 `,
   },
@@ -3188,6 +3353,8 @@ internal data class HardwareTelemetry(
     val batteryChemistry: String,
     val fastChargeProtocol: String,
     val internalResistanceMohm: Float,
+    /** v2.0.0-alpha 批次B：内阻来源标注 (运行时测算·置信度 / 工程估算) */
+    val internalResistanceLabel: String,
     val halVersion: String,
     val cellStructure: String,
     val thermalThrottlingState: String
@@ -3224,6 +3391,7 @@ internal object HardwareInfoResolver {
                 batteryChemistry = "锂离子/聚合物电芯 (主流体系) [工程估算]",
                 fastChargeProtocol = "USB PD / QC 兼容快充 [工程估算]",
                 internalResistanceMohm = 14.8f,
+                internalResistanceLabel = "[工程估算]",
                 halVersion = "Android \${Build.VERSION.RELEASE} BatteryManager API",
                 cellStructure = "标准单电芯封装 [工程估算]",
                 thermalThrottlingState = "正常供电 (无节流)"
@@ -3251,13 +3419,19 @@ internal object HardwareInfoResolver {
             else -> "正常供电 (无节流)"
         }
 
-        // 电芯动态内阻：基础值 + 循环老化 + 高温附加估算模型 (与 Web 端一致)。
-        // v1.2.4 P2 审计修复：此为工程估算模型而非实测 (真实内阻需库仑计放电曲线
-        // 标定，系统无 API)，UI 显式追加 [工程估算] 标注，不再与 [DT 实测] 字段
-        // 并排冒充实测展示
-        val internalResistance = 14.8f +
-            (cycleCount.coerceAtLeast(0) / 300f) * 1.5f +
-            if (temperatureCelsius > 40f) (temperatureCelsius - 40f) * 0.3f else 0f
+        // 电芯内阻 (v2.0.0-alpha 批次B)：健康引擎 ΔV/ΔI 滑窗回归实测优先，
+        // 无有效测算样本 (样本不足/跨度不足/回归越界) 时回退工程估算模型。
+        // 工程估算公式 (与 Web 端一致)：基础值 + 循环老化 + 高温附加
+        val resistanceSnapshot = BatteryHealthEngine.snapshot()
+        val (internalResistance, internalResistanceLabel) = if (resistanceSnapshot.resistanceMohm != null) {
+            val measured = (resistanceSnapshot.resistanceMohm * 10f).toInt() / 10f
+            measured to resistanceSnapshot.sourceLabel
+        } else {
+            val estimate = 14.8f +
+                (cycleCount.coerceAtLeast(0) / 300f) * 1.5f +
+                if (temperatureCelsius > 40f) (temperatureCelsius - 40f) * 0.3f else 0f
+            ((estimate * 10f).toInt() / 10f) to "[工程估算]"
+        }
 
         // 快充协议：体系名（sysfs 实测优先 → 品牌档案 → 工程估算）+ 实时功率档位组合，
         // 未充电时保留体系名并标注"待充电协商"，不再输出空洞的"系统未上报"
@@ -3285,7 +3459,8 @@ internal object HardwareInfoResolver {
             pmicModel = profile.pmicModel,
             batteryChemistry = profile.batteryChemistry,
             fastChargeProtocol = fastChargeProtocol,
-            internalResistanceMohm = (internalResistance * 10f).toInt() / 10f,
+            internalResistanceMohm = internalResistance,
+            internalResistanceLabel = internalResistanceLabel,
             halVersion = "Android \${Build.VERSION.RELEASE} Battery AIDL HAL",
             cellStructure = profile.cellStructure,
             thermalThrottlingState = thermalThrottlingState
@@ -3794,7 +3969,8 @@ internal object SoCHardwareProfile {
     /** 未命中档案时将原始 token 格式化为可读型号 (SM8650 -> SM8650，保留原值) */
     private fun prettyModelToken(raw: String): String =
         extractSocToken(raw)?.uppercase() ?: raw.trim()
-}`,
+}
+`,
   },
   {
     id: 'main_activity',
@@ -4129,7 +4305,8 @@ internal object DeviceHardwareProfile {
     private fun readConstantVoltageMax(): Int? =
         BatterySysfs.readInt("/sys/class/power_supply/battery/constant_voltage_max")
             ?: BatterySysfs.readInt("/sys/class/power_supply/battery/voltage_max")
-}`,
+}
+`,
   },
   {
     id: 'hardware_lab',

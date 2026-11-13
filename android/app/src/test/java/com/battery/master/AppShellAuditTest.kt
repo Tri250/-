@@ -123,9 +123,9 @@ class AppShellAuditTest {
         // 徽章文案与构建配置严格一致 (单源注入；版本号语义校验避免每次 bump 逐字失效)
         composeRule.onNodeWithText("v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})").assertExists()
         assertTrue(
-            "versionName 必须为语义化三段版本",
-            Regex("""\d+\.\d+\.\d+""").matches(BuildConfig.VERSION_NAME)
+            "versionName 必须为语义化版本 (允许 alpha/beta/rc/dev 预发布后缀，如 2.0.0-alpha)",
+            Regex("""\d+\.\d+\.\d+(-[\w.]+)?""").matches(BuildConfig.VERSION_NAME)
         )
-        assertTrue("versionCode 必须单调递增 (v1.2.4=9)", BuildConfig.VERSION_CODE >= 10)
+        assertTrue("versionCode 必须单调递增 (v2.0.0-alpha=12)", BuildConfig.VERSION_CODE >= 10)
     }
 }

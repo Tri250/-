@@ -126,6 +126,19 @@ data class BatteryState(
     val batteryChemistry: String = "锂离子/聚合物电芯 (主流体系) [工程估算]",
     val fastChargeProtocol: String = "USB PD / QC 兼容快充 [工程估算]",
     val internalResistanceMohm: Float = 0f,
+
+    /**
+     * v2.0.0-alpha 批次B：内阻数据来源标注。
+     * "[运行时测算·高置信 n=48]" = ΔV/ΔI 滑窗回归实测；"[工程估算]" = 回退估算模型
+     */
+    val internalResistanceLabel: String = "[工程估算]",
+
+    /**
+     * v2.0.0-alpha 批次B：循环寿命预测文案 (如 "预计还可循环约 480 次 [模型预测]")。
+     * 仅健康度实测 (当前容量 sysfs + 设计容量非兜底) 时输出；估算健康度不做外推
+     */
+    val healthForecastText: String? = null,
+
     val halVersion: String = "Android BatteryManager API",
     val cellStructure: String = "标准单电芯封装 [工程估算]",
     val thermalThrottlingState: String = "正常供电 (无节流)"

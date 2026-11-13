@@ -1,5 +1,7 @@
 [versions]
-agp = "8.7.2"
+# v2.0.0-alpha 批次G：AGP 8.10.1——官方支持 compileSdk/targetSdk 36 (Android 16)，
+# 且自 8.9 起提供 enableV3_1Signing DSL (签名方案 v3.1，Android 13+ 密钥轮换)
+agp = "8.10.1"
 kotlin = "2.0.21"
 coreKtx = "1.15.0"
 lifecycleRuntimeKtx = "2.8.7"

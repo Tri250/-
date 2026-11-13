@@ -6,6 +6,7 @@ import android.content.Intent
 import android.os.BatteryManager
 import com.battery.master.data.BatteryState
 import com.battery.master.service.BatteryHardwareReader
+import com.battery.master.service.BatteryHealthEngine
 import com.battery.master.service.BatteryTelemetryParser
 
 /**
@@ -54,6 +55,9 @@ class BatteryReceiver(
         // 未满足保留上次锁定值不抹除；先锁定再读时间戳保证回显值实时刷新
         // v1.2.6 P2 审计修复：充电态判定单源——直接消费解析器输出的 raw.isCharging
         // (含 EXTRA_PLUGGED 通道判定)，杜绝广播通道本地重复推导与解析口径漂移
+        // v2.0.0-alpha 批次B：广播通道喂样健康引擎 (ΔV/ΔI 内阻滑窗 + 温度 EWMA)
+        BatteryHealthEngine.observe(raw)
+
         reader.lockFullChargeIfCriteriaMet(raw.currentCapacityMah, raw.percentage, raw.currentMa, raw.isCharging)
 
         // v1.2.3 P0 审计修复：真实锁定 (REAL) 与模拟演示值 (SIMULATED) 分离，

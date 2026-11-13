@@ -329,7 +329,10 @@ fun BatteryScreen(
                         title = "充放电循环",
                         value = if (state.cycleCount > 0) "${state.cycleCount}" else "—",
                         unit = if (state.cycleCount > 0) "次" else "",
-                        sub = if (state.cycleCount > 0) "Cycle Count" else "系统未上报循环数据",
+                        // v2.0.0-alpha 批次B：健康度实测时展示循环寿命预测 (模型外推)，
+                        // 估算健康度不预测——保持 "Cycle Count" 原口径
+                        sub = state.healthForecastText
+                            ?: if (state.cycleCount > 0) "Cycle Count" else "系统未上报循环数据",
                         accentColor = DesignTokens.AccentTeal
                     )
                 }
@@ -720,12 +723,14 @@ fun HardwareSummaryCard(state: BatteryState, onCalibrateDesignCapacity: () -> Un
             Spacer(modifier = Modifier.height(8.dp))
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                // v1.2.4 P2 审计修复：内阻为工程估算模型 (系统无实测 API)，
-                // 显式标注，不再与 [DT 实测] 字段并排冒充实测
+                // v1.2.4 P2 审计修复 + v2.0.0-alpha 批次B：内阻来源随引擎置信度显式标注——
+                // ΔV/ΔI 滑窗回归实测显示 "[运行时测算·高置信 n=48]"，
+                // 样本不足时仍回退估算模型并标注 "[工程估算]"
                 HardwareItem(
                     modifier = Modifier.weight(1f),
                     label = "电芯内阻",
-                    value = "${String.format(Locale.US, "%.1f", state.internalResistanceMohm)} mΩ [工程估算]"
+                    value = "${String.format(Locale.US, "%.1f", state.internalResistanceMohm)} mΩ ${state.internalResistanceLabel}",
+                    maxLines = 2
                 )
                 HardwareItem(modifier = Modifier.weight(1f), label = "化学材料体系", value = state.batteryChemistry)
             }

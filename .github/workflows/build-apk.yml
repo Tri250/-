@@ -50,13 +50,14 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.9'
+          # v2.0.0-alpha 批次G：AGP 8.10.1 要求 Gradle 8.11.1+
+          gradle-version: '8.11.1'
 
       - name: Ensure Android SDK Components
         run: |
           if [ -d "$ANDROID_HOME/cmdline-tools/latest/bin" ]; then
             yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 || true
-            $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0" || true
+            $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" || true
           elif [ -d "$ANDROID_HOME/tools/bin" ]; then
             yes | $ANDROID_HOME/tools/bin/sdkmanager --licenses > /dev/null 2>&1 || true
           fi
@@ -354,6 +355,18 @@ jobs:
           echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
           echo "Release version resolved: v$VERSION_NAME (versionCode=$VERSION_CODE)"
 
+      # v2.0.0-alpha 批次G：alpha/beta/rc/dev 版本自动标记 GitHub Release 为预发布
+      - name: Resolve Pre-release Flag
+        id: prerelease
+        run: |
+          VERSION_NAME="${{ steps.version.outputs.version_name }}"
+          if [[ "$VERSION_NAME" =~ (alpha|beta|rc|dev) ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Pre-release flag: $(grep -o 'prerelease=.*' "$GITHUB_OUTPUT" | cut -d= -f2)"
+
       - name: Download Android APK
         uses: actions/download-artifact@v4
         with:
@@ -434,7 +447,8 @@ jobs:
             *以下为自动生成的提交记录*
           generate_release_notes: true
           draft: false
-          prerelease: false
+          # v2.0.0-alpha 批次G：预发布版本 (alpha/beta/rc/dev) 自动标记 prerelease
+          prerelease: ${{ steps.prerelease.outputs.prerelease }}
           fail_on_unmatched_files: true
           files: |
             artifacts/*.apk
