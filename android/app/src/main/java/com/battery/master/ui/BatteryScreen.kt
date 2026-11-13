@@ -401,7 +401,9 @@ fun BatteryScreen(
             } else if (tab == 1) {
                 // v2.0.0-alpha.1：遥测分析 Tab (对齐 Web 端 TELEMETRY 视图)——
                 // 实时硬件遥测曲线 + 功率/温度评估 + 采集链路状态
-                TelemetryAnalysisScreen(state)
+                // v2.0.0-alpha.3：历史经 StateFlow collect (VM 发布源头积累)
+                val telemetryHistory by viewModel.telemetryHistory.collectAsState()
+                TelemetryAnalysisScreen(state, telemetryHistory)
             } else if (tab == 2) {
                 // v2.0.0-alpha.1：健康档案 Tab (对齐 Web 端 HEALTH 视图)——
                 // 健康度实测大数字 + 内阻/寿命预测 + 诊断建议 + 充满判定卡
@@ -1226,15 +1228,10 @@ fun AboutAppCard() {
  *   这是 Android 端真机才能提供的真实采集通道透视，Web 模拟端无法实现。
  */
 @Composable
-fun TelemetryAnalysisScreen(state: BatteryState) {
-    // 滑动窗口：1Hz 遥测追加上限 120 点 (~2 分钟)；remember 存活于本 Tab 作用域，
-    // 切 Tab (Crossfade 保留状态) 不清空，进程重建则重新积累
-    val history = remember { mutableStateListOf<BatteryState>() }
-    LaunchedEffect(state) {
-        history.add(state)
-        while (history.size > 120) history.removeAt(0)
-    }
-
+fun TelemetryAnalysisScreen(state: BatteryState, history: List<BatteryState>) {
+    // v2.0.0-alpha.3 真实现：曲线历史由 BatteryViewModel.telemetryHistory 在发布
+    // 源头积累 (1Hz 轮询 + 广播双通道、400ms 同拍节流、120 点滑窗)——跨 Tab 切换
+    // 不丢失，实验室冻结/模拟保持期期间仍记录真实硬件读数。UI 层只消费不持有
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()

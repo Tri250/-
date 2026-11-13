@@ -205,11 +205,14 @@ internal object BatterySysfs {
 
     /**
      * v2.0.0-alpha.1：探测链命中节点标签 (如 "bms"/"maxfg"/"battery")，
-     * 遥测分析 Tab 采集链路卡展示真实数据来源；探测为空回退 battery
+     * 遥测分析 Tab 采集链路卡展示真实数据来源。
+     * v2.0.0-alpha.3 诚实口径：探测链未命中任何存在目录时显示"无"——
+     * 旧实现回退展示 "battery" 名，但此时并未从 battery 目录读到任何数据，
+     * 属失实标注 (是多少就是多少)
      */
     fun gaugeNodeLabel(): String {
         val dirs = resolveGaugeDirs()
-        return if (dirs.isNotEmpty()) java.io.File(dirs.first()).name else "battery"
+        return if (dirs.isNotEmpty()) java.io.File(dirs.first()).name else "无"
     }
 
     private fun <T> readAcrossDirs(node: String, transform: (String) -> T?): T? =

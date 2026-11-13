@@ -180,6 +180,19 @@
 
 ---
 
+## ⚡ v2.0.0-alpha.3 · 真实现审查——消灭空实现/简化实现
+
+针对"必须彻底达到真实预期效果，不能空实现、模拟、简化实现"要求，对新增功能逐项审查，发现并修复 **4 项名不副实**：
+
+- **P0 · 遥测曲线历史是 UI 层简化实现**：旧实现历史数据在 `TelemetryAnalysisScreen` 内 `remember` 积累——**切换 Tab 即丢弃**，"最近 120 个采样点"名不副实；实验室冻结/模拟保持期期间曲线停摆（展示态冻结连带历史停录）。真实现（[BatteryViewModel.kt](android/app/src/main/java/com/battery/master/viewmodel/BatteryViewModel.kt)）：历史提升至 `BatteryViewModel.telemetryHistory`（StateFlow 整列表快照），**在发布源头 publish() 内积累**——冻结判定之前，真实硬件读数无论 UI 展示态如何始终如实入档；VM 存活期持久，跨 Tab/配置变更不丢。曲线始终反映真实硬件行为。
+- **P0 · 双通道同拍节流 + 首拍边界**：广播与轮询双通道每秒各触发一次 publish，400ms 节流窗口去重（避免曲线密度失真）；**开机首拍边界**——elapsedRealtime 从 0 起算，节流初值 0 会让首拍遥测被窗口误弃（测试暴露的真实边界），初值改 -WINDOW 保证首拍必入档。
+- **P1 · gaugeNodeLabel 失实标注**：探测链未命中任何存在目录时回退显示 "battery"，但此时并未从 battery 目录读到任何数据——诚实口径改为显示"无"。
+- **P2 · SnapshotStateList 与 Compose 测试快照冲突**：VM 内 mutableStateListOf 在桌面 Compose 测试环境与 Recomposer 快照 apply 循环冲突（AppNotIdle 无限重组）→ 改用与 _batteryState 同语义的 StateFlow 发布（整列表不可变快照，1Hz 更新成本可忽略）。
+- **测试**：新增 3 个真实链路用例——广播同款链路（onReceive → parse → publish）入档/同拍节流/越窗入档、125→120 滑窗截断（旧样本丢弃/新样本尾部）、**切 Tab 历史保留**（VM 单源断言 + 面板标题样本数一致）；节流时间源注入点（`elapsedClock`）绕开 Robolectric shadow 时钟不随真实睡眠推进的环境限制，测试完全确定。全量 **109 用例全绿**。
+- **版本升级**：versionName 2.0.0-alpha.3 / versionCode 15，Release 标记预发布。
+
+---
+
 ## 👨‍💻 开发者
 
 - **某厂大牛马【带娃的小陈工】** — 抖音 / 小红书 平台
@@ -233,7 +246,7 @@ git push -u origin main
 只要在本地打上 `v*` 格式的版本标签（**必须与 `android/app/build.gradle.kts` 中的 `versionName` 一致**，CI 会强制校验）并推送到 GitHub，GitHub Actions 会自动创建 GitHub Release 并将 APK 文件挂载在 Release 附件中：
 
 ```bash
-# 示例：当前版本 versionName=2.0.0-alpha.2 (versionCode=14)
+# 示例：当前版本 versionName=2.0.0-alpha.3 (versionCode=15)
 git tag v1.2.6
 git push origin v1.2.6
 ```

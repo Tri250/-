@@ -1289,7 +1289,9 @@ fun BatteryScreen(
             } else if (tab == 1) {
                 // v2.0.0-alpha.1：遥测分析 Tab (对齐 Web 端 TELEMETRY 视图)——
                 // 实时硬件遥测曲线 + 功率/温度评估 + 采集链路状态
-                TelemetryAnalysisScreen(state)
+                // v2.0.0-alpha.3：历史经 StateFlow collect (VM 发布源头积累)
+                val telemetryHistory by viewModel.telemetryHistory.collectAsState()
+                TelemetryAnalysisScreen(state, telemetryHistory)
             } else if (tab == 2) {
                 // v2.0.0-alpha.1：健康档案 Tab (对齐 Web 端 HEALTH 视图)——
                 // 健康度实测大数字 + 内阻/寿命预测 + 诊断建议 + 充满判定卡
@@ -2114,15 +2116,10 @@ fun AboutAppCard() {
  *   这是 Android 端真机才能提供的真实采集通道透视，Web 模拟端无法实现。
  */
 @Composable
-fun TelemetryAnalysisScreen(state: BatteryState) {
-    // 滑动窗口：1Hz 遥测追加上限 120 点 (~2 分钟)；remember 存活于本 Tab 作用域，
-    // 切 Tab (Crossfade 保留状态) 不清空，进程重建则重新积累
-    val history = remember { mutableStateListOf<BatteryState>() }
-    LaunchedEffect(state) {
-        history.add(state)
-        while (history.size > 120) history.removeAt(0)
-    }
-
+fun TelemetryAnalysisScreen(state: BatteryState, history: List<BatteryState>) {
+    // v2.0.0-alpha.3 真实现：曲线历史由 BatteryViewModel.telemetryHistory 在发布
+    // 源头积累 (1Hz 轮询 + 广播双通道、400ms 同拍节流、120 点滑窗)——跨 Tab 切换
+    // 不丢失，实验室冻结/模拟保持期期间仍记录真实硬件读数。UI 层只消费不持有
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -2696,8 +2693,8 @@ android {
         applicationId = "com.battery.master"
         minSdk = 26
         targetSdk = 36
-        versionCode = 14
-        versionName = "2.0.0-alpha.2"
+        versionCode = 15
+        versionName = "2.0.0-alpha.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -3112,6 +3109,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.media.AudioManager
 import android.media.ToneGenerator
+import android.os.SystemClock
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -3191,6 +3189,41 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
     fun setTelemetryPollingActive(active: Boolean) {
         telemetryPollingActive = active
     }
+
+    /**
+     * v2.0.0-alpha.3 真实现：遥测历史单源——真实硬件读数在发布源头每拍积累，
+     * 遥测分析 Tab 曲线直接消费本历史。旧实现在 UI 层 remember 积累：切换 Tab
+     * 即丢弃、实验室冻结/模拟保持期期间停摆，"最近 120 个采样点"名不副实。
+     * VM 存活期持久，跨 Tab 切换/配置变更不丢失 (ViewModel 生命周期)。
+     * v2.0.0-alpha.3 二次修复：SnapshotStateList 在桌面 Compose 测试环境与
+     * Recomposer 快照 apply 循环冲突 (AppNotIdle 无限重组)，改用与 _batteryState
+     * 同语义的 StateFlow 发布 (整列表不可变快照，1Hz 更新成本可忽略)
+     */
+    private val _telemetryHistory = MutableStateFlow<List<BatteryState>>(emptyList())
+    val telemetryHistory: StateFlow<List<BatteryState>> = _telemetryHistory.asStateFlow()
+
+    /** 测试种子：绕过节流窗口直接注入历史 (滑窗截断逻辑复用 publish 同款上限) */
+    internal fun seedTelemetryHistoryForTest(states: List<BatteryState>) {
+        _telemetryHistory.value = states
+    }
+
+    /**
+     * 测试注入：与系统粘性广播完全同款的链路 (onReceive → parse → publish)，
+     * 仅绕过 Robolectric 对 RECEIVER_NOT_EXPORTED 动态注册的隐式广播分发限制
+     * (系统广播分发器行为本身非被测对象，真机上系统电池广播可正常投递)
+     */
+    internal fun dispatchTelemetryBroadcastForTest(intent: Intent) {
+        batteryReceiver.onReceive(getApplication(), intent)
+    }
+
+    /** 上次历史追加时刻 (elapsedRealtime)：广播+轮询双通道同拍节流去重。
+     *  初始 -WINDOW 保证首拍必入档 (elapsedRealtime 从 0 起算，初值 0 会让
+     *  开机首拍被 400ms 窗口误节流丢弃——Robolectric 测试暴露的真实边界) */
+    private var lastHistoryAppendElapsedMs = -HISTORY_MIN_INTERVAL_MS
+
+    /** 节流时间源注入点：生产走 SystemClock.elapsedRealtime；测试注入虚拟时钟
+     *  (Robolectric shadow 时钟不随真实睡眠推进，固定注入保证节流窗口确定性) */
+    internal var elapsedClock: () -> Long = SystemClock::elapsedRealtime
 
     init {
         // 注册容错：部分定制 ROM 可能拒绝动态注册，失败时退化为纯轮询通道，保证 UI 不崩溃
@@ -3274,6 +3307,17 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
     private fun publish(fresh: BatteryState) {
         // 启动闪退治理：发布链路任何异常都不能逃逸到协程 (未捕获异常会直接杀进程)
         try {
+            // v2.0.0-alpha.3 真实现：历史在覆盖冻结判定之前积累——无论 UI 展示态
+            // 是模拟保持期还是实验室冻结，真实硬件读数 (fresh) 始终如实入档，
+            // 曲线反映真实硬件行为而非展示态。双通道同拍节流 (广播+轮询 1s 内
+            // 各触发一次 publish，400ms 窗口去重避免曲线密度失真)
+            val elapsed = elapsedClock()
+            if (elapsed - lastHistoryAppendElapsedMs >= HISTORY_MIN_INTERVAL_MS) {
+                lastHistoryAppendElapsedMs = elapsed
+                val next = _telemetryHistory.value + fresh
+                _telemetryHistory.value =
+                    if (next.size > TELEMETRY_HISTORY_MAX) next.takeLast(TELEMETRY_HISTORY_MAX) else next
+            }
             if (System.currentTimeMillis() < simulationHoldUntilMs) return
             // 硬件实验室模拟中：冻结真实遥测覆盖，保持滑杆/场景设定值稳定展示
             if (_labOverride.value != null) return
@@ -3603,6 +3647,12 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
         /** 一键模拟充满后的保持期 (毫秒) */
         private const val SIMULATION_HOLD_MS = 15_000L
 
+        /** v2.0.0-alpha.3：遥测历史滑窗上限 (~2 分钟 @1Hz) */
+        private const val TELEMETRY_HISTORY_MAX = 120
+
+        /** v2.0.0-alpha.3：广播+轮询双通道同拍节流窗口 (ms) */
+        private const val HISTORY_MIN_INTERVAL_MS = 400L
+
         /**
          * 一键模拟充满的演示电芯容量 (mAh)：电量计节点不可读 (容量=0) 时的固定演示基准，
          * 模拟态 UI 全程标注 [模拟] 来源，不冒充实测
@@ -3829,11 +3879,14 @@ internal object BatterySysfs {
 
     /**
      * v2.0.0-alpha.1：探测链命中节点标签 (如 "bms"/"maxfg"/"battery")，
-     * 遥测分析 Tab 采集链路卡展示真实数据来源；探测为空回退 battery
+     * 遥测分析 Tab 采集链路卡展示真实数据来源。
+     * v2.0.0-alpha.3 诚实口径：探测链未命中任何存在目录时显示"无"——
+     * 旧实现回退展示 "battery" 名，但此时并未从 battery 目录读到任何数据，
+     * 属失实标注 (是多少就是多少)
      */
     fun gaugeNodeLabel(): String {
         val dirs = resolveGaugeDirs()
-        return if (dirs.isNotEmpty()) java.io.File(dirs.first()).name else "battery"
+        return if (dirs.isNotEmpty()) java.io.File(dirs.first()).name else "无"
     }
 
     private fun <T> readAcrossDirs(node: String, transform: (String) -> T?): T? =

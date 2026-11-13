@@ -153,6 +153,96 @@ class TelemetryAndHealthTabAuditTest {
         }
     }
 
+    // ===== 5b. 遥测历史真实现：VM 源头积累 / 同拍节流 / 120 滑窗截断 =====
+
+    /** 广播驱动 publish：显式包名 (NOT_EXPORTED 注册仅接收显式/本包广播) + looper.idle 同步分发 */
+    private fun broadcastVoltage(app: Application, vm: BatteryViewModel, voltageMv: Int) {
+        vm.dispatchTelemetryBroadcastForTest(
+            Intent(Intent.ACTION_BATTERY_CHANGED).apply {
+                setPackage(app.packageName)
+                putExtra(BatteryManager.EXTRA_LEVEL, 58)
+                putExtra(BatteryManager.EXTRA_SCALE, 100)
+                putExtra(BatteryManager.EXTRA_STATUS, BatteryManager.BATTERY_STATUS_CHARGING)
+                putExtra(BatteryManager.EXTRA_TEMPERATURE, 300)
+                putExtra(BatteryManager.EXTRA_VOLTAGE, voltageMv)
+                putExtra(BatteryManager.EXTRA_HEALTH, BatteryManager.BATTERY_HEALTH_GOOD)
+            }
+        )
+    }
+
+    @Test
+    fun vmTelemetryHistory_accumulatesFromPublishSource_andThrottlesDuplicates() {
+        val vm = BatteryViewModel(app)
+        vm.seedTelemetryHistoryForTest(emptyList())
+        // 注入虚拟时钟：Robolectric shadow 时钟不随真实睡眠推进，虚拟时钟保证节流窗口确定性
+        var fakeElapsed = 10_000L
+        vm.elapsedClock = { fakeElapsed }
+        val timestampBefore = System.currentTimeMillis()
+
+        broadcastVoltage(app, vm, 4187)
+        // 中间层定位：publish 是否执行 (展示态应同步为广播读数)
+        assertEquals("publish 展示态应刷新", 4187, vm.batteryState.value.voltageMv)
+        assertTrue("真实遥测必须在发布源头入档", vm.telemetryHistory.value.isNotEmpty())
+        assertEquals(1, vm.telemetryHistory.value.size)
+        assertEquals(4187, vm.telemetryHistory.value.last().voltageMv)
+
+        // 同拍第二条广播 (虚拟时钟仅推进 100ms < 400ms 窗口)：去重不入档，曲线密度不失真
+        fakeElapsed += 100
+        broadcastVoltage(app, vm, 4200)
+        assertEquals("双通道同拍重复读数必须被节流", 1, vm.telemetryHistory.value.size)
+
+        // 越过节流窗口 (虚拟时钟推进 600ms)：新读数正常入档
+        fakeElapsed += 600
+        broadcastVoltage(app, vm, 4230)
+        assertEquals(2, vm.telemetryHistory.value.size)
+        assertEquals(4230, vm.telemetryHistory.value.last().voltageMv)
+        assertTrue(vm.telemetryHistory.value.last().lastFullChargeTimestamp == null)
+        assertTrue(timestampBefore > 0)
+    }
+
+    @Test
+    fun vmTelemetryHistory_capsAt120Samples() {
+        val vm = BatteryViewModel(app)
+        vm.seedTelemetryHistoryForTest(
+            (1..125).map { com.battery.master.data.BatteryState(voltageMv = it) }
+        )
+        assertEquals(125, vm.telemetryHistory.value.size)
+        var fakeElapsed = 20_000L
+        vm.elapsedClock = { fakeElapsed }
+
+        // 下一拍真实 publish 触发滑窗截断 (120 上限，丢弃最旧样本)
+        fakeElapsed += 1000
+        broadcastVoltage(app, vm, 4187)
+        assertEquals("滑窗必须截断至 120", 120, vm.telemetryHistory.value.size)
+        assertEquals("最新样本必须在窗口尾部", 4187, vm.telemetryHistory.value.last().voltageMv)
+        // 126 条截断至 120 → 丢弃最旧 6 条 (voltage 1..6)，剩余首条 voltage=7
+        assertEquals("最旧样本必须被丢弃", 7, vm.telemetryHistory.value.first().voltageMv)
+    }
+
+    @Test
+    fun telemetryTab_historySurvivesTabSwitch_fromVmSource() {
+        val viewModel = BatteryViewModel(app)
+        var fakeElapsed = 30_000L
+        viewModel.elapsedClock = { fakeElapsed }
+        mount(viewModel)
+        broadcastVoltage(app, viewModel, 4380)
+        val snapshotAtEntry = viewModel.telemetryHistory.value.toList()
+
+        // 切到硬件实验室再切回遥测分析：历史由 VM 持有，不随 Tab 重建丢失
+        composeRule.onNodeWithText("硬件实验室").performClick()
+        composeRule.onNodeWithText("遥测分析").performClick()
+
+        composeRule.onNodeWithText("高频硬件遥测分析").assertExists()
+        assertEquals(snapshotAtEntry, viewModel.telemetryHistory.value.toList())
+        assertTrue(viewModel.telemetryHistory.value.isNotEmpty())
+        assertEquals(4380, viewModel.telemetryHistory.value.last().voltageMv)
+        // 曲线面板标题反映真实样本数 (VM 单源，UI 只消费)
+        composeRule.onNodeWithText(
+            "实时遥测曲线 (最近 ${viewModel.telemetryHistory.value.size} 个采样点)",
+            substring = true
+        ).assertExists()
+    }
+
     // ===== 5. 引擎采集接线端到端：parse 出口喂样 → 滑窗样本反映 =====
 
     @Test
