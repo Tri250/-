@@ -358,7 +358,7 @@ fun BatteryScreen(
                             "电势差 ${String.format(Locale.US, "%.2f", state.voltageMv / 1000f)} V · " +
                                 BatteryTelemetryParser.voltageStateLabel(state.voltageMv, state.voltageMeasured)
                         else
-                            "EXTRA_VOLTAGE/sysfs voltage_now 双通道不可读",
+                            "广播/sysfs 电压通道均不可读",
                         accentColor = DesignTokens.InfoSky
                     )
                     CyberMetricCardItem(

@@ -631,8 +631,124 @@ class MetricsSelfCheckAuditTest {
         composeRule.setContent { BatteryScreen(viewModel = vm) }
         composeRule.waitForIdle()
 
-        composeRule.onNodeWithText("EXTRA_VOLTAGE/sysfs voltage_now 双通道不可读").assertExists()
+        composeRule.onNodeWithText("广播/sysfs 电压通道均不可读").assertExists()
         composeRule.onNodeWithText("mV").assertDoesNotExist()
         composeRule.onNodeWithText("— V", substring = true).assertExists()
+    }
+
+    // ==================== v2.0.0-alpha.8：指标 09/11 真机无正常显示修复 ====================
+    //
+    // alpha.7 发布后真机反馈"电芯电压/瞬时电流无正常显示"，深度自检锁定 6 项根因：
+    // R1 sysfs 电压盲目 μV 假设：mV 上报内核 4350 被折成 4 mV 后被区间拒绝 → 通道死亡
+    // R2 电压单节点 + 仅电量计评分目录：voltage_avg/batt/ocv 与低评分目录不消费
+    // R3 EXTRA_VOLTAGE μV 注入内核：4,150,000 超出 mV 区间被拒绝
+    // R4 指标 11 唯一取值通道 = CURRENT_NOW 属性：HAL 不支持 (Int.MIN_VALUE) 的机型
+    //    即便 sysfs 电流节点完好也恒显 "—" (sysfs 仅作单位参照，从不作为取值通道)
+    // R5 HAL 损坏恒 0：伪造 "0 mA" 展示
+    // R6 电流单节点：current_avg/bms_current/BatteryAverageCurrent (MTK) 不消费
+
+    @Test
+    fun sysfs_voltage_mVReportingKernel_dualUnitAdjudication() {
+        // R1 修复：mV 上报内核 voltage_now="4350" → 直接采用 (旧实现折成 4 mV 被区间拒绝)
+        val dir = installGaugeProbe(mapOf("voltage_now" to "4350"))
+        try {
+            assertEquals(4350, BatterySysfs.readVoltageNowMilliVolts())
+        } finally {
+            cleanupProbe(dir)
+        }
+    }
+
+    @Test
+    fun sysfs_voltage_multiNodeChain_avgFallback() {
+        // R2 修复：voltage_now 缺失 → voltage_avg (μV) 兜底命中
+        val dir = installGaugeProbe(mapOf("voltage_avg" to "4100000"))
+        try {
+            assertEquals(4100, BatterySysfs.readVoltageNowMilliVolts())
+        } finally {
+            cleanupProbe(dir)
+        }
+    }
+
+    @Test
+    fun parser_voltage_extraMicroVoltInjected_normalized() {
+        // R3 修复：μV 注入 Extra (4,150,000) → /1000 复验命中 → 4150 mV 实测
+        BatterySysfs.installProbeResultForTest(emptyList())
+        BatterySysfs.installAllSupplyDirsForTest(emptyList())
+        val raw = BatteryTelemetryParser.parse(
+            batteryIntent { putExtra(BatteryManager.EXTRA_VOLTAGE, 4_150_000) },
+            batteryManager(), 5000
+        )
+        assertEquals(4150, raw.voltageMv)
+        assertTrue(raw.voltageMeasured)
+    }
+
+    @Test
+    fun parser_current_propertyUnsupported_sysfsValueFallback() {
+        // R4 修复 (指标 11 核心)：CURRENT_NOW 属性不支持 (Int.MIN_VALUE，shadow 默认)
+        // → sysfs current_now=1150000 μA 作为**取值**通道 → 放电态符号校准 -1150 mA
+        // (旧实现 sysfs 仅作单位参照，取值恒 null → 恒显 "—")
+        BatterySysfs.installAllSupplyDirsForTest(emptyList())
+        val dir = installGaugeProbe(mapOf("current_now" to "1150000"))
+        try {
+            val raw = BatteryTelemetryParser.parse(batteryIntent {}, batteryManager(), 5000)
+            assertEquals(-1150, raw.currentMa)
+            assertFalse(raw.voltageMeasured)
+            // 功率门控联动：电压未实测 → 功率仍 null (不因电流恢复而伪造)
+            assertEquals(null, raw.powerWatts)
+        } finally {
+            cleanupProbe(dir)
+        }
+    }
+
+    @Test
+    fun parser_current_propertyZeroHalBroken_sysfsCrossCheck() {
+        // R5 修复：HAL 损坏恒 0 → sysfs 真实读数 (850000 μA → 850 mA) 替代伪造 "0 mA"；
+        // sysfs 也无读数时保留 0 (合法浮充读数)
+        BatterySysfs.installAllSupplyDirsForTest(emptyList())
+        Shadows.shadowOf(batteryManager())
+            .setIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW, 0)
+        val dir = installGaugeProbe(mapOf("current_now" to "850000"))
+        try {
+            val raw = BatteryTelemetryParser.parse(
+                batteryIntent {
+                    putExtra(BatteryManager.EXTRA_STATUS, BatteryManager.BATTERY_STATUS_CHARGING)
+                },
+                batteryManager(), 5000
+            )
+            assertEquals(850, raw.currentMa)
+            File(dir, "current_now").delete()
+            val noSysfs = BatteryTelemetryParser.parse(batteryIntent {}, batteryManager(), 5000)
+            assertEquals(0, noSysfs.currentMa)
+        } finally {
+            cleanupProbe(dir)
+        }
+    }
+
+    @Test
+    fun sysfs_current_multiNodeChain_avgFallback() {
+        // R6 修复：current_now 缺失 → current_avg 兜底；μA 归一 + 放电符号校准
+        BatterySysfs.installAllSupplyDirsForTest(emptyList())
+        val dir = installGaugeProbe(mapOf("current_avg" to "2300000"))
+        try {
+            assertEquals(-2300, BatterySysfs.readCurrentNowMilliAmps(false))
+            assertEquals(2300, BatterySysfs.readCurrentNowMilliAmps(true))
+        } finally {
+            cleanupProbe(dir)
+        }
+    }
+
+    @Test
+    fun parser_voltage_mVKernelSysfs_measured() {
+        // 端到端：mV 上报内核 + 广播缺 EXTRA → sysfs 多节点+双单位通道命中 4350 mV 实测
+        BatterySysfs.installAllSupplyDirsForTest(emptyList())
+        val dir = installGaugeProbe(mapOf("voltage_now" to "4350"))
+        try {
+            val raw = BatteryTelemetryParser.parse(batteryIntent {}, batteryManager(), 5000)
+            assertEquals(4350, raw.voltageMv)
+            assertTrue(raw.voltageMeasured)
+            assertEquals("接近满充", BatteryTelemetryParser.voltageStateLabel(4350, true))
+        } finally {
+            cleanupProbe(dir)
+        }
     }
 }

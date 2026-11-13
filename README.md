@@ -238,6 +238,20 @@
 - **测试**：新增 10 用例（sysfs 原始通道不钳制/脏数据 null、解析层双通道回退/未实测诚实态/功率门控正反组、分级标签 8 边界、Reader 降级态、端到端 09 卡数值+分级+Hero 三处显示）——全量 **151 用例全绿**；4 份源码快照（sysfs/reader/state/compose）逐字同步，Web 构建通过。
 - **版本升级**：versionName 2.0.0-alpha.7 / versionCode 19，Release 标记预发布。
 
+## ⚡ v2.0.0-alpha.8 · 指标 09/11 真机无正常显示深度修复
+
+alpha.7 真机反馈「电芯电压 / 瞬时电流无正常显示」。对两条指标链路做逐通道真机失败模式审计，锁定 6 项根因（R1–R6）并全部修复：
+
+- **R1 · sysfs 电压盲目 μV 假设**：power_supply ABI 规范 `voltage_now` 单位 μV，但部分内核以 mV 上报——旧实现盲目 `/1000` 把 4350 mV 折成 4 mV 后被合理区间 [2000,12000] 拒绝，sysfs 电压通道静默死亡。修复：[BatterySysfs.kt](android/app/src/main/java/com/battery/master/service/BatterySysfs.kt) 双单位裁决（先按 μV 折算校验，再按 mV 原值校验）。
+- **R2 · 电压单节点 + 仅电量计评分目录**：旧实现仅消费 `voltage_now` 且仅扫描电量计特征评分 ≥2 的目录——`voltage_avg/voltage_batt/voltage_ocv` 节点与低评分测量目录被整体排除。修复：多节点探测链（now→avg→batt→ocv，ocv 含 IR 压降差异仅作深度兜底）+ power_supply 全量目录扫描（探测一次缓存，1Hz 轮询无重复扫描开销）。
+- **R3 · EXTRA_VOLTAGE μV 注入内核**：规范单位 mV，但部分内核以 μV 注入广播 Extra（4,150,000 超出 mV 区间被直接拒绝）。修复：[BatteryTelemetryParser.kt](android/app/src/main/java/com/battery/master/service/BatteryTelemetryParser.kt) μV Extra 裁决——仅当原值超 mV 上限且 `/1000` 落入合理区间时采用，mV 内核不受影响。
+- **R4 · 指标 11 唯一取值通道 = CURRENT_NOW 属性（核心根因）**：旧实现 `BATTERY_PROPERTY_CURRENT_NOW` 是唯一取值通道，sysfs 电流节点仅作单位裁决参照——HAL 不支持该属性的机型（返回 Int.MIN_VALUE，MTK/部分华为三星常见）即便 sysfs 电流节点完好也恒显 "—"。修复：新增 sysfs 多节点**取值**回退通道（[readCurrentNowMilliAmps](android/app/src/main/java/com/battery/master/service/BatterySysfs.kt)），单位归一与充放符号校准完整复用既有 normalize 链。
+- **R5 · HAL 损坏恒 0 伪造 "0 mA"**：部分 ROM 该属性恒返回 0。修复：交叉校验 sysfs 真实读数，命中即采用；sysfs 亦不可得时保留 0（合法浮充读数），不虚构也不误报。
+- **R6 · 电流单节点**：修复后探测链覆盖 `current_now / current_avg / bms_current / battery_current / BatteryAverageCurrent (MTK)`；单位裁决参照 `readCurrentNow()` 同步扩为多节点。
+- **诚实口径保持**：功率 V×I 门控（alpha.7 V3）不受电流通道恢复影响——电压未实测时功率仍为 null；09 卡未实测标注更新为「广播/sysfs 电压通道均不可读」。
+- **测试**：新增 7 用例（mV 内核双单位裁决、voltage_avg/current_avg 多节点兜底、μV Extra 归一、属性不支持 sysfs 取值回退 + 功率门控联动、HAL 恒 0 交叉校验正反组、mV 内核端到端实测）——全量 **158 用例全绿**；2 份源码快照（sysfs/compose）逐字同步，Web 构建通过。
+- **版本升级**：versionName 2.0.0-alpha.8 / versionCode 20，Release 标记预发布。
+
 ---
 
 ## 👨‍💻 开发者
@@ -293,7 +307,7 @@ git push -u origin main
 只要在本地打上 `v*` 格式的版本标签（**必须与 `android/app/build.gradle.kts` 中的 `versionName` 一致**，CI 会强制校验）并推送到 GitHub，GitHub Actions 会自动创建 GitHub Release 并将 APK 文件挂载在 Release 附件中：
 
 ```bash
-# 示例：当前版本 versionName=2.0.0-alpha.7 (versionCode=19)
+# 示例：当前版本 versionName=2.0.0-alpha.8 (versionCode=20)
 git tag v1.2.6
 git push origin v1.2.6
 ```

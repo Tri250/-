@@ -318,21 +318,32 @@ internal object BatteryTelemetryParser {
         // 9. 电压：毫伏 mV。v1.2.3 审计加固：传感器故障值 (0/负/超大) 视为不可信，
         // 回退中性默认 4000 mV (与 EXTRA 缺失口径一致)，避免 "0 mV" 荒谬展示
         // 污染功率计算与快充协议档位推断
-        // v2.0.0-alpha.7 指标 09 自检修复：单通道 → 双通道。EXTRA_VOLTAGE 与
-        // sysfs voltage_now 是两条独立硬件通路，部分 ROM 广播缺电压 Extra 但
-        // sysfs 节点完好，旧单通道实现使这类设备电压恒显 4000 mV 默认值。
-        // 通道优先级：EXTRA_VOLTAGE (系统广播实测) → sysfs voltage_now (内核实测)；
+        // v2.0.0-alpha.7 指标 09 自检修复：单通道 → 双通道 (EXTRA → sysfs voltage_now)
+        // v2.0.0-alpha.8 真机自检修复 (电压无正常显示根因)：
+        // 1. EXTRA_VOLTAGE 单位裁决——规范单位 mV，但部分内核以 μV 注入 Extra
+        //    (4,150,000 超出 [2000,12000] 被直接拒绝 → sysfs 兜底可能同样失效 →
+        //    指标 09 恒显 "—")；现 μV 值 /1000 复验，命中即按实测采用；
+        // 2. sysfs 通道扩为多节点 (voltage_now/avg/batt/ocv) + 全量目录扫描 +
+        //    μV/mV 双单位裁决 (见 BatterySysfs.readVoltageNowMilliVolts)；
         // 双通道均不可得时 voltageMeasured=false，UI 显示 "—" 而非伪装读数
-        val rawVoltageMv = intent?.getIntExtra(BatteryManager.EXTRA_VOLTAGE, -1) ?: -1
+        val rawExtraVoltage = intent?.getIntExtra(BatteryManager.EXTRA_VOLTAGE, -1) ?: -1
+        val extraVoltageMv = when {
+            rawExtraVoltage in MIN_PLAUSIBLE_VOLTAGE_MV..MAX_PLAUSIBLE_VOLTAGE_MV ->
+                rawExtraVoltage
+            // μV 注入 Extra 裁决：仅当原值超出 mV 上限且 /1000 落入合理区间时采用
+            // (4350 mV 内核不会误伤——4350/1000=4 不在区间)
+            rawExtraVoltage > MAX_PLAUSIBLE_VOLTAGE_MV &&
+                rawExtraVoltage / 1000 in MIN_PLAUSIBLE_VOLTAGE_MV..MAX_PLAUSIBLE_VOLTAGE_MV ->
+                rawExtraVoltage / 1000
+            else -> null
+        }
         val sysfsVoltageMv = BatterySysfs.readVoltageNowMilliVolts()
         val voltageMv: Int
         val voltageMeasured: Boolean
-        if (rawVoltageMv in MIN_PLAUSIBLE_VOLTAGE_MV..MAX_PLAUSIBLE_VOLTAGE_MV) {
-            voltageMv = rawVoltageMv
+        if (extraVoltageMv != null) {
+            voltageMv = extraVoltageMv
             voltageMeasured = true
-        } else if (sysfsVoltageMv != null &&
-            sysfsVoltageMv in MIN_PLAUSIBLE_VOLTAGE_MV..MAX_PLAUSIBLE_VOLTAGE_MV
-        ) {
+        } else if (sysfsVoltageMv != null) {
             voltageMv = sysfsVoltageMv
             voltageMeasured = true
         } else {
@@ -347,6 +358,12 @@ internal object BatteryTelemetryParser {
         //    估算值被冒充实测锁定写盘。现透传 null = 不可读；
         // 2. 符号按 EXTRA_STATUS/EXTRA_PLUGGED 校准 (充电为正、放电为负)，
         //    修复充电上报负值的平台 (高通/三星部分内核) 判定永不成立问题。
+        // v2.0.0-alpha.8 真机自检修复 (瞬时电流无正常显示根因)：
+        // 旧实现 BATTERY_PROPERTY_CURRENT_NOW 是唯一取值通道，sysfs current_now
+        // 仅作单位裁决参照——HAL 不支持该属性的机型 (Int.MIN_VALUE) 即便 sysfs
+        // 电流节点完好，指标 11 恒显 "—"。现增加 sysfs 多节点取值回退
+        // (current_now/avg/bms_current/BatteryAverageCurrent，单位/符号全复用)；
+        // HAL 损坏恒 0 的机型交叉校验 sysfs 真实读数，避免伪造 "0 mA"
         val rawCurrentProp = batteryManager?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)
         // v1.2.6 P2 审计修复：EXTRA_PLUGGED 默认值 -1 → 0 且判定改 plugged > 0——
         // 旧实现广播缺该 Extra 时得到 -1，非零 (!= 0) 被误判为"已接电源"，
@@ -354,7 +371,13 @@ internal object BatteryTelemetryParser {
         // 0 = AOSP 语义"未插入电源"，> 0 才表示接入了充电器/USB/无线充电
         val plugged = intent?.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) ?: 0
         val isCharging = status == BatteryStatus.CHARGING || status == BatteryStatus.FULL || plugged > 0
-        val currentMa = BatterySysfs.normalizeCurrentToMilliAmps(rawCurrentProp, isCharging)
+        val currentMa = when {
+            rawCurrentProp == null || rawCurrentProp == Int.MIN_VALUE ->
+                BatterySysfs.readCurrentNowMilliAmps(isCharging)
+            rawCurrentProp == 0 ->
+                BatterySysfs.readCurrentNowMilliAmps(isCharging)?.takeIf { it != 0 } ?: 0
+            else -> BatterySysfs.normalizeCurrentToMilliAmps(rawCurrentProp, isCharging)
+        }
 
         // 10. 循环计数：Android 14+ 原生 API 与 Linux sysfs 双重支持
         var cycleCount = 0

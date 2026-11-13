@@ -1319,7 +1319,7 @@ fun BatteryScreen(
                             "电势差 \${String.format(Locale.US, "%.2f", state.voltageMv / 1000f)} V · " +
                                 BatteryTelemetryParser.voltageStateLabel(state.voltageMv, state.voltageMeasured)
                         else
-                            "EXTRA_VOLTAGE/sysfs voltage_now 双通道不可读",
+                            "广播/sysfs 电压通道均不可读",
                         accentColor = DesignTokens.InfoSky
                     )
                     CyberMetricCardItem(
@@ -4276,15 +4276,76 @@ internal object BatterySysfs {
      *
      * EXTRA_VOLTAGE (Intent 广播通道) 与 voltage_now (sysfs 通道) 是两条独立硬件通路：
      * 部分 ROM 广播缺失 EXTRA_VOLTAGE 但 sysfs 节点完好，旧解析层单通道消费
-     * 导致这类设备电压恒显默认 4000 mV。本函数作为解析层第二回退通道，
-     * 规范单位 μV → mV；脏数据 (非正/Int.MIN_VALUE) 返回 null。
+     * 导致这类设备电压恒显默认 4000 mV。本函数作为解析层第二回退通道。
      * 注：不钳制——钳制语义属 energy 容量折算专用 (nominalVoltageForEnergyConversion)，
      * 遥测主通道必须呈现真实读数并如实标注测量状态。
+     *
+     * v2.0.0-alpha.8 真机自检修复 (指标 09 无正常显示根因)：
+     * 1. 多节点探测链——voltage_now / voltage_avg / voltage_batt / voltage_ocv，
+     *    并扩扫 power_supply 全量目录 (旧实现仅扫描电量计特征评分≥2 的目录，
+     *    只导出电压节点的平台被评分过滤器直接排除，电压通道整机失效)；
+     * 2. 双单位裁决——power_supply ABI 规范 voltage_now 单位 μV，但部分内核
+     *    以 mV 上报：旧实现盲目 /1000 把 4350 mV 折成 4 mV 后被合理区间
+     *    [2000,12000] 拒绝，通道静默死亡。现先按 μV 折算校验、再按 mV 原值校验。
      */
     fun readVoltageNowMilliVolts(): Int? {
-        val uV = readAcrossDirs("voltage_now") { readInt(it) } ?: return null
-        if (uV <= 0 || uV == Int.MIN_VALUE) return null
-        return Math.round(uV / 1000f).toInt()
+        val raw = readMultiNode(VOLTAGE_NODE_CANDIDATES) ?: return null
+        if (raw <= 0 || raw == Int.MIN_VALUE) return null
+        val microVoltToMv = Math.round(raw / 1000f).toInt()
+        return when {
+            microVoltToMv in BatteryTelemetryParser.MIN_PLAUSIBLE_VOLTAGE_MV..
+                BatteryTelemetryParser.MAX_PLAUSIBLE_VOLTAGE_MV -> microVoltToMv
+            raw in BatteryTelemetryParser.MIN_PLAUSIBLE_VOLTAGE_MV..
+                BatteryTelemetryParser.MAX_PLAUSIBLE_VOLTAGE_MV -> raw
+            else -> null
+        }
+    }
+
+    /** 电压节点探测链 (节点优先级)：now 实时 > avg 均值 > batt 别名 > ocv 开路电压
+     *  (ocv 与端电压差 IR 压降，仅作深度兜底) */
+    private val VOLTAGE_NODE_CANDIDATES = listOf(
+        "voltage_now", "voltage_avg", "voltage_batt", "voltage_ocv"
+    )
+
+    /** 电流节点探测链：now 实时 > avg 均值 > bms/battery 别名 > MTK BatteryAverageCurrent */
+    private val CURRENT_NODE_CANDIDATES = listOf(
+        "current_now", "current_avg", "bms_current", "battery_current", "BatteryAverageCurrent"
+    )
+
+    /**
+     * v2.0.0-alpha.8：多节点跨目录读取 (节点优先级 > 目录链)。
+     * 目录链 = 电量计探测链 (品牌预设优先) + power_supply 全量子目录去重——
+     * 电压/电流节点可能独立存在于评分 <2 的低特征目录 (如纯测量目录)，
+     * 旧"仅电量计评分目录"的扫描范围使这类平台通道整机不可用。
+     */
+    private fun readMultiNode(nodes: List<String>): Int? {
+        val gauge = gaugeDirsOrDefault()
+        val extra = resolveAllSupplyDirs().filter { it !in gauge }
+        val dirs = gauge + extra
+        return nodes.firstNotNullOfOrNull { node ->
+            dirs.firstNotNullOfOrNull { dir -> readInt("$dir/$node") }
+        }
+    }
+
+    // 全量目录扫描缓存：探测一次 (空结果也缓存，避免 1Hz 轮询重扫 sysfs)
+    @Volatile private var allDirsProbed = false
+    @Volatile private var cachedAllSupplyDirs: List<String> = emptyList()
+
+    /** power_supply 根目录下全部子目录 (不限电量计特征评分)；Throwable 级兜底 */
+    private fun resolveAllSupplyDirs(): List<String> {
+        if (allDirsProbed) return cachedAllSupplyDirs
+        allDirsProbed = true
+        cachedAllSupplyDirs = runCatching {
+            File(scanRootOverride ?: DEFAULT_SCAN_ROOT)
+                .listFiles()?.filter { it.isDirectory }?.map { it.absolutePath }
+        }.getOrNull() ?: emptyList()
+        return cachedAllSupplyDirs
+    }
+
+    /** 测试注入全量目录扫描结果 (与 installProbeResultForTest 并列) */
+    internal fun installAllSupplyDirsForTest(dirs: List<String>) {
+        allDirsProbed = true
+        cachedAllSupplyDirs = dirs
     }
 
     /** energy 系容量折算专用标称电压 (mV)：实测值钳制到标称窗口 [3400, 4000]
@@ -4302,8 +4363,24 @@ internal object BatterySysfs {
     /** v2.0.0-alpha 批次A：跨电量计目录链读取 cycle_count (循环计数) */
     fun readCycleCount(): Int? = readAcrossDirs("cycle_count") { readInt(it) }
 
-    /** v2.0.0-alpha 批次A：跨电量计目录链读取 current_now 原始值 (μA/mA 单位判定参照) */
-    fun readCurrentNow(): Int? = readAcrossDirs("current_now") { readInt(it) }
+    /** v2.0.0-alpha 批次A：跨电量计目录链读取 current_now 原始值 (μA/mA 单位判定参照)
+     *  v2.0.0-alpha.8：扩为多节点探测链 (current_avg/bms_current/BatteryAverageCurrent)，
+     *  bms/maxfg 平台 battery 目录无 current_now 时参照不再缺失 */
+    fun readCurrentNow(): Int? = readMultiNode(CURRENT_NODE_CANDIDATES)
+
+    /**
+     * v2.0.0-alpha.8：sysfs 电流值通道 (指标 11 真机无正常显示核心修复)。
+     *
+     * 旧实现 BATTERY_PROPERTY_CURRENT_NOW 是唯一取值通道，sysfs current_now 仅作
+     * 单位裁决参照——HAL 不支持该属性的机型 (返回 Int.MIN_VALUE，MTK/部分华为三星
+     * 常见) 即便 sysfs 电流节点完好，指标 11 也恒显 "—"。本通道把 sysfs 多节点
+     * 读数作为**取值**回退：单位归一与符号校准完整复用 normalizeCurrentToMilliAmps
+     * (sysfs 原始值与其内部参照同源同值，ratio≈1 落入容量单位惯例裁决分支)。
+     *
+     * @param isCharging 充放电状态 (符号校准)，null = 未知不翻转
+     */
+    fun readCurrentNowMilliAmps(isCharging: Boolean?): Int? =
+        readMultiNode(CURRENT_NODE_CANDIDATES)?.let { normalizeCurrentToMilliAmps(it, isCharging) }
 }
 `,
   },
