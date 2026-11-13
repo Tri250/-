@@ -126,7 +126,7 @@ data class BatteryState(
     val batteryChemistry: String = "锂离子/聚合物电芯 (主流体系) [工程估算]",
     val fastChargeProtocol: String = "USB PD / QC 兼容快充 [工程估算]",
     val internalResistanceMohm: Float = 0f,
-    val halVersion: String = "Android Battery AIDL HAL",
+    val halVersion: String = "Android BatteryManager API",
     val cellStructure: String = "标准单电芯封装 [工程估算]",
     val thermalThrottlingState: String = "正常供电 (无节流)"
 ) {

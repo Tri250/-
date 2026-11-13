@@ -110,7 +110,7 @@ class AppShellAuditTest {
 
         composeRule.onNodeWithText("电池大师").assertExists()
         // 副标题按真实运行 API 动态渲染，而非硬编码 "Android 15"
-        val expected = "API ${android.os.Build.VERSION.SDK_INT} 电池硬件抽象层 · 原生硬件遥测"
+        val expected = "API ${android.os.Build.VERSION.SDK_INT} 电池管理服务 · 原生硬件遥测"
         composeRule.onNodeWithText(expected).assertExists()
     }
 

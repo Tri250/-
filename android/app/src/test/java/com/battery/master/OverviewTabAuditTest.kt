@@ -72,9 +72,9 @@ class OverviewTabAuditTest {
             composeRule.onNodeWithText(title).assertExists()
         }
 
-        // 关于 APP 卡与零权限声明在场 (B6 功能说明链路完整)
+        // 关于 APP 卡与权限声明在场 (B6 功能说明链路完整)
         composeRule.onNodeWithText("关于 APP").assertExists()
-        composeRule.onNodeWithText("零权限声明", substring = true).assertExists()
+        composeRule.onNodeWithText("权限声明", substring = true).assertExists()
     }
 
     // ===== 2. 硬件信息汇总栏字段全量在场 =====
@@ -87,7 +87,7 @@ class OverviewTabAuditTest {
         val labels = listOf(
             "SoC 主控", "SoC 厂商", "制程工艺", "GPU 渲染", "CPU 架构",
             "电源管理 IC", "快充协议", "电芯内阻", "化学材料体系",
-            "电芯结构", "AIDL 规范"
+            "电芯结构", "系统接口"
         )
         labels.forEach { label ->
             composeRule.onNodeWithText(label).assertExists()

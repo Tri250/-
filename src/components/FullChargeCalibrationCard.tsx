@@ -4,11 +4,13 @@
  */
 
 import { CheckCircle2, Clock, Zap, ShieldCheck, HelpCircle, Sparkles } from 'lucide-react';
-import { FullChargeRecord } from '../types/battery';
+import { BatteryStatus, FullChargeRecord } from '../types/battery';
+import { FULL_CHARGE_TRICKLE_MAX_MA, isChargingStatus } from '../lib/batteryConstants';
 
 interface FullChargeCalibrationCardProps {
   percentage: number;
   current: number;
+  status: BatteryStatus;
   fullChargeCapacity: number | null;
   lastFullChargeRecord: FullChargeRecord | null;
   currentCapacity: number;
@@ -19,17 +21,19 @@ interface FullChargeCalibrationCardProps {
 export function FullChargeCalibrationCard({
   percentage,
   current,
+  status,
   fullChargeCapacity,
   lastFullChargeRecord,
   currentCapacity,
   designCapacity,
   onTriggerTest,
 }: FullChargeCalibrationCardProps) {
-  // Requirement 12 conditions:
-  // "仅当电量为 100% 且电流在 0-25 mA 之间时，才视为电池充满"
+  // Requirement 12 conditions (与 Android evaluateFullCharge 三态判定单源对齐)：
+  // 仅当电量为 100%、处于充电态 (charging/full) 且 |电流| ≤ 25 mA 时才视为电池充满
   const isPercentMet = percentage === 100;
-  const isCurrentMet = current >= 0 && current <= 25;
-  const isFullyChargedMet = isPercentMet && isCurrentMet;
+  const isCurrentMet = Math.abs(current) <= FULL_CHARGE_TRICKLE_MAX_MA;
+  const isChargingState = isChargingStatus(status);
+  const isFullyChargedMet = isPercentMet && isCurrentMet && isChargingState;
 
   // Active display value: if criteria currently met, use fullChargeCapacity; if previous record exists, show it with note
   const displayCapacity = isFullyChargedMet
@@ -59,7 +63,7 @@ export function FullChargeCalibrationCard({
             </h3>
           </div>
           <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-            仅当电量为 100% 且瞬时电流在 0 ~ 25 mA 之间时，系统才判定为完全充满并锁定显示容量。
+            仅当电量为 100%、处于充电态且瞬时电流 |I| ≤ 25 mA (浮充截止区间) 时，系统才判定为完全充满并锁定显示容量。
           </p>
         </div>
 
@@ -222,7 +226,7 @@ export function FullChargeCalibrationCard({
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-300">
-              判定条件 2：电流在 0 ~ 25 mA 之间
+              判定条件 2：|电流| ≤ 25 mA 且处于充电态
             </span>
             <span
               className={`font-mono text-xs font-bold tabular-nums ${
@@ -237,7 +241,7 @@ export function FullChargeCalibrationCard({
               <span className="text-emerald-300 font-medium flex items-center gap-1">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> 已进入 0-25 mA 浮充截止区间
               </span>
-            ) : current > 25 ? (
+            ) : Math.abs(current) > FULL_CHARGE_TRICKLE_MAX_MA ? (
               <span className="text-amber-400">
                 主快充饱和中 (需等电流回落至 25 mA 以内)
               </span>

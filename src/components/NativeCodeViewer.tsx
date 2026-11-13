@@ -62,6 +62,9 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          # v1.2.6 P3 审计修复：完整提交历史——发布提交记录与差异核验依赖完整 reflog
+          fetch-depth: 0
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -112,15 +115,18 @@ jobs:
       # 启动闪退回归测试 (Robolectric，无模拟器)：
       # 覆盖 Activity 启动 -> ViewModel 构造 -> 粘性广播回调 -> Compose 首帧渲染全链路，
       # 任何一环抛异常都会导致安装后启动闪退，测试失败即阻断发布
+      # v1.2.6 P1 审计修复：移除 \`|| gradle\` 系统兜底——runner 系统 Gradle (9.x) 与
+      # AGP 8.7.2 不兼容，兜底只会把真实的 wrapper 失败转换成另一个更难排查的错误，
+      # 还可能掩盖构建缺陷 (假绿灯)；统一强制走 wrapper 单一入口
       - name: Run Startup Crash Regression Tests (Robolectric)
         run: |
           cd android
-          ./gradlew testDebugUnitTest --no-daemon --stacktrace || gradle testDebugUnitTest --no-daemon --stacktrace
+          ./gradlew testDebugUnitTest --no-daemon --stacktrace
 
       - name: Build Release APK (R8 minified + signed)
         run: |
           cd android
-          ./gradlew assembleRelease --stacktrace --no-daemon || gradle assembleRelease --stacktrace --no-daemon
+          ./gradlew assembleRelease --stacktrace --no-daemon
 
       - name: Locate Generated APK
         id: find_apk
@@ -138,6 +144,59 @@ jobs:
           fi
           echo "Found APK at: $APK_PATH"
           echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
+
+      # v1.2.6 P1 审计修复：Release DEX 反射实例化冒烟——testDebugUnitTest 只跑 debug
+      # 未混淆变体，无法暴露 R8 全量混淆后 ViewModel 反射构造器被裁剪 (启动即崩溃)
+      # 的最坏情形；此步解包 release APK，断言混淆映射存在、映射后的 ViewModel 类
+      # 在 DEX 中、且 (Application) 反射构造器签名被保留
+      - name: Release DEX ViewModel Constructor Smoke Check
+        run: |
+          APK_PATH="\${{ steps.find_apk.outputs.apk_path }}"
+          MAPPING="android/app/build/outputs/mapping/release/mapping.txt"
+          if [ ! -s "$MAPPING" ]; then
+            echo "::error::R8 mapping.txt missing — release build must emit obfuscation mapping"
+            exit 1
+          fi
+          VM_LINE=$(grep -m1 "com.battery.master.viewmodel.BatteryViewModel -> " "$MAPPING")
+          if [ -z "$VM_LINE" ]; then
+            echo "::error::BatteryViewModel missing from mapping.txt"
+            exit 1
+          fi
+          RENAMED=$(echo "$VM_LINE" | awk '{print $2}' | sed 's/:$//' | tr '.' '/')
+          grep -q "void <init>(android.app.Application)" "$MAPPING" || {
+            echo "::error::BatteryViewModel (Application) constructor not retained by R8 keep rules"
+            exit 1
+          }
+          echo "BatteryViewModel renamed to: $RENAMED"
+          DEXDUMP=$(find "$ANDROID_HOME/build-tools" -name dexdump -type f | sort -V | tail -n 1)
+          if [ -z "$DEXDUMP" ]; then
+            echo "::error::dexdump not found in build-tools"
+            exit 1
+          fi
+          TMP_DEX_DIR=$(mktemp -d)
+          unzip -o -q "$APK_PATH" "classes*.dex" -d "$TMP_DEX_DIR"
+          DEX_DUMP_OUT="$TMP_DEX_DIR/dexdump.txt"
+          : > "$DEX_DUMP_OUT"
+          for D in "$TMP_DEX_DIR"/classes*.dex; do
+            "$DEXDUMP" "$D" >> "$DEX_DUMP_OUT" 2>/dev/null || true
+          done
+          grep -q "'L\${RENAMED};'" "$DEX_DUMP_OUT" || {
+            echo "::error::Renamed ViewModel class '$RENAMED' not found in release DEX"
+            exit 1
+          }
+          grep -q "(Landroid/app/Application;)V" "$DEX_DUMP_OUT" || {
+            echo "::error::(Application) constructor signature stripped from release DEX"
+            exit 1
+          }
+          echo "Release DEX smoke check passed: ViewModel class + (Application) constructor retained."
+
+      # R8 混淆映射归档：崩溃堆栈反解 (deobfuscation) 必需，随构建 artifact 一并产出
+      - name: Upload R8 Mapping Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Android-Battery-Master-R8-Mapping
+          path: android/app/build/outputs/mapping/release/mapping.txt
+          retention-days: 30
 
       # 安装属性自检：校验包名 / 版本号 / 启动 Activity / 应用图标齐全，
       # 与"安装与卸载"审计项对应，属性缺失直接让流水线失败。
@@ -176,9 +235,11 @@ jobs:
           fi
           echo "APK install metadata verified."
 
-      # 签名校验：正式签名构建必须通过 apksigner verify，防止未签名/损坏包发布
+      # 签名校验：无条件执行 apksigner verify（v1.2.4 P3 审计修复）——
+      # 旧实现仅在 keystore_available=true 时执行，debug 签名兜底的产物可跳过
+      # 签名校验并以 release 产物名义发布；现 debug 兜底时也校验签名完整性，
+      # 并显式告警披露签名类型，不再静默冒充正式签名
       - name: Verify APK Signature (apksigner)
-        if: env.keystore_available == 'true'
         run: |
           APK_PATH="\${{ steps.find_apk.outputs.apk_path }}"
           APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n 1)
@@ -186,8 +247,16 @@ jobs:
             echo "::warning::apksigner not found, skipping signature verification"
             exit 0
           fi
-          "$APKSIGNER" verify --verbose "$APK_PATH" | head -n 10 || { echo "::error::APK signature verification failed"; exit 1; }
-          echo "APK signature verified."
+          # v1.2.6 P2 审计修复：先落盘再截断——旧实现 \`| head -n 10\` 双重缺陷：
+          # head 提前退出触发 SIGPIPE 截断 apksigner 输出，且管道退出码取 head (恒 0)，
+          # apksigner 真实校验失败会被吞掉 (假绿灯)
+          "$APKSIGNER" verify --verbose "$APK_PATH" > apk-signature.txt 2>&1 || { echo "::error::APK signature verification failed"; exit 1; }
+          head -n 10 apk-signature.txt
+          if [ "\${{ env.keystore_available }}" = "true" ]; then
+            echo "APK signature verified (release keystore)."
+          else
+            echo "::warning::APK is debug-signed (release keystore not configured). Artifact will be named *-debug.apk and release notes disclose the debug signing."
+          fi
 
       # 版本化命名：从 build.gradle.kts 解析 versionName，产物文件名携带版本，便于安装与归档
       - name: Rename APK with Version Name
@@ -222,6 +291,8 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Node.js 20
         uses: actions/setup-node@v4
@@ -250,7 +321,13 @@ jobs:
             echo "::error::Expected JS and CSS assets in dist/assets, found $ASSET_COUNT"
             exit 1
           fi
-          echo "Web dist verified: index.html + $ASSET_COUNT asset files."
+          # v1.2.6 P1 审计修复：vite base './' 后入口必须引用相对路径资源，
+          # 绝对路径 (src="/assets/...") 在 file:// 直开与子路径部署下白屏
+          if grep -qE '(src|href)="/[^/]' dist/index.html; then
+            echo "::error::dist/index.html contains absolute asset paths (expect relative base './')"
+            exit 1
+          fi
+          echo "Web dist verified: index.html + $ASSET_COUNT asset files (relative paths, file:// compatible)."
 
       - name: Package Web Dist
         run: |
@@ -279,6 +356,8 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       # 版本解析：以 build.gradle.kts 为单一事实来源，注入发布说明与安装指引
       - name: Resolve Release Version
@@ -305,6 +384,23 @@ jobs:
           name: Android-Battery-Master-APK
           path: artifacts/
 
+      # v1.2.4 P3 审计修复：解析实际 APK 文件名与签名类型（release 密钥缺失时
+      # 兜底 debug 签名，产物名 *-debug.apk），发布说明不再硬编码
+      # "-release.apk / 正式 Release 签名"——debug 兜底包不再冒充正式签名发布
+      - name: Resolve APK File Name And Signing Mode
+        id: apkfile
+        run: |
+          APK_FILE=$(ls artifacts/*.apk | xargs -n1 basename)
+          echo "apk_file=$APK_FILE" >> "$GITHUB_OUTPUT"
+          if [[ "$APK_FILE" == *-debug.apk ]]; then
+            echo "signing_label=Debug 签名 (兜底，正式密钥未配置)" >> "$GITHUB_OUTPUT"
+            echo "signing_table=Android 原生 APK（**Debug 签名兜底**——正式密钥未配置，包体完整且可安装，但以 debug 密钥签名）" >> "$GITHUB_OUTPUT"
+          else
+            echo "signing_label=正式 Release 签名" >> "$GITHUB_OUTPUT"
+            echo "signing_table=Android 原生 APK（**正式 Release 签名**，R8 混淆 + 资源收缩，可直接安装）" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Resolved APK file: $APK_FILE"
+
       - name: Download Web Demo
         uses: actions/download-artifact@v4
         with:
@@ -330,12 +426,12 @@ jobs:
             ### 发布资产
             | 资产 | 说明 |
             | --- | --- |
-            | \`Android-Battery-Master-v\${{ steps.version.outputs.version_name }}-release.apk\` | Android 原生 APK（**正式 Release 签名**，R8 混淆 + 资源收缩，可直接安装） |
+            | \`\${{ steps.apkfile.outputs.apk_file }}\` | \${{ steps.apkfile.outputs.signing_table }} |
             | \`web-demo-dist.zip\` | Web 演示端静态产物（解压后任意静态服务器托管，或直接用浏览器打开 \`index.html\`） |
             | \`SHA256SUMS.txt\` | 全部资产 SHA256 校验和 |
 
             ### 安装说明
-            1. 下载 APK 后在设备上点击安装（需在系统设置中允许"安装未知来源应用"）。
+            1. 下载 APK 后在设备上点击安装（需在系统设置中允许"安装未知来源应用"）。签名类型：**\${{ steps.apkfile.outputs.signing_label }}**。
             2. 首次启动授予**零运行时权限**：应用不申请任何敏感权限，安装后即可使用全部功能。
             3. 覆盖安装：版本号 \`versionCode=\${{ steps.version.outputs.version_code }}\` 单调递增，直接安装即可覆盖旧版（含 v1.0.0，versionCode=1），数据不丢失。
 
@@ -344,7 +440,8 @@ jobs:
             - 备份策略：已配置 \`dataExtractionRules\` 与 \`fullBackupContent\` 排除全部应用数据，云备份与换机传输均不会携带本应用数据。
 
             ### 权限说明
-            - 声明权限数：**0**（无运行时权限、无敏感权限）。
+            - 应用声明权限数：**0**（无运行时权限、无危险权限）。
+            - 合并后清单含 1 个 AndroidX 框架自动注入的**签名级内部权限**（\`androidx.core.content.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION\`，protectionLevel=signature，仅用于框架内部广播保护，不向用户呈现、不涉及隐私）。
             - 电池指标全部来自公开系统 API（BatteryManager 属性 / \`ACTION_BATTERY_CHANGED\` 广播）与 sysfs 节点，无需任何授权。
 
             ### 五维自检摘要
@@ -353,6 +450,9 @@ jobs:
             - **兼容性**：minSdk 26 / targetSdk 35，API 31+/34+ 分级适配（SoC 型号、循环计数）、中文字体回退栈、\`prefers-reduced-motion\` 无障碍支持。
             - **权限管理**：0 运行时权限，备份规则显式排除应用数据。
             - **安装卸载**：\`applicationId=com.battery.master\`、\`versionCode=\${{ steps.version.outputs.version_code }}\` 单调递增支持覆盖安装、自适应图标（anydpi-v26 + 五密度 PNG 兜底）、版本化产物命名、CI 安装属性自检（aapt2 badging）与 tag↔versionName 一致性校验。
+
+            ### 👨‍💻 开发者
+            - **某厂大牛马【带娃的小陈工】** — 抖音 / 小红书 平台
 
             ---
             *以下为自动生成的提交记录*
@@ -365,25 +465,27 @@ jobs:
             artifacts/*.zip
             artifacts/SHA256SUMS.txt
         env:
-          GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}`,
+          GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
+`,
   },
   {
     id: 'reader',
     name: 'BatteryHardwareReader.kt',
     path: 'android/app/src/main/java/com/battery/master/service/BatteryHardwareReader.kt',
     language: 'kotlin',
-    description: '核心硬件采集：调用 Android BatteryManager 与 sysfs，完整实现全部 12 项充放电指标及充满判定',
+    description: '核心硬件采集：经 BatteryTelemetryParser 单一解析实现提取 12 项指标，含三态充满判定与锁定持久化',
     code: `package com.battery.master.service
 
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
-import android.os.Build
 import com.battery.master.data.BatteryHealthQuality
 import com.battery.master.data.BatteryState
 import com.battery.master.data.BatteryStatus
-import kotlin.math.abs
+import com.battery.master.data.CapacitySource
+import com.battery.master.data.FullChargeSource
+import com.battery.master.data.FullChargeVerdict
 
 /**
  * Android 原生底层硬件与电量计 HAL 读取器
@@ -414,10 +516,32 @@ class BatteryHardwareReader(private val context: Context) {
         null
     }
 
+    // 指标 04 设计容量来源等级 (v1.2.3 健康度真实性审计)：
+    // 必须在 designCapacityMah 之前声明——getDesignCapacity 在其初始化期写入命中等级，
+    // 声明顺序错误会导致来源被随后的默认值覆盖
+    var designCapacitySource: CapacitySource = CapacitySource.FALLBACK
+
     // 默认或从数据库读取的出厂设计容量 (mAh)：构造时从系统解析一次，之后可被用户覆盖
     // (Receiver 事件通道共享此值，保证轮询/广播双通道数据一致，用户设置不被广播覆盖)
+    // v1.2.3 P1 审计修复：用户校准值持久化到 SharedPreferences——
+    // 旧实现为纯内存 var，总览页"校准设计容量"重启即丢，与按钮/对话框文案暗示的
+    // "持久校准"语义不符。校准链优先级：用户校准(持久) > PowerProfile > sysfs > 兜底
     var designCapacityMah: Int = runCatching { getDesignCapacity(context) }
         .getOrDefault(FALLBACK_DESIGN_CAPACITY)
+        set(value) {
+            field = value
+            // 校准值持久化：经 VM 区间校验 (500~25000) 后写入，重启恢复。
+            // suppressCapacityPersist = true 时 (clearDesignCapacityCalibration
+            // 重新解析系统链) 禁止写回，否则会复活刚删除的用户校准 key
+            if (!suppressCapacityPersist) {
+                runCatching {
+                    prefs?.edit()?.putInt(KEY_USER_DESIGN_CAPACITY, value)?.apply()
+                }
+            }
+        }
+
+    // 重新解析系统回退链时抑制校准值持久化 (仅 clearDesignCapacityCalibration 路径)
+    private var suppressCapacityPersist = false
 
     // 记录上一轮充满锁定的容量 (从持久化恢复)
     private var lastRecordedFullCapacity: Int? =
@@ -426,6 +550,16 @@ class BatteryHardwareReader(private val context: Context) {
     // 上一次满足充满判定条件的时间戳 (广播通道共享读取，与锁定容量同源)
     var lastFullChargeTimestamp: Long? =
         runCatching { prefs?.getLong(KEY_LAST_FULL_TIMESTAMP, -1L)?.takeIf { it > 0 } }.getOrNull()
+
+    // v1.2.3 P0 审计修复："一键模拟完全充满"演示值与真实锁定分离存储。
+    // 旧实现把演示值 persistFullChargeCapacity 写进真实锁定 key，导致用户点一次
+    // 演示按钮，指标 12 永久显示假容量且跨重启存在，与实验室"充满校准"场景
+    // (不写盘) 语义两套。现演示值写独立 key，仅在无真实锁定时兜底展示并标 SIMULATED
+    private var simulatedFullCapacity: Int? =
+        runCatching { prefs?.getInt(KEY_SIMULATED_FULL_CAPACITY, -1)?.takeIf { it > 0 } }.getOrNull()
+
+    private var simulatedFullTimestamp: Long? =
+        runCatching { prefs?.getLong(KEY_SIMULATED_FULL_TIMESTAMP, -1L)?.takeIf { it > 0 } }.getOrNull()
 
     // 是否处于充满判定区间内 (100% 且 0-25mA)：用于写盘去重，
     // 避免满足条件期间每秒遥测轮询重复写 SharedPreferences
@@ -453,146 +587,93 @@ class BatteryHardwareReader(private val context: Context) {
             null
         }
 
-        // 5. 电量百分比
-        val level = batteryIntent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
-        val scale = batteryIntent?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
-        val percentage = if (level >= 0 && scale > 0) {
-            (level * 100 / scale)
+        // 12 项指标统一经共享解析器提取 (与广播通道 BatteryReceiver 单一实现，语义零漂移)
+        val raw = BatteryTelemetryParser.parse(
+            batteryIntent,
+            batteryManager,
+            designCapacityMah,
+            designCapacitySource
+        )
+
+        // 12. 完全充满时的容量：满足判定则锁定+持久化，未满足保留上次锁定值不抹除
+        // 注意：必须先执行锁定 (内部可能刷新时间戳) 再读取 lastFullChargeTimestamp
+        // v1.2.6 P2 审计修复：充电态判定单源——直接消费解析器输出的 raw.isCharging
+        // (含 EXTRA_PLUGGED 通道判定)，与广播通道完全一致，消除本地重复推导漂移
+        lockFullChargeIfCriteriaMet(raw.currentCapacityMah, raw.percentage, raw.currentMa, raw.isCharging)
+        // v1.2.3 P0 审计修复：真实锁定 (REAL) 与模拟演示值 (SIMULATED) 分离，
+        // 真实优先，无真实锁定时才回显演示值并标注来源
+        val display = resolveFullChargeDisplay()
+
+        return raw.toBatteryState(display.capacityMah, display.timestampMs, display.source)
+    }
+
+    /**
+     * v1.2.3 P0 审计修复：指标 12 展示值解析——真实锁定优先，模拟演示值兜底
+     *
+     * 真实锁定 (lockFullChargeIfCriteriaMet 判定) 与"一键模拟完全充满"演示值
+     * 分 key 存储，杜绝演示值冒充实测锁定跨重启存在；UI 依来源显式标注。
+     */
+    data class FullChargeDisplay(
+        val capacityMah: Int?,
+        val timestampMs: Long?,
+        val source: FullChargeSource
+    )
+
+    fun resolveFullChargeDisplay(): FullChargeDisplay = when {
+        lastRecordedFullCapacity != null ->
+            FullChargeDisplay(lastRecordedFullCapacity, lastFullChargeTimestamp, FullChargeSource.REAL)
+        simulatedFullCapacity != null ->
+            FullChargeDisplay(simulatedFullCapacity, simulatedFullTimestamp, FullChargeSource.SIMULATED)
+        else -> FullChargeDisplay(null, null, FullChargeSource.NONE)
+    }
+
+    /** 安全默认态：任何采集都不可用时 UI 仍有可渲染的中性数据 (保留已锁定的指标 12 不丢失) */
+    private fun buildSafeDefaultState(): BatteryState {
+        // v1.2.3 审计修复：默认态内部自洽——设计容量回显 Reader 实际配置
+        // (旧实现固定 5000，与用户校准值漂移)；健康度按同一口径
+        // = 当前容量 / 设计容量 × 100 计算，消除"健康度 100% 但当前容量仅 92%"的自相矛盾展示
+        val currentCapacity = (designCapacityMah * 0.92f).toInt()
+        val healthPercent = if (designCapacityMah > 0) {
+            (currentCapacity * 100f / designCapacityMah).coerceIn(0f, 100f)
         } else {
-            // 部分设备无 BATTERY_PROPERTY_CAPACITY 时返回 Int.MIN_VALUE，需防护
-            val capacityProp = batteryManager?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
-                ?: Int.MIN_VALUE
-            if (capacityProp in 0..100) capacityProp else 0
+            100f
         }
-
-        // 6. 电池状态 (充电中、放电中、已充满、未充电)
-        val statusInt = batteryIntent?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
-        val status = when (statusInt) {
-            BatteryManager.BATTERY_STATUS_CHARGING -> BatteryStatus.CHARGING
-            BatteryManager.BATTERY_STATUS_DISCHARGING -> BatteryStatus.DISCHARGING
-            BatteryManager.BATTERY_STATUS_FULL -> BatteryStatus.FULL
-            BatteryManager.BATTERY_STATUS_NOT_CHARGING -> BatteryStatus.NOT_CHARGING
-            else -> BatteryStatus.NOT_CHARGING
-        }
-
-        // 7. 电池温度：当前电池温度（摄氏度 ℃）
-        val tempTenths = batteryIntent?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 250) ?: 250
-        val temperatureCelsius = tempTenths / 10.0f
-
-        // 8. 电池健康状况 (良好、过热、损坏、超压、未知)
-        val healthInt = batteryIntent?.getIntExtra(BatteryManager.EXTRA_HEALTH, -1) ?: -1
-        val healthQuality = when (healthInt) {
-            BatteryManager.BATTERY_HEALTH_GOOD -> BatteryHealthQuality.GOOD
-            BatteryManager.BATTERY_HEALTH_OVERHEAT -> BatteryHealthQuality.OVERHEAT
-            BatteryManager.BATTERY_HEALTH_DEAD -> BatteryHealthQuality.DEAD
-            BatteryManager.BATTERY_HEALTH_OVER_VOLTAGE -> BatteryHealthQuality.OVER_VOLTAGE
-            else -> BatteryHealthQuality.UNKNOWN
-        }
-
-        // 9. 电压：当前电池电压（毫伏 mV）
-        val voltageMv = batteryIntent?.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 4000) ?: 4000
-
-        // 11. 瞬时电流：当前电池的瞬时电流（毫安 mA）
-        // BATTERY_PROPERTY_CURRENT_NOW 规范返回微安 (μA)，部分旧内核返回毫安 (mA)，需归一化
-        val currentMicroAmp = batteryManager?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)
-            ?: 0
-        val currentNowMa = BatterySysfs.normalizeCurrentToMilliAmps(currentMicroAmp)
-
-        // 10. 循环计数：电池充放电的次数
-        // Android 14+ 原生 API 与 Linux sysfs 双重支持；均不可用时返回 0 (UI 显示"系统未上报")
-        var cycleCount = 0
-        if (Build.VERSION.SDK_INT >= 34) { // Android 14+ 原生 API
-            cycleCount = batteryIntent?.getIntExtra(BatteryManager.EXTRA_CYCLE_COUNT, 0) ?: 0
-        }
-        if (cycleCount <= 0) {
-            cycleCount = BatterySysfs.readInt("/sys/class/power_supply/battery/cycle_count") ?: 0
-        }
-
-        // 3. 电池当前容量（衰减后的容量 mAh）
-        val chargeCounterUah = batteryManager?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER)
-            ?: 0
-        var currentCapacityMah = (designCapacityMah * 0.92f).toInt()
-        val sysfsMaxCapacityUah = BatterySysfs.readInt("/sys/class/power_supply/battery/charge_full")
-        if (sysfsMaxCapacityUah != null && sysfsMaxCapacityUah > 0) {
-            currentCapacityMah = sysfsMaxCapacityUah / 1000
-        }
-
-        // 2. 剩余电量（mAh）
-        // 不变式：剩余电量恒 ≤ 当前可用容量，与 Web 端 (百分比 × 当前容量) 口径一致，
-        // 避免库仑计读数抖动导致指标 2 大于指标 3。
-        // v1.2.4 P2 审计修复：双口径来源显式标注 (库仑计实测 / 估算)
-        val remainingIsMeasured = chargeCounterUah > 0 && chargeCounterUah != Int.MIN_VALUE
-        val remainingCapacityMah = if (remainingIsMeasured) {
-            (chargeCounterUah / 1000).coerceAtMost(currentCapacityMah)
-        } else {
-            (currentCapacityMah * (percentage / 100f)).toInt()
-        }
-        val remainingCapacitySource = if (remainingIsMeasured) CapacitySource.COULOMB_COUNTER
-        else CapacitySource.ESTIMATED
-
-        // 1. 电池健康度 (%)
-        val healthPercentage = ((currentCapacityMah.toFloat() / designCapacityMah) * 100f).coerceIn(0f, 100f)
-
-        // 12. 完全充满时的容量：估算的电池完全充满时的容量（毫安时）
-        // 核心规则：仅当电量为 100% 且电流在 0-25 mA 之间时，才视为电池充满
-        val isFullChargeConditionMet = (percentage == 100 && currentNowMa in 0..25)
-        val fullChargeCapacityMah = lockFullChargeIfCriteriaMet(currentCapacityMah, percentage, currentNowMa)
-
-        // 计算瞬时功率 (W = V * I)。
-        // v1.2.4 P2 审计修复：移除 abs()——电流已按"充电为正、放电为负"符号归一，
-        // 功率随符号携带方向 (充电 +W / 放电 −W)；旧实现 abs 后方向丢失
-        val powerWatts = (voltageMv.toFloat() * currentNowMa) / 1_000_000f
-
-        // 动态解析硬件信息摘要 (真实可读字段 + 快充档位功率推断 + 诚实未上报标注)
-        val hardware = HardwareInfoResolver.resolve(temperatureCelsius, cycleCount, powerWatts)
-
+        // v1.2.3 P0 审计修复：采集全失败时电流不可读 → 判定 CURRENT_UNAVAILABLE，
+        // 不得谎报"已达充满判定"
+        val display = resolveFullChargeDisplay()
         return BatteryState(
-            healthPercentage = healthPercentage,
-            remainingCapacityMah = remainingCapacityMah,
-            remainingCapacitySource = remainingCapacitySource,
-            currentCapacityMah = currentCapacityMah,
             designCapacityMah = designCapacityMah,
-            percentage = percentage,
-            status = if (isFullChargeConditionMet) BatteryStatus.FULL else status,
-            temperatureCelsius = temperatureCelsius,
-            healthQuality = healthQuality,
-            voltageMv = voltageMv,
-            cycleCount = cycleCount,
-            currentMa = currentNowMa,
-            fullChargeCapacityMah = fullChargeCapacityMah,
-            lastFullChargeTimestamp = lastFullChargeTimestamp,
-            isFullChargeConditionMet = isFullChargeConditionMet,
-            powerWatts = powerWatts,
-            socModel = hardware.socModel,
-            socVendor = hardware.socVendor,
-            socProcess = hardware.socProcess,
-            socCpu = hardware.socCpu,
-            socGpu = hardware.socGpu,
-            pmicModel = hardware.pmicModel,
-            batteryChemistry = hardware.batteryChemistry,
-            fastChargeProtocol = hardware.fastChargeProtocol,
-            internalResistanceMohm = hardware.internalResistanceMohm,
-            halVersion = hardware.halVersion,
-            cellStructure = hardware.cellStructure,
-            thermalThrottlingState = hardware.thermalThrottlingState
+            designCapacitySource = designCapacitySource,
+            currentCapacityMah = currentCapacity,
+            // v1.2.3 审计修复：降级态当前容量为 0.92 估算，来源标注 ESTIMATED，
+            // 杜绝 UI 把估算值当实测展示
+            currentCapacitySource = CapacitySource.ESTIMATED,
+            healthPercentage = healthPercent,
+            // v1.2.3 审计加固：采集全失败的降级态必须诚实——未知状态不得谎报"良好"，
+            // 未充电不得谎报"充电中"，避免用户在无数据环境下被错误指标误导
+            status = BatteryStatus.NOT_CHARGING,
+            healthQuality = BatteryHealthQuality.UNKNOWN,
+            remainingCapacityMah = 0,
+            voltageMv = 4000,
+            temperatureCelsius = 25.0f,
+            percentage = 0,
+            socModel = "平台 SoC 解析中",
+            pmicModel = "平台级 PMIC 电源管理 [工程估算]",
+            currentMa = null,
+            isFullChargeConditionMet = false,
+            fullChargeVerdict = FullChargeVerdict.CURRENT_UNAVAILABLE,
+            fullChargeCapacityMah = display.capacityMah,
+            lastFullChargeTimestamp = display.timestampMs,
+            fullChargeSource = display.source
         )
     }
 
-    /** 安全默认态：任何采集都不可用时 UI 仍有可渲染的中性数据 */
-    private fun buildSafeDefaultState(): BatteryState = BatteryState(
-        currentCapacityMah = (designCapacityMah * 0.92f).toInt(),
-        remainingCapacityMah = 0,
-        voltageMv = 4000,
-        temperatureCelsius = 25.0f,
-        percentage = 0,
-        socModel = "平台 SoC 解析中",
-        pmicModel = "平台级 PMIC 电源管理 [工程估算]"
-    )
-
     /**
-     * 持久化指标 12 的充满锁定容量与时间戳 (供 ViewModel 模拟充满时调用)
+     * 持久化指标 12 的**真实**充满锁定容量与时间戳
+     * 防御：容量/时间戳非法时拒绝写入，保留上一次有效锁定值，避免脏数据覆盖真实记录
      */
     fun persistFullChargeCapacity(capacityMah: Int, timestampMs: Long) {
+        if (capacityMah <= 0 || timestampMs <= 0) return
         lastRecordedFullCapacity = capacityMah
         lastFullChargeTimestamp = timestampMs
         try {
@@ -606,21 +687,94 @@ class BatteryHardwareReader(private val context: Context) {
     }
 
     /**
-     * 特性 12 共享判定：仅当 percentage == 100 且 currentNow ∈ [0, 25] mA 时，
-     * 锁定并持久化完全充满容量（同步刷新内存锁定时间戳）；
+     * v1.2.3 P0 审计修复：持久化"一键模拟完全充满"**演示值** (独立 key)
+     *
+     * 旧实现直接写真实锁定 key，用户点一次演示按钮指标 12 就永久显示假容量。
+     * 现演示值仅在无真实锁定时兜底展示，UI 标注"来源：模拟"，并可被
+     * [clearFullChargeRecords] 一键清除。
+     */
+    fun persistSimulatedFullChargeCapacity(capacityMah: Int, timestampMs: Long) {
+        if (capacityMah <= 0 || timestampMs <= 0) return
+        simulatedFullCapacity = capacityMah
+        simulatedFullTimestamp = timestampMs
+        try {
+            prefs?.edit()
+                ?.putInt(KEY_SIMULATED_FULL_CAPACITY, capacityMah)
+                ?.putLong(KEY_SIMULATED_FULL_TIMESTAMP, timestampMs)
+                ?.apply()
+        } catch (e: Throwable) {
+            // 存储异常不阻塞内存演示值的生效
+        }
+    }
+
+    /**
+     * v1.2.3 P0 审计修复：清除指标 12 全部锁定记录 (真实 + 模拟演示值)
+     * 入口：充满判定卡"清除锁定记录"按钮，用户可随时消除演示/历史锁定值
+     */
+    fun clearFullChargeRecords() {
+        lastRecordedFullCapacity = null
+        lastFullChargeTimestamp = null
+        simulatedFullCapacity = null
+        simulatedFullTimestamp = null
+        wasInFullChargeBand = false
+        // v1.2.6 P2 审计修复：同步清空最后已知态快照——旧实现 lastKnownState 仍持有
+        // 含旧锁定值的 BatteryState，清除记录后一旦采集异常降级返回该快照，
+        // 指标 12 "已清除"的锁定容量/时间戳会复活回显
+        lastKnownState = null
+        try {
+            prefs?.edit()
+                ?.remove(KEY_LAST_FULL_CAPACITY)
+                ?.remove(KEY_LAST_FULL_TIMESTAMP)
+                ?.remove(KEY_SIMULATED_FULL_CAPACITY)
+                ?.remove(KEY_SIMULATED_FULL_TIMESTAMP)
+                ?.apply()
+        } catch (e: Throwable) {
+            // 存储异常不阻塞内存记录的清除
+        }
+    }
+
+    /**
+     * 指标 12 共享判定 (v1.2.3 P0 审计修复为三态 + 符号无关)：
+     * 仅当 percentage == 100 且**充电态**下 |currentNow| ≤ 25 mA 浮充截止区间时，
+     * 锁定并持久化完全充满容量 (同步刷新内存锁定时间戳)；
      * 未满足条件时保留上次锁定值，不因通道切换而丢失。
      * 轮询通道 (readBatteryTelemetry) 与广播通道 (BatteryReceiver) 共用，
      * 保证两通道指标 12 语义完全一致。
      *
+     * v1.2.3 修复要点：
+     * 1. currentNowMa 可空——设备不支持 CURRENT_NOW 时判定 CURRENT_UNAVAILABLE，
+     *    旧实现归一化为 0 mA 使判定恒真、估算值被冒充实测锁定写盘；
+     * 2. 符号无关 (|I|)——高通/三星部分内核充电上报负值，旧实现 [0,25] 永不成立；
+     * 3. 附加充电态校验——防 100% 拔线放电时误判；
+     * 4. 真实锁定后清除模拟演示值，杜绝演示记录长期干扰展示。
+     *
      * 写盘去重：仅在进入判定区间的第一拍、或锁定容量发生变化时才持久化；
-     * 满足条件期间每秒遥测不再重复写 SharedPreferences (首次锁定时间戳语义保留)。
+     * 容量守卫：currentCapacityMah 非法 (≤0) 时拒绝锁定，防止 sysfs 脏数据
+     * 把 "0 mAh" 写入指标 12 与持久化存储。
      */
-    fun lockFullChargeIfCriteriaMet(currentCapacityMah: Int, percentage: Int, currentNowMa: Int): Int? {
-        if (percentage == 100 && currentNowMa in 0..25) {
+    fun lockFullChargeIfCriteriaMet(
+        currentCapacityMah: Int,
+        percentage: Int,
+        currentNowMa: Int?,
+        isCharging: Boolean = true
+    ): Int? {
+        val verdict = BatteryTelemetryParser.evaluateFullCharge(percentage, currentNowMa, isCharging)
+        if (verdict == FullChargeVerdict.FULLY_CHARGED && currentCapacityMah > 0) {
             if (!wasInFullChargeBand || lastRecordedFullCapacity != currentCapacityMah) {
                 persistFullChargeCapacity(currentCapacityMah, System.currentTimeMillis())
             }
             wasInFullChargeBand = true
+            // 真实锁定生效后清除模拟演示值，避免演示记录长期干扰
+            if (simulatedFullCapacity != null) {
+                simulatedFullCapacity = null
+                simulatedFullTimestamp = null
+                runCatching {
+                    prefs?.edit()
+                        ?.remove(KEY_SIMULATED_FULL_CAPACITY)
+                        ?.remove(KEY_SIMULATED_FULL_TIMESTAMP)
+                        ?.apply()
+                }
+            }
             return currentCapacityMah
         }
         wasInFullChargeBand = false
@@ -628,38 +782,89 @@ class BatteryHardwareReader(private val context: Context) {
     }
 
     /**
-     * 指标 04 设计容量三级回退链：
-     * PowerProfile 反射 -> sysfs charge_full_design -> 主流 5000mAh 兜底
+     * 指标 04 设计容量回退链 (v1.2.3 P1 审计修复扩展为用户校准优先)：
+     * 用户校准值 (SharedPreferences 持久化) -> PowerProfile 反射
+     * -> sysfs charge_full_design -> 主流 5000mAh 兜底
+     *
+     * v1.2.3 审计加固：各级输出统一施加 MIN/MAX_PLAUSIBLE_CAPACITY_MAH (500~25000 mAh)
+     * 合理区间校验 (与 BatteryTelemetryParser 单源一致)，任一级越界即降级下一级——
+     * 杜绝单位异常/脏数据设计容量污染指标 01 (健康度分母)、02 (剩余电量基准)、
+     * 03 (当前容量估算基准)。旧实现 PowerProfile 仅判 >0、sysfs 无任何区间校验，
+     * mAh 上报内核会把 5000 mAh 误算成 5 mAh 并级联污染全部容量体系。
+     *
+     * v1.2.3 P1 修复：旧实现无用户校准恢复级——总览页"校准设计容量"写入的
+     * 纯内存 var 重启即丢，与"持久校准"文案语义不符。现启动时优先读取
+     * SharedPreferences 中经区间校验的校准值。
      *
      * 注意：PowerProfile 构造在部分 OEM ROM 上会抛出 ExceptionInInitializerError /
      * NoClassDefFoundError 等 Error (非 Exception)，必须按 Throwable 捕获，
      * 否则会直接引发启动闪退。
      */
     private fun getDesignCapacity(context: Context): Int {
+        // 用户校准值 (持久化)：显式用户意图优先于系统推断
+        val userCalibrated = runCatching {
+            prefs?.getInt(KEY_USER_DESIGN_CAPACITY, -1)?.takeIf { it > 0 }
+        }.getOrNull()
+        if (userCalibrated != null &&
+            userCalibrated in BatteryTelemetryParser.MIN_PLAUSIBLE_CAPACITY_MAH..BatteryTelemetryParser.MAX_PLAUSIBLE_CAPACITY_MAH
+        ) {
+            designCapacitySource = CapacitySource.CALIBRATED
+            return userCalibrated
+        }
+
         try {
             val powerProfileClass = Class.forName("com.android.internal.os.PowerProfile")
             val constructor = powerProfileClass.getConstructor(Context::class.java)
             val powerProfile = constructor.newInstance(context)
             val getBatteryCapacityMethod = powerProfileClass.getMethod("getBatteryCapacity")
             val capacity = getBatteryCapacityMethod.invoke(powerProfile) as? Double
-            if (capacity != null && capacity > 0) return capacity.toInt()
+            if (capacity != null) {
+                // 四舍五入保留精度 (截断丢 1mAh)；NaN/越界一律降级下一级
+                val capacityMah = Math.round(capacity).toInt()
+                if (capacityMah in BatteryTelemetryParser.MIN_PLAUSIBLE_CAPACITY_MAH..BatteryTelemetryParser.MAX_PLAUSIBLE_CAPACITY_MAH) {
+                    designCapacitySource = CapacitySource.POWER_PROFILE
+                    return capacityMah
+                }
+            }
         } catch (e: Throwable) {}
 
-        val sysfsDesign = BatterySysfs.readInt("/sys/class/power_supply/battery/charge_full_design")
-        if (sysfsDesign != null && sysfsDesign > 0) return sysfsDesign / 1000
+        // sysfs 规范单位 μAh：readCapacityMah 内含双单位归一化与合理区间校验
+        val sysfsDesign = BatterySysfs.readCapacityMah("/sys/class/power_supply/battery/charge_full_design")
+        if (sysfsDesign != null) {
+            designCapacitySource = CapacitySource.SYSFS
+            return sysfsDesign
+        }
 
+        designCapacitySource = CapacitySource.FALLBACK
         return FALLBACK_DESIGN_CAPACITY
+    }
+
+    /**
+     * v1.2.3 P1 审计修复：清除用户校准值，恢复系统自动探测 (三级回退链)
+     */
+    fun clearDesignCapacityCalibration() {
+        runCatching {
+            prefs?.edit()?.remove(KEY_USER_DESIGN_CAPACITY)?.apply()
+        }
+        suppressCapacityPersist = true
+        designCapacityMah = runCatching { getDesignCapacity(context) }
+            .getOrDefault(FALLBACK_DESIGN_CAPACITY)
+        suppressCapacityPersist = false
     }
 
     companion object {
         private const val PREFS_NAME = "battery_master_prefs"
         private const val KEY_LAST_FULL_CAPACITY = "last_full_capacity_mah"
         private const val KEY_LAST_FULL_TIMESTAMP = "last_full_timestamp_ms"
+        private const val KEY_SIMULATED_FULL_CAPACITY = "simulated_full_capacity_mah"
+        private const val KEY_SIMULATED_FULL_TIMESTAMP = "simulated_full_timestamp_ms"
+        private const val KEY_USER_DESIGN_CAPACITY = "user_design_capacity_mah"
 
         /** 设计容量兜底值：与 BatteryState 默认口径一致 */
         const val FALLBACK_DESIGN_CAPACITY = 5000
     }
-}`,
+}
+`,
   },
   {
     id: 'compose',
@@ -688,6 +893,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -698,16 +904,23 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.battery.master.BuildConfig
 import com.battery.master.data.BatteryHealthQuality
 import com.battery.master.data.BatteryState
 import com.battery.master.data.BatteryStatus
+import com.battery.master.data.CapacitySource
+import com.battery.master.data.FullChargeSource
+import com.battery.master.data.FullChargeVerdict
 import com.battery.master.model.BatteryInfo
+import com.battery.master.service.BatteryTelemetryParser
 import com.battery.master.viewmodel.BatteryViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.abs
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -717,14 +930,23 @@ fun BatteryScreen(
     // 经 BatteryInfo (BatteryState 业务别名) 消费 ViewModel 兼容别名 batteryInfo
     val state: BatteryInfo by viewModel.batteryInfo.collectAsState()
 
-    // 指标 04 设计容量校准对话框开关 (激活 ViewModel.setDesignCapacity)
-    var showDesignCapacityDialog by remember { mutableStateOf(false) }
+    // 指标 04 设计容量校准对话框开关 (激活 ViewModel.setDesignCapacity)。
+    // 外壳层审计修复：rememberSaveable 保证旋转/折叠屏/字体变更等配置变更重建后
+    // 对话框不丢失，用户输入上下文不被打断
+    var showDesignCapacityDialog by rememberSaveable { mutableStateOf(false) }
 
     // 一键模拟充满保持期剩余秒数 (0 = 无模拟，UI 倒计时反馈)
     val simulationRemainingSec by viewModel.simulationRemainingSec.collectAsState()
 
-    // 顶层双 Tab：状态总览 / 硬件实验室 (对齐 Web 端 AndroidNavBar 信息架构)
-    var selectedTab by remember { mutableStateOf(0) }
+    // v1.2.3 P1 审计修复：硬件实验室模拟态跨 Tab 可见——旧实现总览页完全不读
+    // labOverride，用户切回总览后看到的是模拟数据却零提示，会把实验室模拟值
+    // 当作真实电池状态阅读。现采集覆盖层状态，顶部显示警示横幅
+    val labOverride by viewModel.labOverride.collectAsState()
+
+    // 顶层双 Tab：状态总览 / 硬件实验室 (对齐 Web 端 AndroidNavBar 信息架构)。
+    // 外壳层审计修复：rememberSaveable 保证配置变更重建后停留在当前 Tab，
+    // 用户在硬件实验室的调试上下文不丢失
+    var selectedTab by rememberSaveable { mutableStateOf(0) }
     val tabTitles = listOf("状态总览", "硬件实验室")
 
     Scaffold(
@@ -743,15 +965,17 @@ fun BatteryScreen(
                         )
                         Column {
                             Text(
-                                text = "ANDROID BATTERY MASTER",
-                                fontSize = DesignTokens.FontSm,
+                                text = "电池大师",
+                                fontSize = DesignTokens.FontXl,
                                 fontWeight = FontWeight.Black,
-                                letterSpacing = 1.sp,
+                                letterSpacing = 2.sp,
                                 color = Color.White,
                                 fontFamily = FontFamily.Monospace
                             )
                             Text(
-                                text = "Android 15 Battery AIDL HAL · 原生硬件遥测",
+                                // 外壳层审计修复：副标题按真实运行 API 动态渲染。
+                                // 旧实现硬编码 "Android 15"，在 minSdk 26~34 设备上宣称失实
+                                text = "API \${android.os.Build.VERSION.SDK_INT} 电池管理服务 · 原生硬件遥测",
                                 fontSize = DesignTokens.Font2xs,
                                 color = DesignTokens.AccentCyanDark,
                                 fontFamily = FontFamily.Monospace
@@ -781,7 +1005,9 @@ fun BatteryScreen(
                     Tab(
                         selected = selectedTab == index,
                         onClick = { selectedTab = index },
-                        modifier = Modifier.height(44.dp)
+                        // 外壳层审计修复：heightIn(min) 替代固定 height，
+                        // 系统字体缩放至最大档时 Tab 文本不再被裁剪 (无障碍)
+                        modifier = Modifier.heightIn(min = 44.dp)
                     ) {
                         Text(
                             text = title,
@@ -812,17 +1038,25 @@ fun BatteryScreen(
                 CyberHeroBatteryCard(state)
             }
 
+            // 1. 硬件实验室模拟态警示横幅 (P1 审计修复：跨 Tab 泄漏可视化)
+            if (labOverride != null) {
+                item {
+                    LabSimulationBanner(onExit = { viewModel.exitLabMode() })
+                }
+            }
+
             // 2. 硬件信息汇总栏 (Hardware Information Summary Bar)
             item {
                 HardwareSummaryCard(state, onCalibrateDesignCapacity = { showDesignCapacityDialog = true })
             }
 
-            // 3. 特性 12 充满判定卡片 (100% 且 0-25 mA)
+            // 3. 特性 12 充满判定卡片 (100% 且充电态 |电流| ≤ 25 mA)
             item {
                 FullChargeConditionCard(
                     state,
                     simulationRemainingSec = simulationRemainingSec,
-                    onTriggerTest = { viewModel.triggerFullChargeSimulation() }
+                    onTriggerTest = { viewModel.triggerFullChargeSimulation() },
+                    onClearRecords = { viewModel.clearFullChargeRecords() }
                 )
             }
 
@@ -845,8 +1079,10 @@ fun BatteryScreen(
                         modifier = Modifier.weight(1f),
                         number = "01",
                         title = "电池健康度",
-                        value = "\${String.format("%.1f", state.healthPercentage)}%",
-                        sub = "出厂设计保持率",
+                        value = "\${String.format(Locale.US, "%.1f", state.healthPercentage)}%",
+                        // v1.2.3 健康度真实性审计：标注容量来源——"sysfs 实测"为真实
+                        // 硬件状态，"0.92 降级估算"为无 sysfs 时的虚构值，不得混淆
+                        sub = "出厂设计保持率 [\${state.currentCapacitySource.label}]",
                         accentColor = DesignTokens.BrandPrimary
                     )
                     CyberMetricCardItem(
@@ -872,7 +1108,7 @@ fun BatteryScreen(
                         title = "电池当前容量",
                         value = "\${state.currentCapacityMah}",
                         unit = "mAh",
-                        sub = "衰减后最大可用",
+                        sub = "衰减后最大可用 [\${state.currentCapacitySource.label}]",
                         accentColor = DesignTokens.FeaturePurple
                     )
                     CyberMetricCardItem(
@@ -881,7 +1117,7 @@ fun BatteryScreen(
                         title = "电池设计容量",
                         value = "\${state.designCapacityMah}",
                         unit = "mAh",
-                        sub = "出厂铭牌标称",
+                        sub = "出厂铭牌标称 [\${state.designCapacitySource.label}]",
                         accentColor = DesignTokens.InfoSky
                     )
                 }
@@ -915,19 +1151,27 @@ fun BatteryScreen(
                         modifier = Modifier.weight(1f),
                         number = "07",
                         title = "电池温度",
-                        value = "\${state.temperatureCelsius}",
+                        // v1.2.3 审计修复：温度主值经 Locale.US 锚定——德语等逗号
+                        // 小数点 Locale 下 Float.toString 渲染 "32,6°C"，与全屏
+                        // 数值口径割裂；精度 0.1°C 与解析器一致
+                        value = String.format(Locale.US, "%.1f", state.temperatureCelsius),
                         unit = "°C",
-                        // v1.2.4 P2 审计修复：温度分级阈值与温控节流态单源
-                        // (解析器常量 38°C/45°C)，旧实现两套阈值打架同屏自相矛盾
+                        // v1.2.4 P2 审计修复：温度分级阈值与温控节流态单源 (解析器常量)，
+                        // 旧实现 >45/≥38 与节流态 ≥44/≥38.5 打架 (44~45℃ 标签"过热急停"
+                        // 而卡片仅"偏热预警"、38~38.5℃ 反之，同屏自相矛盾)
                         sub = when {
-                            state.temperatureCelsius >= 45 -> "严重发热 (≥45°C)"
-                            state.temperatureCelsius >= 38 -> "偏热预警 (38-45°C)"
+                            state.temperatureCelsius >= BatteryTelemetryParser.TEMP_OVERHEAT_THRESHOLD_C ->
+                                "严重发热 (≥\${BatteryTelemetryParser.TEMP_OVERHEAT_THRESHOLD_C.toInt()}°C)"
+                            state.temperatureCelsius >= BatteryTelemetryParser.TEMP_WARM_THRESHOLD_C ->
+                                "偏热预警 (\${BatteryTelemetryParser.TEMP_WARM_THRESHOLD_C.toInt()}-\${BatteryTelemetryParser.TEMP_OVERHEAT_THRESHOLD_C.toInt()}°C)"
                             state.temperatureCelsius <= 0 -> "过冷保护 (≤0°C)"
                             else -> "温度正常"
                         },
                         accentColor = when {
-                            state.temperatureCelsius >= 45 || state.temperatureCelsius <= 0 -> DesignTokens.DangerRose
-                            state.temperatureCelsius >= 38 -> DesignTokens.WarningAmber
+                            state.temperatureCelsius >= BatteryTelemetryParser.TEMP_OVERHEAT_THRESHOLD_C ||
+                                state.temperatureCelsius <= 0 -> DesignTokens.DangerRose
+                            state.temperatureCelsius >= BatteryTelemetryParser.TEMP_WARM_THRESHOLD_C ->
+                                DesignTokens.WarningAmber
                             else -> DesignTokens.BrandPrimary
                         }
                     )
@@ -950,7 +1194,7 @@ fun BatteryScreen(
                         title = "电芯电压",
                         value = "\${state.voltageMv}",
                         unit = "mV",
-                        sub = "电势差 \${(state.voltageMv / 1000f)} V",
+                        sub = "电势差 \${String.format(Locale.US, "%.2f", state.voltageMv / 1000f)} V",
                         accentColor = DesignTokens.InfoSky
                     )
                     CyberMetricCardItem(
@@ -966,22 +1210,29 @@ fun BatteryScreen(
             }
 
             item {
+                // 局部变量：currentNowMa 为自定义 getter 属性不可智能转换，
+                // 绑定局部值后 when 分支可安全比较与空安全分支
+                val currentNow = state.currentNowMa
+                val powerW = state.powerWatts
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     CyberMetricCardItem(
                         modifier = Modifier.weight(1f),
                         number = "11",
                         title = "瞬时电流",
                         // 指标 11：经 BatteryState.currentNowMa 别名读取 (激活别名，与 currentMa 同源)
-                        value = "\${if (state.currentNowMa > 0) "+\${state.currentNowMa}" else state.currentNowMa}",
-                        unit = "mA",
+                        // v1.2.3 P0 审计修复：currentMa 可空——设备不支持 CURRENT_NOW
+                        // 时显示 "—"，旧实现归一化为 0 会虚构 "0 mA / 0.00 W" 读数
+                        value = currentNow?.let { if (it > 0) "+$it" else "$it" } ?: "—",
+                        unit = if (currentNow != null) "mA" else "",
                         // v1.2.4 P2 审计修复：功率随符号携带方向 (充电 +W / 放电 −W)，
                         // 旧实现解析层 abs 后充放同显正功率，方向丢失
-                        sub = "功率 " + (if (state.currentNowMa > 0)
-                            "+\${String.format("%.2f", state.powerWatts)} W"
-                        else if (state.currentNowMa < 0)
-                            "-\${String.format("%.2f", kotlin.math.abs(state.powerWatts))} W"
-                        else "\${String.format("%.2f", state.powerWatts)} W"),
-                        accentColor = if (state.currentNowMa > 0) DesignTokens.BrandPrimary else DesignTokens.AccentCyanDark
+                        sub = "功率 " + when {
+                            currentNow == null -> "— W"
+                            currentNow > 0 -> "+\${String.format(Locale.US, "%.2f", powerW)} W"
+                            currentNow < 0 -> "-\${String.format(Locale.US, "%.2f", abs(powerW))} W"
+                            else -> String.format(Locale.US, "%.2f", powerW) + " W"
+                        },
+                        accentColor = if ((currentNow ?: 0) > 0) DesignTokens.BrandPrimary else DesignTokens.AccentCyanDark
                     )
                     CyberMetricCardItem(
                         modifier = Modifier.weight(1f),
@@ -993,6 +1244,11 @@ fun BatteryScreen(
                         accentColor = DesignTokens.BrandPrimaryLight
                     )
                 }
+            }
+
+            // 5. 关于 APP 功能说明 (版本号经 BuildConfig 单源注入)
+            item {
+                AboutAppCard()
             }
 
             item {
@@ -1070,6 +1326,16 @@ fun BatteryScreen(
                     }
                 },
                 dismissButton = {
+                    // v1.2.3 P1 审计修复：校准值持久化后需提供撤销入口——
+                    // 恢复系统自动探测 (PowerProfile/sysfs 三级回退链)
+                    if (state.designCapacitySource == CapacitySource.CALIBRATED) {
+                        TextButton(onClick = {
+                            viewModel.clearDesignCapacityCalibration()
+                            showDesignCapacityDialog = false
+                        }) {
+                            Text("恢复自动探测", color = DesignTokens.TextSecondary)
+                        }
+                    }
                     TextButton(onClick = { showDesignCapacityDialog = false }) {
                         Text("取消", color = DesignTokens.TextSecondary)
                     }
@@ -1212,6 +1478,8 @@ fun CyberHeroBatteryCard(state: BatteryState) {
 
             // 11. 瞬时电流与功率 (指标 11 经 BatteryState.currentNowMa 别名读取，与 currentMa 同源；
             //    功率直接消费 State.powerWatts，统一数据源)
+            // v1.2.3 P0 审计修复：currentMa 可空——设备不支持 CURRENT_NOW 时显示
+            // "— mA · — W"，旧实现归一化为 0 会显示 "0 mA · 0.00 W" 的虚构读数
             val currentMa = state.currentNowMa
             val powerW = state.powerWatts
             Surface(
@@ -1220,7 +1488,15 @@ fun CyberHeroBatteryCard(state: BatteryState) {
                 border = androidx.compose.foundation.BorderStroke(1.dp, DesignTokens.Border)
             ) {
                 Text(
-                    text = "\${if (currentMa > 0) "+$currentMa" else currentMa} mA · \${String.format("%.2f", powerW)} W · \${(state.voltageMv / 1000f)} V",
+                    text = buildString {
+                        append(if (currentMa != null) "\${if (currentMa > 0) "+$currentMa" else currentMa} mA" else "— mA")
+                        append(" · ")
+                        // v1.2.4 P2 审计修复：功率随符号携带方向 (充电 +W / 放电 −W，
+                        // 负值由 String.format 自然输出 "-")，不再 abs 抹平方向
+                        append(if (currentMa != null) "\${if (powerW > 0) "+" else ""}\${String.format(Locale.US, "%.2f", powerW)} W" else "— W")
+                        append(" · ")
+                        append("\${String.format(Locale.US, "%.2f", state.voltageMv / 1000f)} V")
+                    },
                     fontSize = DesignTokens.FontXs,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
@@ -1323,7 +1599,7 @@ fun HardwareSummaryCard(state: BatteryState, onCalibrateDesignCapacity: () -> Un
                 HardwareItem(
                     modifier = Modifier.weight(1f),
                     label = "电芯内阻",
-                    value = "\${String.format(java.util.Locale.US, "%.1f", state.internalResistanceMohm)} mΩ [工程估算]"
+                    value = "\${String.format(Locale.US, "%.1f", state.internalResistanceMohm)} mΩ [工程估算]"
                 )
                 HardwareItem(modifier = Modifier.weight(1f), label = "化学材料体系", value = state.batteryChemistry)
             }
@@ -1332,7 +1608,7 @@ fun HardwareSummaryCard(state: BatteryState, onCalibrateDesignCapacity: () -> Un
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 HardwareItem(modifier = Modifier.weight(1f), label = "电芯结构", value = state.cellStructure)
-                HardwareItem(modifier = Modifier.weight(1f), label = "AIDL 规范", value = state.halVersion)
+                HardwareItem(modifier = Modifier.weight(1f), label = "系统接口", value = state.halVersion)
             }
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -1365,8 +1641,8 @@ fun HardwareItem(modifier: Modifier = Modifier, label: String, value: String, ma
             Text(text = label, fontSize = DesignTokens.Font2xs, color = DesignTokens.TextTertiary)
             Spacer(modifier = Modifier.height(2.dp))
             // v1.2.4 P2 审计修复：补 overflow = Ellipsis——旧实现默认 Clip 且
-            // 无省略号，"快充协议"等长值在半宽 chip 内被静默硬裁切，用户无从
-            // 得知内容被截断
+            // 无省略号，"快充协议"等长值 (如 "超级快充 (45.0 W) · 澎湃秒充 [品牌档案]")
+            // 在半宽 chip 内被静默硬裁切，用户无从得知内容被截断
             Text(
                 text = value,
                 fontSize = DesignTokens.Font2xs,
@@ -1381,16 +1657,74 @@ fun HardwareItem(modifier: Modifier = Modifier, label: String, value: String, ma
 }
 
 /**
+ * v1.2.3 P1 审计修复：硬件实验室模拟态警示横幅
+ *
+ * 旧实现 labOverride 只能靠实验室 Tab 内的"恢复真实硬件遥测"按钮清除，
+ * 切 Tab 不退出模拟且总览页零提示——用户会把模拟数据当真实电池状态阅读。
+ * 本横幅在模拟生效期间常驻总览页顶部，明示数据性质并提供一键恢复出口。
+ */
+@Composable
+private fun LabSimulationBanner(onExit: () -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(DesignTokens.RadiusChip),
+        color = DesignTokens.BgElevated,
+        border = androidx.compose.foundation.BorderStroke(1.dp, DesignTokens.TextAmberStrong)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "硬件实验室模拟数据生效中",
+                    fontSize = DesignTokens.Font2xs,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace,
+                    color = DesignTokens.TextAmberStrong
+                )
+                Text(
+                    text = "当前总览页数值为实验室模拟值，非真实电池状态",
+                    fontSize = DesignTokens.Font2xs,
+                    fontFamily = FontFamily.Monospace,
+                    color = DesignTokens.TextTertiary
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            TextButton(onClick = onExit) {
+                Text(
+                    text = "恢复真实",
+                    fontSize = DesignTokens.Font2xs,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace,
+                    color = DesignTokens.BrandPrimaryLight
+                )
+            }
+        }
+    }
+}
+
+/**
  * 特性 12 充满判定卡片
+ *
+ * v1.2.3 P0 审计修复：
+ * 1. 三态判定展示——电流不可读 (设备不支持 CURRENT_NOW) 时明确提示"无法判定"，
+ *    不再谎报"已达充满判定"；未在充电态时提示未在充电；
+ * 2. 来源标注——锁定值为"一键模拟完全充满"演示值时显式标注"模拟"，与真实
+ *    锁定 (REAL) 区分，杜绝演示值冒充实测跨重启存在；
+ * 3. 清除入口——用户可一键清除全部锁定记录 (真实 + 模拟)。
  */
 @Composable
 fun FullChargeConditionCard(
     state: BatteryState,
     simulationRemainingSec: Long,
-    onTriggerTest: () -> Unit
+    onTriggerTest: () -> Unit,
+    onClearRecords: () -> Unit
 ) {
-    // 直接消费 State.isFullChargeConditionMet (双通道单一数据源，不本地重算)
+    // 直接消费 State 判定字段 (双通道单一数据源，不本地重算)
     val isFullMet = state.isFullChargeConditionMet
+    val verdict = state.fullChargeVerdict
     val isSimulating = simulationRemainingSec > 0
 
     Card(
@@ -1417,27 +1751,85 @@ fun FullChargeConditionCard(
                     color = Color.White
                 )
                 Text(
-                    text = if (isFullMet) "已达充满判定 (100% & 0-25 mA)" else "等待条件满足",
+                    text = when (verdict) {
+                        FullChargeVerdict.FULLY_CHARGED -> "已达充满判定 (100% & |I|≤25 mA)"
+                        FullChargeVerdict.CURRENT_UNAVAILABLE -> "电流不可读 · 无法判定"
+                        FullChargeVerdict.NOT_YET -> "等待条件满足"
+                    },
                     fontSize = DesignTokens.Font2xs,
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace,
-                    color = if (isFullMet) DesignTokens.BrandPrimaryLight else DesignTokens.TextAmberStrong
+                    color = when (verdict) {
+                        FullChargeVerdict.FULLY_CHARGED -> DesignTokens.BrandPrimaryLight
+                        FullChargeVerdict.CURRENT_UNAVAILABLE -> DesignTokens.TextAmberStrong
+                        FullChargeVerdict.NOT_YET -> DesignTokens.TextAmberStrong
+                    }
                 )
             }
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            Text(
-                text = if (state.fullChargeCapacityMah != null) {
-                    "\${state.fullChargeCapacityMah} mAh"
-                } else {
-                    "— 未完全充满暂不显示 (需100%且电流0~25mA) —"
-                },
-                fontSize = DesignTokens.Font2xl,
-                fontWeight = FontWeight.Black,
-                fontFamily = FontFamily.Monospace,
-                color = if (state.fullChargeCapacityMah != null) DesignTokens.BrandPrimaryLight else DesignTokens.TextTertiary
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = if (state.fullChargeCapacityMah != null) {
+                        "\${state.fullChargeCapacityMah} mAh"
+                    } else {
+                        "— 未完全充满暂不显示 (需100%且充电态|电流|≤25mA) —"
+                    },
+                    fontSize = DesignTokens.Font2xl,
+                    fontWeight = FontWeight.Black,
+                    fontFamily = FontFamily.Monospace,
+                    color = if (state.fullChargeCapacityMah != null) DesignTokens.BrandPrimaryLight else DesignTokens.TextTertiary
+                )
+                // v1.2.1 自检：锁定值为历史记录 (当前未在判定区间) 时显式标注，
+                // 避免用户把历史锁定容量误读为实时充满值
+                if (state.fullChargeCapacityMah != null && !isFullMet) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Surface(
+                        shape = RoundedCornerShape(DesignTokens.RadiusChip),
+                        color = DesignTokens.BgElevated,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, DesignTokens.Border)
+                    ) {
+                        Text(
+                            text = "历史锁定",
+                            fontSize = DesignTokens.Font2xs,
+                            fontFamily = FontFamily.Monospace,
+                            color = DesignTokens.TextAmberStrong,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+                // v1.2.3 P0 审计修复：演示值显式标注"模拟"，杜绝一键模拟按钮的
+                // 演示容量冒充实测锁定跨重启存在
+                if (state.fullChargeCapacityMah != null && state.fullChargeSource == FullChargeSource.SIMULATED) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Surface(
+                        shape = RoundedCornerShape(DesignTokens.RadiusChip),
+                        color = DesignTokens.BgElevated,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, DesignTokens.BrandPrimaryDark)
+                    ) {
+                        Text(
+                            text = "来源: 模拟",
+                            fontSize = DesignTokens.Font2xs,
+                            fontFamily = FontFamily.Monospace,
+                            color = DesignTokens.BrandPrimaryLight,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+            }
+
+            // v1.2.3 P0 审计修复：电流不可读时显式说明设备能力边界，引导用户
+            // 以系统充满状态为准，不再把估算值当作实测锁定值
+            if (verdict == FullChargeVerdict.CURRENT_UNAVAILABLE) {
+                Text(
+                    text = "本设备不支持电流上报 (CURRENT_NOW)，无法执行 0-25 mA 浮充判定；" +
+                        "已保留上次有效锁定值，不作新锁定。",
+                    fontSize = DesignTokens.Font2xs,
+                    fontFamily = FontFamily.Monospace,
+                    color = DesignTokens.TextTertiary
+                )
+            }
 
             // 上次充满锁定时间 (激活 lastFullChargeTimestamp：持久化值跨重启回显)
             state.lastFullChargeTimestamp?.let { timestamp ->
@@ -1473,6 +1865,22 @@ fun FullChargeConditionCard(
                     fontSize = DesignTokens.FontXs,
                     fontWeight = FontWeight.Bold
                 )
+            }
+
+            // v1.2.3 P0 审计修复：清除锁定记录入口 (真实 + 模拟演示值)
+            if (state.fullChargeCapacityMah != null) {
+                Spacer(modifier = Modifier.height(6.dp))
+                TextButton(
+                    onClick = onClearRecords,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "清除锁定记录",
+                        fontSize = DesignTokens.Font2xs,
+                        fontFamily = FontFamily.Monospace,
+                        color = DesignTokens.TextSecondary
+                    )
+                }
             }
         }
     }
@@ -1545,7 +1953,112 @@ fun CyberMetricCardItem(
             )
         }
     }
-}`,
+}
+
+// ============================================================
+// 关于 APP 功能说明卡片
+// 版本信息经 BuildConfig 单源注入 (build.gradle.kts defaultConfig)
+// ============================================================
+@Composable
+fun AboutAppCard() {
+    val featureLines = listOf(
+        "12 项核心充放电指标全量实时遥测：健康度 / 剩余电量 / 当前容量 / 设计容量 / 电量百分比 / 电池状态 / 温度 / 健康状况 / 电压 / 循环计数 / 瞬时电流 / 完全充满容量",
+        "完全充满判定：电量 100% 且瞬时电流回落至 0~25 mA 浮充截止区间时，自动锁定实际充满容量并跨会话保存",
+        "硬件实验室：一键场景模拟（充满校准 / 极速闪充 / 高负载放电 / 过热警报）与六组滑杆调参，随时一键恢复真实硬件遥测",
+        "硬件信息解析：SoC 主控五字段档案（型号 / 厂商 / 制程 / CPU / GPU）与 PMIC 型号、快充协议、电芯结构三级回退检测",
+        "数据来源：系统 BatteryManager 公开接口、ACTION_BATTERY_CHANGED 粘性广播与 sysfs 真实硬件通道，全部本地计算，不上传任何数据",
+        "权限声明：不申请任何运行时或危险权限，安装即可使用全部功能（合并清单仅含系统框架自动注入的签名级内部权限，不涉及隐私）"
+    )
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, DesignTokens.Border, RoundedCornerShape(DesignTokens.RadiusPanel)),
+        shape = RoundedCornerShape(DesignTokens.RadiusPanel),
+        colors = CardDefaults.cardColors(containerColor = DesignTokens.BgSurface)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "关于 APP",
+                    fontSize = DesignTokens.FontXs,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    fontFamily = FontFamily.Monospace
+                )
+                Surface(
+                    shape = RoundedCornerShape(DesignTokens.RadiusChip),
+                    color = DesignTokens.BgElevated,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, DesignTokens.BrandPrimary)
+                ) {
+                    Text(
+                        text = "v\${BuildConfig.VERSION_NAME} (\${BuildConfig.VERSION_CODE})",
+                        fontSize = DesignTokens.Font2xs,
+                        color = DesignTokens.BrandPrimary,
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Text(
+                text = "电池大师 — 专业安卓电池充放电监测工具",
+                fontSize = DesignTokens.Font2xs,
+                color = DesignTokens.TextSecondary,
+                fontFamily = FontFamily.Monospace
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            featureLines.forEach { line ->
+                Row(modifier = Modifier.padding(vertical = 3.dp)) {
+                    Text(
+                        text = "• ",
+                        fontSize = DesignTokens.Font2xs,
+                        color = DesignTokens.BrandPrimary,
+                        fontFamily = FontFamily.Monospace
+                    )
+                    Text(
+                        text = line,
+                        fontSize = DesignTokens.Font2xs,
+                        color = DesignTokens.TextTertiary,
+                        fontFamily = FontFamily.Monospace,
+                        lineHeight = DesignTokens.FontXs
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            HorizontalDivider(color = DesignTokens.Border, thickness = 1.dp)
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Text(
+                text = "开发者：某厂大牛马【带娃的小陈工】",
+                fontSize = DesignTokens.Font2xs,
+                fontWeight = FontWeight.Bold,
+                color = DesignTokens.TextSecondary,
+                fontFamily = FontFamily.Monospace
+            )
+            Text(
+                text = "抖音 / 小红书 平台",
+                fontSize = DesignTokens.Font2xs,
+                color = DesignTokens.TextTertiary,
+                fontFamily = FontFamily.Monospace
+            )
+        }
+    }
+}
+`,
   },
   {
     id: 'manifest',
@@ -1599,9 +2112,12 @@ fun CyberMetricCardItem(
     <!-- Dark Cyberpunk Theme for Battery Master -->
     <style name="Theme.AndroidBatteryMaster" parent="android:Theme.Material.NoActionBar">
         <!-- 窗口背景与 Scaffold 首帧容器色 (#030712) 保持一致，消除启动瞬间色差跳变 -->
-        <item name="android:statusBarColor">#020617</item>
-        <item name="android:navigationBarColor">#020617</item>
         <item name="android:windowBackground">#030712</item>
+        <!-- 外壳层审计修复：显式声明状态栏图标为亮色 (暗底正确对比度)。
+             系统栏配色由 MainActivity enableEdgeToEdge 统一控制 (透明 + 亮图标)，
+             主题层不再声明 statusBarColor/navigationBarColor——API 35 起该属性
+             已 deprecated 且会被 edge-to-edge 覆盖，属死配置 -->
+        <item name="android:windowLightStatusBar">false</item>
     </style>
 </resources>
 
@@ -1613,10 +2129,13 @@ fun CyberMetricCardItem(
 
 <!-- android/app/src/main/res/values/colors.xml -->
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <color name="ic_launcher_background">#020617</color>
-    <color name="neon_emerald">#10B981</color>
-</resources>
+<!--
+  外壳层审计修复：neon_emerald / ic_launcher_background 两个色值在全工程
+  (kotlin/res/manifest) 均无引用 (启动图标 drawable 直接内联 #090d16 / #10B981)，
+  且 release 构建开启 isShrinkResources 会被剔除，此处移除死资源。
+  新增色值请直接引用 com.battery.master.ui.theme.DesignTokens 单源令牌。
+-->
+<resources />
 
 <!-- android/app/src/main/res/xml/backup_rules.xml -->
 <?xml version="1.0" encoding="utf-8"?>
@@ -1645,7 +2164,8 @@ fun CyberMetricCardItem(
         <exclude domain="sharedpref" path="." />
         <exclude domain="external" path="." />
     </device-transfer>
-</data-extraction-rules>`,
+</data-extraction-rules>
+`,
   },
   {
     id: 'gradle',
@@ -1663,6 +2183,9 @@ fun CyberMetricCardItem(
 // 缺失时回退 debug 签名，保证流水线与本地开发始终可产出可安装 APK
 val releaseKeystoreFile = System.getenv("KEYSTORE_FILE")
 val releaseKeystorePass = System.getenv("KEYSTORE_PASSWORD")
+// v1.2.6 P2 审计修复：KEY_ALIAS 由 CI Secret 注入 (旧实现硬编码 "battery-master"，
+// Secret 实际注入了别名却被无视，更换 keystore/别名必须改源码)；缺失时回退历史别名
+val releaseKeyAlias = System.getenv("KEY_ALIAS")
 val releaseKeyPass = System.getenv("KEY_PASSWORD")
 val hasReleaseSigning = releaseKeystoreFile != null &&
     releaseKeystorePass != null && releaseKeyPass != null
@@ -1675,8 +2198,8 @@ android {
         applicationId = "com.battery.master"
         minSdk = 26
         targetSdk = 35
-        versionCode = 6
-        versionName = "1.2.1"
+        versionCode = 11
+        versionName = "1.2.6"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -1686,8 +2209,15 @@ android {
             create("release") {
                 storeFile = file(releaseKeystoreFile as String)
                 storePassword = releaseKeystorePass
-                keyAlias = "battery-master"
+                keyAlias = releaseKeyAlias ?: "battery-master"
                 keyPassword = releaseKeyPass
+                // v1.2.6 P3 审计修复：显式启用全签名方案 (v1/v2/v3/v3.1)——
+                // v3 轮换证明在 targetSdk 30+ 设备必需，v3.1 (Android 13+) 支持
+                // 密钥轮换新证据格式；旧实现依赖 AGP 默认行为，不同配置下可能缺 v3+
+                enableV1Signing = true
+                enableV2Signing = true
+                enableV3Signing = true
+                enableV3_1Signing = true
             }
         }
     }
@@ -1717,6 +2247,8 @@ android {
     }
     buildFeatures {
         compose = true
+        // AboutAppCard 版本徽章经 BuildConfig.VERSION_NAME/VERSION_CODE 单源注入
+        buildConfig = true
     }
     testOptions {
         unitTests {
@@ -1744,7 +2276,8 @@ dependencies {
     testImplementation(platform("androidx.compose:compose-bom:2024.10.01"))
     testImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
-}`,
+}
+`,
   },
   {
     id: 'gradle_properties',
@@ -1775,19 +2308,18 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.BatteryManager
-import android.os.Build
-import com.battery.master.data.BatteryHealthQuality
 import com.battery.master.data.BatteryState
-import com.battery.master.data.BatteryStatus
 import com.battery.master.service.BatteryHardwareReader
-import com.battery.master.service.BatterySysfs
-import com.battery.master.service.HardwareInfoResolver
-import kotlin.math.abs
+import com.battery.master.service.BatteryTelemetryParser
 
 /**
  * 监听 Android 底层硬件广播 ACTION_BATTERY_CHANGED
  * 提取电压、温度、瞬时电流、健康状态并根据条件 12 判定完全充满
  * 设计容量等配置共享 BatteryHardwareReader 单一数据源，避免双通道数据不一致
+ *
+ * v1.2.1 自检优化：12 项指标解析统一收敛至 BatteryTelemetryParser，
+ * 与轮询通道 (BatteryHardwareReader) 共用单一实现，从结构上保证
+ * 双通道指标 12「完全充满容量」语义完全一致，杜绝两套并行解析的逻辑漂移。
  */
 class BatteryReceiver(
     private val reader: BatteryHardwareReader,
@@ -1813,131 +2345,29 @@ class BatteryReceiver(
         // 安全转换：极端场景下系统服务异常返回时静默丢弃本次广播，轮询通道继续兜底
         val batteryManager = context.getSystemService(Context.BATTERY_SERVICE) as? BatteryManager ?: return
 
-        // 5. 电量百分比 (0 - 100) (extras 缺失时回退 CAPACITY 属性，与轮询通道口径完全一致；
-        //    真实 0% 电量不被 CAPACITY 属性污染，保证双通道指标 5 与指标 12 判定一致)
-        val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
-        val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
-        val percentage = if (level >= 0 && scale > 0) {
-            (level * 100 / scale)
-        } else {
-            val capacityProp = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
-            if (capacityProp in 0..100) capacityProp else 0
-        }
-
-        // 6. 电池状态
-        val rawStatus = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
-        val status = when (rawStatus) {
-            BatteryManager.BATTERY_STATUS_CHARGING -> BatteryStatus.CHARGING
-            BatteryManager.BATTERY_STATUS_DISCHARGING -> BatteryStatus.DISCHARGING
-            BatteryManager.BATTERY_STATUS_FULL -> BatteryStatus.FULL
-            BatteryManager.BATTERY_STATUS_NOT_CHARGING -> BatteryStatus.NOT_CHARGING
-            else -> BatteryStatus.NOT_CHARGING
-        }
-
-        // 7. 电池温度：EXTRA_TEMPERATURE 返回的是 0.1 摄氏度 (默认 25.0℃，与轮询通道一致)
-        val rawTemp = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 250)
-        val temperatureCelsius = rawTemp / 10.0f
-
-        // 8. 电池健康状况
-        val rawHealth = intent.getIntExtra(BatteryManager.EXTRA_HEALTH, BatteryManager.BATTERY_HEALTH_UNKNOWN)
-        val healthQuality = when (rawHealth) {
-            BatteryManager.BATTERY_HEALTH_GOOD -> BatteryHealthQuality.GOOD
-            BatteryManager.BATTERY_HEALTH_OVERHEAT -> BatteryHealthQuality.OVERHEAT
-            BatteryManager.BATTERY_HEALTH_DEAD -> BatteryHealthQuality.DEAD
-            BatteryManager.BATTERY_HEALTH_OVER_VOLTAGE -> BatteryHealthQuality.OVER_VOLTAGE
-            else -> BatteryHealthQuality.UNKNOWN
-        }
-
-        // 9. 电压：毫伏 (mV) (默认 4000mV，与轮询通道一致)
-        val voltageMv = intent.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 4000)
-
-        // 11. 瞬时电流 (mA)：BATTERY_PROPERTY_CURRENT_NOW 规范返回微安 (μA)，需归一化
-        val currentUa = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)
-        val currentMa = BatterySysfs.normalizeCurrentToMilliAmps(currentUa)
-
-        // 10. 循环计数 (Android 14+ API 34 支持直接从 Intent EXTRA_CYCLE_COUNT 获取，或读取 sysfs)
-        var cycleCount = 0
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            try {
-                cycleCount = intent.getIntExtra(BatteryManager.EXTRA_CYCLE_COUNT, -1)
-            } catch (e: Exception) {}
-        }
-        if (cycleCount <= 0) {
-            cycleCount = BatterySysfs.readInt("/sys/class/power_supply/battery/cycle_count") ?: 0
-        }
-
-        // 4. 电池出厂设计容量 (共享 Reader 单一数据源：PowerProfile -> sysfs -> 5000mAh)
-        val designCapacityMah = reader.designCapacityMah
-
-        // 3. 电池当前容量 (衰减后容量，从 sysfs charge_full 读取或由电量计芯片校准)
-        val currentCapacityMah = BatterySysfs.readInt("/sys/class/power_supply/battery/charge_full")?.div(1000)
-            ?.takeIf { it > 0 }
-            ?: (designCapacityMah * 0.92f).toInt()
-
-        // 2. 剩余电量 (mAh)
-        // 从 BATTERY_PROPERTY_CHARGE_COUNTER 获取 (uAh -> mAh)，或由百分比折算
-        // 不变式：剩余电量恒 ≤ 当前可用容量，与轮询通道口径一致。
-        // v1.2.4 P2 审计修复：双口径来源显式标注 (库仑计实测 / 估算)
-        val chargeCounterUah = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER)
-        val remainingIsMeasured = chargeCounterUah > 0 && chargeCounterUah != Int.MIN_VALUE
-        val remainingCapacityMah = if (remainingIsMeasured) {
-            (chargeCounterUah / 1000).coerceAtMost(currentCapacityMah)
-        } else {
-            (currentCapacityMah * (percentage / 100.0f)).toInt()
-        }
-        val remainingCapacitySource = if (remainingIsMeasured) CapacitySource.COULOMB_COUNTER
-        else CapacitySource.ESTIMATED
-
-        // 1. 电池健康度 (%)
-        val healthPercentage = ((currentCapacityMah.toFloat() / designCapacityMah) * 100).coerceIn(0f, 100f)
-
-        // 12. 完全充满时的容量：估算完全充满时的容量 (mAh)
-        // 核心规则：仅当电量为 100% 且电流在 0-25 mA 之间时，才视为电池充满
-        // 与轮询通道共享锁定逻辑：满足则锁定+持久化，未满足保留上次锁定值不抹除
-        val isFullCriteriaMet = percentage == 100 && (currentMa in 0..25)
-        val fullChargeCapacityMah = reader.lockFullChargeIfCriteriaMet(currentCapacityMah, percentage, currentMa)
-
-        // 瞬时功率 (W = V × I)：与轮询通道一致，始终计算。
-        // v1.2.4 P2 审计修复：移除 abs()——功率随符号携带方向 (充电 +W / 放电 −W)
-        val powerWatts = (voltageMv.toFloat() * currentMa) / 1_000_000f
-
-        // 动态解析硬件信息摘要 (真实可读字段 + 快充档位功率推断 + 诚实未上报标注)
-        val hardware = HardwareInfoResolver.resolve(temperatureCelsius, cycleCount, powerWatts)
-
-        val updatedState = BatteryState(
-            healthPercentage = healthPercentage,
-            remainingCapacityMah = remainingCapacityMah,
-            remainingCapacitySource = remainingCapacitySource,
-            currentCapacityMah = currentCapacityMah,
-            designCapacityMah = designCapacityMah,
-            percentage = percentage,
-            status = if (isFullCriteriaMet) BatteryStatus.FULL else status,
-            temperatureCelsius = temperatureCelsius,
-            healthQuality = healthQuality,
-            voltageMv = voltageMv,
-            cycleCount = cycleCount,
-            currentMa = currentMa,
-            fullChargeCapacityMah = fullChargeCapacityMah,
-            lastFullChargeTimestamp = reader.lastFullChargeTimestamp,
-            powerWatts = powerWatts,
-            isFullChargeConditionMet = isFullCriteriaMet,
-            socModel = hardware.socModel,
-            socVendor = hardware.socVendor,
-            socProcess = hardware.socProcess,
-            socCpu = hardware.socCpu,
-            socGpu = hardware.socGpu,
-            pmicModel = hardware.pmicModel,
-            batteryChemistry = hardware.batteryChemistry,
-            fastChargeProtocol = hardware.fastChargeProtocol,
-            internalResistanceMohm = hardware.internalResistanceMohm,
-            halVersion = hardware.halVersion,
-            cellStructure = hardware.cellStructure,
-            thermalThrottlingState = hardware.thermalThrottlingState
+        // 12 项指标统一经共享解析器提取 (与轮询通道单一实现，语义零漂移)；
+        // 设计容量来源随 Reader 单一数据源透传，双通道标注一致
+        val raw = BatteryTelemetryParser.parse(
+            intent,
+            batteryManager,
+            reader.designCapacityMah,
+            reader.designCapacitySource
         )
 
-        onBatteryUpdate(updatedState)
+        // 12. 完全充满时的容量：与轮询通道共享三态锁定逻辑，满足则锁定+持久化，
+        // 未满足保留上次锁定值不抹除；先锁定再读时间戳保证回显值实时刷新
+        // v1.2.6 P2 审计修复：充电态判定单源——直接消费解析器输出的 raw.isCharging
+        // (含 EXTRA_PLUGGED 通道判定)，杜绝广播通道本地重复推导与解析口径漂移
+        reader.lockFullChargeIfCriteriaMet(raw.currentCapacityMah, raw.percentage, raw.currentMa, raw.isCharging)
+
+        // v1.2.3 P0 审计修复：真实锁定 (REAL) 与模拟演示值 (SIMULATED) 分离，
+        // 双通道统一经 Reader 单一数据源解析展示值，广播通道不再冒充实测锁定
+        val display = reader.resolveFullChargeDisplay()
+
+        onBatteryUpdate(raw.toBatteryState(display.capacityMah, display.timestampMs, display.source))
     }
-}`,
+}
+`,
   },
   {
     id: 'state',
@@ -1948,25 +2378,62 @@ class BatteryReceiver(
     code: `package com.battery.master.data
 
 /**
+ * 容量数据来源等级 (v1.2.3 健康度真实性审计新增)
+ *
+ * 电池健康度 = 当前容量 / 设计容量，两项容量都可能来自实测或估算。
+ * 旧实现把 0.92 降级估算值与 sysfs 实测值以同等精度展示 (如无 sysfs 时显示
+ * 精确的 "92.0%")，虚构精度冒充真实测量；现按硬件字段既有模式显式标注来源，
+ * 保证用户可区分"真实状态"与"降级估算"。
+ */
+enum class CapacitySource(val label: String) {
+    /** Linux sysfs charge_full / charge_full_design 实测 */
+    SYSFS("sysfs 实测"),
+
+    /** BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER 库仑计剩余电荷实测 (指标 02) */
+    COULOMB_COUNTER("库仑计实测"),
+
+    /** PowerProfile 反射实测 (设计容量) */
+    POWER_PROFILE("PowerProfile 实测"),
+
+    /** 用户在设置中手动校准 */
+    CALIBRATED("用户校准"),
+
+    /** sysfs 不可读时按设计容量 × 0.92 降级估算 (非真实测量) */
+    ESTIMATED("0.92 降级估算"),
+
+    /** 全链路失败时的 5000 mAh 兜底 (非真实测量) */
+    FALLBACK("5000 mAh 兜底")
+}
+
+/**
  * 电池全部 12 项充放电指标数据模型 + 硬件信息汇总
  */
 data class BatteryState(
     // 1、电池健康度 (百分比，例如 94.5%)
-    val healthPercentage: Float = 100.0f,
+    // 默认值与 BatteryHardwareReader 安全默认态同口径 (0.92 × 设计容量)，中性自洽
+    val healthPercentage: Float = 92.0f,
 
     // 2、剩余电量 (mAh，例如 3800 mAh)
     val remainingCapacityMah: Int = 0,
 
-    // 2a、剩余电量口径标注：库仑计实测 (CHARGE_COUNTER) / 百分比×容量估算
-    // v1.2.4 P2 审计修复：两条口径量纲基准不同 (机型间不可比、运行中切换会跳变)，
-    // UI 显式标注口径来源，不再混用无标注
+    /**
+     * 指标 02 剩余电量口径 (v1.2.4 P2 审计修复)：
+     * COULOMB_COUNTER = 系统库仑计实测；ESTIMATED = 百分比 × 当前容量 估算。
+     * 两条口径量纲基准不同 (机型间不可比、运行中切换会跳变)，UI 显式标注口径来源
+     */
     val remainingCapacitySource: CapacitySource = CapacitySource.ESTIMATED,
 
     // 3、电池当前容量 (电池衰减后的容量 mAh，例如 4700 mAh)
-    val currentCapacityMah: Int = 5000,
+    val currentCapacityMah: Int = 4600,
 
     // 4、电池设计容量 (电池出厂容量 mAh，例如 5000 mAh)
     val designCapacityMah: Int = 5000,
+
+    /** 指标 03 当前容量数据来源 (sysfs 实测 / 0.92 降级估算)；指标 01 健康度同源 */
+    val currentCapacitySource: CapacitySource = CapacitySource.ESTIMATED,
+
+    /** 指标 04 设计容量数据来源 (PowerProfile / sysfs / 用户校准 / 5000 mAh 兜底) */
+    val designCapacitySource: CapacitySource = CapacitySource.FALLBACK,
 
     // 5、电量：当前电池电量的百分比 (0 - 100)
     val percentage: Int = 0,
@@ -1975,19 +2442,25 @@ data class BatteryState(
     val status: BatteryStatus = BatteryStatus.NOT_CHARGING,
 
     // 7、电池温度：摄氏度 (例如 32.5°C)
-    val temperatureCelsius: Float = 0.0f,
+    // 默认 25.0°C 中性室温 (与 BatteryTelemetryParser 缺失默认一致)；0.0 会被 UI 判定为"过冷"
+    val temperatureCelsius: Float = 25.0f,
 
     // 8、电池健康：良好、过热、损坏、超压、未知
-    val healthQuality: BatteryHealthQuality = BatteryHealthQuality.GOOD,
+    // 默认 UNKNOWN 诚实中性 (与 Reader 降级态一致)；GOOD 属正面断言不作默认
+    val healthQuality: BatteryHealthQuality = BatteryHealthQuality.UNKNOWN,
 
     // 9、电压：毫伏 mV (例如 4150 mV)
-    val voltageMv: Int = 0,
+    // 默认 4000 中性典型值 (与 Parser 故障回退一致)；0 是故障断言值
+    val voltageMv: Int = 4000,
 
     // 10、循环计数：电池充放电的次数
     val cycleCount: Int = 0,
 
     // 11、电流：瞬时电流 mA (充电流入为正，放电消耗为负)
-    val currentMa: Int = 0,
+    // v1.2.3 P0 审计修复：设备不支持 BATTERY_PROPERTY_CURRENT_NOW 时系统返回
+    // Int.MIN_VALUE，旧实现归一化成 0 mA 会使指标 12 充满判定 (0~25mA) 恒真。
+    // 现改为可空：null = 电流不可读，UI 显示 "—"，判定走 UNKNOWN 而非 true
+    val currentMa: Int? = null,
 
     // 12、完全充满时的容量 (mAh)
     // 仅当电量为 100% 且电流在 0-25 mA 之间时，才视为电池充满并记录
@@ -1999,8 +2472,24 @@ data class BatteryState(
     // 功率 (W)
     val powerWatts: Float = 0.0f,
 
-    // 是否符合充满判定标准
+    // 是否符合充满判定标准 (verdict == FULLY_CHARGED 的便捷布尔)
     val isFullChargeConditionMet: Boolean = false,
+
+    /**
+     * 指标 12 充满判定三态 (v1.2.3 P0 审计修复)
+     *
+     * 旧实现仅布尔判定，且电流不可读时归一化为 0 → 不支持 CURRENT_NOW 的机型
+     * 一到 100% 就谎报"已达充满判定"并把估算值写盘。现显式区分不可读场景。
+     */
+    val fullChargeVerdict: FullChargeVerdict = FullChargeVerdict.NOT_YET,
+
+    /**
+     * 指标 12 锁定容量来源 (v1.2.3 P0 审计修复)
+     *
+     * 真实锁定 (REAL) 与"一键模拟完全充满"演示值 (SIMULATED) 分离存储，
+     * 演示值不再冒充实测锁定值，UI 显式标注来源。
+     */
+    val fullChargeSource: FullChargeSource = FullChargeSource.NONE,
 
     // ===== 硬件信息汇总 =====
     // 默认值为中性估算文案 (采集层 HardwareInfoResolver 会立即以实测/档案值覆盖)；
@@ -2014,12 +2503,39 @@ data class BatteryState(
     val batteryChemistry: String = "锂离子/聚合物电芯 (主流体系) [工程估算]",
     val fastChargeProtocol: String = "USB PD / QC 兼容快充 [工程估算]",
     val internalResistanceMohm: Float = 0f,
-    val halVersion: String = "Android Battery AIDL HAL",
+    val halVersion: String = "Android BatteryManager API",
     val cellStructure: String = "标准单电芯封装 [工程估算]",
     val thermalThrottlingState: String = "正常供电 (无节流)"
 ) {
     // 别名兼容
-    val currentNowMa: Int get() = currentMa
+    val currentNowMa: Int? get() = currentMa
+}
+
+/**
+ * 指标 12 充满判定三态 (v1.2.3 P0 审计修复)
+ *
+ * - FULLY_CHARGED：电量 100% 且充电态下瞬时电流 |I| ≤ 25 mA (浮充截止区间)；
+ * - NOT_YET：条件未满足 (电量不足 / 电流超区间 / 未在充电)；
+ * - CURRENT_UNAVAILABLE：设备不支持 CURRENT_NOW 或读数不可用——
+ *   此时不得谎报充满，也不得把估算值当作"实测完全充满容量"锁定写盘。
+ */
+enum class FullChargeVerdict {
+    FULLY_CHARGED,
+    NOT_YET,
+    CURRENT_UNAVAILABLE
+}
+
+/**
+ * 指标 12 锁定容量来源 (v1.2.3 P0 审计修复)
+ *
+ * REAL：真实硬件判定锁定 (含持久化恢复)；
+ * SIMULATED："一键模拟完全充满"演示按钮写入的演示值 (独立 key 存储)；
+ * NONE：无任何锁定记录。
+ */
+enum class FullChargeSource {
+    REAL,
+    SIMULATED,
+    NONE
 }
 
 enum class BatteryStatus(val label: String) {
@@ -2029,22 +2545,14 @@ enum class BatteryStatus(val label: String) {
     NOT_CHARGING("未充电")
 }
 
-enum class CapacitySource(val label: String) {
-    SYSFS("sysfs 实测"),
-    COULOMB_COUNTER("库仑计实测"),
-    POWER_PROFILE("PowerProfile 反射实测"),
-    CALIBRATED("用户校准"),
-    ESTIMATED("估算"),
-    FALLBACK("兜底默认")
-}
-
 enum class BatteryHealthQuality(val label: String) {
     GOOD("良好"),
     OVERHEAT("过热"),
     DEAD("损坏"),
     OVER_VOLTAGE("超压"),
     UNKNOWN("未知")
-}`,
+}
+`,
   },
   {
     id: 'viewmodel',
@@ -2065,8 +2573,13 @@ import androidx.lifecycle.viewModelScope
 import com.battery.master.data.BatteryState
 import com.battery.master.data.BatteryHealthQuality
 import com.battery.master.data.BatteryStatus
+import com.battery.master.data.CapacitySource
+import com.battery.master.data.FullChargeSource
+import com.battery.master.data.FullChargeVerdict
 import com.battery.master.receiver.BatteryReceiver
 import com.battery.master.service.BatteryHardwareReader
+import com.battery.master.service.BatteryTelemetryParser
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -2074,7 +2587,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlin.math.abs
 
 /**
  * 硬件实验室一键模拟场景 (与 Web 端 HardwareSimulationLab 对齐)
@@ -2114,7 +2626,7 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
     // 事件通道：监听系统 ACTION_BATTERY_CHANGED 广播 (与 1 秒轮询互补，共享 Reader 配置)
     private val batteryReceiver = BatteryReceiver(reader) { fresh -> publish(fresh) }
 
-    // 一键模拟充满后的保持期 (毫秒)：期间不覆盖模拟数据，15 秒后恢复真实遥测
+    // 一键模拟充满后的保持期截止时间戳 (毫秒)：期间不覆盖模拟数据，15 秒后恢复真实遥测
     private var simulationHoldUntilMs = 0L
 
     // 模拟保持期剩余秒数 (供 UI 显示倒计时反馈，0 表示无模拟)
@@ -2123,6 +2635,17 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
 
     // 广播注册状态标记：仅成功注册后才允许注销，防止 onCleared 重复注销崩溃
     private var isReceiverRegistered = false
+
+    // v1.2.4 P3 审计修复：1Hz 轮询生命周期门控——退后台/锁屏后暂停主线程
+    // sysfs 读取与 StateFlow 刷新 (电池监测工具持续后台轮询属反向耗电缺陷)；
+    // 广播通道保留 (系统事件驱动，无自轮询开销)，回前台立即恢复
+    @Volatile
+    private var telemetryPollingActive = true
+
+    /** 前后台切换由 Activity 调用：true=恢复 1Hz 轮询，false=暂停 (广播通道不受影响) */
+    fun setTelemetryPollingActive(active: Boolean) {
+        telemetryPollingActive = active
+    }
 
     init {
         // 注册容错：部分定制 ROM 可能拒绝动态注册，失败时退化为纯轮询通道，保证 UI 不崩溃
@@ -2145,15 +2668,29 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
     /**
      * 模拟保持期倒计时：每 250ms 刷新剩余秒数，让用户明确感知
      * "模拟数据生效中、N 秒后恢复真实遥测"，避免误以为界面卡死
+     *
+     * v1.2.5 性能审计修复：无模拟时段降频空转——旧实现全生命周期固定 4Hz 唤醒
+     * (250ms)，即使 99% 的时间无模拟在跑也持续消耗主线程时钟；现无保持期时
+     * 以 500ms 低频轮询保持期开始信号 (触发后 0.5s 内即进入高频倒计时)，
+     * 活跃保持期内维持 250ms 高频刷新
      */
     private fun startSimulationCountdown() {
         viewModelScope.launch {
             while (isActive) {
                 try {
                     val remainingMs = simulationHoldUntilMs - System.currentTimeMillis()
-                    _simulationRemainingSec.value = if (remainingMs > 0) (remainingMs + 999) / 1000 else 0L
-                } catch (e: Throwable) {
-                    // 倒计时异常不致命，下一拍继续刷新
+                    if (remainingMs <= 0L) {
+                        _simulationRemainingSec.value = 0L
+                        // 无模拟：低频空转等待下一次保持期开始
+                        delay(500)
+                        continue
+                    }
+                    _simulationRemainingSec.value = (remainingMs + 999) / 1000
+                } catch (e: Exception) {
+                    // v1.2.6 P2 审计修复：协程取消必须原样重抛——旧实现 catch Throwable
+                    // 吞掉 CancellationException，ViewModel 销毁时取消信号被静默吞掉一拍，
+                    // 违背结构化并发语义；非取消类异常仍不致命，下一拍继续刷新
+                    if (e is CancellationException) throw e
                 }
                 delay(250)
             }
@@ -2169,14 +2706,25 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
             }
             isReceiverRegistered = false
         }
+        // v1.2.4 P3 审计修复：释放 ToneGenerator native 对象——旧实现仅在播放异常
+        // 分支释放，ViewModel 销毁时懒创建的实例泄漏 (每次带实验室的页面销毁泄漏一个)
+        try {
+            labToneGenerator?.release()
+        } catch (e: Throwable) {
+            // 释放异常不阻塞清理
+        }
+        labToneGenerator = null
         super.onCleared()
     }
 
     /**
      * 统一发布遥测数据：
      * 1. 模拟保持期内不覆盖 (一键充满演示可持续观察 15 秒)；
-     * 2. 若新数据未满足充满条件、但上一轮已锁定充满容量，
-     *    则保留指标 12 的锁定容量与时间戳不丢失
+     * 2. 硬件实验室模拟中冻结真实遥测覆盖，保持滑杆/场景设定值稳定展示。
+     *
+     * v1.2.1 自检修复：删除旧版"上一轮已锁定则回填"分支——
+     * 锁定容量以 BatteryHardwareReader 为单一数据源 (未满足判定时已自动返回上次锁定值)，
+     * 旧分支会把实验室合成的展示容量泄漏进真实遥测态 (退出实验室后虚假回显)。
      */
     private fun publish(fresh: BatteryState) {
         // 启动闪退治理：发布链路任何异常都不能逃逸到协程 (未捕获异常会直接杀进程)
@@ -2185,19 +2733,7 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
             // 硬件实验室模拟中：冻结真实遥测覆盖，保持滑杆/场景设定值稳定展示
             if (_labOverride.value != null) return
 
-            val current = _batteryState.value
-            _batteryState.value =
-                if (!fresh.isFullChargeConditionMet &&
-                    current.isFullChargeConditionMet &&
-                    current.fullChargeCapacityMah != null
-                ) {
-                    fresh.copy(
-                        fullChargeCapacityMah = current.fullChargeCapacityMah,
-                        lastFullChargeTimestamp = current.lastFullChargeTimestamp
-                    )
-                } else {
-                    fresh
-                }
+            _batteryState.value = fresh
         } catch (e: Throwable) {
             // 单拍发布失败保留上一帧数据，下一拍自动恢复
         }
@@ -2208,7 +2744,10 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
             while (isActive) {
                 // 启动闪退治理：轮询体整体兜底，硬件读取异常只跳过本拍，协程不中断
                 try {
-                    publish(reader.readBatteryTelemetry())
+                    // v1.2.4 P3 审计修复：后台态跳过读取与发布 (保持 1s 节奏，回前台无缝恢复)
+                    if (telemetryPollingActive) {
+                        publish(reader.readBatteryTelemetry())
+                    }
                 } catch (e: Throwable) {
                     // 读取失败静默跳过，1 秒后重试
                 }
@@ -2220,9 +2759,26 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
     fun setDesignCapacity(capacityMah: Int) {
         // 启动闪退治理：UI 回调入口兜底，写配置/读遥测异常不逃逸到主线程
         try {
+            // v1.2.3 审计加固：设计容量是指标 01/02/03 的分母与估算基准，
+            // 区间外非法值 (≤0 / 越界) 一律拒绝写入，与 BatteryTelemetryParser
+            // 合理区间常量单源一致，防止级联污染三项指标
+            val isPlausible = capacityMah in BatteryTelemetryParser.MIN_PLAUSIBLE_CAPACITY_MAH..BatteryTelemetryParser.MAX_PLAUSIBLE_CAPACITY_MAH
+            if (!isPlausible) return
             reader.designCapacityMah = capacityMah
+            // v1.2.3 健康度真实性审计：用户手动校准是可信来源，标注 CALIBRATED，
+            // 与系统解析值 (PowerProfile/sysfs) 在 UI 上可区分
+            reader.designCapacitySource = CapacitySource.CALIBRATED
             simulationHoldUntilMs = 0L // 手动改配置立即恢复真实遥测
-            publish(reader.readBatteryTelemetry())
+            if (_labOverride.value != null) {
+                // 链路闭环修复：实验室模拟中 publish 会冻结真实遥测覆盖，旧实现导致
+                // designCapacityMah 写入 Reader 后 _batteryState 不刷新——实验室
+                // "设计容量"滑杆数值回弹、指标 01/02/03 停止联动。显式刷新基底后
+                // 重放实验室覆盖层，保证 滑杆 → Reader 配置 → 指标 01/02/03 → UI 闭环
+                _batteryState.value = reader.readBatteryTelemetry()
+                publishLab()
+            } else {
+                publish(reader.readBatteryTelemetry())
+            }
         } catch (e: Throwable) {
             // 忽略：保持当前展示数据
         }
@@ -2264,7 +2820,9 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
         val cur = _batteryState.value
         _labOverride.value = LabOverride(
             percentage = cur.percentage,
-            currentMa = cur.currentMa,
+            // v1.2.3 P0 审计修复：currentMa 可空，设备不支持 CURRENT_NOW 时
+            // 真实值为 null，LabOverride 非空字段以 0 兜底
+            currentMa = cur.currentMa ?: 0,
             voltageMv = cur.voltageMv,
             temperatureCelsius = cur.temperatureCelsius,
             status = cur.status,
@@ -2280,6 +2838,10 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
         // UI 回调入口兜底：恢复真实遥测失败也不影响 UI 稳定
         try {
             _labOverride.value = null
+            // v1.2.1 自检修复：用户主动退出实验室即要求立即回到真实遥测，
+            // 必须同时取消一键模拟保持期——否则 publish 会在保持期内被拦截，
+            // 退出后界面仍残留实验室合成数据直到保持期自然结束
+            simulationHoldUntilMs = 0L
             publish(reader.readBatteryTelemetry())
         } catch (e: Throwable) {
             // 忽略：下一拍轮询自动恢复
@@ -2296,7 +2858,7 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
         val base = _labOverride.value ?: run {
             val cur = _batteryState.value
             LabOverride(
-                cur.percentage, cur.currentMa, cur.voltageMv, cur.temperatureCelsius,
+                cur.percentage, cur.currentMa ?: 0, cur.voltageMv, cur.temperatureCelsius,
                 cur.status, cur.healthQuality, cur.cycleCount
             )
         }
@@ -2332,7 +2894,7 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
                 transform(current ?: run {
                     val cur = _batteryState.value
                     LabOverride(
-                        cur.percentage, cur.currentMa, cur.voltageMv, cur.temperatureCelsius,
+                        cur.percentage, cur.currentMa ?: 0, cur.voltageMv, cur.temperatureCelsius,
                         cur.status, cur.healthQuality, cur.cycleCount
                     )
                 })
@@ -2344,19 +2906,55 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun updateLabPercentage(v: Int) = mutateLab { it.copy(percentage = v.coerceIn(0, 100)) }
-    fun updateLabCurrent(v: Int) = mutateLab { it.copy(currentMa = v.coerceIn(-2000, 6000)) }
-    fun updateLabVoltage(v: Int) = mutateLab { it.copy(voltageMv = v.coerceIn(3500, 4600)) }
-    fun updateLabTemperature(v: Float) = mutateLab { it.copy(temperatureCelsius = v.coerceIn(0f, 55f)) }
-    fun updateLabCycleCount(v: Int) = mutateLab { it.copy(cycleCount = v.coerceIn(0, 1200)) }
+    // v1.2.3 P1 审计修复：滑杆区间与解析器合法区间对齐 (旧实现 5 条滑杆区间
+    // 均窄于解析器钳制区间，真实合法值被静默压成边界值：如双电芯 8800mV 一碰变
+    // 4600mV、120W 快充 8000mA 一碰变 6000mA)。区间单源：BatteryTelemetryParser
+    fun updateLabCurrent(v: Int) =
+        mutateLab { it.copy(currentMa = v.coerceIn(-BatteryTelemetryParser.MAX_PLAUSIBLE_CURRENT_MA, BatteryTelemetryParser.MAX_PLAUSIBLE_CURRENT_MA)) }
+    fun updateLabVoltage(v: Int) =
+        mutateLab { it.copy(voltageMv = v.coerceIn(BatteryTelemetryParser.MIN_PLAUSIBLE_VOLTAGE_MV, BatteryTelemetryParser.MAX_PLAUSIBLE_VOLTAGE_MV)) }
+    fun updateLabTemperature(v: Float) =
+        mutateLab { it.copy(temperatureCelsius = v.coerceIn(BatteryTelemetryParser.MIN_PLAUSIBLE_TEMPERATURE_C, BatteryTelemetryParser.MAX_PLAUSIBLE_TEMPERATURE_C)) }
+    fun updateLabCycleCount(v: Int) =
+        mutateLab { it.copy(cycleCount = v.coerceIn(0, BatteryTelemetryParser.MAX_PLAUSIBLE_CYCLE_COUNT)) }
     fun updateLabStatus(v: BatteryStatus) = mutateLab { it.copy(status = v) }
     fun updateLabHealthQuality(v: BatteryHealthQuality) = mutateLab {
-        val t = if (v == BatteryHealthQuality.OVERHEAT) 49.2f else it.temperatureCelsius
+        val t = when (v) {
+            BatteryHealthQuality.OVERHEAT -> 49.2f
+            // v1.2.3 审计修复：选非过热态时若温度仍停留在过热区 (>45°C，与解析器
+            // "严重发热"分级阈值一致)，回落中性室温 25°C——消除"健康=良好
+            // 但 49.2°C"的自相矛盾展示，保证健康枚举与温度指标链路闭环
+            else -> if (it.temperatureCelsius > 45f) 25.0f else it.temperatureCelsius
+        }
         it.copy(healthQuality = v, temperatureCelsius = t)
     }
 
     /** 设计容量滑杆：直接作用于 Reader 配置 (真实生效，与总览页校准入口同源) */
     fun updateLabDesignCapacity(v: Int) {
-        setDesignCapacity(v.coerceIn(1000, 15000))
+        // v1.2.3 P1 审计修复：移除 1000~15000 二次钳制——真实设备 (600mAh 小电池 /
+        // 23800mAh 三防大电池) 被静默改写成边界值会污染指标 01/02/03 至重启。
+        // 区间校验统一由 setDesignCapacity (500~25000, 与解析器常量单源) 承担
+        setDesignCapacity(v)
+    }
+
+    /** v1.2.3 P0 审计修复：清除指标 12 全部锁定记录 (真实 + 模拟演示值) */
+    fun clearFullChargeRecords() {
+        reader.clearFullChargeRecords()
+        _batteryState.update { state ->
+            state.copy(
+                fullChargeCapacityMah = null,
+                lastFullChargeTimestamp = null,
+                isFullChargeConditionMet = false,
+                fullChargeVerdict = FullChargeVerdict.NOT_YET,
+                fullChargeSource = FullChargeSource.NONE
+            )
+        }
+    }
+
+    /** v1.2.3 P1 审计修复：清除用户校准的设计容量，恢复系统自动探测 */
+    fun clearDesignCapacityCalibration() {
+        reader.clearDesignCapacityCalibration()
+        publish(reader.readBatteryTelemetry())
     }
 
     /**
@@ -2368,9 +2966,14 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
         // UI 回调入口兜底：合成展示态失败时保留上一帧，不逃逸到主线程
         try {
             val base = _batteryState.value
-            val isFullMet = lab.percentage == 100 && lab.currentMa in 0..25
+            // v1.2.3 P0 审计修复：充满判定三态 (与真实通道同一实现)；
+            // 未处于充电/满电状态时不得判定充满，杜绝"健康=良好+49.2℃"式矛盾组合
+            val isLabCharging = lab.status == BatteryStatus.CHARGING || lab.status == BatteryStatus.FULL
+            val verdict = BatteryTelemetryParser.evaluateFullCharge(lab.percentage, lab.currentMa, isLabCharging)
+            val isFullMet = verdict == FullChargeVerdict.FULLY_CHARGED
             val effectiveStatus = if (isFullMet) BatteryStatus.FULL else lab.status
-            val remaining = (base.currentCapacityMah * (lab.percentage / 100f)).toInt()
+            // 四舍五入与真实遥测通道 (BatteryTelemetryParser) 及 Web 端口径一致，消除截断漂移
+            val remaining = Math.round(base.currentCapacityMah * (lab.percentage / 100f))
             _batteryState.value = base.copy(
                 percentage = lab.percentage,
                 currentMa = lab.currentMa,
@@ -2386,8 +2989,11 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
                 // v1.2.4 P2 审计修复：移除 abs()——功率随符号携带方向 (充电 +W / 放电 −W)
                 powerWatts = (lab.voltageMv * lab.currentMa) / 1_000_000f,
                 isFullChargeConditionMet = isFullMet,
+                fullChargeVerdict = verdict,
+                // 实验室注入的锁定值一律标注 SIMULATED，与真实锁定分离
                 fullChargeCapacityMah = if (isFullMet) (base.fullChargeCapacityMah ?: base.currentCapacityMah)
-                else base.fullChargeCapacityMah
+                else base.fullChargeCapacityMah,
+                fullChargeSource = if (isFullMet) FullChargeSource.SIMULATED else base.fullChargeSource
             )
         } catch (e: Throwable) {
             // 忽略：保持上一帧展示
@@ -2395,29 +3001,59 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
     }
 
     /**
-     * 一键模拟完全充满判定条件 (电量 100% 且瞬时电流 0~25mA)
-     * 模拟结果同时持久化，保持期结束后锁定容量依然可回显 (指标 12)
+     * 一键模拟完全充满判定条件 (电量 100% 且充电态瞬时电流 |I| ≤ 25mA)
+     * 模拟结果写入独立演示 key 持久化，保持期结束后可回显 (指标 12) 且标注"来源：模拟"，
+     * 不污染真实锁定记录；可在充满判定卡一键清除。
+     *
+     * v1.2.3 P0 审计修复：旧实现 persistFullChargeCapacity 把演示值写进真实锁定
+     * key——用户点一次演示按钮，指标 12 永久显示假容量且跨重启存在，UI 只标
+     * "历史锁定"不标"模拟"。
+     *
+     * v1.2.1 自检修复：容量非法 (≤0) 时拒绝写入持久化并保留上次有效锁定值，
+     * 同步把剩余电量校准为当前容量，保证"100% 充满"展示态自洽。
      */
     fun triggerFullChargeSimulation() {
         // UI 回调入口兜底
         try {
             val current = _batteryState.value
             val timestamp = System.currentTimeMillis()
-            simulationHoldUntilMs = timestamp + 15_000
-            reader.persistFullChargeCapacity(current.currentCapacityMah, timestamp)
+            simulationHoldUntilMs = timestamp + SIMULATION_HOLD_MS
+            // v1.2.6 P2 审计修复：同步置剩余秒数——旧实现等倒计时协程下一拍 (最多 500ms
+            // 低频空转间隔) 才刷新，触发瞬间 UI 倒计时存在 0~500ms 显示 0 的竞态窗口
+            _simulationRemainingSec.value = (SIMULATION_HOLD_MS + 999) / 1000
+            val capacity = current.currentCapacityMah
+            // v1.2.3 P0 审计修复：演示值写独立 key，真实锁定 (REAL) 优先展示
+            reader.persistSimulatedFullChargeCapacity(capacity, timestamp)
+            val lockedCapacity = if (capacity > 0) capacity else current.fullChargeCapacityMah
             _batteryState.value = current.copy(
                 percentage = 100,
-                currentMa = 16,
+                currentMa = SIMULATED_TRICKLE_CURRENT_MA,
                 status = BatteryStatus.FULL,
                 isFullChargeConditionMet = true,
-                fullChargeCapacityMah = current.currentCapacityMah,
-                lastFullChargeTimestamp = timestamp
+                fullChargeVerdict = FullChargeVerdict.FULLY_CHARGED,
+                fullChargeSource = FullChargeSource.SIMULATED,
+                fullChargeCapacityMah = lockedCapacity,
+                lastFullChargeTimestamp = timestamp,
+                // v1.2.4 P2 审计修复：模拟态剩余电量按 100% 校准为当前容量 (估算口径)，
+                // 显式标注，不继承真实通道的库仑计实测标注
+                remainingCapacitySource = CapacitySource.ESTIMATED,
+                remainingCapacityMah = lockedCapacity ?: current.remainingCapacityMah
             )
         } catch (e: Throwable) {
             // 忽略：保持当前展示数据
         }
     }
-}`,
+
+    companion object {
+        /** 一键模拟充满后的保持期 (毫秒) */
+        private const val SIMULATION_HOLD_MS = 15_000L
+
+        /** 一键模拟充满时展示的浮充电流 (mA)：0~25 mA 判定区间内稳定采样点，
+         *  与全链路文案口径 (UI 按钮/实验室场景描述/源码镜像) 保持一致 */
+        private val SIMULATED_TRICKLE_CURRENT_MA = 16
+    }
+}
+`,
   },
   {
     id: 'sysfs',
@@ -2452,17 +3088,42 @@ internal object BatterySysfs {
     }
 
     /**
-     * 将 CURRENT_NOW 原始值归一化为毫安 (mA)，保持符号 (充电为正、放电为负)
+     * 将 CURRENT_NOW 原始值归一化为毫安 (mA)，统一符号约定"充电为正、放电为负"
      *
-     * 判定策略：
-     * 1. |raw| > 20000：手机不可能通过 20A+ 电流，必定是 μA，直接 /1000；
-     * 2. 可读取 sysfs current_now 时做交叉校验：
-     *    - sysfs ≈ 1000 × raw → raw 是 mA，sysfs 是 μA → 直接返回 raw；
-     *    - raw ≈ 1000 × sysfs → raw 是 μA → /1000；
-     *    - 两者同单位 → 按 Android 官方规范默认 μA → /1000；
-     * 3. 无 sysfs 时按官方规范默认 μA → /1000。
+     * v1.2.3 P0 审计修复：
+     * 1. 可空语义：设备不支持 BATTERY_PROPERTY_CURRENT_NOW 时系统返回
+     *    Int.MIN_VALUE (旧实现归一化为 0 mA，导致不支持该属性的机型在 100%
+     *    电量时充满判定恒真、估算值被冒充实测锁定写盘)。现 Int.MIN_VALUE
+     *    与 null 一律返回 null = 电流不可读，判定方走 UNKNOWN 而非 true。
+     *    真实 0 mA (浮充截止) 仍是合法读数，返回 0。
+     * 2. 符号归一：AOSP 未规定 current_now 符号方向，实际随平台/HAL 而变
+     *    (大量高通/三星内核充电时上报负值)。旧实现只处理量纲不校验符号，
+     *    使指标 12 判定 (0~25 mA) 在这类机型上永不成立。现按充放电状态
+     *    校准符号：充电态取正值、放电态取负值，未知态保持原始符号。
+     *
+     * @param raw CURRENT_NOW 原始读数 (μA 或 mA，随 HAL 而定)，允许 null
+     * @param isCharging 是否处于充电/满电状态 (null = 未知，不翻转符号)
+     * @return 归一化后的 mA 值；不可读返回 null
      */
-    fun normalizeCurrentToMilliAmps(raw: Int): Int {
+    fun normalizeCurrentToMilliAmps(raw: Int?, isCharging: Boolean?): Int? {
+        // 不支持/不可读：返回 null，绝不归一化成 0 (0 是合法浮充读数，语义不同)
+        if (raw == null || raw == Int.MIN_VALUE) return null
+        if (raw == 0) return 0
+
+        val normalized = normalizeCurrentToMilliAmpsInternal(raw).coerceIn(
+            -BatteryTelemetryParser.MAX_PLAUSIBLE_CURRENT_MA,
+            BatteryTelemetryParser.MAX_PLAUSIBLE_CURRENT_MA
+        )
+
+        // 符号校准：跨平台统一"充电为正、放电为负"口径
+        return when {
+            isCharging == true && normalized < 0 -> -normalized
+            isCharging == false && normalized > 0 -> -normalized
+            else -> normalized
+        }
+    }
+
+    private fun normalizeCurrentToMilliAmpsInternal(raw: Int): Int {
         if (raw == 0 || raw == Int.MIN_VALUE) return 0
         val absRaw = abs(raw)
         if (absRaw > 20000) return raw / 1000
@@ -2476,7 +3137,33 @@ internal object BatterySysfs {
         }
         return raw / 1000
     }
-}`,
+
+    /**
+     * 容量原始值 → mAh 双单位归一化 (指标 03 当前容量 / 指标 04 设计容量共用)
+     *
+     * 背景：charge_full / charge_full_design 规范单位为 μAh，但个别内核以 mAh 上报。
+     * 判定链 (合理区间与 BatteryTelemetryParser 常量单源一致)：
+     * 1. round(raw / 1000) ∈ [500, 25000] → 规范 μAh，四舍五入取整返回；
+     * 2. raw ∈ [500, 25000] → μAh 单位下 0.5~25 mAh 电芯物理上不存在，
+     *    必为 mAh 上报内核 → 直接返回原始值；
+     * 3. 其余 (0 / 负值 / 越界) 一律视为脏数据返回 null，由调用方回退设计容量估算值。
+     */
+    fun parseCapacityMah(raw: Int): Int? {
+        if (raw <= 0 || raw == Int.MIN_VALUE) return null
+        val microAhCapacityMah = Math.round(raw / 1000f)
+        if (microAhCapacityMah in BatteryTelemetryParser.MIN_PLAUSIBLE_CAPACITY_MAH..BatteryTelemetryParser.MAX_PLAUSIBLE_CAPACITY_MAH) {
+            return microAhCapacityMah
+        }
+        if (raw in BatteryTelemetryParser.MIN_PLAUSIBLE_CAPACITY_MAH..BatteryTelemetryParser.MAX_PLAUSIBLE_CAPACITY_MAH) {
+            return raw
+        }
+        return null
+    }
+
+    /** 读取 sysfs 容量节点并归一化为 mAh；不可读或脏数据返回 null */
+    fun readCapacityMah(path: String): Int? = readInt(path)?.let(::parseCapacityMah)
+}
+`,
   },
   {
     id: 'resolver',
@@ -2537,7 +3224,7 @@ internal object HardwareInfoResolver {
                 batteryChemistry = "锂离子/聚合物电芯 (主流体系) [工程估算]",
                 fastChargeProtocol = "USB PD / QC 兼容快充 [工程估算]",
                 internalResistanceMohm = 14.8f,
-                halVersion = "Android \${Build.VERSION.RELEASE} Battery AIDL HAL",
+                halVersion = "Android \${Build.VERSION.RELEASE} BatteryManager API",
                 cellStructure = "标准单电芯封装 [工程估算]",
                 thermalThrottlingState = "正常供电 (无节流)"
             )
@@ -2551,19 +3238,23 @@ internal object HardwareInfoResolver {
         val soc = SoCHardwareProfile.resolveSoc()
 
         // 温控节流状态：按电芯温度推导。
-        // v1.2.4 P2 审计修复：1) 阈值与温度卡统一单源 (解析器常量 38°C/45°C)——
-        // 旧实现 44/38.5°C 与温度卡 45/38°C 打架 (38~38.5°C / 44~45°C 同屏自相矛盾)；
-        // 2) 移除臆造的 "限制 50%"/"限流 15%" 百分比——系统无任何 API 上报节流比例，
-        // 虚构精度冒充实测；标注 [工程估算] 与 SoC 字段既有来源标注模式一致
+        // v1.2.4 P2 审计修复：1) 阈值与温度卡统一单源 (BatteryTelemetryParser 常量)——
+        // 旧实现 44/38.5℃ 与温度卡 45/38℃ 打架 (38~38.5℃ 卡片"偏热"而标签"正常"、
+        // 44~45℃ 标签"急停"而卡片仅"偏热"，同屏自相矛盾)；2) 移除臆造的
+        // "限制 50%"/"限流 15%" 百分比——系统无任何 API 上报节流比例，虚构精度
+        // 冒充实测；标注 [工程估算] 与 SoC 字段既有来源标注模式一致
         val thermalThrottlingState = when {
-            temperatureCelsius >= 45f -> "过热急停 [工程估算]"
-            temperatureCelsius >= 38f -> "温控限流 [工程估算]"
+            temperatureCelsius >= BatteryTelemetryParser.TEMP_OVERHEAT_THRESHOLD_C ->
+                "过热急停 [工程估算]"
+            temperatureCelsius >= BatteryTelemetryParser.TEMP_WARM_THRESHOLD_C ->
+                "温控限流 [工程估算]"
             else -> "正常供电 (无节流)"
         }
 
         // 电芯动态内阻：基础值 + 循环老化 + 高温附加估算模型 (与 Web 端一致)。
         // v1.2.4 P2 审计修复：此为工程估算模型而非实测 (真实内阻需库仑计放电曲线
-        // 标定，系统无 API)，UI 显式追加 [工程估算] 标注
+        // 标定，系统无 API)，UI 显式追加 [工程估算] 标注，不再与 [DT 实测] 字段
+        // 并排冒充实测展示
         val internalResistance = 14.8f +
             (cycleCount.coerceAtLeast(0) / 300f) * 1.5f +
             if (temperatureCelsius > 40f) (temperatureCelsius - 40f) * 0.3f else 0f
@@ -2600,7 +3291,8 @@ internal object HardwareInfoResolver {
             thermalThrottlingState = thermalThrottlingState
         )
     }
-}`,
+}
+`,
   },
   {
     id: 'soc_profile',
@@ -3114,6 +3806,7 @@ internal object SoCHardwareProfile {
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -3132,7 +3825,14 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        // 外壳层审计修复：应用全局强制暗色 HUD (windowBackground #030712 恒暗)，
+        // 系统栏图标对比度必须锚定应用自身暗底，而非跟随系统浅色/深色设置。
+        // enableEdgeToEdge 默认 SystemBarStyle.auto 按系统模式切换图标明暗，
+        // 系统浅色模式下深色图标画在暗色窗口背景上不可见 → 显式强制亮图标
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
+        )
 
         setContent {
             // 统一品牌主题：Material3 色彩/字体体系映射到 DesignTokens 令牌，
@@ -3167,7 +3867,20 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-}`,
+
+    // v1.2.4 P3 审计修复：1Hz 轮询生命周期门控——退后台/锁屏暂停 sysfs 轮询
+    // (电池监测工具持续后台轮询属反向耗电缺陷)，回前台恢复；广播通道不受影响
+    override fun onResume() {
+        super.onResume()
+        batteryViewModel.setTelemetryPollingActive(true)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        batteryViewModel.setTelemetryPollingActive(false)
+    }
+}
+`,
   },
   {
     id: 'device_profile',
@@ -3453,6 +4166,7 @@ import androidx.compose.ui.unit.sp
 import com.battery.master.data.BatteryHealthQuality
 import com.battery.master.data.BatteryState
 import com.battery.master.data.BatteryStatus
+import com.battery.master.service.BatteryTelemetryParser
 import com.battery.master.viewmodel.BatteryViewModel
 import com.battery.master.viewmodel.LabScenario
 
@@ -3469,7 +4183,9 @@ fun HardwareLabScreen(viewModel: BatteryViewModel, state: BatteryState) {
     // 滑杆取值：模拟中读覆盖层，否则读真实遥测 (拖动时 VM 会自动进入模拟模式)
     val labActive = lab != null
     val pct = lab?.percentage ?: state.percentage
-    val currentMa = lab?.currentMa ?: state.currentMa
+    // v1.2.3 P0 审计修复：真实 currentMa 可空 (设备不支持 CURRENT_NOW)，
+    // 滑杆以 0 兜底展示，电流读数文本区分 "—"
+    val currentMa = lab?.currentMa ?: state.currentMa ?: 0
     val voltageMv = lab?.voltageMv ?: state.voltageMv
     val temperature = lab?.temperatureCelsius ?: state.temperatureCelsius
     val cycleCount = lab?.cycleCount ?: state.cycleCount
@@ -3640,43 +4356,58 @@ fun HardwareLabScreen(viewModel: BatteryViewModel, state: BatteryState) {
                     accent = DesignTokens.BrandPrimary,
                     onValueChange = { viewModel.updateLabPercentage(it.toInt()) }
                 )
+                // v1.2.3 P1 审计修复：滑杆区间与解析器合法区间单源对齐。
+                // 旧实现区间窄于解析器钳制区间 (电流 ±2000~6000 vs ±20000、
+                // 电压 3500~4600 vs 2000~12000、温度 0~55 vs -40~120、
+                // 循环 0~1200 vs 0~10000、设计容量 1000~15000 vs 500~25000)，
+                // 导致真实合法值被静默压成边界值 (双电芯 8800mV 一碰变 4600mV、
+                // 120W 快充 8000mA 一碰变 6000mA、23800mAh 设备一拖变 15000)。
+                // value 仍钳制在区间内防御越界 (文本显示真实值，语义不混淆)
                 LabSlider(
                     label = "11. 瞬时电流",
                     valueText = "\${if (currentMa > 0) "+$currentMa" else currentMa} mA",
-                    value = currentMa.toFloat(),
-                    valueRange = -2000f..6000f,
+                    value = currentMa.toFloat()
+                        .coerceIn(-BatteryTelemetryParser.MAX_PLAUSIBLE_CURRENT_MA.toFloat(), BatteryTelemetryParser.MAX_PLAUSIBLE_CURRENT_MA.toFloat()),
+                    valueRange = (-BatteryTelemetryParser.MAX_PLAUSIBLE_CURRENT_MA).toFloat()..BatteryTelemetryParser.MAX_PLAUSIBLE_CURRENT_MA.toFloat(),
                     accent = DesignTokens.BrandPrimaryLight,
                     onValueChange = { viewModel.updateLabCurrent(it.toInt()) }
                 )
                 LabSlider(
                     label = "09. 电芯电压",
                     valueText = "$voltageMv mV",
-                    value = voltageMv.toFloat(),
-                    valueRange = 3500f..4600f,
+                    value = voltageMv.toFloat()
+                        .coerceIn(BatteryTelemetryParser.MIN_PLAUSIBLE_VOLTAGE_MV.toFloat(), BatteryTelemetryParser.MAX_PLAUSIBLE_VOLTAGE_MV.toFloat()),
+                    valueRange = BatteryTelemetryParser.MIN_PLAUSIBLE_VOLTAGE_MV.toFloat()..BatteryTelemetryParser.MAX_PLAUSIBLE_VOLTAGE_MV.toFloat(),
                     accent = DesignTokens.InfoSky,
                     onValueChange = { viewModel.updateLabVoltage(it.toInt()) }
                 )
                 LabSlider(
                     label = "07. 传感器温度",
                     valueText = "$temperature °C",
-                    value = temperature,
-                    valueRange = 0f..55f,
+                    value = temperature
+                        .coerceIn(BatteryTelemetryParser.MIN_PLAUSIBLE_TEMPERATURE_C, BatteryTelemetryParser.MAX_PLAUSIBLE_TEMPERATURE_C),
+                    valueRange = BatteryTelemetryParser.MIN_PLAUSIBLE_TEMPERATURE_C..BatteryTelemetryParser.MAX_PLAUSIBLE_TEMPERATURE_C,
                     accent = DesignTokens.WarningAmber,
                     onValueChange = { viewModel.updateLabTemperature(it) }
                 )
                 LabSlider(
                     label = "10. 循环计数",
                     valueText = "$cycleCount 次",
-                    value = cycleCount.toFloat(),
-                    valueRange = 0f..1200f,
+                    value = cycleCount.toFloat()
+                        .coerceIn(0f, BatteryTelemetryParser.MAX_PLAUSIBLE_CYCLE_COUNT.toFloat()),
+                    valueRange = 0f..BatteryTelemetryParser.MAX_PLAUSIBLE_CYCLE_COUNT.toFloat(),
                     accent = DesignTokens.AccentTeal,
                     onValueChange = { viewModel.updateLabCycleCount(it.toInt()) }
                 )
                 LabSlider(
                     label = "04. 出厂设计容量 (真实生效)",
                     valueText = "\${state.designCapacityMah} mAh",
-                    value = state.designCapacityMah.toFloat(),
-                    valueRange = 1000f..15000f,
+                    // value 钳制在 valueRange 内：区间已与 Reader 三级链合法区间
+                    // (500~25000 mAh) 对齐，正常设备恒在区间内；极端脏值防御性钳制。
+                    // 数值文本仍显示真实设计容量，仅滑杆位置钳制
+                    value = state.designCapacityMah.toFloat()
+                        .coerceIn(BatteryTelemetryParser.MIN_PLAUSIBLE_CAPACITY_MAH.toFloat(), BatteryTelemetryParser.MAX_PLAUSIBLE_CAPACITY_MAH.toFloat()),
+                    valueRange = BatteryTelemetryParser.MIN_PLAUSIBLE_CAPACITY_MAH.toFloat()..BatteryTelemetryParser.MAX_PLAUSIBLE_CAPACITY_MAH.toFloat(),
                     accent = DesignTokens.FeaturePurple,
                     onValueChange = { viewModel.updateLabDesignCapacity(it.toInt()) }
                 )
@@ -3899,7 +4630,8 @@ private fun StatusChip(label: String, selected: Boolean, accent: Color, onClick:
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
         )
     }
-}`,
+}
+`,
   },
 ];
 
@@ -3929,6 +4661,9 @@ export function NativeCodeViewer() {
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               已全量生成至工程 <code className="font-mono text-emerald-600 dark:text-emerald-400">/android</code> 目录，可直接用 Android Studio 导入运行。
+            </p>
+            <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">
+              代码快照为说明性展示，可能滞后于实际发布版本
             </p>
           </div>
         </div>

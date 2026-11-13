@@ -8,6 +8,9 @@ plugins {
 // 缺失时回退 debug 签名，保证流水线与本地开发始终可产出可安装 APK
 val releaseKeystoreFile = System.getenv("KEYSTORE_FILE")
 val releaseKeystorePass = System.getenv("KEYSTORE_PASSWORD")
+// v1.2.6 P2 审计修复：KEY_ALIAS 由 CI Secret 注入 (旧实现硬编码 "battery-master"，
+// Secret 实际注入了别名却被无视，更换 keystore/别名必须改源码)；缺失时回退历史别名
+val releaseKeyAlias = System.getenv("KEY_ALIAS")
 val releaseKeyPass = System.getenv("KEY_PASSWORD")
 val hasReleaseSigning = releaseKeystoreFile != null &&
     releaseKeystorePass != null && releaseKeyPass != null
@@ -20,8 +23,8 @@ android {
         applicationId = "com.battery.master"
         minSdk = 26
         targetSdk = 35
-        versionCode = 10
-        versionName = "1.2.5"
+        versionCode = 11
+        versionName = "1.2.6"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -31,8 +34,15 @@ android {
             create("release") {
                 storeFile = file(releaseKeystoreFile as String)
                 storePassword = releaseKeystorePass
-                keyAlias = "battery-master"
+                keyAlias = releaseKeyAlias ?: "battery-master"
                 keyPassword = releaseKeyPass
+                // v1.2.6 P3 审计修复：显式启用全签名方案 (v1/v2/v3/v3.1)——
+                // v3 轮换证明在 targetSdk 30+ 设备必需，v3.1 (Android 13+) 支持
+                // 密钥轮换新证据格式；旧实现依赖 AGP 默认行为，不同配置下可能缺 v3+
+                enableV1Signing = true
+                enableV2Signing = true
+                enableV3Signing = true
+                enableV3_1Signing = true
             }
         }
     }

@@ -16,6 +16,7 @@ import {
   Play,
 } from 'lucide-react';
 import { BatteryHealthQuality, BatteryStatus } from '../types/battery';
+import { MIN_PLAUSIBLE_CAPACITY_MAH, MAX_PLAUSIBLE_CAPACITY_MAH } from '../lib/batteryConstants';
 
 interface HardwareSimulationLabProps {
   percentage: number;
@@ -321,8 +322,8 @@ export function HardwareSimulationLab({
           </div>
           <input
             type="range"
-            min="1000"
-            max="15000"
+            min={MIN_PLAUSIBLE_CAPACITY_MAH}
+            max={MAX_PLAUSIBLE_CAPACITY_MAH}
             step="100"
             value={designCapacity}
             onChange={(e) => {
@@ -335,9 +336,9 @@ export function HardwareSimulationLab({
             aria-label="出厂设计容量 (mAh)"
           />
           <div className="flex justify-between text-2xs text-slate-500 mt-0.5 font-mono tabular-nums">
-            <span>1000 mAh (小容量)</span>
+            <span>{MIN_PLAUSIBLE_CAPACITY_MAH} mAh (小容量)</span>
             <span>5000 mAh (主流)</span>
-            <span>15000 mAh (平板级)</span>
+            <span>{MAX_PLAUSIBLE_CAPACITY_MAH} mAh (平板级)</span>
           </div>
         </div>
 

@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { Smartphone, Check, Sliders, AlertTriangle } from 'lucide-react';
 import { DevicePreset } from '../types/battery';
 import { POPULAR_ANDROID_DEVICES } from '../data/devicePresets';
+import { MIN_PLAUSIBLE_CAPACITY_MAH, MAX_PLAUSIBLE_CAPACITY_MAH } from '../lib/batteryConstants';
 
 interface DevicePresetSelectorProps {
   selectedDevice: DevicePreset;
@@ -36,8 +37,9 @@ export function DevicePresetSelector({
       setCapacityError('容量必须为大于 0 的整数');
       return;
     }
-    if (val < 1000 || val > 15000) {
-      setCapacityError(`容量需在 1000 ~ 15000 mAh 之间 (当前输入 ${val})`);
+    // 容量合理区间 500~25000 mAh 与 Android MIN/MAX_PLAUSIBLE_CAPACITY_MAH 单源对齐
+    if (val < MIN_PLAUSIBLE_CAPACITY_MAH || val > MAX_PLAUSIBLE_CAPACITY_MAH) {
+      setCapacityError(`容量需在 ${MIN_PLAUSIBLE_CAPACITY_MAH} ~ ${MAX_PLAUSIBLE_CAPACITY_MAH} mAh 之间 (当前输入 ${val})`);
       return;
     }
     setCapacityError(null);
@@ -147,8 +149,8 @@ export function DevicePresetSelector({
             <div className="relative flex-1 w-full">
               <input
                 type="number"
-                min="1000"
-                max="15000"
+                min={MIN_PLAUSIBLE_CAPACITY_MAH}
+                max={MAX_PLAUSIBLE_CAPACITY_MAH}
                 value={customInput}
                 onChange={(e) => {
                   setCustomInput(e.target.value);

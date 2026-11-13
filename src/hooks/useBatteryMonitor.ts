@@ -14,6 +14,15 @@ import {
 } from '../types/battery';
 import { POPULAR_ANDROID_DEVICES } from '../data/devicePresets';
 import { playPlugInSound, playFullChargeChime, playWarningBeep } from '../utils/soundEffects';
+import {
+  TEMP_WARM_C,
+  TEMP_OVERHEAT_C,
+  FULL_CHARGE_TRICKLE_MAX_MA,
+  MIN_PLAUSIBLE_CAPACITY_MAH,
+  MAX_PLAUSIBLE_CAPACITY_MAH,
+  isChargingStatus,
+  isFullChargeCriteriaMet,
+} from '../lib/batteryConstants';
 
 export function useBatteryMonitor() {
   // Current selected device preset
@@ -60,8 +69,13 @@ export function useBatteryMonitor() {
   }, [currentCapacity, designCapacity]);
 
   // Derived Thermal Throttling State based on cell temperature
+  // 温度分级阈值与 Android BatteryTelemetryParser 单源对齐 (38℃ 温控限流 / 45℃ 过热急停)
   const thermalThrottlingState: 'NORMAL' | 'LIGHT_THROTTLE' | 'HEAVY_THROTTLE' =
-    temperature >= 44 ? 'HEAVY_THROTTLE' : temperature >= 38.5 ? 'LIGHT_THROTTLE' : 'NORMAL';
+    temperature >= TEMP_OVERHEAT_C
+      ? 'HEAVY_THROTTLE'
+      : temperature >= TEMP_WARM_C
+      ? 'LIGHT_THROTTLE'
+      : 'NORMAL';
 
   // Dynamic internal resistance (mΩ) derived from base + cycle degradation + temperature
   const currentResistance = Number(
@@ -90,10 +104,11 @@ export function useBatteryMonitor() {
   });
 
   // Check and process requirement 12 condition
-  // "仅当电量为 100% 且电流在 0-25 mA 之间时，才视为电池充满并显示完全充满时的容量"
+  // 充满判定三态 (语义等价 Android evaluateFullCharge)：100% 且处于充电态 (CHARGING/FULL)
+  // 且 |电流| ≤ 25 mA 涓流截止区间；非充电态不判充满 (防拔线误判)
   const prevFullMetRef = useRef<boolean>(false);
   useEffect(() => {
-    const isCriteriaMet = percentage === 100 && current >= 0 && current <= 25;
+    const isCriteriaMet = isFullChargeCriteriaMet(percentage, current, isChargingStatus(status));
 
     if (isCriteriaMet) {
       setStatus('full');
@@ -118,7 +133,7 @@ export function useBatteryMonitor() {
       prevFullMetRef.current = false;
       // If user discharges or current moves away from 0-25mA cutoff, fullChargeCapacity remains stored if recorded, or indicates awaiting cutoff
     }
-  }, [percentage, current, currentCapacity, designCapacity, voltage, cycleCount, soundEnabled, fullChargeCapacity]);
+  }, [percentage, current, status, currentCapacity, designCapacity, voltage, cycleCount, soundEnabled, fullChargeCapacity]);
 
   // Live telemetry loop (simulating realistic micro-fluctuations in current, voltage, temperature)
   useEffect(() => {
@@ -151,7 +166,7 @@ export function useBatteryMonitor() {
         // 电量耗尽保护：0% 或即将耗尽且非充电状态时电流必须为 0，
         // 避免与上方 setCurrent(0) 竞争导致"未充电"状态仍显示负电流
         if (percentage <= 1 && status !== 'charging') return 0;
-        if (percentage === 100 && prevCurrent >= 0 && prevCurrent <= 25) {
+        if (percentage === 100 && isChargingStatus(status) && Math.abs(prevCurrent) <= FULL_CHARGE_TRICKLE_MAX_MA) {
           // Keep in trickle band (10 - 24 mA)
           return Math.max(5, Math.min(24, Math.round(prevCurrent + (Math.random() * 4 - 2))));
         }
@@ -204,7 +219,8 @@ export function useBatteryMonitor() {
       // Push to telemetry history
       const now = Date.now();
       const timeStr = new Date(now).toLocaleTimeString('zh-CN', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-      const powerW = Math.abs(voltage * current) / 1000000;
+      // 瞬时功率带符号 (充电 +W / 放电 −W)，与 Android powerWatts 单源口径一致，禁止 abs 丢方向
+      const powerW = (voltage * current) / 1000000;
 
       setTelemetryHistory((prev) => {
         const next = [
@@ -277,8 +293,9 @@ export function useBatteryMonitor() {
 
   // Action: Set custom design capacity
   // 不变式：当前可用容量恒 ≤ 设计容量，避免健康度 > 100% 与负损耗
+  // 容量合理区间 500~25000 mAh 与 Android MIN/MAX_PLAUSIBLE_CAPACITY_MAH 单源对齐
   const updateDesignCapacity = useCallback((val: number) => {
-    const clamped = Math.max(1000, Math.min(15000, val));
+    const clamped = Math.max(MIN_PLAUSIBLE_CAPACITY_MAH, Math.min(MAX_PLAUSIBLE_CAPACITY_MAH, val));
     setDesignCapacity(clamped);
     setCurrentCapacity((prev) => Math.min(prev, clamped));
   }, []);

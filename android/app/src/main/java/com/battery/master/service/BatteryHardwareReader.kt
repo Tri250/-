@@ -121,8 +121,9 @@ class BatteryHardwareReader(private val context: Context) {
 
         // 12. 完全充满时的容量：满足判定则锁定+持久化，未满足保留上次锁定值不抹除
         // 注意：必须先执行锁定 (内部可能刷新时间戳) 再读取 lastFullChargeTimestamp
-        val isCharging = raw.status == BatteryStatus.CHARGING || raw.status == BatteryStatus.FULL
-        lockFullChargeIfCriteriaMet(raw.currentCapacityMah, raw.percentage, raw.currentMa, isCharging)
+        // v1.2.6 P2 审计修复：充电态判定单源——直接消费解析器输出的 raw.isCharging
+        // (含 EXTRA_PLUGGED 通道判定)，与广播通道完全一致，消除本地重复推导漂移
+        lockFullChargeIfCriteriaMet(raw.currentCapacityMah, raw.percentage, raw.currentMa, raw.isCharging)
         // v1.2.3 P0 审计修复：真实锁定 (REAL) 与模拟演示值 (SIMULATED) 分离，
         // 真实优先，无真实锁定时才回显演示值并标注来源
         val display = resolveFullChargeDisplay()
@@ -240,6 +241,10 @@ class BatteryHardwareReader(private val context: Context) {
         simulatedFullCapacity = null
         simulatedFullTimestamp = null
         wasInFullChargeBand = false
+        // v1.2.6 P2 审计修复：同步清空最后已知态快照——旧实现 lastKnownState 仍持有
+        // 含旧锁定值的 BatteryState，清除记录后一旦采集异常降级返回该快照，
+        // 指标 12 "已清除"的锁定容量/时间戳会复活回显
+        lastKnownState = null
         try {
             prefs?.edit()
                 ?.remove(KEY_LAST_FULL_CAPACITY)

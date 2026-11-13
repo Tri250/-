@@ -51,7 +51,7 @@ internal object HardwareInfoResolver {
                 batteryChemistry = "锂离子/聚合物电芯 (主流体系) [工程估算]",
                 fastChargeProtocol = "USB PD / QC 兼容快充 [工程估算]",
                 internalResistanceMohm = 14.8f,
-                halVersion = "Android ${Build.VERSION.RELEASE} Battery AIDL HAL",
+                halVersion = "Android ${Build.VERSION.RELEASE} BatteryManager API",
                 cellStructure = "标准单电芯封装 [工程估算]",
                 thermalThrottlingState = "正常供电 (无节流)"
             )

@@ -101,7 +101,7 @@ fun BatteryScreen(
                             Text(
                                 // 外壳层审计修复：副标题按真实运行 API 动态渲染。
                                 // 旧实现硬编码 "Android 15"，在 minSdk 26~34 设备上宣称失实
-                                text = "API ${android.os.Build.VERSION.SDK_INT} 电池硬件抽象层 · 原生硬件遥测",
+                                text = "API ${android.os.Build.VERSION.SDK_INT} 电池管理服务 · 原生硬件遥测",
                                 fontSize = DesignTokens.Font2xs,
                                 color = DesignTokens.AccentCyanDark,
                                 fontFamily = FontFamily.Monospace
@@ -734,7 +734,7 @@ fun HardwareSummaryCard(state: BatteryState, onCalibrateDesignCapacity: () -> Un
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 HardwareItem(modifier = Modifier.weight(1f), label = "电芯结构", value = state.cellStructure)
-                HardwareItem(modifier = Modifier.weight(1f), label = "AIDL 规范", value = state.halVersion)
+                HardwareItem(modifier = Modifier.weight(1f), label = "系统接口", value = state.halVersion)
             }
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -1093,7 +1093,7 @@ fun AboutAppCard() {
         "硬件实验室：一键场景模拟（充满校准 / 极速闪充 / 高负载放电 / 过热警报）与六组滑杆调参，随时一键恢复真实硬件遥测",
         "硬件信息解析：SoC 主控五字段档案（型号 / 厂商 / 制程 / CPU / GPU）与 PMIC 型号、快充协议、电芯结构三级回退检测",
         "数据来源：系统 BatteryManager 公开接口、ACTION_BATTERY_CHANGED 粘性广播与 sysfs 真实硬件通道，全部本地计算，不上传任何数据",
-        "零权限声明：不申请任何运行时或敏感权限，安装即可使用全部功能"
+        "权限声明：不申请任何运行时或危险权限，安装即可使用全部功能（合并清单仅含系统框架自动注入的签名级内部权限，不涉及隐私）"
     )
 
     Card(

@@ -5,10 +5,13 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
+    // 相对路径基址：产物可部署于任意子路径 (file:// / 子目录)，资源引用为 ./assets/*
+    base: './',
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, '.'),
+        // import.meta.dirname 需 Node ≥20.11 (本地 v24 / CI node 20 均满足)
+        '@': path.resolve(import.meta.dirname, '.'),
       },
     },
     server: {

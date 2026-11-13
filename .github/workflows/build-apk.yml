@@ -37,6 +37,9 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          # v1.2.6 P3 审计修复：完整提交历史——发布提交记录与差异核验依赖完整 reflog
+          fetch-depth: 0
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -87,15 +90,18 @@ jobs:
       # 启动闪退回归测试 (Robolectric，无模拟器)：
       # 覆盖 Activity 启动 -> ViewModel 构造 -> 粘性广播回调 -> Compose 首帧渲染全链路，
       # 任何一环抛异常都会导致安装后启动闪退，测试失败即阻断发布
+      # v1.2.6 P1 审计修复：移除 `|| gradle` 系统兜底——runner 系统 Gradle (9.x) 与
+      # AGP 8.7.2 不兼容，兜底只会把真实的 wrapper 失败转换成另一个更难排查的错误，
+      # 还可能掩盖构建缺陷 (假绿灯)；统一强制走 wrapper 单一入口
       - name: Run Startup Crash Regression Tests (Robolectric)
         run: |
           cd android
-          ./gradlew testDebugUnitTest --no-daemon --stacktrace || gradle testDebugUnitTest --no-daemon --stacktrace
+          ./gradlew testDebugUnitTest --no-daemon --stacktrace
 
       - name: Build Release APK (R8 minified + signed)
         run: |
           cd android
-          ./gradlew assembleRelease --stacktrace --no-daemon || gradle assembleRelease --stacktrace --no-daemon
+          ./gradlew assembleRelease --stacktrace --no-daemon
 
       - name: Locate Generated APK
         id: find_apk
@@ -113,6 +119,59 @@ jobs:
           fi
           echo "Found APK at: $APK_PATH"
           echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
+
+      # v1.2.6 P1 审计修复：Release DEX 反射实例化冒烟——testDebugUnitTest 只跑 debug
+      # 未混淆变体，无法暴露 R8 全量混淆后 ViewModel 反射构造器被裁剪 (启动即崩溃)
+      # 的最坏情形；此步解包 release APK，断言混淆映射存在、映射后的 ViewModel 类
+      # 在 DEX 中、且 (Application) 反射构造器签名被保留
+      - name: Release DEX ViewModel Constructor Smoke Check
+        run: |
+          APK_PATH="${{ steps.find_apk.outputs.apk_path }}"
+          MAPPING="android/app/build/outputs/mapping/release/mapping.txt"
+          if [ ! -s "$MAPPING" ]; then
+            echo "::error::R8 mapping.txt missing — release build must emit obfuscation mapping"
+            exit 1
+          fi
+          VM_LINE=$(grep -m1 "com.battery.master.viewmodel.BatteryViewModel -> " "$MAPPING")
+          if [ -z "$VM_LINE" ]; then
+            echo "::error::BatteryViewModel missing from mapping.txt"
+            exit 1
+          fi
+          RENAMED=$(echo "$VM_LINE" | awk '{print $2}' | sed 's/:$//' | tr '.' '/')
+          grep -q "void <init>(android.app.Application)" "$MAPPING" || {
+            echo "::error::BatteryViewModel (Application) constructor not retained by R8 keep rules"
+            exit 1
+          }
+          echo "BatteryViewModel renamed to: $RENAMED"
+          DEXDUMP=$(find "$ANDROID_HOME/build-tools" -name dexdump -type f | sort -V | tail -n 1)
+          if [ -z "$DEXDUMP" ]; then
+            echo "::error::dexdump not found in build-tools"
+            exit 1
+          fi
+          TMP_DEX_DIR=$(mktemp -d)
+          unzip -o -q "$APK_PATH" "classes*.dex" -d "$TMP_DEX_DIR"
+          DEX_DUMP_OUT="$TMP_DEX_DIR/dexdump.txt"
+          : > "$DEX_DUMP_OUT"
+          for D in "$TMP_DEX_DIR"/classes*.dex; do
+            "$DEXDUMP" "$D" >> "$DEX_DUMP_OUT" 2>/dev/null || true
+          done
+          grep -q "'L${RENAMED};'" "$DEX_DUMP_OUT" || {
+            echo "::error::Renamed ViewModel class '$RENAMED' not found in release DEX"
+            exit 1
+          }
+          grep -q "(Landroid/app/Application;)V" "$DEX_DUMP_OUT" || {
+            echo "::error::(Application) constructor signature stripped from release DEX"
+            exit 1
+          }
+          echo "Release DEX smoke check passed: ViewModel class + (Application) constructor retained."
+
+      # R8 混淆映射归档：崩溃堆栈反解 (deobfuscation) 必需，随构建 artifact 一并产出
+      - name: Upload R8 Mapping Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Android-Battery-Master-R8-Mapping
+          path: android/app/build/outputs/mapping/release/mapping.txt
+          retention-days: 30
 
       # 安装属性自检：校验包名 / 版本号 / 启动 Activity / 应用图标齐全，
       # 与"安装与卸载"审计项对应，属性缺失直接让流水线失败。
@@ -163,7 +222,11 @@ jobs:
             echo "::warning::apksigner not found, skipping signature verification"
             exit 0
           fi
-          "$APKSIGNER" verify --verbose "$APK_PATH" | head -n 10 || { echo "::error::APK signature verification failed"; exit 1; }
+          # v1.2.6 P2 审计修复：先落盘再截断——旧实现 `| head -n 10` 双重缺陷：
+          # head 提前退出触发 SIGPIPE 截断 apksigner 输出，且管道退出码取 head (恒 0)，
+          # apksigner 真实校验失败会被吞掉 (假绿灯)
+          "$APKSIGNER" verify --verbose "$APK_PATH" > apk-signature.txt 2>&1 || { echo "::error::APK signature verification failed"; exit 1; }
+          head -n 10 apk-signature.txt
           if [ "${{ env.keystore_available }}" = "true" ]; then
             echo "APK signature verified (release keystore)."
           else
@@ -203,6 +266,8 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Node.js 20
         uses: actions/setup-node@v4
@@ -231,7 +296,13 @@ jobs:
             echo "::error::Expected JS and CSS assets in dist/assets, found $ASSET_COUNT"
             exit 1
           fi
-          echo "Web dist verified: index.html + $ASSET_COUNT asset files."
+          # v1.2.6 P1 审计修复：vite base './' 后入口必须引用相对路径资源，
+          # 绝对路径 (src="/assets/...") 在 file:// 直开与子路径部署下白屏
+          if grep -qE '(src|href)="/[^/]' dist/index.html; then
+            echo "::error::dist/index.html contains absolute asset paths (expect relative base './')"
+            exit 1
+          fi
+          echo "Web dist verified: index.html + $ASSET_COUNT asset files (relative paths, file:// compatible)."
 
       - name: Package Web Dist
         run: |
@@ -260,6 +331,8 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       # 版本解析：以 build.gradle.kts 为单一事实来源，注入发布说明与安装指引
       - name: Resolve Release Version
@@ -342,7 +415,8 @@ jobs:
             - 备份策略：已配置 `dataExtractionRules` 与 `fullBackupContent` 排除全部应用数据，云备份与换机传输均不会携带本应用数据。
 
             ### 权限说明
-            - 声明权限数：**0**（无运行时权限、无敏感权限）。
+            - 应用声明权限数：**0**（无运行时权限、无危险权限）。
+            - 合并后清单含 1 个 AndroidX 框架自动注入的**签名级内部权限**（`androidx.core.content.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`，protectionLevel=signature，仅用于框架内部广播保护，不向用户呈现、不涉及隐私）。
             - 电池指标全部来自公开系统 API（BatteryManager 属性 / `ACTION_BATTERY_CHANGED` 广播）与 sysfs 节点，无需任何授权。
 
             ### 五维自检摘要

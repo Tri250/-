@@ -7,6 +7,8 @@ import android.os.BatteryManager
 import androidx.test.core.app.ApplicationProvider
 import com.battery.master.data.BatteryState
 import com.battery.master.data.BatteryStatus
+import com.battery.master.data.FullChargeSource
+import com.battery.master.data.FullChargeVerdict
 import com.battery.master.receiver.BatteryReceiver
 import com.battery.master.service.BatteryHardwareReader
 import com.battery.master.service.BatteryTelemetryParser
@@ -143,6 +145,10 @@ class FullChargeCapacityTest {
         val intent = Intent(Intent.ACTION_BATTERY_CHANGED).apply {
             putExtra(BatteryManager.EXTRA_LEVEL, 101)
             putExtra(BatteryManager.EXTRA_SCALE, 100)
+            // v1.2.6 P2 审计修复：充电态判定收紧后，浮充判定必须显式携带充电态
+            // (EXTRA_STATUS=CHARGING 或 EXTRA_PLUGGED>0)，缺失不再被默认值误判为充电
+            putExtra(BatteryManager.EXTRA_STATUS, BatteryManager.BATTERY_STATUS_CHARGING)
+            putExtra(BatteryManager.EXTRA_PLUGGED, BatteryManager.BATTERY_PLUGGED_AC)
         }
         // v1.2.3 P0 审计修复：不支持 CURRENT_NOW 时 getIntProperty 返回 Int.MIN_VALUE，
         // 归一化结果必须为 null (不可读) 而非 0 mA——故经 ShadowBatteryManager 注入
@@ -327,5 +333,78 @@ class FullChargeCapacityTest {
         assertFalse(state.isFullChargeConditionMet)
         // 已恢复真实遥测 (无电池环境下百分比远低于实验室设定的 45%)
         assertTrue(state.percentage in 0..44)
+    }
+
+    // ===== 9. v1.2.6 P2 审计修复：EXTRA_PLUGGED 缺失/拔线不得误判充电态 =====
+
+    @Test
+    fun parser_missingPluggedExtra_discharging_isNotCharging() {
+        val batteryManager = app.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+        Shadows.shadowOf(batteryManager)
+            .setIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW, 0)
+
+        // 无 EXTRA_PLUGGED + DISCHARGING：旧实现默认值 -1 经 `!= 0` 被误判"已接电源"
+        val intent = Intent(Intent.ACTION_BATTERY_CHANGED).apply {
+            putExtra(BatteryManager.EXTRA_LEVEL, 100)
+            putExtra(BatteryManager.EXTRA_SCALE, 100)
+            putExtra(BatteryManager.EXTRA_STATUS, BatteryManager.BATTERY_STATUS_DISCHARGING)
+        }
+        val raw = BatteryTelemetryParser.parse(intent, batteryManager, 5000)
+        assertFalse(raw.isCharging)
+        assertEquals(FullChargeVerdict.NOT_YET, raw.fullChargeVerdict)
+        assertFalse(raw.isFullChargeConditionMet)
+    }
+
+    @Test
+    fun parser_pluggedChannel_drivesChargingDetection() {
+        val batteryManager = app.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+        Shadows.shadowOf(batteryManager)
+            .setIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW, 0)
+
+        // plugged = 0 (未插入电源) + NOT_CHARGING → 非充电态
+        val unplugged = Intent(Intent.ACTION_BATTERY_CHANGED).apply {
+            putExtra(BatteryManager.EXTRA_LEVEL, 60)
+            putExtra(BatteryManager.EXTRA_SCALE, 100)
+            putExtra(BatteryManager.EXTRA_STATUS, BatteryManager.BATTERY_STATUS_NOT_CHARGING)
+            putExtra(BatteryManager.EXTRA_PLUGGED, 0)
+        }
+        assertFalse(BatteryTelemetryParser.parse(unplugged, batteryManager, 5000).isCharging)
+
+        // plugged = USB + DISCHARGING (部分 ROM 状态滞后)：插电通道仍判充电态
+        val plugged = Intent(Intent.ACTION_BATTERY_CHANGED).apply {
+            putExtra(BatteryManager.EXTRA_LEVEL, 60)
+            putExtra(BatteryManager.EXTRA_SCALE, 100)
+            putExtra(BatteryManager.EXTRA_STATUS, BatteryManager.BATTERY_STATUS_DISCHARGING)
+            putExtra(BatteryManager.EXTRA_PLUGGED, BatteryManager.BATTERY_PLUGGED_USB)
+        }
+        assertTrue(BatteryTelemetryParser.parse(plugged, batteryManager, 5000).isCharging)
+    }
+
+    @Test
+    fun receiverChannel_unpluggedAt100Percent_neverLocksFullCharge() {
+        val reader = BatteryHardwareReader(app)
+        var emitted: BatteryState? = null
+        val receiver = BatteryReceiver(reader) { emitted = it }
+        val batteryManager = app.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+        Shadows.shadowOf(batteryManager)
+            .setIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW, 0)
+
+        // 100% + 拔线放电 + CURRENT_NOW=0：旧实现 EXTRA_PLUGGED 缺失默认 -1 被判充电态，
+        // 三态门禁失效、估算容量被冒充实测锁定写盘；修复后必须拒绝锁定
+        val intent = Intent(Intent.ACTION_BATTERY_CHANGED).apply {
+            putExtra(BatteryManager.EXTRA_LEVEL, 100)
+            putExtra(BatteryManager.EXTRA_SCALE, 100)
+            putExtra(BatteryManager.EXTRA_STATUS, BatteryManager.BATTERY_STATUS_DISCHARGING)
+            putExtra(BatteryManager.EXTRA_TEMPERATURE, 315)
+            putExtra(BatteryManager.EXTRA_VOLTAGE, 4380)
+            putExtra(BatteryManager.EXTRA_HEALTH, BatteryManager.BATTERY_HEALTH_GOOD)
+        }
+        receiver.onReceive(app, intent)
+
+        val state = emitted!!
+        assertFalse(state.isFullChargeConditionMet)
+        assertEquals(FullChargeVerdict.NOT_YET, state.fullChargeVerdict)
+        assertEquals(FullChargeSource.NONE, reader.resolveFullChargeDisplay().source)
+        assertNull(state.fullChargeCapacityMah)
     }
 }

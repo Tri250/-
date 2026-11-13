@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import {
   Zap,
   Sparkles,
@@ -21,12 +21,27 @@ import { MetricCard } from './components/MetricCard';
 import { FullChargeCalibrationCard } from './components/FullChargeCalibrationCard';
 import { LiveTelemetryChart } from './components/LiveTelemetryChart';
 import { DevicePresetSelector } from './components/DevicePresetSelector';
-import { HardwareSimulationLab } from './components/HardwareSimulationLab';
 import { BatteryHealthAdvice } from './components/BatteryHealthAdvice';
 import { AndroidNavBar, NavTabId } from './components/AndroidNavBar';
-import { NativeCodeViewer } from './components/NativeCodeViewer';
-import { NativeAndroidProjectHub } from './components/NativeAndroidProjectHub';
 import { HardwareSummaryBar } from './components/HardwareSummaryBar';
+import {
+  TEMP_WARM_C,
+  TEMP_OVERHEAT_C,
+  isChargingStatus,
+  isFullChargeCriteriaMet,
+} from './lib/batteryConstants';
+
+// 重型 Tab 面板按需分包 (React.lazy)：源码查看器/硬件实验室/工程总览体积大，
+// 拆出主 chunk 以降低首屏加载体积
+const HardwareSimulationLab = lazy(
+  () => import('./components/HardwareSimulationLab').then((m) => ({ default: m.HardwareSimulationLab }))
+);
+const NativeCodeViewer = lazy(
+  () => import('./components/NativeCodeViewer').then((m) => ({ default: m.NativeCodeViewer }))
+);
+const NativeAndroidProjectHub = lazy(
+  () => import('./components/NativeAndroidProjectHub').then((m) => ({ default: m.NativeAndroidProjectHub }))
+);
 
 export default function App() {
   const {
@@ -96,14 +111,26 @@ export default function App() {
   };
 
   // Temperature band assessment (Requirement 7)
+  // 温度分级阈值与 Android BatteryTelemetryParser 单源对齐 (38℃ 温控限流 / 45℃ 过热急停)
   const getTempAssessment = (temp: number) => {
-    if (temp > 45) return { text: '严重发热 (>45 °C)', variant: 'danger' as const };
-    if (temp >= 38) return { text: '偏热预警 (38-45 °C)', variant: 'warning' as const };
+    if (temp >= TEMP_OVERHEAT_C) return { text: '严重发热 (≥45 °C)', variant: 'danger' as const };
+    if (temp >= TEMP_WARM_C) return { text: '偏热预警 (38-45 °C)', variant: 'warning' as const };
     if (temp <= 0) return { text: '过冷保护 (≤0 °C)', variant: 'danger' as const };
     return { text: '温度正常', variant: 'good' as const };
   };
 
   const tempAssessment = getTempAssessment(state.temperature);
+
+  // 指标 12 充满判定三态 (语义等价 Android evaluateFullCharge)：
+  // 100% 且处于充电态 (charging/full) 且 |电流| ≤ 25 mA，非充电态不判充满 (防拔线误判)
+  const isFullChargeMet = isFullChargeCriteriaMet(
+    state.percentage,
+    state.current,
+    isChargingStatus(state.status)
+  );
+
+  // 瞬时功率 (W = V×I)：带符号——充电 +W / 放电 −W，与 Android powerWatts 单源口径一致
+  const powerWatts = (state.voltage * state.current) / 1000000;
 
   // 续航预估：放电时按实时电流折算，其余场景按 450mA 平均负载估算 (Requirement 5)
   const runtimeHours = (
@@ -226,7 +253,7 @@ export default function App() {
               role="button"
               tabIndex={0}
               className={`cursor-pointer px-2.5 py-1 rounded-lg text-[10px] font-semibold border transition-all flex items-center gap-1 ${
-                state.percentage === 100 && state.current >= 0 && state.current <= 25
+                isFullChargeMet
                   ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300'
                   : 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
               }`}
@@ -238,6 +265,13 @@ export default function App() {
 
           {/* Scrollable Tab Views Body (with bottom padding for Android gesture nav bar) */}
           <div ref={tabBodyRef} className="flex-1 min-h-0 p-4 pb-28 space-y-4 overflow-y-auto">
+            <Suspense
+              fallback={
+                <div className="p-8 rounded-panel glass-panel glass-hairline text-center text-xs text-slate-400 animate-fade-in">
+                  组件加载中…
+                </div>
+              }
+            >
             {/* TAB 1: 状态总览 (OVERVIEW) */}
             {activeTab === 'overview' && (
               <div className="space-y-4 animate-tab-in">
@@ -256,7 +290,7 @@ export default function App() {
                 <HardwareSummaryBar
                   hardwareInfo={hardwareInfo}
                   deviceName={selectedDevice.name}
-                  powerWatts={Math.abs(state.voltage * state.current) / 1000000}
+                  powerWatts={powerWatts}
                 />
 
                 {/* Device Preset Switcher */}
@@ -441,7 +475,7 @@ export default function App() {
                     title="瞬时电流"
                     value={state.current > 0 ? `+${state.current}` : state.current}
                     unit="mA"
-                    subValue={`功率: ${((Math.abs(state.voltage * state.current)) / 1000000).toFixed(2)} W`}
+                    subValue={`功率: ${powerWatts >= 0 ? '+' : ''}${powerWatts.toFixed(2)} W`}
                     badge={{
                       text: state.current > 0 ? '流入注能' : state.current < 0 ? '流出消耗' : '静置',
                       variant: state.current > 0 ? 'good' : 'info',
@@ -457,21 +491,15 @@ export default function App() {
                     value={state.fullChargeCapacity ? `${state.fullChargeCapacity}` : '待充满判定'}
                     unit={state.fullChargeCapacity ? 'mAh' : ''}
                     subValue={
-                      state.percentage === 100 && state.current >= 0 && state.current <= 25
-                        ? '已满足 100% & 0-25 mA 锁定'
-                        : '充至 100% 且电流 0-25 mA 时记录'
+                      isFullChargeMet
+                        ? '已满足 100% + 充电态 + |I|≤25 mA 锁定'
+                        : '充至 100% 且充电态电流 |I|≤25 mA 时记录'
                     }
                     badge={{
-                      text:
-                        state.percentage === 100 && state.current >= 0 && state.current <= 25
-                          ? '已充满显示'
-                          : '校准就绪',
-                      variant:
-                        state.percentage === 100 && state.current >= 0 && state.current <= 25
-                          ? 'good'
-                          : 'warning',
+                      text: isFullChargeMet ? '已充满显示' : '校准就绪',
+                      variant: isFullChargeMet ? 'good' : 'warning',
                     }}
-                    hint="特性 12：仅当 100% 且电流 0-25 mA 时视为充满"
+                    hint="特性 12：100% + 充电态 + |电流| ≤ 25 mA 方判充满"
                     onClick={() => setActiveTab('health')}
                   />
                 </div>
@@ -480,6 +508,7 @@ export default function App() {
                 <FullChargeCalibrationCard
                   percentage={state.percentage}
                   current={state.current}
+                  status={state.status}
                   fullChargeCapacity={state.fullChargeCapacity}
                   lastFullChargeRecord={state.lastFullChargeRecord}
                   currentCapacity={state.currentCapacity}
@@ -534,10 +563,10 @@ export default function App() {
                   <div className="p-4 rounded-card glass-panel glass-hairline">
                     <div className="text-xs text-slate-500">充放电功率</div>
                     <div className="text-xl font-bold font-mono text-emerald-400 mt-1">
-                      {((Math.abs(state.voltage * state.current)) / 1000000).toFixed(2)} W
+                      {`${powerWatts >= 0 ? '+' : ''}${powerWatts.toFixed(2)}`} W
                     </div>
                     <div className="text-xs text-slate-400 mt-1">
-                      P = {state.voltage}mV × {Math.abs(state.current)}mA
+                      P = {state.voltage}mV × {state.current}mA
                     </div>
                   </div>
 
@@ -580,6 +609,7 @@ export default function App() {
                 <FullChargeCalibrationCard
                   percentage={state.percentage}
                   current={state.current}
+                  status={state.status}
                   fullChargeCapacity={state.fullChargeCapacity}
                   lastFullChargeRecord={state.lastFullChargeRecord}
                   currentCapacity={state.currentCapacity}
@@ -674,6 +704,7 @@ export default function App() {
                 <NativeAndroidProjectHub />
               </div>
             )}
+            </Suspense>
           </div>
 
           {/* Android Bottom Navigation Bar */}

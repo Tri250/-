@@ -21,6 +21,9 @@ import kotlin.math.abs
 internal data class RawBatteryTelemetry(
     val percentage: Int,
     val status: BatteryStatus,
+    /** v1.2.6 P2 审计修复：充电态单源判定 (status ∈ {CHARGING, FULL} 或 EXTRA_PLUGGED > 0)。
+     *  双通道 (Receiver/Reader) 的指标 12 锁定统一消费本字段，杜绝两处重复推导的口径漂移 */
+    val isCharging: Boolean,
     val temperatureCelsius: Float,
     val healthQuality: BatteryHealthQuality,
     val voltageMv: Int,
@@ -258,8 +261,12 @@ internal object BatteryTelemetryParser {
         // 2. 符号按 EXTRA_STATUS/EXTRA_PLUGGED 校准 (充电为正、放电为负)，
         //    修复充电上报负值的平台 (高通/三星部分内核) 判定永不成立问题。
         val rawCurrentProp = batteryManager?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)
-        val isCharging = status == BatteryStatus.CHARGING || status == BatteryStatus.FULL ||
-            ((intent?.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1) ?: -1) != 0)
+        // v1.2.6 P2 审计修复：EXTRA_PLUGGED 默认值 -1 → 0 且判定改 plugged > 0——
+        // 旧实现广播缺该 Extra 时得到 -1，非零 (!= 0) 被误判为"已接电源"，
+        // 拔线/未插电场景的电流符号归一与指标 12 充满判定被污染；
+        // 0 = AOSP 语义"未插入电源"，> 0 才表示接入了充电器/USB/无线充电
+        val plugged = intent?.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) ?: 0
+        val isCharging = status == BatteryStatus.CHARGING || status == BatteryStatus.FULL || plugged > 0
         val currentMa = BatterySysfs.normalizeCurrentToMilliAmps(rawCurrentProp, isCharging)
 
         // 10. 循环计数：Android 14+ 原生 API 与 Linux sysfs 双重支持
@@ -323,6 +330,7 @@ internal object BatteryTelemetryParser {
         return RawBatteryTelemetry(
             percentage = percentage,
             status = status,
+            isCharging = isCharging,
             temperatureCelsius = temperatureCelsius,
             healthQuality = healthQuality,
             voltageMv = voltageMv,

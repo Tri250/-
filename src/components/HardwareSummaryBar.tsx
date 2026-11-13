@@ -9,7 +9,7 @@ import { HardwareInfo } from '../types/battery';
 interface HardwareSummaryBarProps {
   hardwareInfo: HardwareInfo;
   deviceName: string;
-  /** 实时协商充电功率 (W)：由 |电压 × 电流| 推导，充电时 > 0 */
+  /** 实时瞬时功率 (W)：带符号——充电 +W / 放电 −W，与 Android powerWatts 单源口径一致 */
   powerWatts: number;
 }
 

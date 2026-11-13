@@ -17,6 +17,7 @@ import com.battery.master.data.FullChargeVerdict
 import com.battery.master.receiver.BatteryReceiver
 import com.battery.master.service.BatteryHardwareReader
 import com.battery.master.service.BatteryTelemetryParser
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -123,8 +124,11 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
                         continue
                     }
                     _simulationRemainingSec.value = (remainingMs + 999) / 1000
-                } catch (e: Throwable) {
-                    // 倒计时异常不致命，下一拍继续刷新
+                } catch (e: Exception) {
+                    // v1.2.6 P2 审计修复：协程取消必须原样重抛——旧实现 catch Throwable
+                    // 吞掉 CancellationException，ViewModel 销毁时取消信号被静默吞掉一拍，
+                    // 违背结构化并发语义；非取消类异常仍不致命，下一拍继续刷新
+                    if (e is CancellationException) throw e
                 }
                 delay(250)
             }
@@ -452,6 +456,9 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
             val current = _batteryState.value
             val timestamp = System.currentTimeMillis()
             simulationHoldUntilMs = timestamp + SIMULATION_HOLD_MS
+            // v1.2.6 P2 审计修复：同步置剩余秒数——旧实现等倒计时协程下一拍 (最多 500ms
+            // 低频空转间隔) 才刷新，触发瞬间 UI 倒计时存在 0~500ms 显示 0 的竞态窗口
+            _simulationRemainingSec.value = (SIMULATION_HOLD_MS + 999) / 1000
             val capacity = current.currentCapacityMah
             // v1.2.3 P0 审计修复：演示值写独立 key，真实锁定 (REAL) 优先展示
             reader.persistSimulatedFullChargeCapacity(capacity, timestamp)
