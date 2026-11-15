@@ -327,6 +327,20 @@ jobs:
           cd android
           ./gradlew assembleDebug assembleDebugAndroidTest --no-daemon --stacktrace
 
+      # Ubuntu 26 runner 镜像 (2026-10 起 ubuntu-latest 迁移) 未把 runner 用户加入
+      # kvm 组——ProbeKVM 权限拒绝导致 emulator -accel off 全软件模拟，启动极慢
+      # 且 adbd 反复 offline，ddmlib 读设备属性失败报 "API level=1. Cannot install
+      # split APKs" (Run 43774404317)。chmod 立即生效无需重登；/dev/kvm 不存在时
+      # 降级回软件模拟 (由后续就绪等待与重试兜底)
+      - name: Grant KVM Access (Ubuntu 26 Runner)
+        run: |
+          if [ -e /dev/kvm ]; then
+            sudo chmod 666 /dev/kvm
+            ls -l /dev/kvm
+          else
+            echo "WARNING: /dev/kvm not available, falling back to software emulation"
+          fi
+
       - name: Run Instrumented Tests On Emulator (API 30)
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -334,14 +348,18 @@ jobs:
           arch: x86_64
           target: google_apis
           cores: 4
+          # KVM 权限已授予则强制硬件加速 (快速且稳定)；auto 会在探测失败时退化为
+          # 全软件模拟——正是历次仪器化 flaky 的根源
+          disable-linux-hw-accel: false
           # google_apis 镜像自带电池服务，ACTION_BATTERY_CHANGED 粘性广播可投递。
           # 注意：script 必须单行命令——emulator-runner 逐行用独立 shell 执行，
           # 多行写法会让 cd 与 gradlew 分属不同 shell 导致 cwd 丢失 (exit 127)。
-          # 前置等待 PackageManager 服务就绪 (boot_completed 后 system_server 仍可能
-          # 未完成注册，安装会话报 "Can't find service: package")；失败自动重试一次
+          # 前置三重就绪等待：boot_completed + ro.build.version.sdk=30 (ddmlib
+          # 安装前要读该属性，缺失时报 API level=1 拒绝安装) + PackageManager
+          # 服务就绪；失败自动重试一次。
           # 重试分支必须用绝对路径 $GITHUB_WORKSPACE/android——首分支 cd android
           # 已改变同一 shell 的 cwd，相对路径 cd android 会 exit 2 (Run 43772453265)
-          script: adb wait-for-device && adb shell 'while [ "$(getprop sys.boot_completed)" != "1" ]; do sleep 2; done' && adb shell 'while ! pm list packages > /dev/null 2>&1; do sleep 2; done' && cd "$GITHUB_WORKSPACE/android" && ./gradlew connectedDebugAndroidTest --no-daemon --stacktrace || (echo "RETRY instrumented tests" && adb wait-for-device && adb shell 'while ! pm list packages > /dev/null 2>&1; do sleep 2; done' && cd "$GITHUB_WORKSPACE/android" && ./gradlew connectedDebugAndroidTest --no-daemon --stacktrace)
+          script: adb wait-for-device && adb shell 'while [ "$(getprop sys.boot_completed)" != "1" ]; do sleep 2; done' && adb shell 'while [ "$(getprop ro.build.version.sdk)" != "30" ]; do sleep 2; done' && adb shell 'while ! pm list packages > /dev/null 2>&1; do sleep 2; done' && cd "$GITHUB_WORKSPACE/android" && ./gradlew connectedDebugAndroidTest --no-daemon --stacktrace || (echo "RETRY instrumented tests" && adb wait-for-device && adb shell 'while [ "$(getprop sys.boot_completed)" != "1" ]; do sleep 2; done' && adb shell 'while [ "$(getprop ro.build.version.sdk)" != "30" ]; do sleep 2; done' && adb shell 'while ! pm list packages > /dev/null 2>&1; do sleep 2; done' && cd "$GITHUB_WORKSPACE/android" && ./gradlew connectedDebugAndroidTest --no-daemon --stacktrace)
 
       - name: Upload Instrumented Test Report
         if: always()
