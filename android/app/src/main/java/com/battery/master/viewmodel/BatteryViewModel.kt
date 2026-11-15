@@ -7,18 +7,22 @@ import android.media.AudioManager
 import android.media.ToneGenerator
 import android.os.SystemClock
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.battery.master.data.BatteryState
 import com.battery.master.data.BatteryHealthQuality
+import com.battery.master.data.BatterySession
 import com.battery.master.data.BatteryStatus
 import com.battery.master.data.CapacitySource
 import com.battery.master.data.FullChargeSource
 import com.battery.master.data.FullChargeVerdict
 import com.battery.master.receiver.BatteryReceiver
 import com.battery.master.service.BatteryHardwareReader
+import com.battery.master.service.BatteryHistoryStore
 import com.battery.master.service.BatteryTelemetryParser
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -26,6 +30,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 
 /**
  * 硬件实验室一键模拟场景 (与 Web 端 HardwareSimulationLab 对齐)
@@ -51,7 +57,17 @@ data class LabOverride(
     val cycleCount: Int
 )
 
-class BatteryViewModel(application: Application) : AndroidViewModel(application) {
+class BatteryViewModel(application: Application, historyStore: BatteryHistoryStore) :
+    AndroidViewModel(application) {
+
+    /**
+     * v2.0.0-beta.1 P0 GA 修复：遥测历史/充放电会话持久化存储。
+     * 默认构造走生产存储 (单线程 daemon IO)；测试可注入同步执行器存储获得确定性。
+     */
+    internal val historyStore: BatteryHistoryStore = historyStore
+
+    /** 兼容默认工厂 (AndroidViewModelFactory 反射要求 (Application) 构造器) */
+    constructor(application: Application) : this(application, BatteryHistoryStore(application))
 
     private val reader = BatteryHardwareReader(application.applicationContext)
 
@@ -98,6 +114,14 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
     private val _telemetryHistory = MutableStateFlow<List<BatteryState>>(emptyList())
     val telemetryHistory: StateFlow<List<BatteryState>> = _telemetryHistory.asStateFlow()
 
+    /**
+     * v2.0.0-beta.1 P0 GA 修复：充放电会话统计 (跨会话持久化)。
+     * 会话由 BatteryHistoryStore 状态机检测闭合，跨进程重启从会话 JSONL 恢复；
+     * 按时间升序存储，UI 层倒序展示最近会话
+     */
+    private val _chargeSessions = MutableStateFlow<List<BatterySession>>(emptyList())
+    val chargeSessions: StateFlow<List<BatterySession>> = _chargeSessions.asStateFlow()
+
     /** 测试种子：绕过节流窗口直接注入历史 (滑窗截断逻辑复用 publish 同款上限) */
     internal fun seedTelemetryHistoryForTest(states: List<BatteryState>) {
         _telemetryHistory.value = states
@@ -122,6 +146,26 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
     internal var elapsedClock: () -> Long = SystemClock::elapsedRealtime
 
     init {
+        // v2.0.0-beta.1 P0 GA 修复：持久化历史回填——进程重启后从 JSONL 尾部接续
+        // 内存曲线 (长期数据连续性)，回填失败/首启为空列表不影响启动
+        try {
+            val restored = historyStore.loadRecentSamples()
+            if (restored.isNotEmpty()) {
+                _telemetryHistory.value = restored.takeLast(TELEMETRY_HISTORY_MAX)
+            }
+            _chargeSessions.value = historyStore.loadSessions()
+        } catch (e: Throwable) {
+            // 持久化恢复异常不阻塞启动
+        }
+        // 会话闭合回调：新会话入列 (保留最近 SESSIONS_UI_MAX 条)
+        historyStore.onSessionClosed = { session ->
+            try {
+                _chargeSessions.update { current ->
+                    (current + session).takeLast(SESSIONS_UI_MAX)
+                }
+            } catch (e: Throwable) {
+            }
+        }
         // 注册容错：部分定制 ROM 可能拒绝动态注册，失败时退化为纯轮询通道，保证 UI 不崩溃
         try {
             ContextCompat.registerReceiver(
@@ -172,6 +216,12 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
     }
 
     override fun onCleared() {
+        // v2.0.0-beta.1 P0 GA 修复：退出前闭合进行中的会话并等待写队列排空，
+        // 防止最后一次采样/会话记录因进程退出丢失
+        try {
+            historyStore.flush()
+        } catch (e: Throwable) {
+        }
         if (isReceiverRegistered) {
             try {
                 getApplication<Application>().unregisterReceiver(batteryReceiver)
@@ -210,9 +260,13 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
             val elapsed = elapsedClock()
             if (elapsed - lastHistoryAppendElapsedMs >= HISTORY_MIN_INTERVAL_MS) {
                 lastHistoryAppendElapsedMs = elapsed
-                val next = _telemetryHistory.value + fresh
+                // v2.0.0-beta.1 P0 GA 修复：发布源头打点采样时刻并同步落盘
+                // (JSONL 追加异步执行，不阻塞主线程；会话状态机同步推进)
+                val stamped = fresh.copy(sampleTimestampMs = System.currentTimeMillis())
+                val next = _telemetryHistory.value + stamped
                 _telemetryHistory.value =
                     if (next.size > TELEMETRY_HISTORY_MAX) next.takeLast(TELEMETRY_HISTORY_MAX) else next
+                historyStore.appendSample(stamped)
             }
             if (System.currentTimeMillis() < simulationHoldUntilMs) return
             // 硬件实验室模拟中：冻结真实遥测覆盖，保持滑杆/场景设定值稳定展示
@@ -442,6 +496,56 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
         publish(reader.readBatteryTelemetry())
     }
 
+    // ============================================================
+    // v2.0.0-beta.1 P0 GA 修复：历史持久化用户操作 (清空 / CSV 导出)
+    // ============================================================
+
+    /**
+     * 清空全部历史数据：持久化文件 (样本/会话 JSONL) + 内存曲线 + 会话列表。
+     * UI 入口：遥测分析 Tab "清空历史"。用户主动操作，不影响当前实时遥测。
+     */
+    fun clearTelemetryHistory() {
+        try {
+            historyStore.clearAll()
+        } catch (e: Throwable) {
+        }
+        _telemetryHistory.value = emptyList()
+        _chargeSessions.value = emptyList()
+    }
+
+    /**
+     * 导出样本历史 CSV 并构建分享 Intent (FileProvider 授权缓存目录)。
+     * IO 在 Dispatchers.IO 执行 (文件可达数千行)；无历史/导出失败返回 null，
+     * UI 侧提示"暂无数据"，不抛异常。
+     */
+    suspend fun exportSamplesCsv(): Intent? = withContext(Dispatchers.IO) {
+        buildCsvShareIntent(historyStore.exportSamplesCsv(), "text/csv")
+    }
+
+    /** 导出会话历史 CSV 并构建分享 Intent (同上，失败返回 null) */
+    suspend fun exportSessionsCsv(): Intent? = withContext(Dispatchers.IO) {
+        buildCsvShareIntent(historyStore.exportSessionsCsv(), "text/csv")
+    }
+
+    /** FileProvider 分享 Intent 构建：content:// 授权仅 exports 目录，读权限即时授予 */
+    private fun buildCsvShareIntent(file: File?, mime: String): Intent? {
+        if (file == null) return null
+        return try {
+            val uri = FileProvider.getUriForFile(
+                getApplication(),
+                "${getApplication<Application>().packageName}.fileprovider",
+                file
+            )
+            Intent(Intent.ACTION_SEND).apply {
+                type = mime
+                putExtra(Intent.EXTRA_STREAM, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+        } catch (e: Throwable) {
+            null
+        }
+    }
+
     /**
      * 将实验室覆盖层合成为展示态 BatteryState：
      * 剩余电量/功率/充满判定按模拟值实时重算；容量与锁定指标 12 保持真实值不丢失
@@ -552,6 +656,9 @@ class BatteryViewModel(application: Application) : AndroidViewModel(application)
 
         /** v2.0.0-alpha.3：广播+轮询双通道同拍节流窗口 (ms) */
         private const val HISTORY_MIN_INTERVAL_MS = 400L
+
+        /** v2.0.0-beta.1：UI 会话列表保留上限 (内存态，持久化层独立滑窗) */
+        private const val SESSIONS_UI_MAX = 50
 
         /**
          * 一键模拟充满的演示电芯容量 (mAh)：电量计节点不可读 (容量=0) 时的固定演示基准，

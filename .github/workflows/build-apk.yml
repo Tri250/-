@@ -63,6 +63,9 @@ jobs:
           fi
 
       # 解码 release 签名密钥（GitHub Secrets 注入）；未配置时回退 debug 签名
+      # v2.0.0-beta.1 P1 GA 修复：tag 触发的发布构建缺密钥直接 fail-fast——
+      # 旧实现静默回退 debug 签名继续发布 (仅 warning)，商店合规要求正式签名包，
+      # debug 签名物料混入 v* 发布属阻断缺陷；分支/PR 构建保留 debug 兜底不阻断
       - name: Decode Release Keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
@@ -80,7 +83,11 @@ jobs:
             echo "Release keystore decoded."
           else
             echo "keystore_available=false" >> "$GITHUB_ENV"
-            echo "::warning::KEYSTORE_BASE64 secret not set, falling back to debug signing"
+            if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+              echo "::error::Tag-triggered build requires release signing secrets (KEYSTORE_BASE64 / KEYSTORE_PASSWORD / KEY_ALIAS / KEY_PASSWORD). Debug-signed artifacts must never be published from a v* tag — configure the secrets and re-tag."
+              exit 1
+            fi
+            echo "::warning::KEYSTORE_BASE64 secret not set, falling back to debug signing (branch/PR build only)"
           fi
 
       - name: Ensure Gradle Wrapper Executable
@@ -251,12 +258,107 @@ jobs:
           echo "version_name=$VERSION_NAME" >> $GITHUB_OUTPUT
           echo "renamed_apk=$NEW_NAME" >> $GITHUB_OUTPUT
 
+      # v2.0.0-beta.1 P2 GA 修复：APK 体积门禁——R8/资源收缩回归 (如 keep 规则
+      # 误放宽、新资源未压缩) 会静默膨胀包体；超硬上限直接失败，超预警上限告警。
+      # 基线与阈值依据见 docs/PERFORMANCE_BASELINES.md
+      - name: APK Size Gate
+        run: |
+          APK_FILE="${{ steps.rename_apk.outputs.renamed_apk }}"
+          SIZE_MB=$(du -m "$APK_FILE" | cut -f1)
+          echo "APK size: ${SIZE_MB} MB ($APK_FILE)"
+          HARD_LIMIT_MB=35
+          WARN_LIMIT_MB=25
+          if [ "$SIZE_MB" -gt "$HARD_LIMIT_MB" ]; then
+            echo "::error::APK size ${SIZE_MB}MB exceeds hard limit ${HARD_LIMIT_MB}MB — check R8 config / resource shrink regression (baseline: docs/PERFORMANCE_BASELINES.md)"
+            exit 1
+          fi
+          if [ "$SIZE_MB" -gt "$WARN_LIMIT_MB" ]; then
+            echo "::warning::APK size ${SIZE_MB}MB above warning threshold ${WARN_LIMIT_MB}MB — review recent dependency/resource additions (baseline: docs/PERFORMANCE_BASELINES.md)"
+          fi
+          echo "APK size gate passed."
+
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Android-Battery-Master-APK
           path: ${{ steps.rename_apk.outputs.renamed_apk }}
           retention-days: 30
+
+  # ============================================================
+  # v2.0.0-beta.1 P0 GA 修复：仪器化测试 (connectedDebugAndroidTest)
+  # Ubuntu KVM 模拟器执行 MainActivitySmokeTest 全链路真机语义验证：
+  # 启动冒烟 / 四 Tab 导航 / 遥测会话卡挂载；机型矩阵扩展验收清单见
+  # docs/DEVICE_MATRIX.md (Firebase Test Lab 云真机矩阵为 CI stub，待项目开通)
+  # ============================================================
+  instrumented:
+    name: Android 仪器化测试 (模拟器)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Ensure Android SDK Components
+        run: |
+          if [ -d "$ANDROID_HOME/cmdline-tools/latest/bin" ]; then
+            yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 || true
+            $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" "emulator" || true
+          fi
+
+      - name: Ensure Gradle Wrapper Executable
+        run: |
+          cd android
+          chmod +x gradlew
+
+      # 先编译 debug 变体与 androidTest APK，编译错误在模拟器启动前即失败 (省时)
+      - name: Compile Debug + AndroidTest APK
+        run: |
+          cd android
+          ./gradlew assembleDebug assembleDebugAndroidTest --no-daemon --stacktrace
+
+      - name: Run Instrumented Tests On Emulator (API 30)
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          target: google_apis
+          # google_apis 镜像自带电池服务，ACTION_BATTERY_CHANGED 粘性广播可投递
+          script: |
+            cd android
+            ./gradlew connectedDebugAndroidTest --no-daemon --stacktrace
+
+      - name: Upload Instrumented Test Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Android-Battery-Master-Instrumented-Report
+          path: android/app/build/reports/androidTests/connected/
+          retention-days: 14
+
+      # Firebase Test Lab 云真机矩阵 stub：项目开通 Firebase 后取消注释即可启用，
+      # 机型矩阵 (8 类设备) 与 gcloud 用法详见 docs/DEVICE_MATRIX.md
+      # - name: Run Device Matrix On Firebase Test Lab (stub)
+      #   run: |
+      #     gcloud auth activate-service-account --key-file="$FIREBASE_SERVICE_ACCOUNT"
+      #     gcloud --quiet firebase test android run \
+      #       --type instrumentation \
+      #       --app android/app/build/outputs/apk/debug/app-debug.apk \
+      #       --test android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk \
+      #       --device model=Pixel2,version=30,locale=zh_CN,orientation=portrait \
+      #       --device model=redfin,version=33,locale=zh_CN,orientation=portrait \
+      #       --device model=shiba,version=34,locale=zh_CN,orientation=portrait \
+      #       --use-orchestrator --environment-variables clearPackageData=true
 
   # ============================================================
   # Web 演示端：TypeScript 静态检查 + Vite 构建 + 产物校验 + 打包
@@ -326,7 +428,9 @@ jobs:
   # ============================================================
   release:
     name: 发布 GitHub Release
-    needs: [android, web]
+    # v2.0.0-beta.1 P0 GA 修复：发布前必须通过仪器化测试 (instrumented)——
+    # 真机链路 (启动/导航/持久化 UI) 回归不通过不得出包
+    needs: [android, web, instrumented]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
 

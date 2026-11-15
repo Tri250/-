@@ -24,8 +24,8 @@ android {
         applicationId = "com.battery.master"
         minSdk = 26
         targetSdk = 36
-        versionCode = 20
-        versionName = "2.0.0-alpha.8"
+        versionCode = 21
+        versionName = "2.0.0-beta.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -105,4 +105,13 @@ dependencies {
     testImplementation(platform("androidx.compose:compose-bom:2024.10.01"))
     testImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+
+    // v2.0.0-beta.1 P0 GA 修复：仪器化测试 (模拟器/真机 connectedDebugAndroidTest)
+    // 启动冒烟 + 四 Tab 导航 + 遥测会话卡真机链路；CI 由 instrumented job 在
+    // Ubuntu KVM 模拟器执行，机型矩阵验收清单见 docs/DEVICE_MATRIX.md
+    androidTestImplementation("junit:junit:4.13.2")
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
+    androidTestImplementation(platform("androidx.compose:compose-bom:2024.10.01"))
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
 }

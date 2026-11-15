@@ -7,6 +7,7 @@
          均为未使用权限，已移除以通过严格 lint 与应用商店合规审查 -->
 
     <application
+        android:name=".BatteryMasterApplication"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -15,7 +16,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.AndroidBatteryMaster"
-        tools:targetApi="34">
+        tools:targetApi="36">
 
         <activity
             android:name=".MainActivity"
@@ -27,6 +28,19 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- v2.0.0-beta.1 P0 GA 修复：历史 CSV 导出分享 (FileProvider 临时授权)。
+             exported=false + grantUriPermissions=true，仅授权 cacheDir/exports 与
+             filesDir/telemetry 子目录 (见 res/xml/file_paths.xml)，不暴露全应用缓存 -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
     </application>
 

@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -27,6 +28,7 @@ import androidx.compose.ui.unit.sp
 import com.battery.master.data.BatteryHealthQuality
 import com.battery.master.data.BatteryState
 import com.battery.master.data.BatteryStatus
+import com.battery.master.R
 import com.battery.master.service.BatteryTelemetryParser
 import com.battery.master.viewmodel.BatteryViewModel
 import com.battery.master.viewmodel.LabScenario
@@ -80,14 +82,14 @@ fun HardwareLabScreen(viewModel: BatteryViewModel, state: BatteryState) {
                     ) {
                         Column {
                             Text(
-                                text = "硬件实验室与模拟调试",
+                                text = stringResource(R.string.lab_screen_title),
                                 fontSize = DesignTokens.FontXs,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White,
                                 fontFamily = FontFamily.Monospace
                             )
                             Text(
-                                text = if (labActive) "模拟数据生效中 · 真实遥测已冻结" else "真实遥测 · 交互后自动进入模拟模式",
+                                text = if (labActive) stringResource(R.string.lab_state_active) else stringResource(R.string.lab_state_idle),
                                 fontSize = DesignTokens.Font2xs,
                                 fontFamily = FontFamily.Monospace,
                                 color = if (labActive) DesignTokens.BrandPrimaryLight else DesignTokens.TextTertiary
@@ -102,7 +104,7 @@ fun HardwareLabScreen(viewModel: BatteryViewModel, state: BatteryState) {
                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
                         ) {
                             Text(
-                                text = if (soundEnabled) "提示音 开" else "提示音 关",
+                                text = if (soundEnabled) stringResource(R.string.lab_sound_on) else stringResource(R.string.lab_sound_off),
                                 fontSize = DesignTokens.Font2xs,
                                 fontFamily = FontFamily.Monospace
                             )
@@ -126,7 +128,7 @@ fun HardwareLabScreen(viewModel: BatteryViewModel, state: BatteryState) {
                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
                         ) {
                             Text(
-                                text = "进入模拟模式",
+                                text = stringResource(R.string.lab_enter_simulation),
                                 fontSize = DesignTokens.FontXs,
                                 fontWeight = FontWeight.Bold
                             )
@@ -142,7 +144,7 @@ fun HardwareLabScreen(viewModel: BatteryViewModel, state: BatteryState) {
                             )
                         ) {
                             Text(
-                                text = "恢复真实硬件遥测",
+                                text = stringResource(R.string.lab_restore_real),
                                 fontSize = DesignTokens.FontXs,
                                 fontWeight = FontWeight.Bold
                             )
@@ -155,7 +157,7 @@ fun HardwareLabScreen(viewModel: BatteryViewModel, state: BatteryState) {
         // ===== 一键工作场景 =====
         item {
             Text(
-                text = "一键工作场景模拟",
+                text = stringResource(R.string.lab_scenarios_title),
                 fontSize = DesignTokens.FontXs,
                 fontWeight = FontWeight.Bold,
                 color = DesignTokens.TextSecondary,
@@ -199,7 +201,7 @@ fun HardwareLabScreen(viewModel: BatteryViewModel, state: BatteryState) {
         // ===== 交互滑杆区 =====
         item {
             Text(
-                text = "逐项参数调节 (6 组滑杆)",
+                text = stringResource(R.string.lab_sliders_title),
                 fontSize = DesignTokens.FontXs,
                 fontWeight = FontWeight.Bold,
                 color = DesignTokens.TextSecondary,
@@ -210,7 +212,7 @@ fun HardwareLabScreen(viewModel: BatteryViewModel, state: BatteryState) {
         item {
             LabCard {
                 LabSlider(
-                    label = "05. 电量百分比",
+                    label = stringResource(R.string.lab_slider_percentage),
                     valueText = "$pct%",
                     value = pct.toFloat(),
                     valueRange = 0f..100f,
@@ -225,7 +227,7 @@ fun HardwareLabScreen(viewModel: BatteryViewModel, state: BatteryState) {
                 // 120W 快充 8000mA 一碰变 6000mA、23800mAh 设备一拖变 15000)。
                 // value 仍钳制在区间内防御越界 (文本显示真实值，语义不混淆)
                 LabSlider(
-                    label = "11. 瞬时电流",
+                    label = stringResource(R.string.lab_slider_current),
                     valueText = "${if (currentMa > 0) "+$currentMa" else currentMa} mA",
                     value = currentMa.toFloat()
                         .coerceIn(-BatteryTelemetryParser.MAX_PLAUSIBLE_CURRENT_MA.toFloat(), BatteryTelemetryParser.MAX_PLAUSIBLE_CURRENT_MA.toFloat()),
@@ -234,7 +236,7 @@ fun HardwareLabScreen(viewModel: BatteryViewModel, state: BatteryState) {
                     onValueChange = { viewModel.updateLabCurrent(it.toInt()) }
                 )
                 LabSlider(
-                    label = "09. 电芯电压",
+                    label = stringResource(R.string.lab_slider_voltage),
                     valueText = "$voltageMv mV",
                     value = voltageMv.toFloat()
                         .coerceIn(BatteryTelemetryParser.MIN_PLAUSIBLE_VOLTAGE_MV.toFloat(), BatteryTelemetryParser.MAX_PLAUSIBLE_VOLTAGE_MV.toFloat()),
@@ -243,7 +245,7 @@ fun HardwareLabScreen(viewModel: BatteryViewModel, state: BatteryState) {
                     onValueChange = { viewModel.updateLabVoltage(it.toInt()) }
                 )
                 LabSlider(
-                    label = "07. 传感器温度",
+                    label = stringResource(R.string.lab_slider_temperature),
                     valueText = "$temperature °C",
                     value = temperature
                         .coerceIn(BatteryTelemetryParser.MIN_PLAUSIBLE_TEMPERATURE_C, BatteryTelemetryParser.MAX_PLAUSIBLE_TEMPERATURE_C),
@@ -252,8 +254,8 @@ fun HardwareLabScreen(viewModel: BatteryViewModel, state: BatteryState) {
                     onValueChange = { viewModel.updateLabTemperature(it) }
                 )
                 LabSlider(
-                    label = "10. 循环计数",
-                    valueText = "$cycleCount 次",
+                    label = stringResource(R.string.lab_slider_cycles),
+                    valueText = stringResource(R.string.lab_slider_cycles_value, cycleCount),
                     value = cycleCount.toFloat()
                         .coerceIn(0f, BatteryTelemetryParser.MAX_PLAUSIBLE_CYCLE_COUNT.toFloat()),
                     valueRange = 0f..BatteryTelemetryParser.MAX_PLAUSIBLE_CYCLE_COUNT.toFloat(),
@@ -261,7 +263,7 @@ fun HardwareLabScreen(viewModel: BatteryViewModel, state: BatteryState) {
                     onValueChange = { viewModel.updateLabCycleCount(it.toInt()) }
                 )
                 LabSlider(
-                    label = "04. 出厂设计容量 (真实生效)",
+                    label = stringResource(R.string.lab_slider_design_capacity),
                     valueText = "${state.designCapacityMah} mAh",
                     // value 钳制在 valueRange 内：区间已与 Reader 三级链合法区间
                     // (500~25000 mAh) 对齐，正常设备恒在区间内；极端脏值防御性钳制。
@@ -279,7 +281,7 @@ fun HardwareLabScreen(viewModel: BatteryViewModel, state: BatteryState) {
         item {
             LabCard {
                 Text(
-                    text = "06. 电池状态强制切换",
+                    text = stringResource(R.string.lab_status_force_title),
                     fontSize = DesignTokens.Font2xs,
                     fontWeight = FontWeight.Bold,
                     color = DesignTokens.TextSecondary,
@@ -287,19 +289,19 @@ fun HardwareLabScreen(viewModel: BatteryViewModel, state: BatteryState) {
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    StatusChip("充电中", status == BatteryStatus.CHARGING, DesignTokens.BrandPrimary) {
+                    StatusChip(stringResource(R.string.status_charging), status == BatteryStatus.CHARGING, DesignTokens.BrandPrimary) {
                         viewModel.updateLabStatus(BatteryStatus.CHARGING)
                     }
-                    StatusChip("放电中", status == BatteryStatus.DISCHARGING, DesignTokens.InfoSky) {
+                    StatusChip(stringResource(R.string.status_discharging), status == BatteryStatus.DISCHARGING, DesignTokens.InfoSky) {
                         viewModel.updateLabStatus(BatteryStatus.DISCHARGING)
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    StatusChip("已充满", status == BatteryStatus.FULL, DesignTokens.FullTeal) {
+                    StatusChip(stringResource(R.string.status_full), status == BatteryStatus.FULL, DesignTokens.FullTeal) {
                         viewModel.updateLabStatus(BatteryStatus.FULL)
                     }
-                    StatusChip("未充电", status == BatteryStatus.NOT_CHARGING, DesignTokens.TextTertiary) {
+                    StatusChip(stringResource(R.string.status_not_charging), status == BatteryStatus.NOT_CHARGING, DesignTokens.TextTertiary) {
                         viewModel.updateLabStatus(BatteryStatus.NOT_CHARGING)
                     }
                 }
@@ -310,7 +312,7 @@ fun HardwareLabScreen(viewModel: BatteryViewModel, state: BatteryState) {
         item {
             LabCard {
                 Text(
-                    text = "08. 硬件健康状态选择",
+                    text = stringResource(R.string.lab_health_select_title),
                     fontSize = DesignTokens.Font2xs,
                     fontWeight = FontWeight.Bold,
                     color = DesignTokens.TextSecondary,
@@ -318,22 +320,22 @@ fun HardwareLabScreen(viewModel: BatteryViewModel, state: BatteryState) {
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    StatusChip("良好", health == BatteryHealthQuality.GOOD, DesignTokens.BrandPrimary) {
+                    StatusChip(stringResource(R.string.health_state_good), health == BatteryHealthQuality.GOOD, DesignTokens.BrandPrimary) {
                         viewModel.updateLabHealthQuality(BatteryHealthQuality.GOOD)
                     }
-                    StatusChip("过热", health == BatteryHealthQuality.OVERHEAT, DesignTokens.WarningAmber) {
+                    StatusChip(stringResource(R.string.health_state_overheat), health == BatteryHealthQuality.OVERHEAT, DesignTokens.WarningAmber) {
                         viewModel.updateLabHealthQuality(BatteryHealthQuality.OVERHEAT)
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    StatusChip("损坏", health == BatteryHealthQuality.DEAD, DesignTokens.DangerRose) {
+                    StatusChip(stringResource(R.string.health_state_dead), health == BatteryHealthQuality.DEAD, DesignTokens.DangerRose) {
                         viewModel.updateLabHealthQuality(BatteryHealthQuality.DEAD)
                     }
-                    StatusChip("超压", health == BatteryHealthQuality.OVER_VOLTAGE, DesignTokens.FeaturePurple) {
+                    StatusChip(stringResource(R.string.health_state_over_voltage), health == BatteryHealthQuality.OVER_VOLTAGE, DesignTokens.FeaturePurple) {
                         viewModel.updateLabHealthQuality(BatteryHealthQuality.OVER_VOLTAGE)
                     }
-                    StatusChip("未知", health == BatteryHealthQuality.UNKNOWN, DesignTokens.TextTertiary) {
+                    StatusChip(stringResource(R.string.health_state_unknown), health == BatteryHealthQuality.UNKNOWN, DesignTokens.TextTertiary) {
                         viewModel.updateLabHealthQuality(BatteryHealthQuality.UNKNOWN)
                     }
                 }

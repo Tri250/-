@@ -187,7 +187,14 @@ data class BatteryState(
 
     val halVersion: String = "Android BatteryManager API",
     val cellStructure: String = "标准单电芯封装 [工程估算]",
-    val thermalThrottlingState: String = "正常供电 (无节流)"
+    val thermalThrottlingState: String = "正常供电 (无节流)",
+
+    /**
+     * v2.0.0-beta.1 P0 GA 修复：采样时刻 (System.currentTimeMillis，epoch 毫秒)。
+     * 0 = 未标注 (旧序列化样本/测试构造)。历史持久化 (BatteryHistoryStore) 与
+     * 充放电会话统计、CSV 导出依赖本字段建立时间轴；轮询/广播发布源头统一打点
+     */
+    val sampleTimestampMs: Long = 0
 ) {
     // 别名兼容
     val currentNowMa: Int? get() = currentMa

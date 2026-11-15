@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- App basics -->
+    <string name="app_name">Battery Master</string>
+    <string name="topbar_subtitle">API %1$d Battery Management Service · Native Hardware Telemetry</string>
+
+    <!-- Top-level tabs -->
+    <string name="tab_overview">Overview</string>
+    <string name="tab_telemetry">Telemetry</string>
+    <string name="tab_health">Health</string>
+    <string name="tab_lab">Hardware Lab</string>
+
+    <!-- Overview: 12-metric section -->
+    <string name="metrics_section_title">12 Core Charge/Discharge Metrics</string>
+    <string name="metric_title_health">Battery Health</string>
+    <string name="metric_sub_health_measured">Measured health [%1$s]</string>
+    <string name="metric_sub_health_regression">Regression sampling · %1$s · converges at ≥30%% coverage</string>
+    <string name="metric_sub_health_unmeasurable">Unmeasurable [%1$s]</string>
+    <string name="metric_title_remaining">Remaining Charge</string>
+    <string name="metric_sub_remaining_measured">Usable charge now [%1$s]</string>
+    <string name="metric_sub_remaining_coulomb">Coulomb-counter charge [capacity unmeasured]</string>
+    <string name="metric_sub_remaining_unmeasurable">Unmeasurable [capacity unmeasured]</string>
+    <string name="metric_title_current_capacity">Current Capacity</string>
+    <string name="metric_sub_current_capacity">Max usable after aging [%1$s]</string>
+    <string name="metric_title_design_capacity">Design Capacity</string>
+    <string name="metric_sub_design_capacity">Factory nameplate [%1$s]</string>
+    <string name="metric_title_percentage">Percentage</string>
+    <string name="metric_sub_percentage">System broadcast EXTRA_LEVEL/SCALE</string>
+    <string name="metric_title_status">Battery Status</string>
+    <string name="metric_title_temperature">Temperature</string>
+    <string name="temp_state_overheat">Severe heat (≥%1$d°C)</string>
+    <string name="temp_state_warm">Warm warning (%1$d-%2$d°C)</string>
+    <string name="temp_state_cold">Overcool protection (≤0°C)</string>
+    <string name="temp_state_normal">Temperature normal</string>
+    <string name="metric_title_health_condition">Health Condition</string>
+    <string name="metric_title_voltage">Cell Voltage</string>
+    <string name="voltage_sub_measured">Potential difference %1$s V · %2$s</string>
+    <string name="voltage_sub_unmeasured">Both broadcast/sysfs voltage channels unreadable</string>
+    <string name="metric_title_cycles">Charge Cycles</string>
+    <string name="unit_times">cycles</string>
+    <string name="cycles_sub_no_data">No cycle data reported by system</string>
+    <string name="metric_title_current">Instant Current</string>
+    <string name="metric_power_prefix">Power %1$s</string>
+    <string name="metric_title_full_charge_capacity">Full-Charge Capacity</string>
+    <string name="full_charge_sub_met">100% &amp; 0-25 mA met</string>
+    <string name="full_charge_sub_unmet">See full-charge card above</string>
+
+    <!-- Design capacity calibration dialog -->
+    <string name="calibrate_error_blank">Enter a capacity value</string>
+    <string name="calibrate_error_not_positive">Capacity must be an integer greater than 0</string>
+    <string name="calibrate_error_below_min">Capacity cannot be below %1$d mAh</string>
+    <string name="calibrate_error_above_max">Capacity out of plausible range (max %1$d mAh)</string>
+    <string name="calibrate_dialog_title">Calibrate Design Capacity (Metric 04)</string>
+    <string name="calibrate_field_label">Factory design capacity (mAh)</string>
+    <string name="action_confirm">OK</string>
+    <string name="action_restore_auto_detect">Restore auto-detection</string>
+    <string name="action_cancel">Cancel</string>
+
+    <!-- Hero readout -->
+    <string name="hero_remaining_measured">Remaining: %1$s / %2$s mAh</string>
+    <string name="hero_remaining_coulomb">Remaining: %1$s mAh · Coulomb-counter measured</string>
+    <string name="hero_remaining_unmeasured">Remaining: — (capacity unmeasured)</string>
+
+    <!-- Hardware summary bar -->
+    <string name="hardware_summary_title">Underlying Hardware &amp; Power Subsystem</string>
+    <string name="hw_label_soc">SoC Model</string>
+    <string name="hw_label_soc_vendor">SoC Vendor</string>
+    <string name="hw_label_process">Process Node</string>
+    <string name="hw_label_gpu">GPU Renderer</string>
+    <string name="hw_label_cpu">CPU Architecture</string>
+    <string name="hw_label_pmic">Power Management IC</string>
+    <string name="hw_label_fast_charge">Fast-Charge Protocol</string>
+    <string name="hw_label_internal_resistance">Cell Resistance</string>
+    <string name="hw_label_chemistry">Cell Chemistry</string>
+    <string name="hw_label_cell_structure">Cell Structure</string>
+    <string name="hw_label_system_interface">System Interface</string>
+    <string name="calibrate_button">Calibrate design capacity (current %1$d mAh)</string>
+
+    <!-- Lab simulation banner -->
+    <string name="lab_banner_title">Hardware lab simulation active</string>
+    <string name="lab_banner_desc">Overview values are lab-simulated, not real battery state</string>
+    <string name="lab_banner_restore">Restore real</string>
+
+    <!-- Full-charge verdict card (metric 12) -->
+    <string name="full_charge_card_title">12. Full-Charge Capacity (Measured)</string>
+    <string name="full_charge_verdict_met">Criteria met (100% &amp; |I|≤25 mA)</string>
+    <string name="full_charge_verdict_unreadable">Current unreadable · cannot determine</string>
+    <string name="full_charge_verdict_waiting">Waiting for criteria</string>
+    <string name="full_charge_capacity_pending">— Hidden until fully charged (requires 100% and charging |I|≤25mA) —</string>
+    <string name="chip_history_lock">Historical lock</string>
+    <string name="chip_source_simulated">Source: Simulated</string>
+    <string name="full_charge_unsupported_note">This device does not report current (CURRENT_NOW), so the 0-25 mA float-charge check cannot run; the last valid locked value is kept and no new lock is recorded.</string>
+    <string name="full_charge_last_lock">Last lock: %1$s</string>
+    <string name="full_charge_simulating">Simulation holding (%1$ds) · real telemetry restores automatically when done</string>
+    <string name="full_charge_simulate_btn">One-tap full-charge simulation (100% + 16mA)</string>
+    <string name="full_charge_clear_records">Clear lock records</string>
+
+    <!-- About -->
+    <string name="about_feature_1">Real-time telemetry of 12 core charge/discharge metrics: health / remaining charge / current capacity / design capacity / percentage / battery status / temperature / health condition / voltage / cycle count / instant current / full-charge capacity</string>
+    <string name="about_feature_2">Full-charge detection: when charge reaches 100% and instant current falls into the 0-25 mA float cutoff band, the measured full-charge capacity is locked automatically and saved across sessions</string>
+    <string name="about_feature_3">Hardware lab: one-tap scenario simulation (full-charge calibration / flash charge / gaming discharge / overheat alert) with six tuning sliders and one-tap restore of real hardware telemetry</string>
+    <string name="about_feature_4">Hardware parsing: five-field SoC profile (model / vendor / process / CPU / GPU) plus PMIC model, fast-charge protocol and cell structure via three-level fallback detection</string>
+    <string name="about_feature_5">Data sources: system BatteryManager public APIs, the ACTION_BATTERY_CHANGED sticky broadcast and real sysfs hardware nodes. All computed locally, nothing is uploaded</string>
+    <string name="about_feature_6">Permissions: no runtime or dangerous permissions requested; all features work right after install (the merged manifest only contains signature-level internal permissions injected by the system framework, with no privacy impact)</string>
+    <string name="about_title">About</string>
+    <string name="about_tagline">Battery Master — Professional Android battery charge/discharge monitor</string>
+    <string name="about_privacy_title">Privacy &amp; Data Statement</string>
+    <string name="about_privacy_body">Zero permissions: no runtime/dangerous permissions requested; battery data comes entirely from public system APIs and sysfs hardware nodes. Zero uploads: all metrics, telemetry history and sessions are stored only in app-private storage with no network transfer. Zero tracking: no third-party analytics or crash SDKs; crash stacks are stored locally and leave the device only when you export them. Uninstalling removes all data.</string>
+    <string name="about_export_crash_log">Export crash logs</string>
+    <string name="about_crash_count">%1$d crash stacks stored locally</string>
+    <string name="about_crash_none">No local crash records</string>
+    <string name="about_developer">Developer: 某厂大牛马【带娃的小陈工】</string>
+    <string name="about_platforms">Douyin / Xiaohongshu</string>
+
+    <!-- Telemetry tab -->
+    <string name="telemetry_title">High-Frequency Hardware Telemetry</string>
+    <string name="telemetry_subtitle">Captures charge/discharge current (mA), cell terminal voltage (mV) and thermal sensor temperature curves in real time</string>
+    <string name="power_card_title">Charge/Discharge Power</string>
+    <string name="power_sub_unreadable">Current unreadable, no fabricated 0W</string>
+    <string name="power_sub_charging">Charging input P = V × I</string>
+    <string name="power_sub_discharging">Discharging output P = V × |I|</string>
+    <string name="power_sub_float_cutoff">Float cutoff</string>
+    <string name="temp_assessment_title">Temperature Assessment</string>
+    <string name="session_card_title">Charge/Discharge Session Stats (Persistent)</string>
+    <string name="session_card_subtitle">Samples persist locally as JSONL and resume after restart; export CSV for offline analysis</string>
+    <string name="session_empty_hint">No completed charge/discharge sessions yet — stats begin automatically once charging or discharging starts</string>
+    <string name="export_curve_csv">Export Curve CSV</string>
+    <string name="export_session_csv">Export Session CSV</string>
+    <string name="action_clear">Clear</string>
+    <string name="clear_history_dialog_title">Clear all history data?</string>
+    <string name="clear_history_dialog_body">All locally persisted telemetry samples and session records will be deleted (already exported CSV files are unaffected). This action cannot be undone.</string>
+    <string name="chart_title">Real-time telemetry curves (last %1$d samples)</string>
+    <string name="legend_voltage">Voltage mV</string>
+    <string name="legend_current">Current mA</string>
+    <string name="legend_temperature">Temp °C</string>
+
+    <!-- Acquisition chain status card -->
+    <string name="source_card_title">Acquisition Chain Status (Real Data Source Insight)</string>
+    <string name="source_label_gauge_node">Gauge node</string>
+    <string name="source_label_current_source">Current capacity source</string>
+    <string name="source_label_full_regression">Full-capacity regression</string>
+    <string name="source_regression_backup">Backup channel (sysfs measured preferred)</string>
+    <string name="source_regression_disabled">Not enabled (no valid coulomb-counter samples)</string>
+    <string name="source_label_coulomb_charge">Coulomb-counter charge</string>
+    <string name="source_label_current_now">CURRENT_NOW instant current</string>
+    <string name="source_current_now_ok">Supported (reading %1$s mA)</string>
+    <string name="source_current_now_unreadable">Unreadable (shows —)</string>
+    <string name="source_label_engine_window">Resistance engine window</string>
+    <string name="source_engine_window">n=%1$d · %2$s</string>
+    <string name="source_label_channel">Acquisition channel</string>
+    <string name="source_channel_value">Sticky broadcast + 1Hz polling dual channel (single parser)</string>
+
+    <!-- Health profile tab -->
+    <string name="health_profile_title">Battery Health (Measured)</string>
+    <string name="health_formula_base">Current capacity / design capacity · [%1$s + %2$s]</string>
+    <string name="health_formula_regression">Current capacity / design capacity · [%1$s·%2$s + %3$s]</string>
+    <string name="health_unmeasurable_big">Unmeasurable</string>
+    <string name="health_unmeasurable_note">Gauge node (%1$s) does not report charge_full — health = current capacity / design capacity; nothing is fabricated when unmeasurable</string>
+    <string name="health_calibration_title">Full-Charge Calibration Specification</string>
+    <string name="health_calibration_body_cv">Why is 100% not fully charged? To improve user experience, Android power management usually switches the UI to 100% early in the constant-voltage (CV) phase — hundreds of mA still flow in (saturated float charging), so the cell is not truly full.</string>
+    <string name="health_calibration_body_cutoff">0-25 mA cutoff threshold: per the lithium-ion charge termination standard, full saturation is reached only when charging current decays naturally to 0.005C (0-25 mA). The capacity measured at that point is the most accurate and is committed by the fuel gauge as the full-charge capacity.</string>
+    <string name="health_advice_title">Health Diagnostics</string>
+    <string name="advice_overheat">The system reports battery overheating. Stop charging and remove the heat source immediately, then re-check at room temperature</string>
+    <string name="advice_dead">The system reports a damaged battery. Have the cell inspected and replaced through authorized service</string>
+    <string name="advice_over_voltage">The system reports cell over-voltage. Disconnect the charger, avoid further fast charging and have it serviced soon</string>
+    <string name="advice_high_temp">Currently above %1$d°C: heat accelerates cell aging. Pause heavy loads and fast charging</string>
+    <string name="advice_warm_temp">Currently %1$d-%2$d°C (warm): remove the protective case and avoid heavy use while charging</string>
+    <string name="advice_cycle_worn">Cycle count exceeds %1$d (Li-poly 80%% health baseline ≈800 cycles): watch for capacity fade and consider replacement</string>
+    <string name="advice_low_health">Measured health %1$s%% is below the 80%% baseline: evident battery aging; plan a replacement</string>
+    <string name="advice_unmeasurable">The gauge node reports no capacity data, so health cannot be measured — other telemetry (voltage/current/temperature) are real readings</string>
+    <string name="advice_normal">All hardware metrics are within the normal range; keep up good charging habits</string>
+
+    <!-- Hardware lab tab -->
+    <string name="lab_screen_title">Hardware Lab &amp; Simulation Debugging</string>
+    <string name="lab_state_active">Simulated data active · real telemetry frozen</string>
+    <string name="lab_state_idle">Real telemetry · enters simulation on interaction</string>
+    <string name="lab_sound_on">Sound On</string>
+    <string name="lab_sound_off">Sound Off</string>
+    <string name="lab_enter_simulation">Enter Simulation</string>
+    <string name="lab_restore_real">Restore Real Hardware Telemetry</string>
+    <string name="lab_scenarios_title">One-Tap Scenario Simulation</string>
+    <string name="lab_sliders_title">Per-Parameter Tuning (6 Sliders)</string>
+    <string name="lab_slider_percentage">05. Percentage</string>
+    <string name="lab_slider_current">11. Instant Current</string>
+    <string name="lab_slider_voltage">09. Cell Voltage</string>
+    <string name="lab_slider_temperature">07. Sensor Temperature</string>
+    <string name="lab_slider_cycles">10. Cycle Count</string>
+    <string name="lab_slider_cycles_value">%1$d cycles</string>
+    <string name="lab_slider_design_capacity">04. Factory Design Capacity (Real Effect)</string>
+    <string name="lab_status_force_title">06. Force Battery Status</string>
+    <string name="status_charging">Charging</string>
+    <string name="status_discharging">Discharging</string>
+    <string name="status_full">Full</string>
+    <string name="status_not_charging">Not Charging</string>
+    <string name="lab_health_select_title">08. Hardware Health Selection</string>
+    <string name="health_state_good">Good</string>
+    <string name="health_state_overheat">Overheat</string>
+    <string name="health_state_dead">Dead</string>
+    <string name="health_state_over_voltage">Over-Voltage</string>
+    <string name="health_state_unknown">Unknown</string>
+</resources>

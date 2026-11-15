@@ -51,7 +51,7 @@ import java.nio.file.Files
  * 已保证真实锁定值仅来自 sysfs/库仑计回归实测容量。
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34], qualifiers = "w1200dp-h3000dp")
+@Config(sdk = [34], qualifiers = "zh-rCN-w1200dp-h3000dp")
 class MetricsSelfCheckAuditTest {
 
     private val app: Application get() = ApplicationProvider.getApplicationContext()

@@ -30,6 +30,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -37,9 +39,13 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.content.Intent
 import com.battery.master.BuildConfig
+import com.battery.master.CrashLogHandler
+import com.battery.master.R
 import com.battery.master.data.BatteryHealthQuality
 import com.battery.master.data.BatteryState
+import com.battery.master.data.BatterySession
 import com.battery.master.data.BatteryStatus
 import com.battery.master.data.CapacitySource
 import com.battery.master.data.FullChargeSource
@@ -47,6 +53,7 @@ import com.battery.master.data.FullChargeVerdict
 import com.battery.master.model.BatteryInfo
 import com.battery.master.service.BatteryTelemetryParser
 import com.battery.master.viewmodel.BatteryViewModel
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -79,7 +86,12 @@ fun BatteryScreen(
     var selectedTab by rememberSaveable { mutableStateOf(0) }
     // v2.0.0-alpha.1：对齐 Web 端 4 Tab 信息架构——总览 / 遥测分析 / 健康档案 / 硬件实验室
     // (Web 端的"原生源码/工程总览"属 Web 演示页说明性内容，不适用于 Android 端，不搬移)
-    val tabTitles = listOf("状态总览", "遥测分析", "健康档案", "硬件实验室")
+    val tabTitles = listOf(
+        stringResource(R.string.tab_overview),
+        stringResource(R.string.tab_telemetry),
+        stringResource(R.string.tab_health),
+        stringResource(R.string.tab_lab)
+    )
 
     Scaffold(
         containerColor = DesignTokens.BgDeep, // Deep Cyber AMOLED Black
@@ -97,7 +109,7 @@ fun BatteryScreen(
                         )
                         Column {
                             Text(
-                                text = "电池大师",
+                                text = stringResource(R.string.app_name),
                                 fontSize = DesignTokens.FontXl,
                                 fontWeight = FontWeight.Black,
                                 letterSpacing = 2.sp,
@@ -107,7 +119,7 @@ fun BatteryScreen(
                             Text(
                                 // 外壳层审计修复：副标题按真实运行 API 动态渲染。
                                 // 旧实现硬编码 "Android 15"，在 minSdk 26~34 设备上宣称失实
-                                text = "API ${android.os.Build.VERSION.SDK_INT} 电池管理服务 · 原生硬件遥测",
+                                text = stringResource(R.string.topbar_subtitle, android.os.Build.VERSION.SDK_INT),
                                 fontSize = DesignTokens.Font2xs,
                                 color = DesignTokens.AccentCyanDark,
                                 fontFamily = FontFamily.Monospace
@@ -195,7 +207,7 @@ fun BatteryScreen(
             // 4. 12 项充放电指标卡片网格列表
             item {
                 Text(
-                    text = "12 项充放电核心指标详情",
+                    text = stringResource(R.string.metrics_section_title),
                     fontWeight = FontWeight.Bold,
                     fontSize = DesignTokens.FontXs,
                     letterSpacing = 1.sp,
@@ -210,7 +222,7 @@ fun BatteryScreen(
                     CyberMetricCardItem(
                         modifier = Modifier.weight(1f),
                         number = "01",
-                        title = "电池健康度",
+                        title = stringResource(R.string.metric_title_health),
                         // v2.0.0-alpha.1 用户口径修正：健康度是多少就是多少——
                         // 电量计节点不可读时显示"无法测算"，不再按 0.92 出厂保持率虚构
                         value = if (state.hasMeasuredCapacity)
@@ -220,17 +232,17 @@ fun BatteryScreen(
                         // v2.0.0-alpha.6：回归采样中 (n>0 未收敛) 显示采样进度
                         // 而非死空态——用户可预期健康度将在覆盖 ≥30% 后真实显示
                         sub = when {
-                            state.hasMeasuredCapacity -> "实测健康度 [${state.currentCapacitySource.label}]"
+                            state.hasMeasuredCapacity -> stringResource(R.string.metric_sub_health_measured, state.currentCapacitySource.label)
                             state.capacityRegressionInfo.isNotEmpty() ->
-                                "回归采样中 · ${state.capacityRegressionInfo} · 覆盖≥30%收敛"
-                            else -> "无法测算 [${state.currentCapacitySource.label}]"
+                                stringResource(R.string.metric_sub_health_regression, state.capacityRegressionInfo)
+                            else -> stringResource(R.string.metric_sub_health_unmeasurable, state.currentCapacitySource.label)
                         },
                         accentColor = if (state.hasMeasuredCapacity) DesignTokens.BrandPrimary else DesignTokens.TextTertiary
                     )
                     CyberMetricCardItem(
                         modifier = Modifier.weight(1f),
                         number = "02",
-                        title = "剩余电量",
+                        title = stringResource(R.string.metric_title_remaining),
                         // v2.0.0-alpha.5 自检修复：库仑计实测读数不再被容量空态隐藏——
                         // 容量不可测但 CHARGE_COUNTER 可读时，剩余电荷仍是系统库仑计
                         // 真实测量，旧实现统一显示 "—" 丢弃实测值，且 Hero 行同口径矛盾
@@ -244,10 +256,10 @@ fun BatteryScreen(
                         // 机型间不可比、运行中切换会跳变，旧实现无任何口径标注
                         sub = when {
                             state.hasMeasuredCapacity ->
-                                "当前可用电荷量 [${state.remainingCapacitySource.label}]"
+                                stringResource(R.string.metric_sub_remaining_measured, state.remainingCapacitySource.label)
                             state.remainingCapacitySource == CapacitySource.COULOMB_COUNTER ->
-                                "库仑计实测剩余电荷 [容量未实测]"
-                            else -> "无法测算 [容量未实测]"
+                                stringResource(R.string.metric_sub_remaining_coulomb)
+                            else -> stringResource(R.string.metric_sub_remaining_unmeasurable)
                         },
                         accentColor = if (state.hasMeasuredCapacity ||
                             state.remainingCapacitySource == CapacitySource.COULOMB_COUNTER)
@@ -261,21 +273,21 @@ fun BatteryScreen(
                     CyberMetricCardItem(
                         modifier = Modifier.weight(1f),
                         number = "03",
-                        title = "电池当前容量",
+                        title = stringResource(R.string.metric_title_current_capacity),
                         // v2.0.0-alpha.1：容量不可测显示 "—" (0 为非法哨兵，不再虚构估算值)
                         value = if (state.hasMeasuredCapacity) "${state.currentCapacityMah}" else "—",
                         unit = if (state.hasMeasuredCapacity) "mAh" else "",
-                        sub = if (state.hasMeasuredCapacity) "衰减后最大可用 [${state.currentCapacitySource.label}]"
-                              else "无法测算 [${state.currentCapacitySource.label}]",
+                        sub = if (state.hasMeasuredCapacity) stringResource(R.string.metric_sub_current_capacity, state.currentCapacitySource.label)
+                              else stringResource(R.string.metric_sub_health_unmeasurable, state.currentCapacitySource.label),
                         accentColor = if (state.hasMeasuredCapacity) DesignTokens.FeaturePurple else DesignTokens.TextTertiary
                     )
                     CyberMetricCardItem(
                         modifier = Modifier.weight(1f),
                         number = "04",
-                        title = "电池设计容量",
+                        title = stringResource(R.string.metric_title_design_capacity),
                         value = "${state.designCapacityMah}",
                         unit = "mAh",
-                        sub = "出厂铭牌标称 [${state.designCapacitySource.label}]",
+                        sub = stringResource(R.string.metric_sub_design_capacity, state.designCapacitySource.label),
                         accentColor = DesignTokens.InfoSky
                     )
                 }
@@ -286,16 +298,16 @@ fun BatteryScreen(
                     CyberMetricCardItem(
                         modifier = Modifier.weight(1f),
                         number = "05",
-                        title = "电量百分比",
+                        title = stringResource(R.string.metric_title_percentage),
                         value = "${state.percentage}",
                         unit = "%",
-                        sub = "系统广播 EXTRA_LEVEL/SCALE",
+                        sub = stringResource(R.string.metric_sub_percentage),
                         accentColor = DesignTokens.BrandPrimary
                     )
                     CyberMetricCardItem(
                         modifier = Modifier.weight(1f),
                         number = "06",
-                        title = "电池状态",
+                        title = stringResource(R.string.metric_title_status),
                         value = state.status.label,
                         sub = "Battery Status",
                         accentColor = DesignTokens.InfoSky
@@ -308,7 +320,7 @@ fun BatteryScreen(
                     CyberMetricCardItem(
                         modifier = Modifier.weight(1f),
                         number = "07",
-                        title = "电池温度",
+                        title = stringResource(R.string.metric_title_temperature),
                         // v1.2.3 审计修复：温度主值经 Locale.US 锚定——德语等逗号
                         // 小数点 Locale 下 Float.toString 渲染 "32,6°C"，与全屏
                         // 数值口径割裂；精度 0.1°C 与解析器一致
@@ -319,11 +331,15 @@ fun BatteryScreen(
                         // 而卡片仅"偏热预警"、38~38.5℃ 反之，同屏自相矛盾)
                         sub = when {
                             state.temperatureCelsius >= BatteryTelemetryParser.TEMP_OVERHEAT_THRESHOLD_C ->
-                                "严重发热 (≥${BatteryTelemetryParser.TEMP_OVERHEAT_THRESHOLD_C.toInt()}°C)"
+                                stringResource(R.string.temp_state_overheat, BatteryTelemetryParser.TEMP_OVERHEAT_THRESHOLD_C.toInt())
                             state.temperatureCelsius >= BatteryTelemetryParser.TEMP_WARM_THRESHOLD_C ->
-                                "偏热预警 (${BatteryTelemetryParser.TEMP_WARM_THRESHOLD_C.toInt()}-${BatteryTelemetryParser.TEMP_OVERHEAT_THRESHOLD_C.toInt()}°C)"
-                            state.temperatureCelsius <= 0 -> "过冷保护 (≤0°C)"
-                            else -> "温度正常"
+                                stringResource(
+                                    R.string.temp_state_warm,
+                                    BatteryTelemetryParser.TEMP_WARM_THRESHOLD_C.toInt(),
+                                    BatteryTelemetryParser.TEMP_OVERHEAT_THRESHOLD_C.toInt()
+                                )
+                            state.temperatureCelsius <= 0 -> stringResource(R.string.temp_state_cold)
+                            else -> stringResource(R.string.temp_state_normal)
                         },
                         accentColor = when {
                             state.temperatureCelsius >= BatteryTelemetryParser.TEMP_OVERHEAT_THRESHOLD_C ||
@@ -336,7 +352,7 @@ fun BatteryScreen(
                     CyberMetricCardItem(
                         modifier = Modifier.weight(1f),
                         number = "08",
-                        title = "电池健康状况",
+                        title = stringResource(R.string.metric_title_health_condition),
                         value = state.healthQuality.label,
                         sub = "Android BatteryManager",
                         accentColor = DesignTokens.BrandPrimary
@@ -349,28 +365,31 @@ fun BatteryScreen(
                     CyberMetricCardItem(
                         modifier = Modifier.weight(1f),
                         number = "09",
-                        title = "电芯电压",
+                        title = stringResource(R.string.metric_title_voltage),
                         // v2.0.0-alpha.7 指标 09 诚实口径：双通道均不可得时显示 "—"
                         // 而非伪装成读数的中性默认 4000 mV
                         value = if (state.voltageMeasured) "${state.voltageMv}" else "—",
                         unit = if (state.voltageMeasured) "mV" else "",
                         sub = if (state.voltageMeasured)
-                            "电势差 ${String.format(Locale.US, "%.2f", state.voltageMv / 1000f)} V · " +
+                            stringResource(
+                                R.string.voltage_sub_measured,
+                                String.format(Locale.US, "%.2f", state.voltageMv / 1000f),
                                 BatteryTelemetryParser.voltageStateLabel(state.voltageMv, state.voltageMeasured)
+                            )
                         else
-                            "广播/sysfs 电压通道均不可读",
+                            stringResource(R.string.voltage_sub_unmeasured),
                         accentColor = DesignTokens.InfoSky
                     )
                     CyberMetricCardItem(
                         modifier = Modifier.weight(1f),
                         number = "10",
-                        title = "充放电循环",
+                        title = stringResource(R.string.metric_title_cycles),
                         value = if (state.cycleCount > 0) "${state.cycleCount}" else "—",
-                        unit = if (state.cycleCount > 0) "次" else "",
+                        unit = if (state.cycleCount > 0) stringResource(R.string.unit_times) else "",
                         // v2.0.0-alpha 批次B：健康度实测时展示循环寿命预测 (模型外推)，
                         // 估算健康度不预测——保持 "Cycle Count" 原口径
                         sub = state.healthForecastText
-                            ?: if (state.cycleCount > 0) "Cycle Count" else "系统未上报循环数据",
+                            ?: if (state.cycleCount > 0) "Cycle Count" else stringResource(R.string.cycles_sub_no_data),
                         accentColor = DesignTokens.AccentTeal
                     )
                 }
@@ -385,7 +404,7 @@ fun BatteryScreen(
                     CyberMetricCardItem(
                         modifier = Modifier.weight(1f),
                         number = "11",
-                        title = "瞬时电流",
+                        title = stringResource(R.string.metric_title_current),
                         // 指标 11：经 BatteryState.currentNowMa 别名读取 (激活别名，与 currentMa 同源)
                         // v1.2.3 P0 审计修复：currentMa 可空——设备不支持 CURRENT_NOW
                         // 时显示 "—"，旧实现归一化为 0 会虚构 "0 mA / 0.00 W" 读数
@@ -393,21 +412,22 @@ fun BatteryScreen(
                         unit = if (currentNow != null) "mA" else "",
                         // v1.2.4 P2 审计修复：功率随符号携带方向 (充电 +W / 放电 −W)，
                         // 旧实现解析层 abs 后充放同显正功率，方向丢失
-                        sub = "功率 " + when {
+                        sub = stringResource(R.string.metric_power_prefix, when {
                             currentNow == null -> "— W"
                             currentNow > 0 -> "+${String.format(Locale.US, "%.2f", powerW)} W"
                             currentNow < 0 -> "-${String.format(Locale.US, "%.2f", abs(powerW))} W"
                             else -> String.format(Locale.US, "%.2f", powerW) + " W"
-                        },
+                        }),
                         accentColor = if ((currentNow ?: 0) > 0) DesignTokens.BrandPrimary else DesignTokens.AccentCyanDark
                     )
                     CyberMetricCardItem(
                         modifier = Modifier.weight(1f),
                         number = "12",
-                        title = "完全充满容量",
+                        title = stringResource(R.string.metric_title_full_charge_capacity),
                         value = if (state.fullChargeCapacityMah != null) "${state.fullChargeCapacityMah}" else "—",
                         unit = if (state.fullChargeCapacityMah != null) "mAh" else "",
-                        sub = if (state.isFullChargeConditionMet) "已满足 100% & 0-25 mA" else "详见上方充满判定卡",
+                        sub = if (state.isFullChargeConditionMet) stringResource(R.string.full_charge_sub_met)
+                        else stringResource(R.string.full_charge_sub_unmet),
                         accentColor = DesignTokens.BrandPrimaryLight
                     )
                 }
@@ -426,8 +446,35 @@ fun BatteryScreen(
                 // v2.0.0-alpha.1：遥测分析 Tab (对齐 Web 端 TELEMETRY 视图)——
                 // 实时硬件遥测曲线 + 功率/温度评估 + 采集链路状态
                 // v2.0.0-alpha.3：历史经 StateFlow collect (VM 发布源头积累)
+                // v2.0.0-beta.1 P0 GA 修复：+ 充放电会话统计 / 历史清空 / CSV 导出
                 val telemetryHistory by viewModel.telemetryHistory.collectAsState()
-                TelemetryAnalysisScreen(state, telemetryHistory)
+                val chargeSessions by viewModel.chargeSessions.collectAsState()
+                val context = LocalContext.current
+                val shareScope = rememberCoroutineScope()
+                TelemetryAnalysisScreen(
+                    state,
+                    telemetryHistory,
+                    sessions = chargeSessions,
+                    onExportSamples = {
+                        shareScope.launch {
+                            viewModel.exportSamplesCsv()?.let { intent ->
+                                runCatching {
+                                    context.startActivity(Intent.createChooser(intent, null))
+                                }
+                            }
+                        }
+                    },
+                    onExportSessions = {
+                        shareScope.launch {
+                            viewModel.exportSessionsCsv()?.let { intent ->
+                                runCatching {
+                                    context.startActivity(Intent.createChooser(intent, null))
+                                }
+                            }
+                        }
+                    },
+                    onClearHistory = { viewModel.clearTelemetryHistory() }
+                )
             } else if (tab == 2) {
                 // v2.0.0-alpha.1：健康档案 Tab (对齐 Web 端 HEALTH 视图)——
                 // 健康度实测大数字 + 内阻/寿命预测 + 诊断建议 + 充满判定卡
@@ -450,15 +497,22 @@ fun BatteryScreen(
             var inputError by remember { mutableStateOf<String?>(null) }
 
             // 校验并提交：空值/0/超范围均给出可见错误反馈，不再静默失败
+            // (错误文案在组合期求值——stringResource 仅可在 @Composable 上下文调用)
+            val errCapacityBlank = stringResource(R.string.calibrate_error_blank)
+            val errCapacityNotPositive = stringResource(R.string.calibrate_error_not_positive)
+            val errCapacityBelowMin = stringResource(
+                R.string.calibrate_error_below_min, BatteryTelemetryParser.MIN_PLAUSIBLE_CAPACITY_MAH
+            )
+            val errCapacityAboveMax = stringResource(
+                R.string.calibrate_error_above_max, BatteryTelemetryParser.MAX_PLAUSIBLE_CAPACITY_MAH
+            )
             val submitCalibration: () -> Unit = {
                 val parsed = capacityInput.toIntOrNull()
                 inputError = when {
-                    capacityInput.isBlank() -> "请输入容量数值"
-                    parsed == null || parsed <= 0 -> "容量必须为大于 0 的整数"
-                    parsed < BatteryTelemetryParser.MIN_PLAUSIBLE_CAPACITY_MAH ->
-                        "容量不能小于 ${BatteryTelemetryParser.MIN_PLAUSIBLE_CAPACITY_MAH} mAh"
-                    parsed > BatteryTelemetryParser.MAX_PLAUSIBLE_CAPACITY_MAH ->
-                        "容量超出合理范围 (最大 ${BatteryTelemetryParser.MAX_PLAUSIBLE_CAPACITY_MAH} mAh)"
+                    capacityInput.isBlank() -> errCapacityBlank
+                    parsed == null || parsed <= 0 -> errCapacityNotPositive
+                    parsed < BatteryTelemetryParser.MIN_PLAUSIBLE_CAPACITY_MAH -> errCapacityBelowMin
+                    parsed > BatteryTelemetryParser.MAX_PLAUSIBLE_CAPACITY_MAH -> errCapacityAboveMax
                     else -> null
                 }
                 if (inputError == null && parsed != null) {
@@ -469,7 +523,7 @@ fun BatteryScreen(
 
             AlertDialog(
                 onDismissRequest = { showDesignCapacityDialog = false },
-                title = { Text("校准设计容量 (指标 04)") },
+                title = { Text(stringResource(R.string.calibrate_dialog_title)) },
                 text = {
                     OutlinedTextField(
                         value = capacityInput,
@@ -477,7 +531,7 @@ fun BatteryScreen(
                             capacityInput = input.filter { it.isDigit() }.take(5)
                             inputError = null
                         },
-                        label = { Text("出厂设计容量 (mAh)") },
+                        label = { Text(stringResource(R.string.calibrate_field_label)) },
                         singleLine = true,
                         isError = inputError != null,
                         supportingText = {
@@ -504,7 +558,7 @@ fun BatteryScreen(
                 },
                 confirmButton = {
                     TextButton(onClick = submitCalibration) {
-                        Text("确定", color = DesignTokens.BrandPrimaryLight)
+                        Text(stringResource(R.string.action_confirm), color = DesignTokens.BrandPrimaryLight)
                     }
                 },
                 dismissButton = {
@@ -515,11 +569,11 @@ fun BatteryScreen(
                             viewModel.clearDesignCapacityCalibration()
                             showDesignCapacityDialog = false
                         }) {
-                            Text("恢复自动探测", color = DesignTokens.TextSecondary)
+                            Text(stringResource(R.string.action_restore_auto_detect), color = DesignTokens.TextSecondary)
                         }
                     }
                     TextButton(onClick = { showDesignCapacityDialog = false }) {
-                        Text("取消", color = DesignTokens.TextSecondary)
+                        Text(stringResource(R.string.action_cancel), color = DesignTokens.TextSecondary)
                     }
                 },
                 containerColor = DesignTokens.BgElevated,
@@ -654,10 +708,10 @@ fun CyberHeroBatteryCard(state: BatteryState) {
             Text(
                 text = when {
                     state.hasMeasuredCapacity ->
-                        "剩余电量: ${state.remainingCapacityMah} / ${state.currentCapacityMah} mAh"
+                        stringResource(R.string.hero_remaining_measured, state.remainingCapacityMah, state.currentCapacityMah)
                     state.remainingCapacitySource == CapacitySource.COULOMB_COUNTER ->
-                        "剩余电量: ${state.remainingCapacityMah} mAh · 库仑计实测"
-                    else -> "剩余电量: — (容量未实测)"
+                        stringResource(R.string.hero_remaining_coulomb, state.remainingCapacityMah)
+                    else -> stringResource(R.string.hero_remaining_unmeasured)
                 },
                 fontSize = DesignTokens.FontXs,
                 fontWeight = FontWeight.Medium,
@@ -723,7 +777,7 @@ fun HardwareSummaryCard(state: BatteryState, onCalibrateDesignCapacity: () -> Un
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "底层硬件信息与电源子系统",
+                    text = stringResource(R.string.hardware_summary_title),
                     fontSize = DesignTokens.FontXs,
                     fontWeight = FontWeight.Bold,
                     color = Color.White,
@@ -748,15 +802,15 @@ fun HardwareSummaryCard(state: BatteryState, onCalibrateDesignCapacity: () -> Un
 
             // ===== SoC 主控架构区块 (型号/厂商/制程/CPU/GPU 五字段，检测链见 SoCHardwareProfile) =====
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                HardwareItem(modifier = Modifier.weight(1f), label = "SoC 主控", value = state.socModel)
-                HardwareItem(modifier = Modifier.weight(1f), label = "SoC 厂商", value = state.socVendor)
+                HardwareItem(modifier = Modifier.weight(1f), label = stringResource(R.string.hw_label_soc), value = state.socModel)
+                HardwareItem(modifier = Modifier.weight(1f), label = stringResource(R.string.hw_label_soc_vendor), value = state.socVendor)
             }
 
             Spacer(modifier = Modifier.height(8.dp))
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                HardwareItem(modifier = Modifier.weight(1f), label = "制程工艺", value = state.socProcess)
-                HardwareItem(modifier = Modifier.weight(1f), label = "GPU 渲染", value = state.socGpu)
+                HardwareItem(modifier = Modifier.weight(1f), label = stringResource(R.string.hw_label_process), value = state.socProcess)
+                HardwareItem(modifier = Modifier.weight(1f), label = stringResource(R.string.hw_label_gpu), value = state.socGpu)
             }
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -764,7 +818,7 @@ fun HardwareSummaryCard(state: BatteryState, onCalibrateDesignCapacity: () -> Un
             // CPU 架构文案较长，允许两行展示 (核心配置分级完整可读)
             HardwareItem(
                 modifier = Modifier.fillMaxWidth(),
-                label = "CPU 架构",
+                label = stringResource(R.string.hw_label_cpu),
                 value = state.socCpu,
                 maxLines = 2
             )
@@ -773,12 +827,12 @@ fun HardwareSummaryCard(state: BatteryState, onCalibrateDesignCapacity: () -> Un
 
             // ===== 电源子系统区块 =====
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                HardwareItem(modifier = Modifier.weight(1f), label = "电源管理 IC", value = state.pmicModel)
+                HardwareItem(modifier = Modifier.weight(1f), label = stringResource(R.string.hw_label_pmic), value = state.pmicModel)
                 // 快充协议实际值形如 "超级快充 (45.0 W) · 澎湃秒充 [品牌档案]"，
                 // 半宽 chip 内单行必然截断，允许两行完整展示 (与 CPU 架构行同策略)
                 HardwareItem(
                     modifier = Modifier.weight(1f),
-                    label = "快充协议",
+                    label = stringResource(R.string.hw_label_fast_charge),
                     value = state.fastChargeProtocol,
                     maxLines = 2
                 )
@@ -792,18 +846,18 @@ fun HardwareSummaryCard(state: BatteryState, onCalibrateDesignCapacity: () -> Un
                 // 样本不足时仍回退估算模型并标注 "[工程估算]"
                 HardwareItem(
                     modifier = Modifier.weight(1f),
-                    label = "电芯内阻",
+                    label = stringResource(R.string.hw_label_internal_resistance),
                     value = "${String.format(Locale.US, "%.1f", state.internalResistanceMohm)} mΩ ${state.internalResistanceLabel}",
                     maxLines = 2
                 )
-                HardwareItem(modifier = Modifier.weight(1f), label = "化学材料体系", value = state.batteryChemistry)
+                HardwareItem(modifier = Modifier.weight(1f), label = stringResource(R.string.hw_label_chemistry), value = state.batteryChemistry)
             }
 
             Spacer(modifier = Modifier.height(8.dp))
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                HardwareItem(modifier = Modifier.weight(1f), label = "电芯结构", value = state.cellStructure)
-                HardwareItem(modifier = Modifier.weight(1f), label = "系统接口", value = state.halVersion)
+                HardwareItem(modifier = Modifier.weight(1f), label = stringResource(R.string.hw_label_cell_structure), value = state.cellStructure)
+                HardwareItem(modifier = Modifier.weight(1f), label = stringResource(R.string.hw_label_system_interface), value = state.halVersion)
             }
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -815,7 +869,7 @@ fun HardwareSummaryCard(state: BatteryState, onCalibrateDesignCapacity: () -> Un
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = DesignTokens.AccentCyanDark)
             ) {
                 Text(
-                    text = "校准设计容量 (当前 ${state.designCapacityMah} mAh)",
+                    text = stringResource(R.string.calibrate_button, state.designCapacityMah),
                     fontSize = DesignTokens.Font2xs,
                     fontFamily = FontFamily.Monospace
                 )
@@ -873,14 +927,14 @@ private fun LabSimulationBanner(onExit: () -> Unit) {
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "硬件实验室模拟数据生效中",
+                    text = stringResource(R.string.lab_banner_title),
                     fontSize = DesignTokens.Font2xs,
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace,
                     color = DesignTokens.TextAmberStrong
                 )
                 Text(
-                    text = "当前总览页数值为实验室模拟值，非真实电池状态",
+                    text = stringResource(R.string.lab_banner_desc),
                     fontSize = DesignTokens.Font2xs,
                     fontFamily = FontFamily.Monospace,
                     color = DesignTokens.TextTertiary
@@ -889,7 +943,7 @@ private fun LabSimulationBanner(onExit: () -> Unit) {
             Spacer(modifier = Modifier.width(8.dp))
             TextButton(onClick = onExit) {
                 Text(
-                    text = "恢复真实",
+                    text = stringResource(R.string.lab_banner_restore),
                     fontSize = DesignTokens.Font2xs,
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace,
@@ -944,16 +998,16 @@ fun FullChargeConditionCard(
                     // (容量 ≤0 拒绝锁定 + 0 哨兵语义) 已保证真实锁定值仅来自
                     // sysfs/库仑计回归实测容量，旧"(估算)"标题与实测口径不符；
                     // 模拟演示值由"来源: 模拟" chip 显式区分
-                    text = "12. 完全充满时的容量 (实测)",
+                    text = stringResource(R.string.full_charge_card_title),
                     fontWeight = FontWeight.Bold,
                     fontSize = DesignTokens.FontXs,
                     color = Color.White
                 )
                 Text(
                     text = when (verdict) {
-                        FullChargeVerdict.FULLY_CHARGED -> "已达充满判定 (100% & |I|≤25 mA)"
-                        FullChargeVerdict.CURRENT_UNAVAILABLE -> "电流不可读 · 无法判定"
-                        FullChargeVerdict.NOT_YET -> "等待条件满足"
+                        FullChargeVerdict.FULLY_CHARGED -> stringResource(R.string.full_charge_verdict_met)
+                        FullChargeVerdict.CURRENT_UNAVAILABLE -> stringResource(R.string.full_charge_verdict_unreadable)
+                        FullChargeVerdict.NOT_YET -> stringResource(R.string.full_charge_verdict_waiting)
                     },
                     fontSize = DesignTokens.Font2xs,
                     fontWeight = FontWeight.Bold,
@@ -973,7 +1027,7 @@ fun FullChargeConditionCard(
                     text = if (state.fullChargeCapacityMah != null) {
                         "${state.fullChargeCapacityMah} mAh"
                     } else {
-                        "— 未完全充满暂不显示 (需100%且充电态|电流|≤25mA) —"
+                        stringResource(R.string.full_charge_capacity_pending)
                     },
                     fontSize = DesignTokens.Font2xl,
                     fontWeight = FontWeight.Black,
@@ -990,7 +1044,7 @@ fun FullChargeConditionCard(
                         border = androidx.compose.foundation.BorderStroke(1.dp, DesignTokens.Border)
                     ) {
                         Text(
-                            text = "历史锁定",
+                            text = stringResource(R.string.chip_history_lock),
                             fontSize = DesignTokens.Font2xs,
                             fontFamily = FontFamily.Monospace,
                             color = DesignTokens.TextAmberStrong,
@@ -1008,7 +1062,7 @@ fun FullChargeConditionCard(
                         border = androidx.compose.foundation.BorderStroke(1.dp, DesignTokens.BrandPrimaryDark)
                     ) {
                         Text(
-                            text = "来源: 模拟",
+                            text = stringResource(R.string.chip_source_simulated),
                             fontSize = DesignTokens.Font2xs,
                             fontFamily = FontFamily.Monospace,
                             color = DesignTokens.BrandPrimaryLight,
@@ -1022,8 +1076,7 @@ fun FullChargeConditionCard(
             // 以系统充满状态为准，不再把估算值当作实测锁定值
             if (verdict == FullChargeVerdict.CURRENT_UNAVAILABLE) {
                 Text(
-                    text = "本设备不支持电流上报 (CURRENT_NOW)，无法执行 0-25 mA 浮充判定；" +
-                        "已保留上次有效锁定值，不作新锁定。",
+                    text = stringResource(R.string.full_charge_unsupported_note),
                     fontSize = DesignTokens.Font2xs,
                     fontFamily = FontFamily.Monospace,
                     color = DesignTokens.TextTertiary
@@ -1033,10 +1086,13 @@ fun FullChargeConditionCard(
             // 上次充满锁定时间 (激活 lastFullChargeTimestamp：持久化值跨重启回显)
             state.lastFullChargeTimestamp?.let { timestamp ->
                 Text(
-                    text = "上次锁定: " + SimpleDateFormat(
-                        "yyyy-MM-dd HH:mm:ss",
-                        Locale.getDefault()
-                    ).format(Date(timestamp)),
+                    text = stringResource(
+                        R.string.full_charge_last_lock,
+                        SimpleDateFormat(
+                            "yyyy-MM-dd HH:mm:ss",
+                            Locale.getDefault()
+                        ).format(Date(timestamp))
+                    ),
                     fontSize = DesignTokens.Font2xs,
                     fontFamily = FontFamily.Monospace,
                     color = DesignTokens.TextTertiary
@@ -1057,9 +1113,9 @@ fun FullChargeConditionCard(
             ) {
                 Text(
                     text = if (isSimulating) {
-                        "模拟保持中 (${simulationRemainingSec}s) · 结束后自动恢复真实遥测"
+                        stringResource(R.string.full_charge_simulating, simulationRemainingSec)
                     } else {
-                        "一键模拟完全充满 (100% + 16mA)"
+                        stringResource(R.string.full_charge_simulate_btn)
                     },
                     fontSize = DesignTokens.FontXs,
                     fontWeight = FontWeight.Bold
@@ -1074,7 +1130,7 @@ fun FullChargeConditionCard(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = "清除锁定记录",
+                        text = stringResource(R.string.full_charge_clear_records),
                         fontSize = DesignTokens.Font2xs,
                         fontFamily = FontFamily.Monospace,
                         color = DesignTokens.TextSecondary
@@ -1161,13 +1217,21 @@ fun CyberMetricCardItem(
 @Composable
 fun AboutAppCard() {
     val featureLines = listOf(
-        "12 项核心充放电指标全量实时遥测：健康度 / 剩余电量 / 当前容量 / 设计容量 / 电量百分比 / 电池状态 / 温度 / 健康状况 / 电压 / 循环计数 / 瞬时电流 / 完全充满容量",
-        "完全充满判定：电量 100% 且瞬时电流回落至 0~25 mA 浮充截止区间时，自动锁定实际充满容量并跨会话保存",
-        "硬件实验室：一键场景模拟（充满校准 / 极速闪充 / 高负载放电 / 过热警报）与六组滑杆调参，随时一键恢复真实硬件遥测",
-        "硬件信息解析：SoC 主控五字段档案（型号 / 厂商 / 制程 / CPU / GPU）与 PMIC 型号、快充协议、电芯结构三级回退检测",
-        "数据来源：系统 BatteryManager 公开接口、ACTION_BATTERY_CHANGED 粘性广播与 sysfs 真实硬件通道，全部本地计算，不上传任何数据",
-        "权限声明：不申请任何运行时或危险权限，安装即可使用全部功能（合并清单仅含系统框架自动注入的签名级内部权限，不涉及隐私）"
+        stringResource(R.string.about_feature_1),
+        stringResource(R.string.about_feature_2),
+        stringResource(R.string.about_feature_3),
+        stringResource(R.string.about_feature_4),
+        stringResource(R.string.about_feature_5),
+        stringResource(R.string.about_feature_6)
     )
+
+    // v2.0.0-beta.1 P2 GA 修复：崩溃记录导出 (轻量本地捕获，零三方 SDK)
+    val crashContext = LocalContext.current
+    val crashScope = rememberCoroutineScope()
+    var crashCount by remember { mutableIntStateOf(-1) } // -1 = 未初始化，首帧后统计
+    LaunchedEffect(Unit) {
+        crashCount = CrashLogHandler.crashCount(crashContext)
+    }
 
     Card(
         modifier = Modifier
@@ -1185,7 +1249,7 @@ fun AboutAppCard() {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "关于 APP",
+                    text = stringResource(R.string.about_title),
                     fontSize = DesignTokens.FontXs,
                     fontWeight = FontWeight.Bold,
                     color = Color.White,
@@ -1209,7 +1273,7 @@ fun AboutAppCard() {
             Spacer(modifier = Modifier.height(10.dp))
 
             Text(
-                text = "电池大师 — 专业安卓电池充放电监测工具",
+                text = stringResource(R.string.about_tagline),
                 fontSize = DesignTokens.Font2xs,
                 color = DesignTokens.TextSecondary,
                 fontFamily = FontFamily.Monospace
@@ -1241,15 +1305,67 @@ fun AboutAppCard() {
 
             Spacer(modifier = Modifier.height(10.dp))
 
+            // v2.0.0-beta.1 P1 GA 修复：应用内隐私卡 (商店合规要求 + 用户透明度)。
+            // 完整政策见仓库 PRIVACY.md，此处为安装即可见的摘要版
             Text(
-                text = "开发者：某厂大牛马【带娃的小陈工】",
+                text = stringResource(R.string.about_privacy_title),
+                fontSize = DesignTokens.FontXs,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                fontFamily = FontFamily.Monospace
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = stringResource(R.string.about_privacy_body),
+                fontSize = DesignTokens.Font2xs,
+                color = DesignTokens.TextTertiary,
+                fontFamily = FontFamily.Monospace,
+                lineHeight = DesignTokens.FontXs
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                OutlinedButton(
+                    onClick = {
+                        crashScope.launch {
+                            CrashLogHandler.buildShareIntent(crashContext)?.let { intent ->
+                                runCatching {
+                                    crashContext.startActivity(Intent.createChooser(intent, null))
+                                }
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = DesignTokens.TextSecondary)
+                ) {
+                    Text(
+                        text = stringResource(R.string.about_export_crash_log),
+                        fontSize = DesignTokens.Font2xs,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+                Text(
+                    text = if (crashCount > 0) stringResource(R.string.about_crash_count, crashCount)
+                    else stringResource(R.string.about_crash_none),
+                    fontSize = DesignTokens.Font2xs,
+                    color = DesignTokens.TextTertiary,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            HorizontalDivider(color = DesignTokens.Border, thickness = 1.dp)
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Text(
+                text = stringResource(R.string.about_developer),
                 fontSize = DesignTokens.Font2xs,
                 fontWeight = FontWeight.Bold,
                 color = DesignTokens.TextSecondary,
                 fontFamily = FontFamily.Monospace
             )
             Text(
-                text = "抖音 / 小红书 平台",
+                text = stringResource(R.string.about_platforms),
                 fontSize = DesignTokens.Font2xs,
                 color = DesignTokens.TextTertiary,
                 fontFamily = FontFamily.Monospace
@@ -1267,7 +1383,14 @@ fun AboutAppCard() {
  *   这是 Android 端真机才能提供的真实采集通道透视，Web 模拟端无法实现。
  */
 @Composable
-fun TelemetryAnalysisScreen(state: BatteryState, history: List<BatteryState>) {
+fun TelemetryAnalysisScreen(
+    state: BatteryState,
+    history: List<BatteryState>,
+    sessions: List<BatterySession> = emptyList(),
+    onExportSamples: () -> Unit = {},
+    onExportSessions: () -> Unit = {},
+    onClearHistory: () -> Unit = {}
+) {
     // v2.0.0-alpha.3 真实现：曲线历史由 BatteryViewModel.telemetryHistory 在发布
     // 源头积累 (1Hz 轮询 + 广播双通道、400ms 同拍节流、120 点滑窗)——跨 Tab 切换
     // 不丢失，实验室冻结/模拟保持期期间仍记录真实硬件读数。UI 层只消费不持有
@@ -1279,7 +1402,7 @@ fun TelemetryAnalysisScreen(state: BatteryState, history: List<BatteryState>) {
     ) {
         item {
             Text(
-                text = "高频硬件遥测分析",
+                text = stringResource(R.string.telemetry_title),
                 fontWeight = FontWeight.Bold,
                 fontSize = DesignTokens.FontXs,
                 letterSpacing = 1.sp,
@@ -1288,7 +1411,7 @@ fun TelemetryAnalysisScreen(state: BatteryState, history: List<BatteryState>) {
                 modifier = Modifier.padding(top = 4.dp)
             )
             Text(
-                text = "实时捕获充放电电流 (mA)、电芯端电压 (mV) 与热敏传感器温度曲线",
+                text = stringResource(R.string.telemetry_subtitle),
                 fontSize = DesignTokens.Font2xs,
                 color = DesignTokens.TextTertiary,
                 fontFamily = FontFamily.Monospace,
@@ -1309,7 +1432,7 @@ fun TelemetryAnalysisScreen(state: BatteryState, history: List<BatteryState>) {
                 CyberMetricCardItem(
                     modifier = Modifier.weight(1f),
                     number = "P",
-                    title = "充放电功率",
+                    title = stringResource(R.string.power_card_title),
                     value = when {
                         currentNow == null -> "—"
                         powerW >= 0f -> "+${String.format(Locale.US, "%.2f", powerW)}"
@@ -1317,26 +1440,30 @@ fun TelemetryAnalysisScreen(state: BatteryState, history: List<BatteryState>) {
                     },
                     unit = if (currentNow != null) "W" else "",
                     sub = when {
-                        currentNow == null -> "电流不可读，不虚构 0W"
-                        currentNow > 0 -> "充电输入 P = V × I"
-                        currentNow < 0 -> "放电输出 P = V × |I|"
-                        else -> "浮充截止"
+                        currentNow == null -> stringResource(R.string.power_sub_unreadable)
+                        currentNow > 0 -> stringResource(R.string.power_sub_charging)
+                        currentNow < 0 -> stringResource(R.string.power_sub_discharging)
+                        else -> stringResource(R.string.power_sub_float_cutoff)
                     },
                     accentColor = if ((currentNow ?: 0) > 0) DesignTokens.BrandPrimary else DesignTokens.AccentCyanDark
                 )
                 CyberMetricCardItem(
                     modifier = Modifier.weight(1f),
                     number = "T",
-                    title = "电池温度评估",
+                    title = stringResource(R.string.temp_assessment_title),
                     value = String.format(Locale.US, "%.1f", state.temperatureCelsius),
                     unit = "°C",
                     sub = when {
                         state.temperatureCelsius >= BatteryTelemetryParser.TEMP_OVERHEAT_THRESHOLD_C ->
-                            "严重发热 (≥${BatteryTelemetryParser.TEMP_OVERHEAT_THRESHOLD_C.toInt()}°C)"
+                            stringResource(R.string.temp_state_overheat, BatteryTelemetryParser.TEMP_OVERHEAT_THRESHOLD_C.toInt())
                         state.temperatureCelsius >= BatteryTelemetryParser.TEMP_WARM_THRESHOLD_C ->
-                            "偏热预警 (${BatteryTelemetryParser.TEMP_WARM_THRESHOLD_C.toInt()}-${BatteryTelemetryParser.TEMP_OVERHEAT_THRESHOLD_C.toInt()}°C)"
-                        state.temperatureCelsius <= 0 -> "过冷保护 (≤0°C)"
-                        else -> "温度正常"
+                            stringResource(
+                                R.string.temp_state_warm,
+                                BatteryTelemetryParser.TEMP_WARM_THRESHOLD_C.toInt(),
+                                BatteryTelemetryParser.TEMP_OVERHEAT_THRESHOLD_C.toInt()
+                            )
+                        state.temperatureCelsius <= 0 -> stringResource(R.string.temp_state_cold)
+                        else -> stringResource(R.string.temp_state_normal)
                     },
                     accentColor = when {
                         state.temperatureCelsius >= BatteryTelemetryParser.TEMP_OVERHEAT_THRESHOLD_C ||
@@ -1354,7 +1481,209 @@ fun TelemetryAnalysisScreen(state: BatteryState, history: List<BatteryState>) {
             TelemetrySourceCard(state)
         }
 
+        // v2.0.0-beta.1 P0 GA 修复：充放电会话统计 + 历史持久化操作
+        // (会话跨进程重启持久恢复；CSV 导出经 FileProvider 分享；支持一键清空)
+        item {
+            SessionHistoryCard(
+                sessions = sessions,
+                hasSamples = history.isNotEmpty(),
+                onExportSamples = onExportSamples,
+                onExportSessions = onExportSessions,
+                onClearHistory = onClearHistory
+            )
+        }
+
         item { Spacer(modifier = Modifier.height(28.dp)) }
+    }
+}
+
+/**
+ * v2.0.0-beta.1 P0 GA 修复：充放电会话统计卡 + 历史数据管理
+ *
+ * - 会话列表 (倒序展示最近 5 条)：类型/起止电量/Δ电量/时长/均值电流，
+ *   跨进程重启从会话 JSONL 持久恢复；
+ * - 样本/会话 CSV 导出 (FileProvider 分享)；一键清空全部历史。
+ */
+@Composable
+fun SessionHistoryCard(
+    sessions: List<BatterySession>,
+    hasSamples: Boolean,
+    onExportSamples: () -> Unit,
+    onExportSessions: () -> Unit,
+    onClearHistory: () -> Unit
+) {
+    var confirmClear by remember { mutableStateOf(false) }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(DesignTokens.BgSurface, RoundedCornerShape(DesignTokens.RadiusCard))
+            .border(1.dp, DesignTokens.Border, RoundedCornerShape(DesignTokens.RadiusCard))
+            .padding(14.dp)
+    ) {
+        Text(
+            text = stringResource(R.string.session_card_title),
+            fontSize = DesignTokens.FontXs,
+            color = Color.White,
+            fontWeight = FontWeight.Bold,
+            fontFamily = FontFamily.Monospace
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = stringResource(R.string.session_card_subtitle),
+            fontSize = DesignTokens.Font2xs,
+            color = DesignTokens.TextTertiary,
+            fontFamily = FontFamily.Monospace
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+
+        if (sessions.isEmpty()) {
+            Text(
+                text = stringResource(R.string.session_empty_hint),
+                fontSize = DesignTokens.Font2xs,
+                color = DesignTokens.TextTertiary,
+                fontFamily = FontFamily.Monospace
+            )
+        } else {
+            sessions.takeLast(5).reversed().forEach { s ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = s.type.label,
+                        fontSize = DesignTokens.Font2xs,
+                        color = if (s.type == BatterySession.SessionType.CHARGE) DesignTokens.BrandPrimary else DesignTokens.InfoSky,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace
+                    )
+                    Text(
+                        text = "${s.startPercentage}% → ${s.endPercentage}% (${if (s.deltaPercentage >= 0) "+" else ""}${s.deltaPercentage}%)",
+                        fontSize = DesignTokens.Font2xs,
+                        color = DesignTokens.TextPrimary,
+                        fontFamily = FontFamily.Monospace
+                    )
+                    Text(
+                        text = formatSessionDuration(s.durationMs),
+                        fontSize = DesignTokens.Font2xs,
+                        color = DesignTokens.TextTertiary,
+                        fontFamily = FontFamily.Monospace
+                    )
+                    Text(
+                        text = s.averageCurrentMa?.let { "${if (it >= 0) "+" else ""}$it mA" } ?: "—",
+                        fontSize = DesignTokens.Font2xs,
+                        color = DesignTokens.TextTertiary,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+        HorizontalDivider(color = DesignTokens.Border, thickness = 1.dp)
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = onExportSamples,
+                enabled = hasSamples,
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = DesignTokens.BgElevated,
+                    contentColor = DesignTokens.BrandPrimary
+                )
+            ) {
+                Text(
+                    text = stringResource(R.string.export_curve_csv),
+                    fontSize = DesignTokens.Font2xs,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
+            Button(
+                onClick = onExportSessions,
+                enabled = sessions.isNotEmpty(),
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = DesignTokens.BgElevated,
+                    contentColor = DesignTokens.BrandPrimary
+                )
+            ) {
+                Text(
+                    text = stringResource(R.string.export_session_csv),
+                    fontSize = DesignTokens.Font2xs,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
+            OutlinedButton(
+                onClick = { confirmClear = true },
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = DesignTokens.DangerRose)
+            ) {
+                Text(
+                    text = stringResource(R.string.action_clear),
+                    fontSize = DesignTokens.Font2xs,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
+        }
+    }
+
+    if (confirmClear) {
+        AlertDialog(
+            onDismissRequest = { confirmClear = false },
+            title = {
+                Text(
+                    text = stringResource(R.string.clear_history_dialog_title),
+                    fontSize = DesignTokens.FontSm,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    text = stringResource(R.string.clear_history_dialog_body),
+                    fontSize = DesignTokens.Font2xs,
+                    color = DesignTokens.TextSecondary,
+                    lineHeight = DesignTokens.FontXs
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    onClearHistory()
+                    confirmClear = false
+                }) {
+                    Text(
+                        text = stringResource(R.string.action_clear),
+                        color = DesignTokens.DangerRose,
+                        fontSize = DesignTokens.Font2xs
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmClear = false }) {
+                    Text(
+                        text = stringResource(R.string.action_cancel),
+                        color = DesignTokens.TextSecondary,
+                        fontSize = DesignTokens.Font2xs
+                    )
+                }
+            },
+            containerColor = DesignTokens.BgSurface
+        )
+    }
+}
+
+/** 会话时长格式化：<1min → "N s"；否则 "Xh Ym" / "Ym" */
+internal fun formatSessionDuration(durationMs: Long): String {
+    val totalSec = durationMs / 1000
+    val h = totalSec / 3600
+    val m = (totalSec % 3600) / 60
+    val s = totalSec % 60
+    return when {
+        h > 0 -> "${h}h${m}m"
+        m > 0 -> "${m}m${s}s"
+        else -> "${s}s"
     }
 }
 
@@ -1372,7 +1701,7 @@ fun TelemetryChartPanel(history: List<BatteryState>) {
             .padding(14.dp)
     ) {
         Text(
-            text = "实时遥测曲线 (最近 ${history.size} 个采样点)",
+            text = stringResource(R.string.chart_title, history.size),
             fontSize = DesignTokens.Font2xs,
             color = DesignTokens.TextSecondary,
             fontFamily = FontFamily.Monospace,
@@ -1413,7 +1742,11 @@ fun TelemetryChartPanel(history: List<BatteryState>) {
         }
         Spacer(modifier = Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            listOf("电压 mV" to DesignTokens.InfoSky, "电流 mA" to DesignTokens.BrandPrimary, "温度 °C" to DesignTokens.WarningAmber)
+            listOf(
+                stringResource(R.string.legend_voltage) to DesignTokens.InfoSky,
+                stringResource(R.string.legend_current) to DesignTokens.BrandPrimary,
+                stringResource(R.string.legend_temperature) to DesignTokens.WarningAmber
+            )
                 .forEach { (label, color) ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
@@ -1448,7 +1781,7 @@ fun TelemetrySourceCard(state: BatteryState) {
             .padding(14.dp)
     ) {
         Text(
-            text = "采集链路状态 (真实数据来源透视)",
+            text = stringResource(R.string.source_card_title),
             fontSize = DesignTokens.FontXs,
             color = Color.White,
             fontWeight = FontWeight.Bold,
@@ -1457,18 +1790,21 @@ fun TelemetrySourceCard(state: BatteryState) {
         Spacer(modifier = Modifier.height(10.dp))
         val currentNow = state.currentNowMa
         val rows = listOf(
-            "电量计节点" to state.gaugeNodePath,
-            "当前容量来源" to state.currentCapacitySource.label,
+            stringResource(R.string.source_label_gauge_node) to state.gaugeNodePath,
+            stringResource(R.string.source_label_current_source) to state.currentCapacitySource.label,
             // v2.0.0-alpha.5 自检修复：空标注不再是单一"未启用"——sysfs 实测优先时
             // 回归通道仍在持续积累样本作备用，旧文案"未启用 (无有效库仑计样本)"失实
-            "满容量回归" to state.capacityRegressionInfo.ifEmpty {
-                if (state.hasMeasuredCapacity) "备用通道 (sysfs 实测优先)"
-                else "未启用 (无有效库仑计样本)"
+            stringResource(R.string.source_label_full_regression) to state.capacityRegressionInfo.ifEmpty {
+                if (state.hasMeasuredCapacity) stringResource(R.string.source_regression_backup)
+                else stringResource(R.string.source_regression_disabled)
             },
-            "库仑计剩余电荷" to state.remainingCapacitySource.label,
-            "CURRENT_NOW 瞬时电流" to if (currentNow != null) "支持 (读数 ${if (currentNow > 0) "+$currentNow" else "$currentNow"} mA)" else "不可读 (显示 —)",
-            "内阻引擎滑窗" to "n=${state.engineSampleCount} · ${state.engineConfidenceLabel}",
-            "采集通道" to "粘性广播 + 1Hz 轮询双通道 (单解析器)"
+            stringResource(R.string.source_label_coulomb_charge) to state.remainingCapacitySource.label,
+            stringResource(R.string.source_label_current_now) to if (currentNow != null)
+                stringResource(R.string.source_current_now_ok, if (currentNow > 0) "+$currentNow" else "$currentNow")
+            else stringResource(R.string.source_current_now_unreadable),
+            stringResource(R.string.source_label_engine_window) to
+                stringResource(R.string.source_engine_window, state.engineSampleCount, state.engineConfidenceLabel),
+            stringResource(R.string.source_label_channel) to stringResource(R.string.source_channel_value)
         )
         rows.forEach { (label, value) ->
             Row(
@@ -1526,7 +1862,7 @@ fun HealthProfileScreen(
                     .padding(16.dp)
             ) {
                 Text(
-                    text = "电池健康度 (实测口径)",
+                    text = stringResource(R.string.health_profile_title),
                     fontSize = DesignTokens.Font2xs,
                     color = DesignTokens.TextTertiary,
                     fontFamily = FontFamily.Monospace
@@ -1542,9 +1878,14 @@ fun HealthProfileScreen(
                     )
                     Text(
                         text = if (state.capacityRegressionInfo.isEmpty())
-                            "当前容量 / 设计容量 · [${state.currentCapacitySource.label} + ${state.designCapacitySource.label}]"
+                            stringResource(R.string.health_formula_base, state.currentCapacitySource.label, state.designCapacitySource.label)
                         else
-                            "当前容量 / 设计容量 · [${state.currentCapacitySource.label}·${state.capacityRegressionInfo} + ${state.designCapacitySource.label}]",
+                            stringResource(
+                                R.string.health_formula_regression,
+                                state.currentCapacitySource.label,
+                                state.capacityRegressionInfo,
+                                state.designCapacitySource.label
+                            ),
                         fontSize = DesignTokens.Font2xs,
                         color = DesignTokens.TextTertiary,
                         fontFamily = FontFamily.Monospace,
@@ -1552,14 +1893,14 @@ fun HealthProfileScreen(
                     )
                 } else {
                     Text(
-                        text = "无法测算",
+                        text = stringResource(R.string.health_unmeasurable_big),
                         fontSize = 40.sp,
                         fontWeight = FontWeight.Black,
                         color = DesignTokens.TextTertiary,
                         fontFamily = FontFamily.Monospace
                     )
                     Text(
-                        text = "电量计节点 (${state.gaugeNodePath}) 未上报 charge_full——健康度=当前容量/设计容量，测不到就不虚构",
+                        text = stringResource(R.string.health_unmeasurable_note, state.gaugeNodePath),
                         fontSize = DesignTokens.Font2xs,
                         color = DesignTokens.TextTertiary,
                         fontFamily = FontFamily.Monospace,
@@ -1575,7 +1916,7 @@ fun HealthProfileScreen(
                 CyberMetricCardItem(
                     modifier = Modifier.weight(1f),
                     number = "R",
-                    title = "电芯内阻",
+                    title = stringResource(R.string.hw_label_internal_resistance),
                     // v2.0.0-alpha.1 自检修复：与"是多少就是多少"口径对齐——仅引擎
                     // 运行时测算 (ΔV/ΔI 回归) 有结果时展示数值；无测算不展示臆造
                     // 工程估算值 (总览硬件栏保留 [工程估算] 显式标注口径)
@@ -1588,11 +1929,11 @@ fun HealthProfileScreen(
                 CyberMetricCardItem(
                     modifier = Modifier.weight(1f),
                     number = "C",
-                    title = "充放电循环",
+                    title = stringResource(R.string.metric_title_cycles),
                     value = if (state.cycleCount > 0) "${state.cycleCount}" else "—",
-                    unit = if (state.cycleCount > 0) "次" else "",
+                    unit = if (state.cycleCount > 0) stringResource(R.string.unit_times) else "",
                     sub = state.healthForecastText
-                        ?: if (state.cycleCount > 0) "Cycle Count" else "系统未上报循环数据",
+                        ?: if (state.cycleCount > 0) "Cycle Count" else stringResource(R.string.cycles_sub_no_data),
                     accentColor = DesignTokens.AccentTeal
                 )
             }
@@ -1623,7 +1964,7 @@ fun HealthProfileScreen(
                     .padding(14.dp)
             ) {
                 Text(
-                    text = "完全充满校准规范详细说明",
+                    text = stringResource(R.string.health_calibration_title),
                     fontSize = DesignTokens.FontXs,
                     color = Color.White,
                     fontWeight = FontWeight.Bold,
@@ -1631,7 +1972,7 @@ fun HealthProfileScreen(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "为什么电量到 100% 还不算完全充满？Android 电源管理为提升体验，通常在恒压 (CV) 阶段初期就提前把 UI 显示为 100%——此时仍有数百 mA 电流持续注入 (饱和浮充)，并非真正充满。",
+                    text = stringResource(R.string.health_calibration_body_cv),
                     fontSize = DesignTokens.Font2xs,
                     color = DesignTokens.TextSecondary,
                     fontFamily = FontFamily.Monospace,
@@ -1639,7 +1980,7 @@ fun HealthProfileScreen(
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = "0-25 mA 截止电流门限：按锂离子电池充电终止标准，当充电电流自然衰减至 0.005C (0~25 mA) 时才达到完全饱和截止，此时测得的容量最准确，被库仑计固化为「完全充满时的容量」。",
+                    text = stringResource(R.string.health_calibration_body_cutoff),
                     fontSize = DesignTokens.Font2xs,
                     color = DesignTokens.TextSecondary,
                     fontFamily = FontFamily.Monospace,
@@ -1660,23 +2001,27 @@ fun HealthProfileScreen(
 fun HealthAdviceCard(state: BatteryState) {
     val (advice, accent) = when {
         state.healthQuality == BatteryHealthQuality.OVERHEAT ->
-            "系统上报电池过热，请立即停止充电并移除热源，恢复常温后再观察" to DesignTokens.DangerRose
+            stringResource(R.string.advice_overheat) to DesignTokens.DangerRose
         state.healthQuality == BatteryHealthQuality.DEAD ->
-            "系统上报电池损坏，建议前往官方售后检测更换电芯" to DesignTokens.DangerRose
+            stringResource(R.string.advice_dead) to DesignTokens.DangerRose
         state.healthQuality == BatteryHealthQuality.OVER_VOLTAGE ->
-            "系统上报电芯超压，请断开充电器并避免继续快充，尽快检修" to DesignTokens.DangerRose
+            stringResource(R.string.advice_over_voltage) to DesignTokens.DangerRose
         state.temperatureCelsius >= BatteryTelemetryParser.TEMP_OVERHEAT_THRESHOLD_C ->
-            "当前 ${BatteryTelemetryParser.TEMP_OVERHEAT_THRESHOLD_C.toInt()}°C 以上：高温会加速电芯老化，建议停止高负载与快充" to DesignTokens.DangerRose
+            stringResource(R.string.advice_high_temp, BatteryTelemetryParser.TEMP_OVERHEAT_THRESHOLD_C.toInt()) to DesignTokens.DangerRose
         state.temperatureCelsius >= BatteryTelemetryParser.TEMP_WARM_THRESHOLD_C ->
-            "当前 ${BatteryTelemetryParser.TEMP_WARM_THRESHOLD_C.toInt()}-${BatteryTelemetryParser.TEMP_OVERHEAT_THRESHOLD_C.toInt()}°C 偏热：建议移除保护壳、避免边充边玩" to DesignTokens.WarningAmber
+            stringResource(
+                R.string.advice_warm_temp,
+                BatteryTelemetryParser.TEMP_WARM_THRESHOLD_C.toInt(),
+                BatteryTelemetryParser.TEMP_OVERHEAT_THRESHOLD_C.toInt()
+            ) to DesignTokens.WarningAmber
         state.cycleCount >= 800 ->
-            "循环已超 ${state.cycleCount} 次 (锂聚合物 80% 健康基线约 800 次)：留意续航衰减，考虑更换" to DesignTokens.WarningAmber
+            stringResource(R.string.advice_cycle_worn, state.cycleCount) to DesignTokens.WarningAmber
         state.hasMeasuredCapacity && state.healthPercentage in 1f..79.9f ->
-            "实测健康度 ${String.format(Locale.US, "%.1f", state.healthPercentage)}% 低于 80% 基线：电池老化明显，建议规划更换" to DesignTokens.WarningAmber
+            stringResource(R.string.advice_low_health, String.format(Locale.US, "%.1f", state.healthPercentage)) to DesignTokens.WarningAmber
         !state.hasMeasuredCapacity ->
-            "电量计节点未上报容量数据，健康度无法测算——其余遥测 (电压/电流/温度) 均为真实读数" to DesignTokens.TextTertiary
+            stringResource(R.string.advice_unmeasurable) to DesignTokens.TextTertiary
         else ->
-            "各项硬件指标均在正常区间，继续保持良好充放电习惯即可" to DesignTokens.BrandPrimary
+            stringResource(R.string.advice_normal) to DesignTokens.BrandPrimary
     }
     Row(
         modifier = Modifier
@@ -1694,7 +2039,7 @@ fun HealthAdviceCard(state: BatteryState) {
         Spacer(modifier = Modifier.width(10.dp))
         Column {
             Text(
-                text = "健康诊断建议",
+                text = stringResource(R.string.health_advice_title),
                 fontSize = DesignTokens.Font2xs,
                 color = DesignTokens.TextTertiary,
                 fontFamily = FontFamily.Monospace

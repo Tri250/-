@@ -36,7 +36,7 @@ import org.robolectric.annotation.Config
  *    反映真实滑窗样本数 (防退化为"只消费不采集"死链路)。
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34], qualifiers = "w1200dp-h3000dp")
+@Config(sdk = [34], qualifiers = "zh-rCN-w1200dp-h3000dp")
 class TelemetryAndHealthTabAuditTest {
 
     private val app: Application get() = ApplicationProvider.getApplicationContext()

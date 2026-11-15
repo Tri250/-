@@ -42,7 +42,7 @@ import org.robolectric.annotation.Config
  * 6. P3-3 1Hz 轮询生命周期门控：setTelemetryPollingActive 冒烟。
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34], qualifiers = "w1200dp-h3000dp")
+@Config(sdk = [34], qualifiers = "zh-rCN-w1200dp-h3000dp")
 class DisplayIntegrityAuditTest {
 
     private val app: Application get() = ApplicationProvider.getApplicationContext()

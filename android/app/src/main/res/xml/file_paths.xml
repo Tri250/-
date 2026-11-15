@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- v2.0.0-beta.1 P0 GA 修复：FileProvider 分享路径白名单
+     仅授权 CSV 导出目录 (cacheDir/exports/) 与遥测持久化目录 (filesDir/telemetry/)，
+     数据最小暴露原则——其余缓存/私有文件不在授权范围 -->
+<paths>
+    <cache-path
+        name="exports"
+        path="exports/" />
+    <files-path
+        name="telemetry"
+        path="telemetry/" />
+</paths>

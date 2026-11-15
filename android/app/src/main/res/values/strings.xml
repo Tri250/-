@@ -1,4 +1,201 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- 应用基础 -->
     <string name="app_name">电池大师</string>
+    <string name="topbar_subtitle">API %1$d 电池管理服务 · 原生硬件遥测</string>
+
+    <!-- 顶层 Tab -->
+    <string name="tab_overview">状态总览</string>
+    <string name="tab_telemetry">遥测分析</string>
+    <string name="tab_health">健康档案</string>
+    <string name="tab_lab">硬件实验室</string>
+
+    <!-- 总览：12 项指标区块 -->
+    <string name="metrics_section_title">12 项充放电核心指标详情</string>
+    <string name="metric_title_health">电池健康度</string>
+    <string name="metric_sub_health_measured">实测健康度 [%1$s]</string>
+    <string name="metric_sub_health_regression">回归采样中 · %1$s · 覆盖≥30%%收敛</string>
+    <string name="metric_sub_health_unmeasurable">无法测算 [%1$s]</string>
+    <string name="metric_title_remaining">剩余电量</string>
+    <string name="metric_sub_remaining_measured">当前可用电荷量 [%1$s]</string>
+    <string name="metric_sub_remaining_coulomb">库仑计实测剩余电荷 [容量未实测]</string>
+    <string name="metric_sub_remaining_unmeasurable">无法测算 [容量未实测]</string>
+    <string name="metric_title_current_capacity">电池当前容量</string>
+    <string name="metric_sub_current_capacity">衰减后最大可用 [%1$s]</string>
+    <string name="metric_title_design_capacity">电池设计容量</string>
+    <string name="metric_sub_design_capacity">出厂铭牌标称 [%1$s]</string>
+    <string name="metric_title_percentage">电量百分比</string>
+    <string name="metric_sub_percentage">系统广播 EXTRA_LEVEL/SCALE</string>
+    <string name="metric_title_status">电池状态</string>
+    <string name="metric_title_temperature">电池温度</string>
+    <string name="temp_state_overheat">严重发热 (≥%1$d°C)</string>
+    <string name="temp_state_warm">偏热预警 (%1$d-%2$d°C)</string>
+    <string name="temp_state_cold">过冷保护 (≤0°C)</string>
+    <string name="temp_state_normal">温度正常</string>
+    <string name="metric_title_health_condition">电池健康状况</string>
+    <string name="metric_title_voltage">电芯电压</string>
+    <string name="voltage_sub_measured">电势差 %1$s V · %2$s</string>
+    <string name="voltage_sub_unmeasured">广播/sysfs 电压通道均不可读</string>
+    <string name="metric_title_cycles">充放电循环</string>
+    <string name="unit_times">次</string>
+    <string name="cycles_sub_no_data">系统未上报循环数据</string>
+    <string name="metric_title_current">瞬时电流</string>
+    <string name="metric_power_prefix">功率 %1$s</string>
+    <string name="metric_title_full_charge_capacity">完全充满容量</string>
+    <string name="full_charge_sub_met">已满足 100% &amp; 0-25 mA</string>
+    <string name="full_charge_sub_unmet">详见上方充满判定卡</string>
+
+    <!-- 设计容量校准对话框 -->
+    <string name="calibrate_error_blank">请输入容量数值</string>
+    <string name="calibrate_error_not_positive">容量必须为大于 0 的整数</string>
+    <string name="calibrate_error_below_min">容量不能小于 %1$d mAh</string>
+    <string name="calibrate_error_above_max">容量超出合理范围 (最大 %1$d mAh)</string>
+    <string name="calibrate_dialog_title">校准设计容量 (指标 04)</string>
+    <string name="calibrate_field_label">出厂设计容量 (mAh)</string>
+    <string name="action_confirm">确定</string>
+    <string name="action_restore_auto_detect">恢复自动探测</string>
+    <string name="action_cancel">取消</string>
+
+    <!-- Hero 核心读数 -->
+    <string name="hero_remaining_measured">剩余电量: %1$s / %2$s mAh</string>
+    <string name="hero_remaining_coulomb">剩余电量: %1$s mAh · 库仑计实测</string>
+    <string name="hero_remaining_unmeasured">剩余电量: — (容量未实测)</string>
+
+    <!-- 硬件信息汇总栏 -->
+    <string name="hardware_summary_title">底层硬件信息与电源子系统</string>
+    <string name="hw_label_soc">SoC 主控</string>
+    <string name="hw_label_soc_vendor">SoC 厂商</string>
+    <string name="hw_label_process">制程工艺</string>
+    <string name="hw_label_gpu">GPU 渲染</string>
+    <string name="hw_label_cpu">CPU 架构</string>
+    <string name="hw_label_pmic">电源管理 IC</string>
+    <string name="hw_label_fast_charge">快充协议</string>
+    <string name="hw_label_internal_resistance">电芯内阻</string>
+    <string name="hw_label_chemistry">化学材料体系</string>
+    <string name="hw_label_cell_structure">电芯结构</string>
+    <string name="hw_label_system_interface">系统接口</string>
+    <string name="calibrate_button">校准设计容量 (当前 %1$d mAh)</string>
+
+    <!-- 实验室模拟态警示横幅 -->
+    <string name="lab_banner_title">硬件实验室模拟数据生效中</string>
+    <string name="lab_banner_desc">当前总览页数值为实验室模拟值，非真实电池状态</string>
+    <string name="lab_banner_restore">恢复真实</string>
+
+    <!-- 充满判定卡片 (指标 12) -->
+    <string name="full_charge_card_title">12. 完全充满时的容量 (实测)</string>
+    <string name="full_charge_verdict_met">已达充满判定 (100% &amp; |I|≤25 mA)</string>
+    <string name="full_charge_verdict_unreadable">电流不可读 · 无法判定</string>
+    <string name="full_charge_verdict_waiting">等待条件满足</string>
+    <string name="full_charge_capacity_pending">— 未完全充满暂不显示 (需100%且充电态|电流|≤25mA) —</string>
+    <string name="chip_history_lock">历史锁定</string>
+    <string name="chip_source_simulated">来源: 模拟</string>
+    <string name="full_charge_unsupported_note">本设备不支持电流上报 (CURRENT_NOW)，无法执行 0-25 mA 浮充判定；已保留上次有效锁定值，不作新锁定。</string>
+    <string name="full_charge_last_lock">上次锁定: %1$s</string>
+    <string name="full_charge_simulating">模拟保持中 (%1$ds) · 结束后自动恢复真实遥测</string>
+    <string name="full_charge_simulate_btn">一键模拟完全充满 (100% + 16mA)</string>
+    <string name="full_charge_clear_records">清除锁定记录</string>
+
+    <!-- 关于 APP -->
+    <string name="about_feature_1">12 项核心充放电指标全量实时遥测：健康度 / 剩余电量 / 当前容量 / 设计容量 / 电量百分比 / 电池状态 / 温度 / 健康状况 / 电压 / 循环计数 / 瞬时电流 / 完全充满容量</string>
+    <string name="about_feature_2">完全充满判定：电量 100% 且瞬时电流回落至 0~25 mA 浮充截止区间时，自动锁定实际充满容量并跨会话保存</string>
+    <string name="about_feature_3">硬件实验室：一键场景模拟（充满校准 / 极速闪充 / 高负载放电 / 过热警报）与六组滑杆调参，随时一键恢复真实硬件遥测</string>
+    <string name="about_feature_4">硬件信息解析：SoC 主控五字段档案（型号 / 厂商 / 制程 / CPU / GPU）与 PMIC 型号、快充协议、电芯结构三级回退检测</string>
+    <string name="about_feature_5">数据来源：系统 BatteryManager 公开接口、ACTION_BATTERY_CHANGED 粘性广播与 sysfs 真实硬件通道，全部本地计算，不上传任何数据</string>
+    <string name="about_feature_6">权限声明：不申请任何运行时或危险权限，安装即可使用全部功能（合并清单仅含系统框架自动注入的签名级内部权限，不涉及隐私）</string>
+    <string name="about_title">关于 APP</string>
+    <string name="about_tagline">电池大师 — 专业安卓电池充放电监测工具</string>
+    <string name="about_privacy_title">隐私与数据声明</string>
+    <string name="about_privacy_body">零权限：不申请任何运行时/危险权限，电池数据全部来自系统公开 API 与 sysfs 硬件节点；零上传：全部指标、遥测历史与充放电会话仅存储在应用私有目录，无任何网络传输；零追踪：无第三方统计/崩溃 SDK，崩溃堆栈本地落盘、仅在您主动导出时离开设备。卸载即清除全部数据。</string>
+    <string name="about_export_crash_log">导出崩溃日志</string>
+    <string name="about_crash_count">本地记录 %1$d 份崩溃堆栈</string>
+    <string name="about_crash_none">暂无本地崩溃记录</string>
+    <string name="about_developer">开发者：某厂大牛马【带娃的小陈工】</string>
+    <string name="about_platforms">抖音 / 小红书 平台</string>
+
+    <!-- 遥测分析 Tab -->
+    <string name="telemetry_title">高频硬件遥测分析</string>
+    <string name="telemetry_subtitle">实时捕获充放电电流 (mA)、电芯端电压 (mV) 与热敏传感器温度曲线</string>
+    <string name="power_card_title">充放电功率</string>
+    <string name="power_sub_unreadable">电流不可读，不虚构 0W</string>
+    <string name="power_sub_charging">充电输入 P = V × I</string>
+    <string name="power_sub_discharging">放电输出 P = V × |I|</string>
+    <string name="power_sub_float_cutoff">浮充截止</string>
+    <string name="temp_assessment_title">电池温度评估</string>
+    <string name="session_card_title">充放电会话统计 (跨会话持久)</string>
+    <string name="session_card_subtitle">采样数据本地 JSONL 落盘，重启自动接续；导出 CSV 可离线分析</string>
+    <string name="session_empty_hint">暂无已完成的充放电会话——开始充电或放电后自动统计</string>
+    <string name="export_curve_csv">导出曲线 CSV</string>
+    <string name="export_session_csv">导出会话 CSV</string>
+    <string name="action_clear">清空</string>
+    <string name="clear_history_dialog_title">清空全部历史数据？</string>
+    <string name="clear_history_dialog_body">将删除本地持久化的全部遥测样本与充放电会话记录 (CSV 已导出的文件不受影响)，此操作不可撤销。</string>
+    <string name="chart_title">实时遥测曲线 (最近 %1$d 个采样点)</string>
+    <string name="legend_voltage">电压 mV</string>
+    <string name="legend_current">电流 mA</string>
+    <string name="legend_temperature">温度 °C</string>
+
+    <!-- 采集链路状态卡 -->
+    <string name="source_card_title">采集链路状态 (真实数据来源透视)</string>
+    <string name="source_label_gauge_node">电量计节点</string>
+    <string name="source_label_current_source">当前容量来源</string>
+    <string name="source_label_full_regression">满容量回归</string>
+    <string name="source_regression_backup">备用通道 (sysfs 实测优先)</string>
+    <string name="source_regression_disabled">未启用 (无有效库仑计样本)</string>
+    <string name="source_label_coulomb_charge">库仑计剩余电荷</string>
+    <string name="source_label_current_now">CURRENT_NOW 瞬时电流</string>
+    <string name="source_current_now_ok">支持 (读数 %1$s mA)</string>
+    <string name="source_current_now_unreadable">不可读 (显示 —)</string>
+    <string name="source_label_engine_window">内阻引擎滑窗</string>
+    <string name="source_engine_window">n=%1$d · %2$s</string>
+    <string name="source_label_channel">采集通道</string>
+    <string name="source_channel_value">粘性广播 + 1Hz 轮询双通道 (单解析器)</string>
+
+    <!-- 健康档案 Tab -->
+    <string name="health_profile_title">电池健康度 (实测口径)</string>
+    <string name="health_formula_base">当前容量 / 设计容量 · [%1$s + %2$s]</string>
+    <string name="health_formula_regression">当前容量 / 设计容量 · [%1$s·%2$s + %3$s]</string>
+    <string name="health_unmeasurable_big">无法测算</string>
+    <string name="health_unmeasurable_note">电量计节点 (%1$s) 未上报 charge_full——健康度=当前容量/设计容量，测不到就不虚构</string>
+    <string name="health_calibration_title">完全充满校准规范详细说明</string>
+    <string name="health_calibration_body_cv">为什么电量到 100% 还不算完全充满？Android 电源管理为提升体验，通常在恒压 (CV) 阶段初期就提前把 UI 显示为 100%——此时仍有数百 mA 电流持续注入 (饱和浮充)，并非真正充满。</string>
+    <string name="health_calibration_body_cutoff">0-25 mA 截止电流门限：按锂离子电池充电终止标准，当充电电流自然衰减至 0.005C (0~25 mA) 时才达到完全饱和截止，此时测得的容量最准确，被库仑计固化为「完全充满时的容量」。</string>
+    <string name="health_advice_title">健康诊断建议</string>
+    <string name="advice_overheat">系统上报电池过热，请立即停止充电并移除热源，恢复常温后再观察</string>
+    <string name="advice_dead">系统上报电池损坏，建议前往官方售后检测更换电芯</string>
+    <string name="advice_over_voltage">系统上报电芯超压，请断开充电器并避免继续快充，尽快检修</string>
+    <string name="advice_high_temp">当前 %1$d°C 以上：高温会加速电芯老化，建议停止高负载与快充</string>
+    <string name="advice_warm_temp">当前 %1$d-%2$d°C 偏热：建议移除保护壳、避免边充边玩</string>
+    <string name="advice_cycle_worn">循环已超 %1$d 次 (锂聚合物 80%% 健康基线约 800 次)：留意续航衰减，考虑更换</string>
+    <string name="advice_low_health">实测健康度 %1$s%% 低于 80%% 基线：电池老化明显，建议规划更换</string>
+    <string name="advice_unmeasurable">电量计节点未上报容量数据，健康度无法测算——其余遥测 (电压/电流/温度) 均为真实读数</string>
+    <string name="advice_normal">各项硬件指标均在正常区间，继续保持良好充放电习惯即可</string>
+
+    <!-- 硬件实验室 Tab -->
+    <string name="lab_screen_title">硬件实验室与模拟调试</string>
+    <string name="lab_state_active">模拟数据生效中 · 真实遥测已冻结</string>
+    <string name="lab_state_idle">真实遥测 · 交互后自动进入模拟模式</string>
+    <string name="lab_sound_on">提示音 开</string>
+    <string name="lab_sound_off">提示音 关</string>
+    <string name="lab_enter_simulation">进入模拟模式</string>
+    <string name="lab_restore_real">恢复真实硬件遥测</string>
+    <string name="lab_scenarios_title">一键工作场景模拟</string>
+    <string name="lab_sliders_title">逐项参数调节 (6 组滑杆)</string>
+    <string name="lab_slider_percentage">05. 电量百分比</string>
+    <string name="lab_slider_current">11. 瞬时电流</string>
+    <string name="lab_slider_voltage">09. 电芯电压</string>
+    <string name="lab_slider_temperature">07. 传感器温度</string>
+    <string name="lab_slider_cycles">10. 循环计数</string>
+    <string name="lab_slider_cycles_value">%1$d 次</string>
+    <string name="lab_slider_design_capacity">04. 出厂设计容量 (真实生效)</string>
+    <string name="lab_status_force_title">06. 电池状态强制切换</string>
+    <string name="status_charging">充电中</string>
+    <string name="status_discharging">放电中</string>
+    <string name="status_full">已充满</string>
+    <string name="status_not_charging">未充电</string>
+    <string name="lab_health_select_title">08. 硬件健康状态选择</string>
+    <string name="health_state_good">良好</string>
+    <string name="health_state_overheat">过热</string>
+    <string name="health_state_dead">损坏</string>
+    <string name="health_state_over_voltage">超压</string>
+    <string name="health_state_unknown">未知</string>
 </resources>

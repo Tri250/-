@@ -1,7 +1,7 @@
 # Android Battery Master (安卓电池管家)
 
 [![Build & Release Android APK](https://github.com/actions/workflows/build-apk.yml/badge.svg)](https://github.com)
-[![Android](https://img.shields.io/badge/Platform-Android%208.0%2B%20(API%2026--35)-brightgreen.svg)](https://developer.android.com)
+[![Android](https://img.shields.io/badge/Platform-Android%208.0%2B%20(API%2026--36)-brightgreen.svg)](https://developer.android.com)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.0.21-blue.svg)](https://kotlinlang.org)
 [![Compose](https://img.shields.io/badge/Jetpack%20Compose-BOM%202024.10-purple.svg)](https://developer.android.com/jetpack/compose)
 
@@ -254,6 +254,41 @@ alpha.7 真机反馈「电芯电压 / 瞬时电流无正常显示」。对两条
 
 ---
 
+## 🚀 v2.0.0-beta.1 · GA 交付差距全面修复（P0/P1/P2 逐优先级闭环）
+
+外部 GA（General Availability）完成度审计给出三类阻断项：**P0 功能完整性**（真机机型矩阵回归、补仪器化测试、长期数据连续性）、**P1 发布合规**（正式签名与商店合规、beta/rc 收敛）、**P2 交付质量**（用户文档与本地化、崩溃监控与性能基线）。本版本按 P0→P1→P2 逐优先级全部闭环，版本策略从 alpha 收敛进入 **beta**。
+
+### P0 · 功能完整性
+
+- **长期数据连续性真实现**：新增 [BatteryHistoryStore.kt](android/app/src/main/java/com/battery/master/service/BatteryHistoryStore.kt)——真实遥测样本 JSONL 本地落盘（`filesDir/telemetry/samples.jsonl`，≤2.5 次/秒追加、4000 行滑窗轮转保留 3000 行），进程重启曲线自动接续尾部 ≤200 拍；充放电会话状态机（状态族切换 / 60s 断流自动闭合）独立落盘保留 500 条，跨重启长期统计不丢。[BatteryViewModel.kt](android/app/src/main/java/com/battery/master/viewmodel/BatteryViewModel.kt) 发布源头打点 `sampleTimestampMs` 并异步落盘，`onCleared` flush 闭合进行中会话。
+- **遥测分析页新增"充放电会话统计"卡**：最近 5 条会话（类型/起止电量/Δ电量/时长/均值电流）+ 曲线 CSV / 会话 CSV 导出（[FileProvider](android/app/src/main/AndroidManifest.xml) 仅授权 `cacheDir/exports/` 白名单，最小暴露）+ 一键清空（二次确认对话框）。
+- **仪器化测试补齐**：新增 [MainActivitySmokeTest.kt](android/app/src/androidTest/java/com/battery/master/MainActivitySmokeTest.kt)（启动冒烟 / 四 Tab 导航 / 遥测会话卡挂载，waitUntil 显式超时抗 1Hz 重组抖动）；CI 新增 `instrumented` job（Ubuntu KVM 模拟器 API 30 `connectedDebugAndroidTest`），`release` job 改为 `needs: [android, web, instrumented]`——仪器化不通过不出包。
+- **机型矩阵回归清单**：[docs/DEVICE_MATRIX.md](docs/DEVICE_MATRIX.md)——按设备能力差异划分 8 类机型（Pixel 标准系 / 三星 maxfg / MTK dc 平台 / 电量计全不可读 / CURRENT_NOW 不支持 / 双电芯 / 折叠屏配置变更 / Android Go 低内存），逐类专项验收点 + Firebase Test Lab 云真机 CI stub（待项目开通启用）。
+- **targetSdk 36 行为加固审计通过**：edge-to-edge 强制执行合规（无 statusBarColor/windowOptOut 退出配置，`enableEdgeToEdge` 显式深色 SystemBarStyle）、动态注册广播 `RECEIVER_NOT_EXPORTED` 合规（ContextCompat 统一入口）、`tools:targetApi` 34→36。
+
+### P1 · 发布合规
+
+- **正式签名 fail-fast**：[build-apk.yml](.github/workflows/build-apk.yml) tag 触发构建缺 `KEYSTORE_BASE64` 等密钥直接失败——debug 签名物料不得以 v* 发布名义流出；分支/PR 构建保留 debug 兜底不阻断。
+- **商店合规物料**：[PRIVACY.md](PRIVACY.md) 零权限/零上传/零追踪隐私政策；应用内"隐私与数据声明"卡（关于卡内，安装即可见）；[docs/STORE_LISTING.md](docs/STORE_LISTING.md) 上架清单（商店文案 / Data Safety 问卷答案 / 内容分级 / 测试轨道策略）。
+- **beta 收敛**：versionName `2.0.0-alpha.8` → `2.0.0-beta.1`，versionCode 20 → 21；后续按 beta → rc → 正式三段收敛（见 STORE_LISTING 第 6 节轨道策略）。
+
+### P2 · 交付质量
+
+- **本地化**：全部 UI 文案迁移 [strings.xml](android/app/src/main/res/values/strings.xml) 并新增 [values-en](android/app/src/main/res/values-en/strings.xml) 英文资源（插值字符串占位符化，默认 locale 渲染逐字节不变，全量单测回归保障）。
+- **崩溃监控（零三方 SDK）**：[CrashLogHandler.kt](android/app/src/main/java/com/battery/master/CrashLogHandler.kt) 包装默认未捕获异常处理器，堆栈（设备型号/系统版本/应用版本/线程/堆栈）本地落盘保留最近 10 份，[BatteryMasterApplication.kt](android/app/src/main/java/com/battery/master/BatteryMasterApplication.kt) 安装；关于卡"导出崩溃日志"一键分享——堆栈仅在用户主动导出时离开设备。
+- **性能基线**：CI APK 体积门禁（>35 MB 失败 / >25 MB 告警）+ [docs/PERFORMANCE_BASELINES.md](docs/PERFORMANCE_BASELINES.md)（体积预算 / 运行时预算 / 新增持久化 IO 预算 / 崩溃捕获预算 / 回归方法）。
+- **用户文档**：[docs/USER_GUIDE.md](docs/USER_GUIDE.md)（四页功能手册 + 8 条 FAQ）与 [CHANGELOG.md](CHANGELOG.md)（Keep a Changelog 规范）。
+
+### 测试与验证
+
+- 新增 **16 个持久化与集成单测**（[BatteryHistoryStoreTest](android/app/src/test/java/com/battery/master/BatteryHistoryStoreTest.kt)：编解码往返 / 跨重启回填 / 滑窗轮转 / 会话状态机三场景 / CSV 导出 / 清空与损坏行兜底；[BatteryHistoryPersistenceIntegrationTest](android/app/src/test/java/com/battery/master/BatteryHistoryPersistenceIntegrationTest.kt)：VM 发布→落盘→新实例回填端到端 / 清空双态生效 / 400ms 节流去重不回退）；
+- 全量 **177 用例全绿**（`./gradlew testDebugUnitTest`，基线 161 + 新增 16）；
+- 仪器化测试于 CI 模拟器执行（本沙箱无 KVM/真机，真机语义验证由 `instrumented` job 保障）。
+
+- **版本升级**：versionName 2.0.0-beta.1 / versionCode 21，Release 标记预发布。
+
+---
+
 ## 👨‍💻 开发者
 
 - **某厂大牛马【带娃的小陈工】** — 抖音 / 小红书 平台
@@ -307,7 +342,7 @@ git push -u origin main
 只要在本地打上 `v*` 格式的版本标签（**必须与 `android/app/build.gradle.kts` 中的 `versionName` 一致**，CI 会强制校验）并推送到 GitHub，GitHub Actions 会自动创建 GitHub Release 并将 APK 文件挂载在 Release 附件中：
 
 ```bash
-# 示例：当前版本 versionName=2.0.0-alpha.8 (versionCode=20)
+# 示例：当前版本 versionName=2.0.0-beta.1 (versionCode=21)
 git tag v1.2.6
 git push origin v1.2.6
 ```
