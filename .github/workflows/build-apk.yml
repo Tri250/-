@@ -339,7 +339,9 @@ jobs:
           # 多行写法会让 cd 与 gradlew 分属不同 shell 导致 cwd 丢失 (exit 127)。
           # 前置等待 PackageManager 服务就绪 (boot_completed 后 system_server 仍可能
           # 未完成注册，安装会话报 "Can't find service: package")；失败自动重试一次
-          script: adb wait-for-device && adb shell 'while [ "$(getprop sys.boot_completed)" != "1" ]; do sleep 2; done' && adb shell 'while ! pm list packages > /dev/null 2>&1; do sleep 2; done' && cd android && ./gradlew connectedDebugAndroidTest --no-daemon --stacktrace || (echo "RETRY instrumented tests" && adb shell 'while ! pm list packages > /dev/null 2>&1; do sleep 2; done' && cd android && ./gradlew connectedDebugAndroidTest --no-daemon --stacktrace)
+          # 重试分支必须用绝对路径 $GITHUB_WORKSPACE/android——首分支 cd android
+          # 已改变同一 shell 的 cwd，相对路径 cd android 会 exit 2 (Run 43772453265)
+          script: adb wait-for-device && adb shell 'while [ "$(getprop sys.boot_completed)" != "1" ]; do sleep 2; done' && adb shell 'while ! pm list packages > /dev/null 2>&1; do sleep 2; done' && cd "$GITHUB_WORKSPACE/android" && ./gradlew connectedDebugAndroidTest --no-daemon --stacktrace || (echo "RETRY instrumented tests" && adb wait-for-device && adb shell 'while ! pm list packages > /dev/null 2>&1; do sleep 2; done' && cd "$GITHUB_WORKSPACE/android" && ./gradlew connectedDebugAndroidTest --no-daemon --stacktrace)
 
       - name: Upload Instrumented Test Report
         if: always()
