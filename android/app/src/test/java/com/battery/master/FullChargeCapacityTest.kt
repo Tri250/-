@@ -89,7 +89,12 @@ class FullChargeCapacityTest {
         assertEquals(4780, reader.lockFullChargeIfCriteriaMet(4780, 100, 20))
         assertEquals(firstTimestamp, reader.lastFullChargeTimestamp)
 
-        // 区间内容量变化 (电量计重新校准)：重新锁定并刷新时间戳
+        // 区间内容量变化 (电量计重新校准)：重新锁定并刷新时间戳。
+        // 自旋等待系统时钟推进——currentTimeMillis 粒度可达 10ms，两次锁定
+        // 落在同一毫秒会使"刷新时间戳"断言偶发失败 (CI Run 43776585588)
+        while (System.currentTimeMillis() <= firstTimestamp!!) {
+            Thread.sleep(1)
+        }
         assertEquals(4760, reader.lockFullChargeIfCriteriaMet(4760, 100, 18))
         assertTrue(reader.lastFullChargeTimestamp!! > firstTimestamp)
 
