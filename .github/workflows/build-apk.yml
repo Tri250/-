@@ -333,10 +333,10 @@ jobs:
           api-level: 30
           arch: x86_64
           target: google_apis
-          # google_apis 镜像自带电池服务，ACTION_BATTERY_CHANGED 粘性广播可投递
-          script: |
-            cd android
-            ./gradlew connectedDebugAndroidTest --no-daemon --stacktrace
+          # google_apis 镜像自带电池服务，ACTION_BATTERY_CHANGED 粘性广播可投递。
+          # 注意：script 必须单行命令——emulator-runner 逐行用独立 shell 执行，
+          # 多行写法会让 cd 与 gradlew 分属不同 shell 导致 cwd 丢失 (exit 127)
+          script: cd android && ./gradlew connectedDebugAndroidTest --no-daemon --stacktrace
 
       - name: Upload Instrumented Test Report
         if: always()
