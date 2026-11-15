@@ -1,10 +1,12 @@
 package com.battery.master
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Rule
@@ -80,7 +82,12 @@ class MainActivitySmokeTest {
         // (BatteryHistoryStore 会话/样本持久化的 UI 入口)
         awaitText(tabTelemetry)
         composeRule.onNodeWithText(tabTelemetry).performClick()
+        // 会话卡是 LazyColumn 的 item，手机视口下位于首屏之下未被组合
+        // (语义树不存在，Run 43775947015 超时根因)；以遥测页标题 (LazyColumn
+        // 首个 item) 为锚点滚动到卡片后再断言
         val sessionCardTitle = res(R.string.session_card_title)
+        composeRule.onNodeWithText(res(R.string.telemetry_title))
+            .performScrollToNode(hasText(sessionCardTitle, substring = true))
         composeRule.waitUntil(timeoutMillis = 30_000L) {
             composeRule.onAllNodesWithText(sessionCardTitle, substring = true)
                 .fetchSemanticsNodes().isNotEmpty()
