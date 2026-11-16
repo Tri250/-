@@ -1,14 +1,16 @@
 package com.battery.master
 
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeUp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -82,15 +84,24 @@ class MainActivitySmokeTest {
         // (BatteryHistoryStore 会话/样本持久化的 UI 入口)
         awaitText(tabTelemetry)
         composeRule.onNodeWithText(tabTelemetry).performClick()
-        // 会话卡是 LazyColumn 的 item，手机视口下位于首屏之下未被组合
-        // (语义树不存在，Run 43775947015 超时根因)；以遥测页标题 (LazyColumn
-        // 首个 item) 为锚点滚动到卡片后再断言
+        // 会话卡是遥测页 LazyColumn 尾部的 item，手机视口下位于首屏之下未被组合
+        // (语义树不存在，Run 43775947015 超时根因)。performScrollToNode 在 1Hz
+        // 遥测重组流上滚动失效 (Run 43777025731)，改用确定性上滑循环：每滑一次
+        // 检查一次语义树，滑到 LazyColumn 末尾该卡片必然被组合
         val sessionCardTitle = res(R.string.session_card_title)
-        composeRule.onNodeWithText(res(R.string.telemetry_title))
-            .performScrollToNode(hasText(sessionCardTitle, substring = true))
-        composeRule.waitUntil(timeoutMillis = 30_000L) {
-            composeRule.onAllNodesWithText(sessionCardTitle, substring = true)
-                .fetchSemanticsNodes().isNotEmpty()
+        var cardVisible = false
+        for (attempt in 0 until 8) {
+            if (composeRule.onAllNodesWithText(sessionCardTitle, substring = true)
+                    .fetchSemanticsNodes().isNotEmpty()
+            ) {
+                cardVisible = true
+                break
+            }
+            composeRule.onRoot().performTouchInput { swipeUp() }
         }
+        assertTrue(
+            "充放电会话统计卡未在遥测页出现 (8 次上滑后): $sessionCardTitle",
+            cardVisible
+        )
     }
 }
