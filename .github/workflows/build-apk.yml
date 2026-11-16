@@ -331,14 +331,17 @@ jobs:
       # kvm 组——ProbeKVM 权限拒绝导致 emulator -accel off 全软件模拟，启动极慢
       # 且 adbd 反复 offline，ddmlib 读设备属性失败报 "API level=1. Cannot install
       # split APKs" (Run 43774404317)。chmod 立即生效无需重登；/dev/kvm 不存在时
-      # 降级回软件模拟 (由后续就绪等待与重试兜底)
+      # 经 GITHUB_ENV 动态降级回软件模拟 (避免 disable-linux-hw-accel: false 在
+      # 无 KVM 的 runner 上硬失败)，由后续就绪等待与重试兜底
       - name: Grant KVM Access (Ubuntu 26 Runner)
         run: |
           if [ -e /dev/kvm ]; then
             sudo chmod 666 /dev/kvm
             ls -l /dev/kvm
+            echo "EMULATOR_DISABLE_HW_ACCEL=false" >> "$GITHUB_ENV"
           else
             echo "WARNING: /dev/kvm not available, falling back to software emulation"
+            echo "EMULATOR_DISABLE_HW_ACCEL=true" >> "$GITHUB_ENV"
           fi
 
       - name: Run Instrumented Tests On Emulator (API 30)
@@ -348,18 +351,20 @@ jobs:
           arch: x86_64
           target: google_apis
           cores: 4
-          # KVM 权限已授予则强制硬件加速 (快速且稳定)；auto 会在探测失败时退化为
-          # 全软件模拟——正是历次仪器化 flaky 的根源
-          disable-linux-hw-accel: false
+          # 动态值：有 /dev/kvm (chmod 后可用) → false 强制硬件加速 (快速且稳定)；
+          # 无 /dev/kvm → true 降级软件模拟。auto 模式会在探测失败时退化为全软件
+          # 模拟——正是历次仪器化 flaky 的根源
+          disable-linux-hw-accel: ${{ env.EMULATOR_DISABLE_HW_ACCEL }}
           # google_apis 镜像自带电池服务，ACTION_BATTERY_CHANGED 粘性广播可投递。
           # 注意：script 必须单行命令——emulator-runner 逐行用独立 shell 执行，
           # 多行写法会让 cd 与 gradlew 分属不同 shell 导致 cwd 丢失 (exit 127)。
           # 前置三重就绪等待：boot_completed + ro.build.version.sdk=30 (ddmlib
           # 安装前要读该属性，缺失时报 API level=1 拒绝安装) + PackageManager
-          # 服务就绪；失败自动重试一次。
+          # 服务就绪；每段等待都加 GNU timeout 上界——设备永不就绪时快速失败进
+          # 重试而非挂死到 job 6 小时上限。失败自动重试一次。
           # 重试分支必须用绝对路径 $GITHUB_WORKSPACE/android——首分支 cd android
           # 已改变同一 shell 的 cwd，相对路径 cd android 会 exit 2 (Run 43772453265)
-          script: adb wait-for-device && adb shell 'while [ "$(getprop sys.boot_completed)" != "1" ]; do sleep 2; done' && adb shell 'while [ "$(getprop ro.build.version.sdk)" != "30" ]; do sleep 2; done' && adb shell 'while ! pm list packages > /dev/null 2>&1; do sleep 2; done' && cd "$GITHUB_WORKSPACE/android" && ./gradlew connectedDebugAndroidTest --no-daemon --stacktrace || (echo "RETRY instrumented tests" && adb wait-for-device && adb shell 'while [ "$(getprop sys.boot_completed)" != "1" ]; do sleep 2; done' && adb shell 'while [ "$(getprop ro.build.version.sdk)" != "30" ]; do sleep 2; done' && adb shell 'while ! pm list packages > /dev/null 2>&1; do sleep 2; done' && cd "$GITHUB_WORKSPACE/android" && ./gradlew connectedDebugAndroidTest --no-daemon --stacktrace)
+          script: timeout 120 adb wait-for-device && timeout 240 adb shell 'while [ "$(getprop sys.boot_completed)" != "1" ]; do sleep 2; done' && timeout 240 adb shell 'while [ "$(getprop ro.build.version.sdk)" != "30" ]; do sleep 2; done' && timeout 240 adb shell 'while ! pm list packages > /dev/null 2>&1; do sleep 2; done' && cd "$GITHUB_WORKSPACE/android" && ./gradlew connectedDebugAndroidTest --no-daemon --stacktrace || (echo "RETRY instrumented tests" && timeout 120 adb wait-for-device && timeout 240 adb shell 'while [ "$(getprop sys.boot_completed)" != "1" ]; do sleep 2; done' && timeout 240 adb shell 'while [ "$(getprop ro.build.version.sdk)" != "30" ]; do sleep 2; done' && timeout 240 adb shell 'while ! pm list packages > /dev/null 2>&1; do sleep 2; done' && cd "$GITHUB_WORKSPACE/android" && ./gradlew connectedDebugAndroidTest --no-daemon --stacktrace)
 
       - name: Upload Instrumented Test Report
         if: always()
@@ -563,7 +568,7 @@ jobs:
             ### 五维自检摘要
             - **稳定性**：广播注册/注销全容错（异常 ROM 下退化为轮询通道不崩溃）、系统服务安全转换、空安全与除零防护、Gradle 分发下载超时放宽至 120s。
             - **性能**：Compose 单数据源 1Hz 刷新、双通道（广播+轮询）共享 Reader 配置避免重复解析、Web 遥测定时器 ref 化消除每拍重建。
-            - **兼容性**：minSdk 26 / targetSdk 35，API 31+/34+ 分级适配（SoC 型号、循环计数）、中文字体回退栈、`prefers-reduced-motion` 无障碍支持。
+            - **兼容性**：minSdk 26 / targetSdk 36，API 31+/34+ 分级适配（SoC 型号、循环计数）、中文字体回退栈、`prefers-reduced-motion` 无障碍支持。
             - **权限管理**：0 运行时权限，备份规则显式排除应用数据。
             - **安装卸载**：`applicationId=com.battery.master`、`versionCode=${{ steps.version.outputs.version_code }}` 单调递增支持覆盖安装、自适应图标（anydpi-v26 + 五密度 PNG 兜底）、版本化产物命名、CI 安装属性自检（aapt2 badging）与 tag↔versionName 一致性校验。
 

@@ -91,9 +91,12 @@ class FullChargeCapacityTest {
 
         // 区间内容量变化 (电量计重新校准)：重新锁定并刷新时间戳。
         // 自旋等待系统时钟推进——currentTimeMillis 粒度可达 10ms，两次锁定
-        // 落在同一毫秒会使"刷新时间戳"断言偶发失败 (CI Run 43776585588)
-        while (System.currentTimeMillis() <= firstTimestamp!!) {
+        // 落在同一毫秒会使"刷新时间戳"断言偶发失败 (CI Run 43776585588)；
+        // 250ms 上界防时钟回拨 (NTP 校正) 导致的死循环，超界后由断言如实报败
+        var spinMs = 0
+        while (System.currentTimeMillis() <= firstTimestamp!! && spinMs < 250) {
             Thread.sleep(1)
+            spinMs++
         }
         assertEquals(4760, reader.lockFullChargeIfCriteriaMet(4760, 100, 18))
         assertTrue(reader.lastFullChargeTimestamp!! > firstTimestamp)

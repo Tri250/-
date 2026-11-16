@@ -132,7 +132,7 @@
 - **P2-5 倒计时协程加固**：触发模拟保持期时同步置剩余秒数（消除 0~500ms 显示 0 的竞态窗口）；`catch Throwable` 改为 `catch Exception` 并原样重抛 `CancellationException`，恢复结构化并发取消语义。
 - **P2-6 清除记录后锁定值复活修复**：`clearFullChargeRecords()` 同步置空 `lastKnownState`——旧实现采集异常降级时返回含旧锁定值的快照，"已清除"的指标 12 会复活回显。
 - **P3 宣称与工程一致性**：AIDL 失实宣称修正（`halVersion`/副标题/硬件栏标签改为 BatteryManager API 真实通道）、README 历史失实行校正（versionCode 时点标注/反射依赖表述/权限口径）、`NativeCodeViewer` 代码快照与真实源码同步并加滞后标注、`__dirname` → `import.meta.dirname`、React.lazy 分包降低主 chunk 体积、移除未使用的 `@google/genai` 依赖与 `.env.example`、三处 checkout 补 `fetch-depth: 0`、签名配置显式启用 v1/v2/v3/v3.1 全方案。
-- **targetSdk 36 路线图**：维持 targetSdk 35（API 35 已全量适配）；36 升级涉及 edge-to-edge 与广播注册新行为，待真机回归后单独发版，不在本版冒进。
+- **targetSdk 36 路线图**：维持 targetSdk 35（API 35 已全量适配）；36 升级涉及 edge-to-edge 与广播注册新行为，待真机回归后单独发版，不在本版冒进。（已于 v2.0.0-alpha 批次G 落地：compileSdk/targetSdk 35 → 36，见下文批次G条目）
 - **回归测试**：`FullChargeCapacityTest` 新增 3 个充电态判定回归用例（EXTRA_PLUGGED 缺失 + DISCHARGING 不误判、插电通道独立生效、拔线 100% 绝不锁定），既有用例同步按新口径修正。
 - **版本升级**：versionName 1.2.6 / versionCode 11。
 
