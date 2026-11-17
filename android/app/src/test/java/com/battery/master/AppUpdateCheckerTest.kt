@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.battery.master.service.AppUpdateChecker
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -23,6 +24,12 @@ import org.robolectric.annotation.Config
 class AppUpdateCheckerTest {
 
     private lateinit var checker: AppUpdateChecker
+
+    /** 与被测 checker 共享 prefs 名的直读句柄（节流断言用） */
+    private val prefs by lazy {
+        ApplicationProvider.getApplicationContext<Context>()
+            .getSharedPreferences("app_update_prefs", Context.MODE_PRIVATE)
+    }
 
     /** GitHub Releases /latest 响应 fixture (与发布产物命名规范一致) */
     private val releaseFixture = """
@@ -156,5 +163,36 @@ class AppUpdateCheckerTest {
     fun checkForUpdateSwallowsFetcherFailure() {
         checker.fetcher = { throw java.io.IOException("network down") }
         assertNull(checker.checkForUpdate())
+    }
+
+    // ---------- v2.1.0-beta.3 自动检查：24h 节流 + 开关 ----------
+
+    private const val HOUR_MS = 3600_000L
+
+    @Test
+    fun autoCheckDueWhenNeverChecked() {
+        assertTrue(checker.autoCheckDue(nowMs = 1000L))
+        checker.markAutoCheckDone(nowMs = 1000L)
+        assertTrue(prefs.getLong("update_last_auto_check_at", 0L) == 1000L)
+    }
+
+    @Test
+    fun autoCheckThrottledWithinInterval() {
+        checker.markAutoCheckDone(nowMs = 10_000L)
+        assertFalse(checker.autoCheckDue(nowMs = 10_000L + HOUR_MS))
+        assertFalse(checker.autoCheckDue(nowMs = 10_000L + 23 * HOUR_MS))
+        assertTrue(checker.autoCheckDue(nowMs = 10_000L + 24 * HOUR_MS))
+    }
+
+    @Test
+    fun autoCheckRespectsEnabledSwitch() {
+        checker.markAutoCheckDone(nowMs = 10_000L)
+        checker.setAutoCheckEnabled(false)
+        assertFalse(checker.isAutoCheckEnabled())
+        // 关闭后即使超时也不触发
+        assertFalse(checker.autoCheckDue(nowMs = 10_000L + 48 * HOUR_MS))
+        checker.setAutoCheckEnabled(true)
+        assertTrue(checker.isAutoCheckEnabled())
+        assertTrue(checker.autoCheckDue(nowMs = 10_000L + 48 * HOUR_MS))
     }
 }

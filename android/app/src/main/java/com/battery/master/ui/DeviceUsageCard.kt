@@ -36,7 +36,7 @@ fun DeviceUsageCard(usage: DeviceUsageSnapshot) {
         modifier = Modifier
             .fillMaxWidth()
             .glassSurface()
-            .entranceReveal(0)
+            .entranceReveal(4)
             .padding(16.dp)
     ) {
             Row(

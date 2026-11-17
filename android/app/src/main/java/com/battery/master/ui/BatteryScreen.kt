@@ -91,6 +91,8 @@ fun BatteryScreen(
     val deviceUsage by viewModel.deviceUsage.collectAsState()
     // v2.1.0-beta.2 新增：应用内热更新状态机 (Idle/Checking/UpToDate/Available/Error/DownloadQueued)
     val appUpdateState by viewModel.appUpdateState.collectAsState()
+    val downloadProgress by viewModel.downloadProgress.collectAsState()
+    val autoUpdateCheckEnabled by viewModel.autoUpdateCheckEnabled.collectAsState()
 
     // 顶层双 Tab：状态总览 / 硬件实验室 (对齐 Web 端 AndroidNavBar 信息架构)。
     // 外壳层审计修复：rememberSaveable 保证配置变更重建后停留在当前 Tab，
@@ -200,12 +202,6 @@ fun BatteryScreen(
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // 0. 设备使用时长 (v2.1.0-beta.2 置顶最显眼位置：真实开机天数/小时，
-            //    elapsedRealtime + 跨重启累计 + BOOT_COUNT；玻璃切面 + 错峰入场 index 0)
-            item {
-                DeviceUsageCard(deviceUsage)
-            }
-
             // 1. 顶部华丽核心环形仪表盘 (5. 电量百分比, 6. 电池状态, 2. 剩余电量, 11. 瞬时电流)
             item {
                 Box(modifier = Modifier.entranceReveal(1)) {
@@ -235,7 +231,13 @@ fun BatteryScreen(
                 )
             }
 
-            // 4. 12 项充放电指标卡片网格列表
+            // 4. 设备使用时长 (v2.1.0-beta.3 调整为第 5 张卡：真实开机天数/小时，
+            //    elapsedRealtime + 跨重启累计 + BOOT_COUNT；玻璃切面 + 错峰入场)
+            item {
+                DeviceUsageCard(deviceUsage)
+            }
+
+            // 5. 12 项充放电指标卡片网格列表
             item {
                 Text(
                     text = stringResource(R.string.metrics_section_title),
@@ -464,16 +466,19 @@ fun BatteryScreen(
                 }
             }
 
-            // 6. 应用更新 (v2.1.0-beta.2 热更新：GitHub Releases 直查 + 系统下载器安装)
+            // 7. 应用更新 (v2.1.0-beta.2 热更新：GitHub Releases 直查 + 系统下载器安装)
             item {
                 AppUpdateCard(
                     state = appUpdateState,
+                    downloadProgress = downloadProgress,
+                    autoCheckEnabled = autoUpdateCheckEnabled,
                     onCheckUpdate = { viewModel.checkForAppUpdate() },
-                    onDownload = { info -> viewModel.downloadUpdateApk(info) }
+                    onDownload = { info -> viewModel.downloadUpdateApk(info) },
+                    onToggleAutoCheck = { viewModel.setAutoUpdateCheckEnabled(it) }
                 )
             }
 
-            // 7. 关于 APP 功能说明 (版本号经 BuildConfig 单源注入)
+            // 8. 关于 APP 功能说明 (版本号经 BuildConfig 单源注入)
             item {
                 Box(modifier = Modifier.entranceReveal(6)) {
                     AboutAppCard()

@@ -28,6 +28,9 @@ class AppUpdateChecker(context: Context) {
         private const val KEY_LAST_APK_URL = "update_last_apk_url"
         private const val KEY_LAST_NOTES = "update_last_notes"
         private const val KEY_LAST_PRERELEASE = "update_last_prerelease"
+        private const val KEY_LAST_AUTO_CHECK_AT = "update_last_auto_check_at"
+        private const val KEY_AUTO_ENABLED = "update_auto_enabled"
+        const val AUTOCHECK_INTERVAL_MS = 24L * 60 * 60 * 1000
         private const val CONNECT_TIMEOUT_MS = 8000
         private const val READ_TIMEOUT_MS = 8000
     }
@@ -59,6 +62,47 @@ class AppUpdateChecker(context: Context) {
         val parsed = parseReleaseJson(json, BuildConfig.VERSION_NAME) ?: return null
         persistSnapshot(parsed)
         return parsed
+    }
+
+    /**
+     * 自动检查节流判定 (v2.1.0-beta.3)：从未检查过 → true；距上次自动检查 ≥ 间隔 → true；
+     * 用户关闭自动检查 → false。nowMs/intervalMs 可注入以便单测。
+     */
+    fun autoCheckDue(
+        nowMs: Long = System.currentTimeMillis(),
+        intervalMs: Long = AUTOCHECK_INTERVAL_MS
+    ): Boolean {
+        if (!isAutoCheckEnabled()) return false
+        val last = try {
+            prefs?.getLong(KEY_LAST_AUTO_CHECK_AT, 0L) ?: 0L
+        } catch (e: Throwable) {
+            0L
+        }
+        return last <= 0 || nowMs - last >= intervalMs
+    }
+
+    /** 自动检查完成后落节流时间戳（与手动检查的 update_last_check_at 互不影响）。 */
+    fun markAutoCheckDone(nowMs: Long = System.currentTimeMillis()) {
+        val p = prefs ?: return
+        try {
+            p.edit().putLong(KEY_LAST_AUTO_CHECK_AT, nowMs).apply()
+        } catch (e: Throwable) {
+        }
+    }
+
+    /** 自动检查开关（默认开）；UI Switch 直连，落盘失败静默保持内存态。 */
+    fun isAutoCheckEnabled(): Boolean = try {
+        prefs?.getBoolean(KEY_AUTO_ENABLED, true) ?: true
+    } catch (e: Throwable) {
+        true
+    }
+
+    fun setAutoCheckEnabled(enabled: Boolean) {
+        val p = prefs ?: return
+        try {
+            p.edit().putBoolean(KEY_AUTO_ENABLED, enabled).apply()
+        } catch (e: Throwable) {
+        }
     }
 
     /** 解析 GitHub Releases JSON → AppUpdateInfo；畸形输入返回 null。 */

@@ -136,6 +136,12 @@ class BatteryViewModel(application: Application, historyStore: BatteryHistorySto
     private val _appUpdateState = MutableStateFlow<AppUpdateState>(AppUpdateState.Idle)
     val appUpdateState: StateFlow<AppUpdateState> = _appUpdateState.asStateFlow()
 
+    // v2.1.0-beta.3 热更新增强：下载进度 (0..100，null=未在下载) + 自动检查开关镜像
+    private val _downloadProgress = MutableStateFlow<Int?>(null)
+    val downloadProgress: StateFlow<Int?> = _downloadProgress.asStateFlow()
+    private val _autoUpdateCheckEnabled = MutableStateFlow(updateChecker.isAutoCheckEnabled())
+    val autoUpdateCheckEnabled: StateFlow<Boolean> = _autoUpdateCheckEnabled.asStateFlow()
+
     /** 热更新：检查最新版本 (IO 线程，网络异常全兜底回 Error 态不崩溃) */
     fun checkForAppUpdate() {
         if (_appUpdateState.value is AppUpdateState.Checking) return
@@ -160,7 +166,9 @@ class BatteryViewModel(application: Application, historyStore: BatteryHistorySto
 
     /**
      * 热更新：系统 DownloadManager 下载 APK 至公共 Downloads 目录，
-     * 完成后系统通知栏点击进入安装流程 (Android 8+ 首次需授权"未知来源")
+     * 完成后系统通知栏点击进入安装流程 (Android 8+ 首次需授权"未知来源")。
+     * v2.1.0-beta.3 增强：入队后轮询 DownloadManager 进度 (1s 节拍) → 卡内进度条；
+     * 成功转 DownloadCompleted，失败回 Error；轮询随 viewModelScope 取消自动终止
      */
     fun downloadUpdateApk(info: AppUpdateInfo) {
         val url = info.apkUrl ?: return
@@ -180,10 +188,11 @@ class BatteryViewModel(application: Application, historyStore: BatteryHistorySto
                         Environment.DIRECTORY_DOWNLOADS,
                         "Android-Battery-Master-${info.latestVersion}.apk"
                     )
-                dm.enqueue(request)
+                val downloadId = dm.enqueue(request)
                 withContext(Dispatchers.Main) {
                     _appUpdateState.value = AppUpdateState.DownloadQueued
                 }
+                pollDownloadProgress(dm, downloadId)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Throwable) {
@@ -192,6 +201,59 @@ class BatteryViewModel(application: Application, historyStore: BatteryHistorySto
                 }
             }
         }
+    }
+
+    /** DownloadManager 进度轮询：SUCCESSFUL → DownloadCompleted；FAILED → Error。 */
+    private suspend fun pollDownloadProgress(dm: DownloadManager, downloadId: Long) {
+        val query = DownloadManager.Query().setFilterById(downloadId)
+        while (coroutineContext.isActive) {
+            var settled = false
+            try {
+                dm.query(query).use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        val statusCol = cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS)
+                        val status = cursor.getInt(statusCol)
+                        val soFar = cursor.getInt(
+                            cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_SO_FAR)
+                        )
+                        val total = cursor.getInt(
+                            cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES)
+                        )
+                        val percent = if (total > 0) (soFar * 100 / total).coerceIn(0, 100) else 0
+                        withContext(Dispatchers.Main) { _downloadProgress.value = percent }
+                        when (status) {
+                            DownloadManager.STATUS_SUCCESSFUL -> {
+                                withContext(Dispatchers.Main) {
+                                    _downloadProgress.value = 100
+                                    _appUpdateState.value = AppUpdateState.DownloadCompleted
+                                }
+                                settled = true
+                            }
+                            DownloadManager.STATUS_FAILED -> {
+                                withContext(Dispatchers.Main) {
+                                    _downloadProgress.value = null
+                                    _appUpdateState.value = AppUpdateState.Error("download failed")
+                                }
+                                settled = true
+                            }
+                        }
+                    }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                // 单拍查询失败不终止轮询，下一拍重试
+            }
+            if (settled) break
+            delay(1000)
+        }
+        withContext(Dispatchers.Main) { _downloadProgress.value = null }
+    }
+
+    /** 自动检查开关：落盘 + 内存镜像同步，UI Switch 直连。 */
+    fun setAutoUpdateCheckEnabled(enabled: Boolean) {
+        updateChecker.setAutoCheckEnabled(enabled)
+        _autoUpdateCheckEnabled.value = enabled
     }
 
     /**
@@ -226,6 +288,26 @@ class BatteryViewModel(application: Application, historyStore: BatteryHistorySto
     internal var elapsedClock: () -> Long = SystemClock::elapsedRealtime
 
     init {
+        // v2.1.0-beta.3 热更新增强：冷启动自动检查 (24h 节流 + 用户可关)。
+        // 仅在自动路径命中新版本时弹状态；UpToDate/Error 静默不打扰启动体验
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                if (updateChecker.autoCheckDue()) {
+                    val info = updateChecker.checkForUpdate()
+                    updateChecker.markAutoCheckDone()
+                    if (info != null && info.isNewer) {
+                        withContext(Dispatchers.Main) {
+                            _appUpdateState.value = AppUpdateState.Available(info)
+                        }
+                    }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                // 自动检查失败静默——不打扰启动，用户可手动检查
+            }
+        }
+
         // v2.0.0-beta.1 P0 GA 修复：持久化历史回填——进程重启后从 JSONL 尾部接续
         // 内存曲线 (长期数据连续性)，回填失败/首启为空列表不影响启动
         try {

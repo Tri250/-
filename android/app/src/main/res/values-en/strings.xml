@@ -224,4 +224,8 @@
     <string name="update_state_error">Check failed · network unavailable, try again later</string>
     <string name="update_idle_hint">Check GitHub Releases for the latest version</string>
     <string name="update_network_note">Hot update reads only release metadata and the APK download URL — no data is collected</string>
+    <string name="update_download_percent">Downloading %1$d%%</string>
+    <string name="update_download_completed">Download complete — ready to install</string>
+    <string name="update_install_guide">Tap the package in the notification shade to install (grant \"Install unknown apps\" once)</string>
+    <string name="update_auto_check_switch">Auto-check updates every 24 h</string>
 </resources>

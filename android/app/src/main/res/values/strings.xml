@@ -224,4 +224,8 @@
     <string name="update_state_error">检查失败 · 网络不可用或稍后重试</string>
     <string name="update_idle_hint">直连 GitHub Releases 检查新版本</string>
     <string name="update_network_note">热更新仅读取版本元数据与 APK 下载地址，不采集任何数据</string>
+    <string name="update_download_percent">下载中 %1$d%%</string>
+    <string name="update_download_completed">下载完成，可以安装</string>
+    <string name="update_install_guide">打开通知栏点击安装包即可安装（首次需授权“安装未知应用”）</string>
+    <string name="update_auto_check_switch">每 24 小时自动检查更新</string>
 </resources>

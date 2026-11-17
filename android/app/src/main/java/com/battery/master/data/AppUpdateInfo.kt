@@ -13,12 +13,13 @@ data class AppUpdateInfo(
     val isNewer: Boolean
 )
 
-/** 热更新状态机：Idle → Checking → UpToDate/Available/Error → DownloadQueued */
+/** 热更新状态机：Idle → Checking → UpToDate/Available/Error → DownloadQueued → Downloading → DownloadCompleted */
 sealed interface AppUpdateState {
     data object Idle : AppUpdateState
     data object Checking : AppUpdateState
     data object UpToDate : AppUpdateState
     data class Available(val info: AppUpdateInfo) : AppUpdateState
     data object DownloadQueued : AppUpdateState
+    data object DownloadCompleted : AppUpdateState
     data class Error(val detail: String?) : AppUpdateState
 }

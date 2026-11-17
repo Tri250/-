@@ -15,6 +15,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -38,15 +41,19 @@ import com.battery.master.ui.theme.glassSurface
 import com.battery.master.ui.theme.pressGlassScale
 
 /**
- * 应用更新卡片 (应用内热更新，v2.1.0-beta.2 新增)：
- * 直查 GitHub Releases 版本元数据 → 系统下载器下载 APK → 通知栏点击安装。
- * 玻璃切面质感 (GlassKit) + 按压反馈；网络请求全在 VM IO 线程，UI 只消费状态机。
+ * 应用更新卡片 (应用内热更新，v2.1.0-beta.2 新增；v2.1.0-beta.3 增强)：
+ * 直查 GitHub Releases 版本元数据 → 系统下载器下载 APK (卡内实时进度条) → 完成态安装引导。
+ * 冷启动自动检查 (24h 节流) + 开关直连。玻璃切面质感 (GlassKit) + 按压反馈；
+ * 网络请求全在 VM IO 线程，UI 只消费状态机。
  */
 @Composable
 fun AppUpdateCard(
     state: AppUpdateState,
+    downloadProgress: Int? = null,
+    autoCheckEnabled: Boolean = true,
     onCheckUpdate: () -> Unit,
-    onDownload: (info: AppUpdateInfo) -> Unit
+    onDownload: (info: AppUpdateInfo) -> Unit,
+    onToggleAutoCheck: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
 
@@ -171,7 +178,61 @@ fun AppUpdateCard(
                     fontFamily = FontFamily.Monospace,
                     color = DesignTokens.BrandPrimaryLight
                 )
+                if (downloadProgress != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    LinearProgressIndicator(
+                        progress = { downloadProgress / 100f },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(2.dp)),
+                        color = DesignTokens.BrandPrimaryLight,
+                        trackColor = GlassTokens.EdgeLight
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = stringResource(R.string.update_download_percent, downloadProgress),
+                        fontSize = DesignTokens.Font2xs,
+                        fontFamily = FontFamily.Monospace,
+                        color = DesignTokens.TextSecondary
+                    )
+                }
                 Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = stringResource(R.string.update_open_downloads),
+                    fontSize = DesignTokens.Font2xs,
+                    fontFamily = FontFamily.Monospace,
+                    color = DesignTokens.BrandPrimaryLight,
+                    modifier = Modifier.clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) {
+                        try {
+                            context.startActivity(
+                                Intent(DownloadManager.ACTION_VIEW_DOWNLOADS)
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            )
+                        } catch (e: Throwable) {
+                        }
+                    }
+                )
+            }
+            is AppUpdateState.DownloadCompleted -> {
+                Text(
+                    text = stringResource(R.string.update_download_completed),
+                    fontSize = DesignTokens.FontXs,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace,
+                    color = DesignTokens.BrandPrimaryLight
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = stringResource(R.string.update_install_guide),
+                    fontSize = DesignTokens.Font2xs,
+                    fontFamily = FontFamily.Monospace,
+                    color = DesignTokens.TextAmberStrong
+                )
+                Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     text = stringResource(R.string.update_open_downloads),
                     fontSize = DesignTokens.Font2xs,
@@ -223,6 +284,30 @@ fun AppUpdateCard(
         )
 
         Spacer(modifier = Modifier.height(8.dp))
+
+        // v2.1.0-beta.3：冷启动自动检查开关 (24h 节流，用户可关)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = stringResource(R.string.update_auto_check_switch),
+                fontSize = DesignTokens.Font2xs,
+                fontFamily = FontFamily.Monospace,
+                color = DesignTokens.TextSecondary
+            )
+            Switch(
+                checked = autoCheckEnabled,
+                onCheckedChange = onToggleAutoCheck,
+                colors = SwitchDefaults.colors(
+                    checkedTrackColor = DesignTokens.BrandPrimaryLight,
+                    uncheckedTrackColor = GlassTokens.EdgeLight
+                )
+            )
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = stringResource(R.string.update_network_note),
             fontSize = DesignTokens.Font2xs,

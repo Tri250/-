@@ -2,9 +2,19 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格，版本号遵循语义化版本。
 
+## [2.1.0-beta.3] - 2026-11-18
+
+### Changed 调整
+- 设备使用时长卡调整至总览第 5 张卡（充满判定卡之后、指标网格之前）
+
+### Enhanced 热更新增强
+- 冷启动自动检查更新：24 小时节流 + 应用内开关（默认开，可关闭）；自动路径仅命中新版本时提示，失败静默不打扰启动
+- 下载实时进度：入队后 1s 节拍轮询 DownloadManager，卡内进度条 + 百分比展示；成功转"下载完成"态并给安装引导，失败回错误态
+- AppUpdateChecker 新增 autoCheckDue/markAutoCheckDone/开关 API（nowMs/intervalMs 可注入测试）；AppUpdateCheckerTest 新增 3 用例，沙箱真实编译执行 22/22 断言全绿
+
 ## [Unreleased]
 
-## [2.1.0-beta.2] - 2026-11-18
+## [2.1.0-beta.2] - 2026-11-17
 
 ### Added 新增
 - **设备使用时长卡置顶**：从总览第 5 位移至第 0 位（环形仪表盘上方），真实开机天数/小时在最显眼位置呈现。
