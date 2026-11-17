@@ -214,7 +214,7 @@ class BatteryViewModel(application: Application, historyStore: BatteryHistorySto
                         val statusCol = cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS)
                         val status = cursor.getInt(statusCol)
                         val soFar = cursor.getInt(
-                            cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_SO_FAR)
+                            cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)
                         )
                         val total = cursor.getInt(
                             cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES)
