@@ -219,7 +219,10 @@ class BatteryViewModel(application: Application, historyStore: BatteryHistorySto
                         val total = cursor.getInt(
                             cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES)
                         )
-                        val percent = if (total > 0) (soFar * 100 / total).coerceIn(0, 100) else 0
+                        // Long 域计算防 Int 溢出 (大包体 soFar*100 可超 Int.MAX)
+                        val percent = if (total > 0)
+                            ((soFar.toLong() * 100) / total).toInt().coerceIn(0, 100)
+                        else 0
                         withContext(Dispatchers.Main) { _downloadProgress.value = percent }
                         when (status) {
                             DownloadManager.STATUS_SUCCESSFUL -> {
