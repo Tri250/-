@@ -1,6 +1,8 @@
 package com.battery.master.ui
 
-import androidx.compose.animation.Crossfade
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -8,9 +10,14 @@ import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import com.battery.master.ui.theme.DesignTokens
+import com.battery.master.ui.theme.entranceReveal
+import com.battery.master.ui.theme.glassSurface
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -43,6 +50,7 @@ import android.content.Intent
 import com.battery.master.BuildConfig
 import com.battery.master.CrashLogHandler
 import com.battery.master.R
+import com.battery.master.data.AppUpdateState
 import com.battery.master.data.BatteryHealthQuality
 import com.battery.master.data.BatteryState
 import com.battery.master.data.BatterySession
@@ -81,6 +89,8 @@ fun BatteryScreen(
     val labOverride by viewModel.labOverride.collectAsState()
     // v2.1.0 新增：设备使用时长 (真实开机天数/小时，跨重启累计) 单源发布
     val deviceUsage by viewModel.deviceUsage.collectAsState()
+    // v2.1.0-beta.2 新增：应用内热更新状态机 (Idle/Checking/UpToDate/Available/Error/DownloadQueued)
+    val appUpdateState by viewModel.appUpdateState.collectAsState()
 
     // 顶层双 Tab：状态总览 / 硬件实验室 (对齐 Web 端 AndroidNavBar 信息架构)。
     // 外壳层审计修复：rememberSaveable 保证配置变更重建后停留在当前 Tab，
@@ -166,11 +176,22 @@ fun BatteryScreen(
                 }
             }
 
-            // Tab 切换转场动画：淡入淡出 + 轻微缩放（与 Web animate-tab-in 对齐）
-            Crossfade(
+            // Tab 切换转场动画 (v2.1.0-beta.2)：方向感知 slide + fade (iOS 页面推入手感)
+            AnimatedContent(
                 targetState = selectedTab,
-                animationSpec = tween(durationMillis = DesignTokens.DurationSlow),
-                label = "tab-crossfade"
+                transitionSpec = {
+                    val direction = if (targetState > initialState) 1 else -1
+                    (slideInHorizontally(
+                        animationSpec = tween(durationMillis = DesignTokens.DurationSlow)
+                    ) { it / 6 * direction } + fadeIn(
+                        tween(durationMillis = DesignTokens.DurationSlow)
+                    )) togetherWith (slideOutHorizontally(
+                        animationSpec = tween(durationMillis = DesignTokens.DurationMicro)
+                    ) { -it / 6 * direction } + fadeOut(
+                        tween(durationMillis = DesignTokens.DurationMicro)
+                    ))
+                },
+                label = "tab-animated-content"
             ) { tab ->
             if (tab == 0) {
         LazyColumn(
@@ -179,9 +200,17 @@ fun BatteryScreen(
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
+            // 0. 设备使用时长 (v2.1.0-beta.2 置顶最显眼位置：真实开机天数/小时，
+            //    elapsedRealtime + 跨重启累计 + BOOT_COUNT；玻璃切面 + 错峰入场 index 0)
+            item {
+                DeviceUsageCard(deviceUsage)
+            }
+
             // 1. 顶部华丽核心环形仪表盘 (5. 电量百分比, 6. 电池状态, 2. 剩余电量, 11. 瞬时电流)
             item {
-                CyberHeroBatteryCard(state)
+                Box(modifier = Modifier.entranceReveal(1)) {
+                    CyberHeroBatteryCard(state)
+                }
             }
 
             // 1. 硬件实验室模拟态警示横幅 (P1 审计修复：跨 Tab 泄漏可视化)
@@ -435,14 +464,20 @@ fun BatteryScreen(
                 }
             }
 
-            // 5. 设备使用时长 (真实开机天数/小时：elapsedRealtime + 跨重启累计 + BOOT_COUNT)
+            // 6. 应用更新 (v2.1.0-beta.2 热更新：GitHub Releases 直查 + 系统下载器安装)
             item {
-                DeviceUsageCard(deviceUsage)
+                AppUpdateCard(
+                    state = appUpdateState,
+                    onCheckUpdate = { viewModel.checkForAppUpdate() },
+                    onDownload = { info -> viewModel.downloadUpdateApk(info) }
+                )
             }
 
-            // 6. 关于 APP 功能说明 (版本号经 BuildConfig 单源注入)
+            // 7. 关于 APP 功能说明 (版本号经 BuildConfig 单源注入)
             item {
-                AboutAppCard()
+                Box(modifier = Modifier.entranceReveal(6)) {
+                    AboutAppCard()
+                }
             }
 
             item {
@@ -771,9 +806,9 @@ fun HardwareSummaryCard(state: BatteryState, onCalibrateDesignCapacity: () -> Un
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, DesignTokens.Border, RoundedCornerShape(DesignTokens.RadiusPanel)),
+            .glassSurface(),
         shape = RoundedCornerShape(DesignTokens.RadiusPanel),
-        colors = CardDefaults.cardColors(containerColor = DesignTokens.BgSurface)
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
     ) {
         Column(
             modifier = Modifier.padding(16.dp)
@@ -986,13 +1021,11 @@ fun FullChargeConditionCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .border(
-                1.dp,
-                if (isFullMet) DesignTokens.BrandPrimary else DesignTokens.Border,
-                RoundedCornerShape(DesignTokens.RadiusPanel)
+            .glassSurface(
+                borderColor = if (isFullMet) DesignTokens.BrandPrimary else DesignTokens.Border
             ),
         shape = RoundedCornerShape(DesignTokens.RadiusPanel),
-        colors = CardDefaults.cardColors(containerColor = DesignTokens.BgSurface)
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -1159,9 +1192,9 @@ fun CyberMetricCardItem(
     accentColor: Color
 ) {
     Card(
-        modifier = modifier.border(1.dp, DesignTokens.Border, RoundedCornerShape(DesignTokens.RadiusCard)),
+        modifier = modifier.glassSurface(cornerRadius = DesignTokens.RadiusCard),
         shape = RoundedCornerShape(DesignTokens.RadiusCard),
-        colors = CardDefaults.cardColors(containerColor = DesignTokens.BgSurface)
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
     ) {
         Column(modifier = Modifier.padding(13.dp)) {
             Row(
@@ -1243,9 +1276,9 @@ fun AboutAppCard() {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, DesignTokens.Border, RoundedCornerShape(DesignTokens.RadiusPanel)),
+            .glassSurface(),
         shape = RoundedCornerShape(DesignTokens.RadiusPanel),
-        colors = CardDefaults.cardColors(containerColor = DesignTokens.BgSurface)
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
     ) {
         Column(
             modifier = Modifier.padding(16.dp)

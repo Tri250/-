@@ -6,6 +6,11 @@
          原先声明的 BATTERY_STATS / FOREGROUND_SERVICE / POST_NOTIFICATIONS / WAKE_LOCK
          均为未使用权限，已移除以通过严格 lint 与应用商店合规审查 -->
 
+    <!-- v2.1.0-beta.2 应用内热更新：唯一权限。普通权限 (安装时自动授予，非敏感、
+         无任何运行时弹窗)。用途仅限：GitHub Releases 版本元数据查询 + 系统下载器
+         下载 APK。不采集/上传任何设备与电量数据 -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <application
         android:name=".BatteryMasterApplication"
         android:allowBackup="true"

@@ -4,6 +4,21 @@
 
 ## [Unreleased]
 
+## [2.1.0-beta.2] - 2026-11-18
+
+### Added 新增
+- **设备使用时长卡置顶**：从总览第 5 位移至第 0 位（环形仪表盘上方），真实开机天数/小时在最显眼位置呈现。
+- **应用内热更新**（新增唯一 `INTERNET` 普通权限）：
+  - 「应用更新」卡直查 GitHub Releases 最新版本（`/releases/latest`），语义化版本比对（beta 升位 / beta < GA / v 前缀兼容）；
+  - 发现新版本一键经系统 DownloadManager 下载 APK 至公共 Downloads，通知栏点击进入安装（Android 8+ 首次授权"未知来源"，卡内提供直达设置入口）；
+  - 状态机 Idle/Checking/UpToDate/Available/Error/DownloadQueued，网络异常全兜底不崩溃；仅读版本元数据与 APK 地址，不采集任何数据；
+  - 检查快照落盘 `update_last_*` 键；`AppUpdateCheckerTest` 覆盖版本比较边界、fixture 解析、畸形 JSON 兜底、fetcher 注入与快照落盘。
+- **iOS 液态玻璃视觉升级（GlassKit）**：
+  - `glassSurface()` 玻璃切面卡底（白高光层→深阴影层垂直渐变 + 顶部反光切线 + 半透明描边），统一应用于使用时长/硬件汇总/充满判定/12 项指标卡/关于/更新共 6 类卡面；
+  - `pressGlassScale()` iOS 按压手感（缩放 0.975 + 微降透明度）；
+  - `entranceReveal()` 总览卡错峰入场（fade + slide-up，`rememberSaveable` 防滚动重播，系统动画缩放为 0 时自动禁用——无障碍）；
+  - Tab 切换 `Crossfade` 升级为方向感知 `AnimatedContent` slide + fade（iOS 页面推入手感）。
+
 ## [2.1.0-beta.1] - 2026-11-18
 
 ### Added 新增

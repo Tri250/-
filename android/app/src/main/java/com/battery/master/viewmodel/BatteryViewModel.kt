@@ -1,15 +1,21 @@
 package com.battery.master.viewmodel
 
 import android.app.Application
+import android.app.DownloadManager
+import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.media.AudioManager
 import android.media.ToneGenerator
+import android.net.Uri
+import android.os.Environment
 import android.os.SystemClock
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.battery.master.data.AppUpdateInfo
+import com.battery.master.data.AppUpdateState
 import com.battery.master.data.BatteryState
 import com.battery.master.data.BatteryHealthQuality
 import com.battery.master.data.BatterySession
@@ -19,6 +25,7 @@ import com.battery.master.data.DeviceUsageSnapshot
 import com.battery.master.data.FullChargeSource
 import com.battery.master.data.FullChargeVerdict
 import com.battery.master.receiver.BatteryReceiver
+import com.battery.master.service.AppUpdateChecker
 import com.battery.master.service.BatteryHardwareReader
 import com.battery.master.service.BatteryHistoryStore
 import com.battery.master.service.BatteryTelemetryParser
@@ -123,6 +130,69 @@ class BatteryViewModel(application: Application, historyStore: BatteryHistorySto
     // v2.1.0 新增：设备使用时长单源发布 (1Hz 随轮询循环刷新，与电池遥测解耦)
     private val _deviceUsage = MutableStateFlow(usageTracker.snapshot())
     val deviceUsage: StateFlow<DeviceUsageSnapshot> = _deviceUsage.asStateFlow()
+
+    // v2.1.0-beta.2 新增：应用内热更新 (GitHub Releases 直查，仅读版本元数据，无遥测上行)
+    private val updateChecker = AppUpdateChecker(application.applicationContext)
+    private val _appUpdateState = MutableStateFlow<AppUpdateState>(AppUpdateState.Idle)
+    val appUpdateState: StateFlow<AppUpdateState> = _appUpdateState.asStateFlow()
+
+    /** 热更新：检查最新版本 (IO 线程，网络异常全兜底回 Error 态不崩溃) */
+    fun checkForAppUpdate() {
+        if (_appUpdateState.value is AppUpdateState.Checking) return
+        _appUpdateState.value = AppUpdateState.Checking
+        viewModelScope.launch(Dispatchers.IO) {
+            val info = try {
+                updateChecker.checkForUpdate()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                null
+            }
+            withContext(Dispatchers.Main) {
+                _appUpdateState.value = when {
+                    info == null -> AppUpdateState.Error(null)
+                    !info.isNewer -> AppUpdateState.UpToDate
+                    else -> AppUpdateState.Available(info)
+                }
+            }
+        }
+    }
+
+    /**
+     * 热更新：系统 DownloadManager 下载 APK 至公共 Downloads 目录，
+     * 完成后系统通知栏点击进入安装流程 (Android 8+ 首次需授权"未知来源")
+     */
+    fun downloadUpdateApk(info: AppUpdateInfo) {
+        val url = info.apkUrl ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val dm = getApplication<Application>()
+                    .getSystemService(Context.DOWNLOAD_SERVICE) as? DownloadManager
+                    ?: throw IllegalStateException("download service unavailable")
+                val request = DownloadManager.Request(Uri.parse(url))
+                    .setTitle("Android-Battery-Master-${info.latestVersion}")
+                    .setDescription("Android Battery Master 热更新安装包")
+                    .setMimeType("application/vnd.android.package-archive")
+                    .setNotificationVisibility(
+                        DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED
+                    )
+                    .setDestinationInExternalPublicDir(
+                        Environment.DIRECTORY_DOWNLOADS,
+                        "Android-Battery-Master-${info.latestVersion}.apk"
+                    )
+                dm.enqueue(request)
+                withContext(Dispatchers.Main) {
+                    _appUpdateState.value = AppUpdateState.DownloadQueued
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                withContext(Dispatchers.Main) {
+                    _appUpdateState.value = AppUpdateState.Error(e.message)
+                }
+            }
+        }
+    }
 
     /**
      * v2.0.0-beta.1 P0 GA 修复：充放电会话统计 (跨会话持久化)。

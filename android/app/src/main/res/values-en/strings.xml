@@ -207,4 +207,21 @@
     <string name="usage_boot_count_label">Boot count</string>
     <string name="usage_reboot_detected">Device reboot detected · cumulative time preserved</string>
     <string name="usage_caveat">Notes: cumulative = real app-running time, includes screen-off standby; time while the app is not running is not counted</string>
+
+    <!-- v2.1.0-beta.2 in-app hot update (GitHub Releases direct check + system downloader install) -->
+    <string name="update_card_title">App Update</string>
+    <string name="update_source_label">[HOT UPDATE]</string>
+    <string name="update_current_label">Current</string>
+    <string name="update_check_button">Check for updates</string>
+    <string name="update_checking">Checking…</string>
+    <string name="update_state_uptodate">Up to date</string>
+    <string name="update_new_version_found">New version available</string>
+    <string name="update_download_button">Download APK</string>
+    <string name="update_download_queued">Queued in system downloads · tap the notification to install when finished</string>
+    <string name="update_unknown_source_hint">First install requires allowing &quot;install unknown apps&quot;</string>
+    <string name="update_unknown_source_button">Grant install permission →</string>
+    <string name="update_open_downloads">Open system downloads →</string>
+    <string name="update_state_error">Check failed · network unavailable, try again later</string>
+    <string name="update_idle_hint">Check GitHub Releases for the latest version</string>
+    <string name="update_network_note">Hot update reads only release metadata and the APK download URL — no data is collected</string>
 </resources>

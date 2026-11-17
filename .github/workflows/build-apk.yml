@@ -553,15 +553,20 @@ jobs:
 
             ### 安装说明
             1. 下载 APK 后在设备上点击安装（需在系统设置中允许"安装未知来源应用"）。签名类型：**${{ steps.apkfile.outputs.signing_label }}**。
-            2. 首次启动授予**零运行时权限**：应用不申请任何敏感权限，安装后即可使用全部功能。
+            2. 首次启动**零运行时权限**：应用不申请任何敏感/危险权限，安装后即可使用全部功能。
             3. 覆盖安装：版本号 `versionCode=${{ steps.version.outputs.version_code }}` 单调递增，直接安装即可覆盖旧版（含 v1.0.0，versionCode=1），数据不丢失。
 
             ### 卸载说明
             - 常规卸载：系统设置 → 应用管理 → 电池大师 → 卸载， SharedPreferences 与应用数据随包体一并清除，无残留。
             - 备份策略：已配置 `dataExtractionRules` 与 `fullBackupContent` 排除全部应用数据，云备份与换机传输均不会携带本应用数据。
+            - 热更新下载的 APK 位于系统公共 Downloads 目录，随系统下载管理自行管理。
+
+            ### 应用内热更新 (v2.1.0-beta.2 新增)
+            - 应用内「应用更新」卡片直查 GitHub Releases 最新版本，发现新版本可一键经系统下载器下载 APK 并从通知栏点击安装。
+            - 热更新仅读取版本元数据与 APK 下载地址，**不采集/不上传任何设备与电量数据**。
 
             ### 权限说明
-            - 应用声明权限数：**0**（无运行时权限、无危险权限）。
+            - 应用声明权限数：**1** —— 仅 `INTERNET`（普通权限，安装时系统自动授予，无运行时弹窗），用于热更新版本检查与 APK 下载。
             - 合并后清单含 1 个 AndroidX 框架自动注入的**签名级内部权限**（`androidx.core.content.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`，protectionLevel=signature，仅用于框架内部广播保护，不向用户呈现、不涉及隐私）。
             - 电池指标全部来自公开系统 API（BatteryManager 属性 / `ACTION_BATTERY_CHANGED` 广播）与 sysfs 节点，无需任何授权。
 
@@ -569,7 +574,7 @@ jobs:
             - **稳定性**：广播注册/注销全容错（异常 ROM 下退化为轮询通道不崩溃）、系统服务安全转换、空安全与除零防护、Gradle 分发下载超时放宽至 120s。
             - **性能**：Compose 单数据源 1Hz 刷新、双通道（广播+轮询）共享 Reader 配置避免重复解析、Web 遥测定时器 ref 化消除每拍重建。
             - **兼容性**：minSdk 26 / targetSdk 36，API 31+/34+ 分级适配（SoC 型号、循环计数）、中文字体回退栈、`prefers-reduced-motion` 无障碍支持。
-            - **权限管理**：0 运行时权限，备份规则显式排除应用数据。
+            - **权限管理**：0 运行时权限，唯一 `INTERNET` 普通权限仅服务热更新；备份规则显式排除应用数据。
             - **安装卸载**：`applicationId=com.battery.master`、`versionCode=${{ steps.version.outputs.version_code }}` 单调递增支持覆盖安装、自适应图标（anydpi-v26 + 五密度 PNG 兜底）、版本化产物命名、CI 安装属性自检（aapt2 badging）与 tag↔versionName 一致性校验。
 
             ### 👨‍💻 开发者
