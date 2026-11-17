@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [2.1.0-beta.1] - 2026-11-18
+
 ### Added 新增
 - **设备使用时长卡**（状态总览 Tab，真实数据、0 权限）：
   - 本次开机时长（`SystemClock.elapsedRealtime`，含息屏待机，重启归零）；
