@@ -10,6 +10,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 /**
  * v2.1.0-beta.2 应用内热更新检查器单测：
@@ -18,6 +19,7 @@ import org.robolectric.RobolectricTestRunner
  * - checkForUpdate fetcher 注入 fake → 不触真实网络；结果落盘 update_last_* 键
  */
 @RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34])
 class AppUpdateCheckerTest {
 
     private lateinit var checker: AppUpdateChecker
