@@ -325,6 +325,14 @@ export function useBatteryMonitor() {
     }
   }, [temperature, soundEnabled]);
 
+  // Action: 清除充满锁定记录 (指标 12)——语义对齐 Android clearFullChargeRecords：
+  // 锁定值与最近一次判定记录一并清空，判定边沿 ref 复位以便重新测量
+  const clearFullChargeLock = useCallback(() => {
+    setFullChargeCapacity(null);
+    setLastFullChargeRecord(null);
+    prevFullMetRef.current = false;
+  }, []);
+
   const state: BatteryState = {
     healthPercentage,
     remainingCapacity,
@@ -370,6 +378,7 @@ export function useBatteryMonitor() {
     // Actions
     triggerFullChargeTest,
     toggleCharging,
+    clearFullChargeLock,
     updatePercentage,
     updateCurrent,
     updateDesignCapacity,

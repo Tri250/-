@@ -29,7 +29,8 @@ export function PrimaryBatteryRing({
   const isFull = status === 'full';
   const isDischarging = status === 'discharging';
   const isLow = percentage <= 15 && !isCharging;
-  const powerWatts = ((Math.abs(voltage * current)) / 1000000).toFixed(1);
+  // 功率带符号：放电为负，与指标卡/遥测卡口径一致（Android 端 v1.2.4 同口径）
+  const powerWatts = ((voltage * current) / 1000000).toFixed(1);
 
   // Status text mapping（语义色板统一：充电 emerald / 放电 sky / 充满 teal / 待机 slate）
   const statusLabels: Record<BatteryStatus, { text: string; color: string; desc: string }> = {

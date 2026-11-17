@@ -104,10 +104,17 @@ export function HardwareSummaryBar({ hardwareInfo, deviceName, powerWatts }: Har
           <div className="text-xs font-bold text-emerald-400 truncate font-mono tabular-nums">
             {hardwareInfo.fastChargeProtocol}
           </div>
-          {/* 实时协商功率：与协议额定档位对照，闭环快充链路 (V×I 推导) */}
+          {/* 实时协商功率：与协议额定档位对照，闭环快充链路 (V×I 推导)。
+              放电/待机时无快充协商，显示占位而非负瓦数 */}
           <div className="text-2xs text-slate-400 mt-0.5 font-mono tabular-nums">
-            协商功率: <span className="text-emerald-300 font-bold">{powerWatts.toFixed(1)} W</span>
-            {powerWatts >= 45 ? ' · 超级快充档' : powerWatts >= 18 ? ' · 快充档' : powerWatts > 0.5 ? ' · 普通档' : ''}
+            {powerWatts > 0 ? (
+              <>
+                协商功率: <span className="text-emerald-300 font-bold">{powerWatts.toFixed(1)} W</span>
+                {powerWatts >= 45 ? ' · 超级快充档' : powerWatts >= 18 ? ' · 快充档' : powerWatts > 0.5 ? ' · 普通档' : ''}
+              </>
+            ) : (
+              <>协商功率: <span className="text-slate-500 font-bold">放电中 · 无快充协商</span></>
+            )}
           </div>
         </div>
 

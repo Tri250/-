@@ -270,7 +270,7 @@ export function HardwareSimulationLab({
           <input
             type="range"
             min="-2000"
-            max="6000"
+            max="8500"
             step="10"
             value={current}
             onChange={(e) => onUpdateCurrent(parseInt(e.target.value, 10))}
@@ -280,7 +280,7 @@ export function HardwareSimulationLab({
           <div className="flex justify-between text-2xs text-slate-500 mt-0.5 font-mono tabular-nums">
             <span>-2000 mA (大放电)</span>
             <span>0-25 mA (满电截止)</span>
-            <span>+6000 mA (超级闪充)</span>
+            <span>+8500 mA (双电芯闪充封顶)</span>
           </div>
         </div>
 

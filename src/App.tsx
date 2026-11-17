@@ -54,6 +54,7 @@ export default function App() {
     setSoundEnabled,
     triggerFullChargeTest,
     toggleCharging,
+    clearFullChargeLock,
     updatePercentage,
     updateCurrent,
     updateDesignCapacity,
@@ -139,9 +140,11 @@ export default function App() {
   ).toFixed(1);
 
   // 重置实验室：恢复当前选中机型的出厂默认 12 项指标
+  // 充满锁定一并清空 (指标 12 重测)，与 Android clearFullChargeRecords 语义闭环
   const resetLab = () => {
+    clearFullChargeLock();
     updateDesignCapacity(selectedDevice.designCapacity);
-    updateCurrentCapacity(Math.round(selectedDevice.designCapacity * 0.92));
+    updateCurrentCapacity(Math.round(selectedDevice.designCapacity * 0.924));
     updateCycleCount(0);
     updatePercentage(78);
     updateCurrent(-420);
@@ -447,7 +450,7 @@ export default function App() {
                     unit="mV"
                     subValue={`约 ${(state.voltage / 1000).toFixed(3)} V`}
                     badge={{
-                      text: state.voltage >= 4400 ? '高压区' : state.voltage <= 3700 ? '低压区' : '标称平稳',
+                      text: state.voltage >= 4500 ? '高压区' : state.voltage <= 3700 ? '低压区' : '标称平稳',
                       variant: state.voltage >= 4500 ? 'danger' : 'info',
                     }}
                     hint="电芯两极实时电势差"
