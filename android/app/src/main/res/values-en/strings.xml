@@ -198,4 +198,13 @@
     <string name="health_state_dead">Dead</string>
     <string name="health_state_over_voltage">Over-Voltage</string>
     <string name="health_state_unknown">Unknown</string>
+
+    <!-- Device usage time (real data, 0 permissions: elapsedRealtime + app-lifetime cumulative + BOOT_COUNT) -->
+    <string name="usage_card_title">Device Usage Time</string>
+    <string name="usage_source_label">[Measured]</string>
+    <string name="usage_total_label">Cumulative since first app launch</string>
+    <string name="usage_uptime_label">This boot</string>
+    <string name="usage_boot_count_label">Boot count</string>
+    <string name="usage_reboot_detected">Device reboot detected · cumulative time preserved</string>
+    <string name="usage_caveat">Notes: cumulative = real app-running time, includes screen-off standby; time while the app is not running is not counted</string>
 </resources>

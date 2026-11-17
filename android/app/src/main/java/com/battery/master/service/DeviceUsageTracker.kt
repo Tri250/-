@@ -16,10 +16,13 @@ import com.battery.master.data.DeviceUsageSnapshot
  *
  * 重启检测双信号：
  * - 主信号：BOOT_COUNT 递增 (恢复出厂才会归零，应用升级/杀进程不清零)——
- *   覆盖"应用死于开机初期 + 长时间未运行"场景：此时 elapsed 漏判窗口
- *   (persisted last < 重启后 now) 由 BOOT_COUNT 兜住；
+ *   跨进程生效 (prefs 恢复 lastBootCount 后比较)，覆盖应用死亡间隙内发生的重启
+ *   (此时 elapsed 回退信号跨进程不可见，由 BOOT_COUNT 兜住)；
  * - 回退信号：elapsedRealtime 单调回退 (last > now 必为重启后归零重来)，
- *   BOOT_COUNT 不可读的 ROM 上仍然正确；无需 binder 调用，每拍即时判定。
+ *   BOOT_COUNT 不可读的 ROM 上仍然正确；仅进程内存态，每拍即时判定。
+ *
+ * 累计口径 (与卡片文案严格一致)：每个进程首拍建立 elapsed 新基线，
+ * 应用未运行的间隙不计入累计；已累计值经 prefs 跨重启/跨进程保留。
  *
  * 时钟与 BOOT_COUNT 读取均为注入点 (仿 BatteryViewModel.elapsedClock 既有模式)，
  * 测试注入虚拟时钟获得确定性时序。
@@ -43,6 +46,12 @@ internal class DeviceUsageTracker(context: Context) {
 
     // 启动闪退治理：持久化恢复异常不阻塞构造 (与 reader prefs 同款 try-catch)
     private var accumulatedMs: Long = 0L
+
+    /**
+     * elapsed 引用基线：仅进程内存态，**不从 prefs 恢复**——
+     * 每个进程首拍建立新基线，应用死亡间隙 (设备仍开机) 不计入累计，
+     * 与卡片口径"应用未运行时间不计"严格一致；最坏损失 = 距上次落盘 ≤10s
+     */
     private var lastElapsedMs: Long = -1L
     private var lastBootCount: Int? = null
 
@@ -57,8 +66,9 @@ internal class DeviceUsageTracker(context: Context) {
         try {
             val p = prefs
             if (p != null) {
+                // 仅恢复累计值与开机次数基线；elapsed 引用不恢复 (见字段注释)——
+                // 恢复 elapsed 会把应用死亡间隙计成使用时长，违背"未运行时间不计"口径
                 accumulatedMs = p.getLong(KEY_ACCUMULATED_MS, 0L)
-                lastElapsedMs = p.getLong(KEY_LAST_ELAPSED_MS, -1L)
                 if (p.contains(KEY_BOOT_COUNT_LAST)) {
                     lastBootCount = p.getInt(KEY_BOOT_COUNT_LAST, 0)
                 }
@@ -168,9 +178,6 @@ internal class DeviceUsageTracker(context: Context) {
         try {
             val editor = p.edit()
             editor.putLong(KEY_ACCUMULATED_MS, accumulatedMs)
-            if (lastElapsedMs >= 0L) {
-                editor.putLong(KEY_LAST_ELAPSED_MS, lastElapsedMs)
-            }
             lastBootCount?.let { editor.putInt(KEY_BOOT_COUNT_LAST, it) }
             editor.apply()
         } catch (e: Throwable) {
@@ -186,7 +193,6 @@ internal class DeviceUsageTracker(context: Context) {
     companion object {
         private const val PREFS_NAME = "battery_master_prefs"
         private const val KEY_ACCUMULATED_MS = "usage_accumulated_ms"
-        private const val KEY_LAST_ELAPSED_MS = "usage_last_elapsed_ms"
         private const val KEY_BOOT_COUNT_LAST = "usage_boot_count_last"
 
         /** 落盘节奏：每 10 拍 + 重启检测瞬间 + flush；最坏丢失约 10s 计量，语义不受影响 */

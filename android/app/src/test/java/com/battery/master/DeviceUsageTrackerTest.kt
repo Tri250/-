@@ -23,7 +23,9 @@ import org.robolectric.annotation.Config
  * - 1Hz 虚拟时钟推进累加正确性
  * - 重启检测主信号：BOOT_COUNT 递增 → 累计保留 + elapsed 引用重置
  * - 重启检测回退信号：BOOT_COUNT 不可读时 elapsed 单调回退判定
- * - 持久化往返：新 tracker 实例恢复累计且不重复计数 (连续性)
+ * - 持久化往返：新 tracker 实例仅恢复累计+boot，首拍建立新基线不重复计数
+ * - 口径审计：应用死亡间隙不计入累计 (卡片"应用未运行时间不计")
+ * - 跨进程重启：应用死于重启间隙，经 BOOT_COUNT 主信号检出并保留累计
  * - flush 落盘当前累计段
  * - Settings.Global.BOOT_COUNT 真实读取路径 (Robolectric shadow 注入)
  * - 格式化边界：0/负值/59s/1min/61min/24h/多天
@@ -152,9 +154,9 @@ class DeviceUsageTrackerTest {
         tracker.tick()
         clock = 40_000L
         tracker.tick()
-        tracker.flush() // 退出落盘：累计 30s + elapsed 引用 40s + boot=7
+        tracker.flush() // 退出落盘：累计 30s + boot=7 (elapsed 引用不落盘)
 
-        // "进程重启"：新实例从 prefs 恢复；首拍与落盘时刻同钟点 → 恢复但不重复计数
+        // "进程重启"：新实例仅恢复累计+boot；首拍建立新基线，同钟点 delta=0 不重复计数
         var clock2 = 40_000L
         val tracker2 = newTracker()
         tracker2.tickerClock = { clock2 }
@@ -174,22 +176,79 @@ class DeviceUsageTrackerTest {
         var clock = 0L
         val tracker = newTracker()
         tracker.tickerClock = { clock }
-        tracker.tick() // 基线落盘 (acc=0, last=0)
+        tracker.tick() // 基线落盘 (acc=0)
         repeat(10) {
             clock += 1_000L
             tracker.tick()
         }
-        // 第 10 拍触发周期落盘 (PERSIST_EVERY_TICKS=10)：acc=10000, last=10000
+        // 第 10 拍触发周期落盘 (PERSIST_EVERY_TICKS=10)：acc=10000
         assertEquals(10_000L, tracker.snapshot().cumulativeMs)
 
         var clock2 = 10_000L
         val tracker2 = newTracker()
         tracker2.tickerClock = { clock2 }
-        tracker2.tick() // 新实例首拍：从 prefs 恢复，同钟点 delta=0 不重复计数
+        tracker2.tick() // 新实例首拍：仅恢复累计并建立新基线，同钟点不重复计数
         assertEquals(10_000L, tracker2.snapshot().cumulativeMs)
         clock2 = 15_000L
         tracker2.tick()
         assertEquals(15_000L, tracker2.snapshot().cumulativeMs)
+    }
+
+    // ==================== 口径审计 (v2.1.0 深度审计新增) ====================
+
+    @Test
+    fun `app downtime is not credited after process restart`() {
+        // 口径诚实性：卡片明示"应用未运行时间不计"。
+        // 若实现从 prefs 恢复 elapsed 引用，应用死亡 10 分钟的间隙会被计成使用时长 → 口径撒谎
+        var clock = 10_000L
+        val tracker = newTracker()
+        tracker.tickerClock = { clock }
+        tracker.bootCountReader = { 7 }
+        tracker.tick()
+        clock = 40_000L
+        tracker.tick()
+        tracker.flush() // 退出落盘：累计 30s + boot=7
+
+        // 应用被杀，10 分钟后用户重新打开 (设备持续开机)：
+        // 新进程首拍建立新基线，死亡间隙不计入累计
+        var clock2 = 640_000L
+        val tracker2 = newTracker()
+        tracker2.tickerClock = { clock2 }
+        tracker2.bootCountReader = { 7 }
+        tracker2.tick()
+        assertEquals(30_000L, tracker2.snapshot().cumulativeMs)
+        assertEquals(640_000L, tracker2.snapshot().uptimeMs) // 开机时长仍实时读钟
+        clock2 = 650_000L
+        tracker2.tick()
+        assertEquals(40_000L, tracker2.snapshot().cumulativeMs) // 从新基线连续累加
+    }
+
+    @Test
+    fun `reboot during app downtime is detected via boot count across processes`() {
+        // 应用死于重启初期 + 长时间未运行：elapsed 回退信号跨进程不可见 (基线不恢复)，
+        // 由 BOOT_COUNT 主信号兜住 (prefs 恢复 lastBootCount 后首拍比较)
+        var clock = 5_000L
+        val tracker = newTracker()
+        tracker.tickerClock = { clock }
+        tracker.bootCountReader = { 41 }
+        tracker.tick()
+        clock = 15_000L
+        tracker.tick()
+        tracker.flush()
+
+        // 设备重启 (BOOT_COUNT 41→42) 且应用整个死亡间隙未运行
+        var clock2 = 3_000L
+        val tracker2 = newTracker()
+        tracker2.tickerClock = { clock2 }
+        tracker2.bootCountReader = { 42 }
+        tracker2.tick()
+        val snap = tracker2.snapshot()
+        assertTrue(snap.rebootDetected)
+        assertEquals(10_000L, snap.cumulativeMs) // 累计保留
+        assertEquals(42, snap.bootCount)
+        clock2 = 13_000L
+        tracker2.tick()
+        assertEquals(20_000L, tracker2.snapshot().cumulativeMs)
     }
 
     // ==================== BOOT_COUNT 真实读取路径 ====================
