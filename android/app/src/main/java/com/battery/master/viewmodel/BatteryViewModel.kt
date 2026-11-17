@@ -15,12 +15,14 @@ import com.battery.master.data.BatteryHealthQuality
 import com.battery.master.data.BatterySession
 import com.battery.master.data.BatteryStatus
 import com.battery.master.data.CapacitySource
+import com.battery.master.data.DeviceUsageSnapshot
 import com.battery.master.data.FullChargeSource
 import com.battery.master.data.FullChargeVerdict
 import com.battery.master.receiver.BatteryReceiver
 import com.battery.master.service.BatteryHardwareReader
 import com.battery.master.service.BatteryHistoryStore
 import com.battery.master.service.BatteryTelemetryParser
+import com.battery.master.service.DeviceUsageTracker
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -71,6 +73,10 @@ class BatteryViewModel(application: Application, historyStore: BatteryHistorySto
 
     private val reader = BatteryHardwareReader(application.applicationContext)
 
+    // v2.1.0 新增：设备使用时长追踪 (真实开机天数/小时)——内部创建不改构造签名，
+    // 保护 (Application) 次构造器反射链与既有测试；prefs/时钟均可注入测试
+    private val usageTracker = DeviceUsageTracker(application)
+
     // 启动闪退治理：构造期首次读取走安全读取，任何 ROM 硬件异常都降级为默认态而非崩溃
     private val _batteryState = MutableStateFlow(reader.readBatteryTelemetry())
     val batteryState: StateFlow<BatteryState> = _batteryState.asStateFlow()
@@ -113,6 +119,10 @@ class BatteryViewModel(application: Application, historyStore: BatteryHistorySto
      */
     private val _telemetryHistory = MutableStateFlow<List<BatteryState>>(emptyList())
     val telemetryHistory: StateFlow<List<BatteryState>> = _telemetryHistory.asStateFlow()
+
+    // v2.1.0 新增：设备使用时长单源发布 (1Hz 随轮询循环刷新，与电池遥测解耦)
+    private val _deviceUsage = MutableStateFlow(usageTracker.snapshot())
+    val deviceUsage: StateFlow<DeviceUsageSnapshot> = _deviceUsage.asStateFlow()
 
     /**
      * v2.0.0-beta.1 P0 GA 修复：充放电会话统计 (跨会话持久化)。
@@ -222,6 +232,11 @@ class BatteryViewModel(application: Application, historyStore: BatteryHistorySto
             historyStore.flush()
         } catch (e: Throwable) {
         }
+        // v2.1.0 新增：设备使用时长退出前落盘当前累计段，防止最后一段丢失
+        try {
+            usageTracker.flush()
+        } catch (e: Throwable) {
+        }
         if (isReceiverRegistered) {
             try {
                 getApplication<Application>().unregisterReceiver(batteryReceiver)
@@ -283,6 +298,10 @@ class BatteryViewModel(application: Application, historyStore: BatteryHistorySto
             while (isActive) {
                 // 启动闪退治理：轮询体整体兜底，硬件读取异常只跳过本拍，协程不中断
                 try {
+                    // v2.1.0 新增：设备使用时长累计在前后台门控之外执行——
+                    // 后台存活期仍属"应用运行期" (轮询 delay 后台不中断，累计不漏拍)
+                    usageTracker.tick()
+                    _deviceUsage.value = usageTracker.snapshot()
                     // v1.2.4 P3 审计修复：后台态跳过读取与发布 (保持 1s 节奏，回前台无缝恢复)
                     if (telemetryPollingActive) {
                         publish(reader.readBatteryTelemetry())

@@ -79,6 +79,8 @@ fun BatteryScreen(
     // labOverride，用户切回总览后看到的是模拟数据却零提示，会把实验室模拟值
     // 当作真实电池状态阅读。现采集覆盖层状态，顶部显示警示横幅
     val labOverride by viewModel.labOverride.collectAsState()
+    // v2.1.0 新增：设备使用时长 (真实开机天数/小时，跨重启累计) 单源发布
+    val deviceUsage by viewModel.deviceUsage.collectAsState()
 
     // 顶层双 Tab：状态总览 / 硬件实验室 (对齐 Web 端 AndroidNavBar 信息架构)。
     // 外壳层审计修复：rememberSaveable 保证配置变更重建后停留在当前 Tab，
@@ -433,7 +435,12 @@ fun BatteryScreen(
                 }
             }
 
-            // 5. 关于 APP 功能说明 (版本号经 BuildConfig 单源注入)
+            // 5. 设备使用时长 (真实开机天数/小时：elapsedRealtime + 跨重启累计 + BOOT_COUNT)
+            item {
+                DeviceUsageCard(deviceUsage)
+            }
+
+            // 6. 关于 APP 功能说明 (版本号经 BuildConfig 单源注入)
             item {
                 AboutAppCard()
             }

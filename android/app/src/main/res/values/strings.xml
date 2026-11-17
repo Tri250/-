@@ -198,4 +198,13 @@
     <string name="health_state_dead">损坏</string>
     <string name="health_state_over_voltage">超压</string>
     <string name="health_state_unknown">未知</string>
+
+    <!-- 设备使用时长 (真实数据，0 权限：elapsedRealtime + 应用存活期累计 + BOOT_COUNT) -->
+    <string name="usage_card_title">设备使用时长</string>
+    <string name="usage_source_label">[实测]</string>
+    <string name="usage_total_label">自首次启动本应用累计使用</string>
+    <string name="usage_uptime_label">本次开机</string>
+    <string name="usage_boot_count_label">开机次数</string>
+    <string name="usage_reboot_detected">检测到设备重启 · 累计时长已保留</string>
+    <string name="usage_caveat">口径：累计=应用运行期真实累计，含息屏待机；应用未运行时间不计</string>
 </resources>
