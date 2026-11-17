@@ -160,11 +160,57 @@ class BatteryHistoryStoreTest {
             store.appendSample(sample(ts = it * 1000L, pct = (it % 100)))
         }
         val restored = store.loadRecentSamples(Int.MAX_VALUE)
-        assertTrue("轮转后样本数应收敛到 KEEP 上限", restored.size <= BatteryHistoryStore.SAMPLES_KEEP)
+        // v2.0.0-beta.1 P0 回归：轮转重写必须保持 JSONL 逐行格式。
+        // 旧实现 joinToString 空分隔符把 3000 行粘连成单行 → 轮转后仅 1 条可解析
+        // (数据永久损坏)，旧断言 "size <= KEEP" 无法拦截，故收敛为精确计数：
+        // 4050 条写入 → 触发轮转保留 3000 → 再追加 50 → 恰好 3050 条全部可解码
+        assertEquals(
+            "轮转后样本数应精确等于 KEEP + 轮转后追加数 (粘连损坏会导致数量锐减)",
+            BatteryHistoryStore.SAMPLES_KEEP + 50,
+            restored.size
+        )
         // 尾部样本必须保留 (滑窗语义：丢最旧保最新)
         assertEquals(
             (BatteryHistoryStore.SAMPLES_ROTATE_THRESHOLD + 50).toLong() * 1000L,
             restored.last().sampleTimestampMs
+        )
+        // 头部样本 = 轮转时刻窗口的第一条 (第 THRESHOLD 拍触发轮转保留最后 KEEP 条，
+        // 其后追加只扩展尾部不重新裁剪) → ts = THRESHOLD-KEEP+1
+        assertEquals(
+            (BatteryHistoryStore.SAMPLES_ROTATE_THRESHOLD - BatteryHistoryStore.SAMPLES_KEEP + 1).toLong() * 1000L,
+            restored.first().sampleTimestampMs
+        )
+    }
+
+    // ---- 会话滑窗轮转 (v2.0.0-beta.1 P0 回归：与样本轮转同源缺陷) ----
+
+    @Test
+    fun sessionsFileRotatesBeyondThreshold() {
+        // 交替充放状态族 → 每次切换闭合一个会话；660 拍产生约 660 条闭合会话，
+        // 超过 SESSIONS_ROTATE_THRESHOLD(600) 触发轮转 (保留 SESSIONS_KEEP=500)
+        (1..BatteryHistoryStore.SESSIONS_ROTATE_THRESHOLD + 60).forEach {
+            store.appendSample(
+                sample(
+                    ts = it * 1000L,
+                    pct = if (it % 2 == 0) 40 else 60,
+                    status = if (it % 2 == 0) BatteryStatus.CHARGING else BatteryStatus.DISCHARGING,
+                    cur = if (it % 2 == 0) 2000 else -800
+                )
+            )
+        }
+        store.flush() // 闭合最后一个进行中的会话
+        val restored = store.loadSessions(Int.MAX_VALUE)
+        // 轮转后必须仍有至少 SESSIONS_KEEP 条可解码会话——
+        // 粘连损坏会让该数锐减到 ~1，精确下限拦截磁盘级会话丢失
+        assertTrue(
+            "会话轮转后数量应收敛到 KEEP 窗口 (粘连损坏会导致锐减)",
+            restored.size in BatteryHistoryStore.SESSIONS_KEEP..BatteryHistoryStore.SESSIONS_KEEP + 60
+        )
+        // 时间升序且尾部会话为最后闭合的那条
+        assertTrue(restored.zipWithNext().all { (a, b) -> a.endTimestampMs <= b.endTimestampMs })
+        assertEquals(
+            (BatteryHistoryStore.SESSIONS_ROTATE_THRESHOLD + 60).toLong() * 1000L,
+            restored.last().endTimestampMs
         )
     }
 

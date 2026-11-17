@@ -185,7 +185,10 @@ class BatteryHistoryStore(
         try {
             val lines = samplesFile.readLines(Charsets.UTF_8).filter { it.isNotBlank() }
             val keep = lines.takeLast(SAMPLES_KEEP)
-            samplesFile.writeText(if (keep.isEmpty()) "" else keep.joinToString("", postfix = "\n"))
+            // v2.0.0-beta.1 P0 修复：joinToString 分隔符必须为 "\n"——
+            // 旧实现空分隔符把保留的 JSONL 行粘连成单行，轮转后 2999/3000 条
+            // 样本磁盘级不可解析 (历史永久损坏)，且既有测试断言过弱未能拦截
+            samplesFile.writeText(if (keep.isEmpty()) "" else keep.joinToString("\n", postfix = "\n"))
             sampleLineCount.set(keep.size)
         } catch (e: Throwable) {
             ioFailureCount.incrementAndGet()
@@ -354,7 +357,8 @@ class BatteryHistoryStore(
         try {
             val lines = sessionsFile.readLines(Charsets.UTF_8).filter { it.isNotBlank() }
             val keep = lines.takeLast(SESSIONS_KEEP)
-            sessionsFile.writeText(if (keep.isEmpty()) "" else keep.joinToString("", postfix = "\n"))
+            // v2.0.0-beta.1 P0 修复：与 rotateSamplesFile 同源缺陷，分隔符必须为 "\n"
+            sessionsFile.writeText(if (keep.isEmpty()) "" else keep.joinToString("\n", postfix = "\n"))
             sessionLineCount.set(keep.size)
         } catch (e: Throwable) {
             ioFailureCount.incrementAndGet()
