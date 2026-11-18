@@ -95,6 +95,46 @@ jobs:
           cd android
           chmod +x gradlew
 
+      # Robolectric 首次运行需从 Maven 中央仓库拉取 android-all 全量镜像
+      # (151MB)。其内置 MavenArtifactFetcher 无重试，GitHub runner 到
+      # repo1.maven.org 偶发断连会把整批 Robolectric 测试打红 (Run 44309979735 /
+      # 44313831643 双重复现)。此处用 curl --retry 预取到本地 ~/.m2 仓库，
+      # Robolectric 检测到既有工件即跳过网络下载 (含 .sha1 校验文件)。
+      # 全部 21 个 Robolectric 测试类 @Config(sdk=[34]) → 仅需 14-robolectric 镜像
+      - name: Prefetch Robolectric android-all jar
+        run: |
+          set -e
+          ver="14-robolectric-10818077-i7"
+          # runner 用户家目录下的 Maven 本地仓库 (Robolectric MavenUtils 按
+          # user.home/.m2/repository 解析)；/root 在 GH runner 上无写权限
+          dir="$HOME/.m2/repository/org/robolectric/android-all-instrumented/$ver"
+          base="android-all-instrumented-$ver"
+          url="https://repo1.maven.org/maven2/org/robolectric/android-all-instrumented/$ver"
+          mkdir -p "$dir"
+          # jar/pom 必须成功 (--fail)；校验文件远端可能缺失 (404)，缺失时本地生成
+          for ext in jar pom; do
+            curl --retry 6 --retry-all-errors --retry-delay 5 --connect-timeout 30 \
+              --fail --silent --show-error --location \
+              -o "$dir/$base.$ext" "$url/$base.$ext"
+          done
+          for ext in jar.sha1 pom.sha1; do
+            if ! curl --retry 3 --fail --silent --location \
+                -o "$dir/$base.$ext" "$url/$base.$ext"; then
+              (cd "$dir" && sha1sum "$base.${ext%%.*}" | cut -d' ' -f1 > "$base.$ext")
+            fi
+          done
+          # 完整性自检：Maven .sha1 为裸 hash 格式 (非 sha1sum -c 行格式)，手工比对；
+          # 损坏工件会导致 Robolectric 拒载
+          for ext in jar pom; do
+            calc=$(sha1sum "$dir/$base.$ext" | cut -d' ' -f1)
+            remote=$(tr -d '[:space:]' < "$dir/$base.$ext.sha1")
+            if [ "$calc" != "$remote" ]; then
+              echo "::error::$base.$ext sha1 mismatch: calc=$calc remote=$remote"
+              exit 1
+            fi
+          done
+          echo "prefetched $ver: $(stat -c%s "$dir/$base.jar") bytes"
+
       # 启动闪退回归测试 (Robolectric，无模拟器)：
       # 覆盖 Activity 启动 -> ViewModel 构造 -> 粘性广播回调 -> Compose 首帧渲染全链路，
       # 任何一环抛异常都会导致安装后启动闪退，测试失败即阻断发布

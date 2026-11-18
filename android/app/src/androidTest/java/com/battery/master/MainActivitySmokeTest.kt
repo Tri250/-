@@ -46,7 +46,7 @@ class MainActivitySmokeTest {
         InstrumentationRegistry.getInstrumentation().targetContext.getString(id)
 
     private val tabOverview get() = res(R.string.tab_overview)
-    // v2.2.0 薄荷五 Tab IA：遥测分析更名为续航分析 (tab_runtime)
+    // v2.2.0 薄荷 5 Tab IA：遥测分析更名为续航分析 (tab_runtime)
     private val tabRuntime get() = res(R.string.tab_runtime)
     private val tabHealth get() = res(R.string.tab_health)
     private val tabLab get() = res(R.string.tab_lab)
@@ -69,7 +69,7 @@ class MainActivitySmokeTest {
     }
 
     @Test
-    fun allFourTabsNavigateWithoutCrash() {
+    fun allFiveTabsNavigateWithoutCrash() {
         // 五 Tab 导航：总览 → 续航分析 → 健康档案 → 硬件实验室 → 回总览，
         // 每个 Tab 停留并确认导航条目存在，页面渲染崩溃即失败
         awaitText(tabRuntime)
@@ -80,7 +80,7 @@ class MainActivitySmokeTest {
     }
 
     @Test
-    fun telemetryTabRendersSessionHistoryCard() {
+    fun runtimeTabRendersSessionHistoryCard() {
         // P0 持久化链路真机验证：续航分析 Tab 挂载充放电会话统计卡
         // (BatteryHistoryStore 会话/样本持久化的 UI 入口)
         awaitText(tabRuntime)
