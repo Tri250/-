@@ -123,9 +123,16 @@ jobs:
               (cd "$dir" && sha1sum "$base.${ext%%.*}" | cut -d' ' -f1 > "$base.$ext")
             fi
           done
-          # 完整性自检：sha1 与实际文件一致，损坏工件会导致 Robolectric 拒载
-          (cd "$dir" && sha1sum -c "$base.jar.sha1" --quiet)
-          (cd "$dir" && sha1sum -c "$base.pom.sha1" --quiet)
+          # 完整性自检：Maven .sha1 为裸 hash 格式 (非 sha1sum -c 行格式)，手工比对；
+          # 损坏工件会导致 Robolectric 拒载
+          for ext in jar pom; do
+            calc=$(sha1sum "$dir/$base.$ext" | cut -d' ' -f1)
+            remote=$(tr -d '[:space:]' < "$dir/$base.$ext.sha1")
+            if [ "$calc" != "$remote" ]; then
+              echo "::error::$base.$ext sha1 mismatch: calc=$calc remote=$remote"
+              exit 1
+            fi
+          done
           echo "prefetched $ver: $(stat -c%s "$dir/$base.jar") bytes"
 
       # 启动闪退回归测试 (Robolectric，无模拟器)：
