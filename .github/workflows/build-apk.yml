@@ -105,7 +105,9 @@ jobs:
         run: |
           set -e
           ver="14-robolectric-10818077-i7"
-          dir="/root/.m2/repository/org/robolectric/android-all-instrumented/$ver"
+          # runner 用户家目录下的 Maven 本地仓库 (Robolectric MavenUtils 按
+          # user.home/.m2/repository 解析)；/root 在 GH runner 上无写权限
+          dir="$HOME/.m2/repository/org/robolectric/android-all-instrumented/$ver"
           base="android-all-instrumented-$ver"
           url="https://repo1.maven.org/maven2/org/robolectric/android-all-instrumented/$ver"
           mkdir -p "$dir"
