@@ -46,7 +46,8 @@ class MainActivitySmokeTest {
         InstrumentationRegistry.getInstrumentation().targetContext.getString(id)
 
     private val tabOverview get() = res(R.string.tab_overview)
-    private val tabTelemetry get() = res(R.string.tab_telemetry)
+    // v2.2.0 薄荷 5 Tab IA：遥测分析更名为续航分析 (tab_runtime)
+    private val tabRuntime get() = res(R.string.tab_runtime)
     private val tabHealth get() = res(R.string.tab_health)
     private val tabLab get() = res(R.string.tab_lab)
 
@@ -68,22 +69,22 @@ class MainActivitySmokeTest {
     }
 
     @Test
-    fun allFourTabsNavigateWithoutCrash() {
-        // 四 Tab 导航：总览 → 遥测分析 → 健康档案 → 硬件实验室 → 回总览，
+    fun allFiveTabsNavigateWithoutCrash() {
+        // 五 Tab 导航：总览 → 续航分析 → 健康档案 → 硬件实验室 → 回总览，
         // 每个 Tab 停留并确认导航条目存在，页面渲染崩溃即失败
-        awaitText(tabTelemetry)
-        listOf(tabTelemetry, tabHealth, tabLab, tabOverview).forEach { tab ->
+        awaitText(tabRuntime)
+        listOf(tabRuntime, tabHealth, tabLab, tabOverview).forEach { tab ->
             composeRule.onNodeWithText(tab).performClick()
             awaitText(tab, timeoutMs = 15_000L)
         }
     }
 
     @Test
-    fun telemetryTabRendersSessionHistoryCard() {
-        // P0 持久化链路真机验证：遥测分析 Tab 挂载充放电会话统计卡
+    fun runtimeTabRendersSessionHistoryCard() {
+        // P0 持久化链路真机验证：续航分析 Tab 挂载充放电会话统计卡
         // (BatteryHistoryStore 会话/样本持久化的 UI 入口)
-        awaitText(tabTelemetry)
-        composeRule.onNodeWithText(tabTelemetry).performClick()
+        awaitText(tabRuntime)
+        composeRule.onNodeWithText(tabRuntime).performClick()
         // 会话卡是遥测页 LazyColumn 尾部的 item，手机视口下位于首屏之下未被组合
         // (语义树不存在，Run 43775947015 超时根因)。performScrollToNode 在 1Hz
         // 遥测重组流上滚动失效 (Run 43777025731)，改用确定性上滑循环：每滑一次
