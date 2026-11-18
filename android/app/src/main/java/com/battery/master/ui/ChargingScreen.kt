@@ -58,6 +58,9 @@ fun ChargingScreen(
     viewModel: BatteryViewModel
 ) {
     val telemetryHistory by viewModel.telemetryHistory.collectAsState()
+    // 链路审计修复 (v2.2.0)：满充卡倒计时从 VM 单源收集——旧实现硬编码 0L，
+    // 一键模拟完全充满后 15s 保持期倒计时不显示、按钮不进入禁用态 (可重复触发)
+    val simulationRemainingSec by viewModel.simulationRemainingSec.collectAsState()
 
     LazyColumn(
         modifier = Modifier
@@ -70,7 +73,7 @@ fun ChargingScreen(
         item {
             FullChargeConditionCard(
                 state = state,
-                simulationRemainingSec = 0L,
+                simulationRemainingSec = simulationRemainingSec,
                 onTriggerTest = viewModel::triggerFullChargeSimulation,
                 onClearRecords = viewModel::clearFullChargeRecords
             )

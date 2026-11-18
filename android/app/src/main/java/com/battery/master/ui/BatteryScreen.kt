@@ -193,29 +193,48 @@ fun BatteryScreen(
                         }
                     }
                     Spacer(modifier = Modifier.width(6.dp))
-                    // 「我的」入口：设置 / 更新 / 关于 / 隐私
-                    Surface(
-                        onClick = { showSettings = true },
-                        shape = RoundedCornerShape(DesignTokens.RadiusPill),
-                        color = DesignTokens.BrandPrimary
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                    // 链路审计修复：「我的」入口 ↔ 设置页返回双态切换——旧实现进入
+                    // 设置页后无任何返回路径 (底栏点击只改 selectedTab，showSettings
+                    // 恒为 true，AnimatedContent 恒渲染 SETTINGS_TAB)
+                    if (showSettings) {
+                        Surface(
+                            onClick = { showSettings = false },
+                            shape = RoundedCornerShape(DesignTokens.RadiusPill),
+                            color = DesignTokens.BgSurface,
+                            border = BorderStroke(1.dp, DesignTokens.Border)
                         ) {
-                            Icon(
-                                imageVector = MintIcons.Person,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(11.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = stringResource(R.string.nav_more),
+                                text = stringResource(R.string.settings_back),
                                 fontSize = DesignTokens.Font2xs,
                                 fontWeight = FontWeight.Bold,
-                                color = DesignTokens.TextPrimary
+                                color = DesignTokens.TextSecondary,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                             )
+                        }
+                    } else {
+                        Surface(
+                            onClick = { showSettings = true },
+                            shape = RoundedCornerShape(DesignTokens.RadiusPill),
+                            color = DesignTokens.BrandPrimary
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = MintIcons.Person,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(11.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = stringResource(R.string.nav_more),
+                                    fontSize = DesignTokens.Font2xs,
+                                    fontWeight = FontWeight.Bold,
+                                    color = DesignTokens.TextPrimary
+                                )
+                            }
                         }
                     }
                     Spacer(modifier = Modifier.width(10.dp))
@@ -233,8 +252,13 @@ fun BatteryScreen(
             ) {
                 navItems.forEachIndexed { index, item ->
                     NavigationBarItem(
-                        selected = selectedTab == index,
-                        onClick = { selectedTab = index },
+                        selected = selectedTab == index && !showSettings,
+                        // 链路审计修复：点击任意 Tab 同时退出「我的」页——旧实现仅切
+                        // selectedTab，showSettings 仍为 true，底栏在设置态完全失效
+                        onClick = {
+                            selectedTab = index
+                            showSettings = false
+                        },
                         icon = {
                             Icon(
                                 imageVector = item.icon,
@@ -294,7 +318,6 @@ fun BatteryScreen(
                     SETTINGS_TAB -> SettingsScreen(
                         viewModel = viewModel,
                         state = displayState,
-                        onBack = { showSettings = false },
                         onCalibrateDesignCapacity = { showDesignCapacityDialog = true }
                     )
                     // 0 总览：Hero 环 + 健康结论 + 12 项指标分组 + 满充判定 + 硬件档案

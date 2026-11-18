@@ -1,5 +1,6 @@
 package com.battery.master.ui
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -83,6 +84,14 @@ fun RuntimeScreen(
                             context.startActivity(
                                 android.content.Intent.createChooser(intent, null)
                             )
+                        } else {
+                            // 链路审计修复：导出失败/无样本给出可见反馈 (旧实现静默，
+                            // VM 注释承诺的"暂无数据"提示从未兑现)
+                            Toast.makeText(
+                                context,
+                                context.getString(R.string.session_empty_hint),
+                                Toast.LENGTH_SHORT
+                            ).show()
                         }
                     }
                 },
@@ -93,6 +102,12 @@ fun RuntimeScreen(
                             context.startActivity(
                                 android.content.Intent.createChooser(intent, null)
                             )
+                        } else {
+                            Toast.makeText(
+                                context,
+                                context.getString(R.string.session_empty_hint),
+                                Toast.LENGTH_SHORT
+                            ).show()
                         }
                     }
                 },

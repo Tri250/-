@@ -71,7 +71,6 @@ import kotlinx.coroutines.launch
 fun SettingsScreen(
     viewModel: BatteryViewModel,
     state: BatteryState,
-    onBack: () -> Unit,
     onCalibrateDesignCapacity: () -> Unit
 ) {
     val context = LocalContext.current
@@ -214,7 +213,11 @@ fun SettingsScreen(
             },
             text = {
                 Text(
-                    text = stringResource(R.string.settings_clear_telemetry),
+                    // 链路审计修复：body 原误用标题文案 settings_clear_telemetry，
+                    // 改用与遥测页清空对话框同源的完整描述 (说明删除范围与不可撤销)
+                    text = stringResource(R.string.clear_history_dialog_body),
+                    fontSize = DesignTokens.Font2xs,
+                    lineHeight = DesignTokens.Line2xs,
                     color = DesignTokens.TextSecondary
                 )
             },
