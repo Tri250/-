@@ -37,6 +37,27 @@ class BatteryCapacityRegressorTest {
         BatteryCapacityRegressor(app).resetForTest()
     }
 
+    // ===== 6. v2.2.0 数据库维度审计：prefs 类型污染启动闪退回归 =====
+
+    @Test
+    fun init_survivesCorruptedPrefsTypes_andAccumulatesFromZero() {
+        // 模拟历史版本/外部污染：统计量 key 被写成错误类型 (真实 Android 上
+        // getInt 会抛 ClassCastException，旧实现 init 无兜底会启动闪退)
+        app.getSharedPreferences("battery_capacity_regression", android.content.Context.MODE_PRIVATE)
+            .edit()
+            .putString("reg_n", "polluted")
+            .putString("reg_span", "polluted")
+            .commit()
+        // 构造不得抛异常 (启动闪退治理口径与 DeviceUsageTracker/AppUpdateChecker 一致)
+        val regressor = BatteryCapacityRegressor(app)
+        assertEquals("污染统计量按空重新积累", 0, regressor.sampleCount())
+        assertNull(regressor.fullCapacityMah())
+        // 恢复路径不得阻塞后续采集：有效样本照常积累
+        regressor.observe(100, counterUah(4800, 100))
+        regressor.observe(99, counterUah(4800, 99))
+        assertEquals(1, regressor.sampleCount())
+    }
+
     // ===== 1. 放电序列 OLS 收敛 =====
 
     @Test

@@ -36,6 +36,13 @@
   - P1 遥测分析三通道曲线固定归一化窗口削顶失真——电压 3000~5000 mV / 电流 ±6000 mA / 温度 0~60°C 窗口外的真实读数被 coerceIn 贴边（双电芯整包 8800 mV、120W 快充 ±8000 mA、实验室滑杆 12000 mV、高温 >60°C），曲线与实际读数不一致；改为真实样本动态推导窗口（`telemetrySeriesBounds` 纯函数：min/max ±8% 余量，空历史/平坦序列回落典型窗口不贴边），Canvas 归一化曲线恢复与真实读数一致
   - 新增 `TelemetryChartWindowTest` 6 用例锁定窗口契约（双电芯/快充/高温/典型区间/空历史/平坦序列）
   - 审计结论：其余全部功能判定真实实现——sysfs 多节点电量计探测链、库仑计积分回归 + 单点估算、内阻 ΔV/ΔI 滑窗回归、JSONL 遥测持久化 + 会话状态机、BOOT_COUNT 真实开机计量、本地崩溃捕获导出、GitHub Releases 热更新、诚实来源标注体系（[实测]/[工程估算]/[模拟]）均无空壳/伪实现
+- **三维度全量自检（数据库 / 机型数据 / 脚本引擎，100% 功能模块覆盖）**：
+  - P1 `BatteryHistoryStore` JSONL 轮转非原子——旧 `writeText` 直接截断重写目标文件，轮转瞬间进程被杀会留下半截文件，最多 3000 行样本/500 行会话历史永久丢失且无 decode 兜底可救（追加写入的半行损坏有 decode 兜底，但轮转截断无兜底）；改为 tmp+rename 原子替换（POSIX `rename(2)` 同目录原子覆盖），rename 成功前旧文件始终完好，失败/被杀只损失 tmp
+  - P1 `BatteryHistoryStore` 崩溃遗留半行粘连丢样本——进程被杀留下的半行 JSON **无换行结尾**，恢复后直接追加会把新样本粘连到损坏行上（decode 整行失败 = 新样本永久丢失）；写入前尾行自愈（RandomAccessFile peek 文件尾，非 `\n` 先补换行），损坏半行成为独立行由 decode 静默跳过，新样本无损（样本与会话写入同款治理）
+  - P2 `BatteryCapacityRegressor` 构造期 prefs 恢复无异常兜底——类型污染 (`ClassCastException`) 等恢复异常会启动闪退，与 `DeviceUsageTracker`/`AppUpdateChecker`/`BatteryHardwareReader` 启动闪退治理口径不一致；prefs 获取、统计量恢复、`persist()` 全链路兜底，污染统计量按空重新积累
+  - 机型数据维度审计结论：无缺陷——`DeviceHardwareProfile` PMIC/快充/电芯/化学三级回退链（DT 实测→品牌档案→工程估算）来源标注齐全，`SoCHardwareProfile` 五字段检测链与营销名别名顺序正确（8 Elite Gen 5 先于 8 Elite 匹配），`BatterySysfs` 16 品牌电量计预设 + 特征评分链兜底闭环，`BatteryCapacityRegressor` 库仑计先验无硬编码冒充实测
+  - 脚本引擎维度判定：**N/A 不存在**——全仓 grep 验证无 WebView/JS/Lua/ScriptEngine/Room/SQLite（`evaluateFullCharge` 含 "lua" 子串、"room temperature" 室温均为误报），最接近的"引擎"类组件为 LabScenario 场景模拟引擎（纯函数驱动，无脚本解释器）
+  - 新增 3 审计断言用例：轮转 tmp 无残留 + 崩溃遗留 tmp 不污染恢复/再轮转、进程被杀半行截断静默跳过且不阻塞后续写入、prefs 类型污染构造不闪退且采集链路正常
 - 测试 JVM 代理透传：Robolectric 首次运行需从 Maven 中央仓库拉取 android-all 依赖，分叉测试 JVM 不继承守护进程代理——`build.gradle.kts` 按环境变量显式下发 `http(s).proxyHost/Port`
 - 指标 01 健康度值改为单一 Text（"92.3%"），恢复审计断言兼容
 

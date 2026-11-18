@@ -108,6 +108,7 @@ class BatteryHistoryStore(
                 if (sampleLineCount.get() >= SAMPLES_ROTATE_THRESHOLD) {
                     rotateSamplesFile()
                 }
+                ensureTrailingNewline(samplesFile)
                 FileOutputStream(samplesFile, true).use { out ->
                     out.write(encodeSample(stamped).toByteArray(Charsets.UTF_8))
                 }
@@ -115,6 +116,28 @@ class BatteryHistoryStore(
             } catch (e: Throwable) {
                 ioFailureCount.incrementAndGet()
             }
+        }
+    }
+
+    /**
+     * v2.2.0 数据库维度审计修复：JSONL 尾行崩溃自愈。
+     * 进程被杀可能留下**无换行结尾的半行 JSON**——直接追加会把新样本粘连到
+     * 损坏行上 (decode 整行失败 = 新样本永久丢失)。写入前检测文件尾字节，
+     * 非 "\n" 先补换行，让损坏半行成为独立行由 decode 静默跳过，新样本无损。
+     * (RandomAccessFile 单字节 peek，1Hz 遥测频率下开销可忽略)
+     */
+    private fun ensureTrailingNewline(file: File) {
+        try {
+            if (!file.exists() || file.length() == 0L) return
+            java.io.RandomAccessFile(file, "rw").use { raf ->
+                raf.seek(raf.length() - 1)
+                if (raf.read() != '\n'.code) {
+                    raf.seek(raf.length())
+                    raf.write('\n'.code)
+                }
+            }
+        } catch (e: Throwable) {
+            // 自愈失败不阻塞追加：最坏情况粘连行由 decode 静默跳过
         }
     }
 
@@ -188,7 +211,19 @@ class BatteryHistoryStore(
             // v2.0.0-beta.1 P0 修复：joinToString 分隔符必须为 "\n"——
             // 旧实现空分隔符把保留的 JSONL 行粘连成单行，轮转后 2999/3000 条
             // 样本磁盘级不可解析 (历史永久损坏)，且既有测试断言过弱未能拦截
-            samplesFile.writeText(if (keep.isEmpty()) "" else keep.joinToString("\n", postfix = "\n"))
+            // v2.2.0 数据库维度审计修复：轮转重写改为 tmp+rename 原子替换——
+            // 旧 writeText 直接截断重写目标文件，轮转瞬间进程被杀会留下半截文件，
+            // 最多 SAMPLES_KEEP 行历史永久丢失且无 decode 兜底可救；
+            // tmp+rename (POSIX rename(2) 同目录原子覆盖) 保证 rename 成功前
+            // 旧文件始终完好，失败/被杀只损失 tmp，历史数据无损
+            val content = if (keep.isEmpty()) "" else keep.joinToString("\n", postfix = "\n")
+            val tmp = File(telemetryDir, "$SAMPLES_FILE_NAME.tmp")
+            tmp.writeText(content)
+            if (!tmp.renameTo(samplesFile)) {
+                // rename 失败 (极端文件系统/文件占用)：退回直接重写，数据仍落盘
+                samplesFile.writeText(content)
+                tmp.delete()
+            }
             sampleLineCount.set(keep.size)
         } catch (e: Throwable) {
             ioFailureCount.incrementAndGet()
@@ -275,6 +310,7 @@ class BatteryHistoryStore(
                 if (sessionLineCount.get() >= SESSIONS_ROTATE_THRESHOLD) {
                     rotateSessionsFile()
                 }
+                ensureTrailingNewline(sessionsFile)
                 FileOutputStream(sessionsFile, true).use { out ->
                     out.write(encodeSession(session).toByteArray(Charsets.UTF_8))
                 }
@@ -358,7 +394,14 @@ class BatteryHistoryStore(
             val lines = sessionsFile.readLines(Charsets.UTF_8).filter { it.isNotBlank() }
             val keep = lines.takeLast(SESSIONS_KEEP)
             // v2.0.0-beta.1 P0 修复：与 rotateSamplesFile 同源缺陷，分隔符必须为 "\n"
-            sessionsFile.writeText(if (keep.isEmpty()) "" else keep.joinToString("\n", postfix = "\n"))
+            // v2.2.0 数据库维度审计修复：与 rotateSamplesFile 同款 tmp+rename 原子替换
+            val content = if (keep.isEmpty()) "" else keep.joinToString("\n", postfix = "\n")
+            val tmp = File(telemetryDir, "$SESSIONS_FILE_NAME.tmp")
+            tmp.writeText(content)
+            if (!tmp.renameTo(sessionsFile)) {
+                sessionsFile.writeText(content)
+                tmp.delete()
+            }
             sessionLineCount.set(keep.size)
         } catch (e: Throwable) {
             ioFailureCount.incrementAndGet()

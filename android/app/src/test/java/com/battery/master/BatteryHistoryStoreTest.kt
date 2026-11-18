@@ -351,4 +351,64 @@ class BatteryHistoryStoreTest {
         val restarted = BatteryHistoryStore(context, directExecutor)
         assertTrue(restarted.loadRecentSamples().isEmpty())
     }
+
+    // ---- v2.2.0 数据库维度审计：轮转原子性与崩溃韧性 ----
+
+    @Test
+    fun rotationLeavesNoTmpResidueAndLegacyTmpDoesNotCorruptRestore() {
+        // 1) 正常轮转后 telemetry 目录不得残留 .tmp 中间文件
+        (1..BatteryHistoryStore.SAMPLES_ROTATE_THRESHOLD + 10).forEach {
+            store.appendSample(sample(ts = it * 1000L, pct = (it % 100)))
+        }
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val telemetryDir = java.io.File(context.filesDir, "telemetry")
+        assertTrue(
+            "轮转完成后不得残留 tmp 中间文件",
+            telemetryDir.listFiles()!!.none { it.name.endsWith(".tmp") }
+        )
+        // 2) 崩溃遗留的 tmp 垃圾文件 (上次轮转被杀) 不影响新实例恢复与后续轮转
+        java.io.File(telemetryDir, "samples.jsonl.tmp").writeText("garbage-from-killed-process")
+        java.io.File(telemetryDir, "sessions.jsonl.tmp").writeText("garbage-from-killed-process")
+        val restarted = BatteryHistoryStore(context, directExecutor)
+        assertTrue(restarted.loadRecentSamples().isNotEmpty())
+        // 再次触发轮转 (样本与会话均超阈值)：遗留 tmp 必须被覆盖清理，正式文件不受污染
+        (1..BatteryHistoryStore.SAMPLES_ROTATE_THRESHOLD + 10).forEach {
+            restarted.appendSample(
+                sample(
+                    ts = 100_000_000L + it * 1000L,
+                    pct = if (it % 2 == 0) 40 else 60,
+                    status = if (it % 2 == 0) BatteryStatus.CHARGING else BatteryStatus.DISCHARGING,
+                    cur = if (it % 2 == 0) 2000 else -800
+                )
+            )
+        }
+        restarted.flush()
+        assertTrue(
+            "再次轮转后遗留 tmp 应被清理",
+            telemetryDir.listFiles()!!.none { it.name.endsWith(".tmp") }
+        )
+        val samplesText = java.io.File(telemetryDir, "samples.jsonl").readText()
+        val sessionsText = java.io.File(telemetryDir, "sessions.jsonl").readText()
+        assertFalse("tmp 垃圾内容不得混入正式样本文件", samplesText.contains("garbage"))
+        assertFalse("tmp 垃圾内容不得混入正式会话文件", sessionsText.contains("garbage"))
+    }
+
+    @Test
+    fun truncatedLastLineFromProcessKillIsSkippedOnRestore() {
+        // 模拟进程被杀：追加写入只落了半行 JSON (无完整行)
+        (1..5).forEach { store.appendSample(sample(ts = it * 1000L, pct = it * 10)) }
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val telemetryDir = java.io.File(context.filesDir, "telemetry")
+        java.io.File(telemetryDir, "samples.jsonl")
+            .appendText("{\"ts\":6000,\"pct\":6")   // 半行截断
+        // 新实例恢复：损坏行静默跳过，完整样本全部恢复，不抛异常
+        val restarted = BatteryHistoryStore(context, directExecutor)
+        val restored = restarted.loadRecentSamples(Int.MAX_VALUE)
+        assertEquals("半行损坏必须跳过且不污染其余样本", 5, restored.size)
+        assertEquals(1000L, restored.first().sampleTimestampMs)
+        assertEquals(5000L, restored.last().sampleTimestampMs)
+        // 恢复后继续写入正常 (损坏行不得阻塞追加链路)
+        restarted.appendSample(sample(ts = 7_000L, pct = 70))
+        assertEquals(6, restarted.loadRecentSamples(Int.MAX_VALUE).size)
+    }
 }

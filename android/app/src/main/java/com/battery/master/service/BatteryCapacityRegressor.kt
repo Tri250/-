@@ -58,15 +58,27 @@ class BatteryCapacityRegressor(context: Context) {
     private var lastPerc = -1
     private var lastCounterUah = 0L
 
-    private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    // 启动闪退治理 (v2.2.0 数据库维度审计修复)：prefs 获取与统计量恢复全兜底——
+    // 与 DeviceUsageTracker/AppUpdateChecker/BatteryHardwareReader 同口径：
+    // 磁盘异常/类型污染 (ClassCastException) 一律按空统计量重新积累，不得阻塞构造
+    private val prefs: android.content.SharedPreferences? = try {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    } catch (e: Throwable) {
+        null
+    }
 
     init {
-        n = prefs.getInt("reg_n", 0)
-        sx = prefs.getLong("reg_sx", 0L)
-        sy = prefs.getLong("reg_sy", 0L)
-        sxx = prefs.getLong("reg_sxx", 0L)
-        sxy = prefs.getLong("reg_sxy", 0L)
-        spanPct = prefs.getInt("reg_span", 0)
+        try {
+            n = prefs?.getInt("reg_n", 0) ?: 0
+            sx = prefs?.getLong("reg_sx", 0L) ?: 0L
+            sy = prefs?.getLong("reg_sy", 0L) ?: 0L
+            sxx = prefs?.getLong("reg_sxx", 0L) ?: 0L
+            sxy = prefs?.getLong("reg_sxy", 0L) ?: 0L
+            spanPct = prefs?.getInt("reg_span", 0) ?: 0
+        } catch (e: Throwable) {
+            // 恢复失败按首次使用处理：统计量归零重新积累，不阻塞构造
+            n = 0; sx = 0; sy = 0; sxx = 0; sxy = 0; spanPct = 0
+        }
     }
 
     /** 每帧遥测喂入：percentage 0..100；chargeCounterUah ≤ 0 视为断档跳段 */
@@ -147,13 +159,17 @@ class BatteryCapacityRegressor(context: Context) {
     private fun converged(): Boolean = n >= MIN_SAMPLES && spanPct >= MEDIUM_SPAN_PCT
 
     private fun persist() {
-        prefs.edit()
-            .putInt("reg_n", n)
-            .putLong("reg_sx", sx)
-            .putLong("reg_sy", sy)
-            .putLong("reg_sxx", sxx)
-            .putLong("reg_sxy", sxy)
-            .putInt("reg_span", spanPct)
-            .apply()
+        try {
+            prefs?.edit()
+                ?.putInt("reg_n", n)
+                ?.putLong("reg_sx", sx)
+                ?.putLong("reg_sy", sy)
+                ?.putLong("reg_sxx", sxx)
+                ?.putLong("reg_sxy", sxy)
+                ?.putInt("reg_span", spanPct)
+                ?.apply()
+        } catch (e: Throwable) {
+            // 持久化失败不影响内存统计量，下一有效样本重试
+        }
     }
 }
