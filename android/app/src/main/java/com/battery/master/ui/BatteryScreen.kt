@@ -1069,13 +1069,12 @@ fun TelemetryAnalysisScreen(
     // v2.0.0-alpha.3 真实现：曲线历史由 BatteryViewModel.telemetryHistory 在发布
     // 源头积累 (1Hz 轮询 + 广播双通道、400ms 同拍节流、120 点滑窗)——跨 Tab 切换
     // 不丢失，实验室冻结/模拟保持期期间仍记录真实硬件读数。UI 层只消费不持有
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 16.dp),
+    // 薄荷重构：本卡改为嵌入续航分析页 LazyColumn 的单个 item，
+    // 自身不再滚动（嵌套同向 LazyColumn 会触发无限高度约束崩溃）
+    Column(
+        modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        item {
             Text(
                 text = stringResource(R.string.telemetry_title),
                 fontWeight = FontWeight.Bold,
@@ -1092,15 +1091,11 @@ fun TelemetryAnalysisScreen(
                 fontFamily = FontFamily.Monospace,
                 modifier = Modifier.padding(top = 2.dp)
             )
-        }
 
         // 实时遥测曲线 (Compose Canvas 自绘)
-        item {
             TelemetryChartPanel(history)
-        }
 
         // 功率与温度评估 (与 Web 端 Summary Cards 对齐，复用 12 指标卡样式)
-        item {
             val currentNow = state.currentNowMa
             val powerW = state.powerWatts
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -1149,16 +1144,12 @@ fun TelemetryAnalysisScreen(
                     }
                 )
             }
-        }
 
         // 采集链路状态卡 (Android 真机独有：真实数据来源透视)
-        item {
             TelemetrySourceCard(state)
-        }
 
         // v2.0.0-beta.1 P0 GA 修复：充放电会话统计 + 历史持久化操作
         // (会话跨进程重启持久恢复；CSV 导出经 FileProvider 分享；支持一键清空)
-        item {
             SessionHistoryCard(
                 sessions = sessions,
                 hasSamples = history.isNotEmpty(),
@@ -1166,9 +1157,8 @@ fun TelemetryAnalysisScreen(
                 onExportSessions = onExportSessions,
                 onClearHistory = onClearHistory
             )
-        }
 
-        item { Spacer(modifier = Modifier.height(28.dp)) }
+        Spacer(modifier = Modifier.height(28.dp))
     }
 }
 

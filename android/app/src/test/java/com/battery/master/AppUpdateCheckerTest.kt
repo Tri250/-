@@ -145,17 +145,17 @@ class AppUpdateCheckerTest {
         assertTrue(info != null && info!!.latestVersion == "2.1.0-beta.2")
         assertEquals(AppUpdateChecker.RELEASES_LATEST_URL, requestedUrl)
 
-        // isNewer 正向用例：tag 高于当前 BuildConfig.VERSION_NAME (2.1.0-beta.2)
+        // isNewer 正向用例：tag 高于当前 BuildConfig.VERSION_NAME (2.2.0)
         val newerFixture = releaseFixture.replace(
-            "\"tag_name\": \"v2.1.0-beta.2\"", "\"tag_name\": \"v2.1.0-beta.3\""
+            "\"tag_name\": \"v2.1.0-beta.2\"", "\"tag_name\": \"v2.2.1\""
         )
         checker.fetcher = { newerFixture }
         val newer = checker.checkForUpdate()
-        assertTrue(newer != null && newer!!.isNewer && newer.latestVersion == "2.1.0-beta.3")
+        assertTrue(newer != null && newer!!.isNewer && newer.latestVersion == "2.2.1")
 
         val prefs = ApplicationProvider.getApplicationContext<Context>()
             .getSharedPreferences("app_update_prefs", Context.MODE_PRIVATE)
-        assertEquals("2.1.0-beta.3", prefs.getString("update_last_latest", null))
+        assertEquals("2.2.1", prefs.getString("update_last_latest", null))
         assertTrue(prefs.getLong("update_last_check_at", 0L) > 0)
     }
 

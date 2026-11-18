@@ -8,7 +8,6 @@
     <string name="tab_overview">状态总览</string>
     <string name="tab_runtime">续航分析</string>
     <string name="tab_charging">充电管理</string>
-    <string name="tab_telemetry">遥测分析</string>
     <string name="tab_health">健康档案</string>
     <string name="tab_lab">硬件实验室</string>
 
@@ -114,10 +113,12 @@
     <string name="about_title">关于 APP</string>
     <string name="about_tagline">电池大师 — 专业安卓电池充放电监测工具</string>
     <string name="about_privacy_title">隐私与数据声明</string>
-    <string name="about_privacy_body">零权限：不申请任何运行时/危险权限，电池数据全部来自系统公开 API 与 sysfs 硬件节点；零上传：全部指标、遥测历史与充放电会话仅存储在应用私有目录，无任何网络传输；零追踪：无第三方统计/崩溃 SDK，崩溃堆栈本地落盘、仅在您主动导出时离开设备。卸载即清除全部数据。</string>
+    <string name="about_privacy_body">零权限：不申请任何运行时/危险权限，电池数据全部来自系统公开 API 与 sysfs 硬件节点；零上传：全部指标、遥测历史与充放电会话仅存储在应用私有目录（全程本地处理），无任何网络传输；零追踪：无第三方统计/崩溃 SDK，崩溃堆栈本地落盘、仅在您主动导出时离开设备。卸载即清除全部数据。</string>
     <string name="about_export_crash_log">导出崩溃日志</string>
     <string name="about_crash_count">本地记录 %1$d 份崩溃堆栈</string>
     <string name="about_crash_none">暂无本地崩溃记录</string>
+    <string name="about_open_source_title">开源许可</string>
+    <string name="about_open_source_content">本项目以 MIT 许可开源发布：GitHub 仓库提供全部源码、构建脚本与审计文档；依赖均为 Apache 2.0 / MIT 许可的开源组件；欢迎审计、复用与社区贡献。</string>
     <string name="about_developer">开发者：某厂大牛马【带娃的小陈工】</string>
 
     <!-- 遥测分析 Tab -->

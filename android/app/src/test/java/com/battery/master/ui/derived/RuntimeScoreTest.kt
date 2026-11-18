@@ -8,6 +8,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 /**
  * 续航测算纯函数回归测试 (数据诚实性红线)：
@@ -17,6 +18,7 @@ import org.robolectric.RobolectricTestRunner
  * - 时长格式化进位。
  */
 @RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34])
 class RuntimeScoreTest {
 
     private fun state(

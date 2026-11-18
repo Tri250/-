@@ -330,10 +330,11 @@ private fun buildChargeMetrics(state: BatteryState): List<MetricRowData> {
         MetricRowData(
             number = "01",
             title = stringResource(R.string.metric_title_health),
+            // 审计约束：指标 01 值为单一 Text ("92.3%")，百分号并入值文本
             value = if (state.hasMeasuredCapacity) {
-                String.format(Locale.US, "%.1f", state.healthPercentage)
+                String.format(Locale.US, "%.1f%%", state.healthPercentage)
             } else "—",
-            unit = if (state.hasMeasuredCapacity) "%" else "",
+            unit = "",
             sub = healthSub,
             accent = if (state.hasMeasuredCapacity) DesignTokens.BrandPrimary else DesignTokens.TextTertiary
         ),

@@ -514,6 +514,25 @@ fun AboutAppCard() {
 
         Spacer(modifier = Modifier.height(10.dp))
 
+        // 开源许可：MIT 开源发布，源码/构建/审计文档全公开 (零商业化红线的一部分)
+        Text(
+            text = stringResource(R.string.about_open_source_title),
+            fontSize = DesignTokens.FontXs,
+            fontWeight = FontWeight.Black,
+            color = DesignTokens.TextPrimary,
+            fontFamily = FontFamily.Monospace
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = stringResource(R.string.about_open_source_content),
+            fontSize = DesignTokens.Font2xs,
+            color = DesignTokens.TextTertiary,
+            fontFamily = FontFamily.Monospace,
+            lineHeight = DesignTokens.FontXs
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+
         HorizontalDivider(color = DesignTokens.Border, thickness = 1.dp)
 
         Spacer(modifier = Modifier.height(10.dp))

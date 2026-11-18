@@ -6,9 +6,13 @@
 
     <!-- Top-level tabs -->
     <string name="tab_overview">Overview</string>
-    <string name="tab_telemetry">Telemetry</string>
+    <string name="tab_runtime">Runtime</string>
+    <string name="tab_charging">Charging</string>
     <string name="tab_health">Health</string>
     <string name="tab_lab">Hardware Lab</string>
+
+    <!-- Top bar -->
+    <string name="nav_more">Me</string>
 
     <!-- Overview: 12-metric section -->
     <string name="metrics_section_title">12 Core Charge/Discharge Metrics</string>
@@ -109,10 +113,12 @@
     <string name="about_title">About</string>
     <string name="about_tagline">Battery Master — Professional Android battery charge/discharge monitor</string>
     <string name="about_privacy_title">Privacy &amp; Data Statement</string>
-    <string name="about_privacy_body">Zero permissions: no runtime/dangerous permissions requested; battery data comes entirely from public system APIs and sysfs hardware nodes. Zero uploads: all metrics, telemetry history and sessions are stored only in app-private storage with no network transfer. Zero tracking: no third-party analytics or crash SDKs; crash stacks are stored locally and leave the device only when you export them. Uninstalling removes all data.</string>
+    <string name="about_privacy_body">Zero permissions: no runtime/dangerous permissions requested; battery data comes entirely from public system APIs and sysfs hardware nodes. Zero uploads: all metrics, telemetry history and sessions are stored only in app-private storage (fully processed locally) with no network transfer. Zero tracking: no third-party analytics or crash SDKs; crash stacks are stored locally and leave the device only when you export them. Uninstalling removes all data.</string>
     <string name="about_export_crash_log">Export crash logs</string>
     <string name="about_crash_count">%1$d crash stacks stored locally</string>
     <string name="about_crash_none">No local crash records</string>
+    <string name="about_open_source_title">Open Source License</string>
+    <string name="about_open_source_content">Released under the MIT license: the GitHub repository provides all source code, build scripts and audit documents; dependencies are Apache 2.0 / MIT licensed open-source components; audits, reuse and community contributions are welcome.</string>
     <string name="about_developer">Developer: 某厂大牛马【带娃的小陈工】</string>
 
     <!-- Telemetry tab -->

@@ -2,6 +2,36 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格，版本号遵循语义化版本。
 
+## [2.2.0] - 2026-11-18
+
+「薄荷能量」UI 2.0 正式版：Android 端全面重构为浅色薄荷绿设计语言，双主题（浅色/深色「夜航森林绿」），5 Tab 信息架构，零商业化。
+
+### Added 新增
+- **设计令牌 2.0「薄荷能量」**：`MintColors` 语义色板（38+ 字段）+ `LightMintColors`/`DarkMintColors` 双主题 + `LocalMintColors` CompositionLocal；`DesignTokens` 颜色门面全部改为 `@Composable get()` 代理——3400+ 行存量 UI 零改动即获双主题能力
+- **MintTheme 主题系统**：浅色（默认）/深色/跟随系统三态，SharedPreferences 持久化，状态栏图标明暗随主题联动（`WindowCompat.getInsetsController`）；不启用 Material You 动态取色（保持品牌一致性）
+- **GlassKit 玻璃拟态主题感知**：`GlassTokens` 高光/阴影按主题分支（浅色白高光+柔绿投影，深色暗面弱高光），`glassSurface()` 空默认边框内部解析主题色
+- **MintIcons 自绘矢量图标**：24dp 网格 `ImageVector.Builder` 自绘 23 枚图标（仪表盘/计时/闪电/心形/烧瓶/人像等），不引入 material-icons-extended（APK 体积零增）
+- **5 Tab 信息架构**：状态总览 / 续航分析 / 充电管理 / 健康档案 / 硬件实验室 + 顶栏「我的」入口；Tab 切换保留方向感知 slide+fade 动画
+- **续航分析页（新）**：预计可用时长卡（瞬时电流线性外推 + 库仑计/估算双口径标注）+ 设备使用时长卡 + 高频硬件遥测分析（三通道曲线 + 采集链路透视 + 会话统计）；`RuntimeScore` 纯函数（不可读不虚构、浮充死区不外推）+ 7 项单测
+- **充电管理页（新）**：功率大数字（带符号 +W/−W）+ 距满差额 + 充电状态三态徽章
+- **「我的」页（新）**：主题切换 / 提示音开关 / 设计容量校准 / 清除记录 / 应用更新（自动检查开关）/ 关于 APP（版本徽章 + 隐私声明 + **开源许可** + 崩溃日志导出）
+- **隐私信任行**：总览页常驻"权限声明：零权限安装即用 · 电池数据全部本地处理，不上传"
+
+### Changed 调整
+- **总览页重构**：薄荷 Hero 电池卡（状态标签 + 剩余电量 + 功率读数条）+ 健康结论卡（分级结论先行，不与指标 01 双读数）+ 12 项指标分组行（电量与容量 / 状态与环境）+ 充满判定卡 + 硬件信息汇总栏
+- **遥测分析收编续航页**：`TelemetryAnalysisScreen` 由独立滚动容器改为嵌入续航页 LazyColumn 的单个 item（修复嵌套同向滚动无限高度约束崩溃）
+- **版本徽章**：v2.2.0 (25)；`AppUpdateCheckerTest` 新版本 fixture 升至 v2.2.1 适配版本 bump
+
+### Removed 移除（零商业化红线）
+- 移除「抖音 / 小红书 平台」行（about_platforms，中英双语资源同步删除）——无赞助/会员/广告/榜单/社交引流
+
+### Fixed 修复
+- 测试 JVM 代理透传：Robolectric 首次运行需从 Maven 中央仓库拉取 android-all 依赖，分叉测试 JVM 不继承守护进程代理——`build.gradle.kts` 按环境变量显式下发 `http(s).proxyHost/Port`
+- 指标 01 健康度值改为单一 Text（"92.3%"），恢复审计断言兼容
+
+### Changed 基础设施
+- 沙箱构建环境：JDK 17 (mise) + Android SDK (cmdline-tools/platform 36/build-tools 36.0.0)；Robolectric android-all-instrumented 14-robolectric-10818077-i7 手动装配 ~/.m2 缓存
+
 ## [2.1.0-beta.3] - 2026-11-18
 
 ### Changed 调整
