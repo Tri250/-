@@ -174,6 +174,7 @@ private fun RuntimeEstimateCard(state: BatteryState) {
             Text(
                 text = stringResource(R.string.runtime_estimate_note),
                 fontSize = DesignTokens.Font2xs,
+                lineHeight = DesignTokens.Line2xs,
                 color = DesignTokens.TextTertiary
             )
         }
@@ -217,6 +218,7 @@ private fun RuntimeBasisLine(estimate: RuntimeEstimate) {
         text = stringResource(R.string.runtime_estimate_basis, basis),
         fontSize = DesignTokens.Font2xs,
         fontFamily = FontFamily.Monospace,
+        lineHeight = DesignTokens.Line2xs,
         color = DesignTokens.TextTertiary
     )
 }

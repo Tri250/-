@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.battery.master.R
@@ -135,7 +136,8 @@ private fun PowerHeroCard(state: BatteryState) {
                 fontWeight = FontWeight.Black,
                 fontFamily = FontFamily.Monospace,
                 color = accent,
-                maxLines = 1
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
         Spacer(modifier = Modifier.height(10.dp))
@@ -255,6 +257,7 @@ private fun PowerTrendCard(history: List<BatteryState>) {
             Text(
                 text = stringResource(R.string.charging_history_empty),
                 fontSize = DesignTokens.Font2xs,
+                lineHeight = DesignTokens.Line2xs,
                 color = DesignTokens.TextTertiary
             )
         } else {
@@ -339,6 +342,7 @@ private fun ChargingTipsCard(state: BatteryState) {
         Text(
             text = tip,
             fontSize = DesignTokens.Font2xs,
+            lineHeight = DesignTokens.Line2xs,
             color = DesignTokens.TextSecondary
         )
     }

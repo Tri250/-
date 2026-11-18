@@ -314,6 +314,8 @@ private fun SettingsSwitchRow(
             Text(
                 text = subtitle,
                 fontSize = DesignTokens.Font2xs,
+                fontFamily = FontFamily.Monospace,
+                lineHeight = DesignTokens.Line2xs,
                 color = DesignTokens.TextTertiary
             )
         }
@@ -356,6 +358,7 @@ private fun SettingsNavRow(
                     text = subtitle,
                     fontSize = DesignTokens.Font2xs,
                     fontFamily = FontFamily.Monospace,
+                    lineHeight = DesignTokens.Line2xs,
                     color = DesignTokens.TextTertiary
                 )
             }
@@ -432,7 +435,8 @@ fun AboutAppCard() {
             text = stringResource(R.string.about_tagline),
             fontSize = DesignTokens.Font2xs,
             color = DesignTokens.TextSecondary,
-            fontFamily = FontFamily.Monospace
+            fontFamily = FontFamily.Monospace,
+            lineHeight = DesignTokens.Line2xs
         )
 
         Spacer(modifier = Modifier.height(10.dp))
@@ -450,7 +454,7 @@ fun AboutAppCard() {
                     fontSize = DesignTokens.Font2xs,
                     color = DesignTokens.TextTertiary,
                     fontFamily = FontFamily.Monospace,
-                    lineHeight = DesignTokens.FontXs
+                    lineHeight = DesignTokens.Line2xs
                 )
             }
         }

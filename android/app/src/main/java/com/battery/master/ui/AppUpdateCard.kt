@@ -130,6 +130,7 @@ fun AppUpdateCard(
                     text = stringResource(R.string.update_unknown_source_hint),
                     fontSize = DesignTokens.Font2xs,
                     fontFamily = FontFamily.Monospace,
+                    lineHeight = DesignTokens.Line2xs,
                     color = DesignTokens.TextAmberStrong
                 )
                 Spacer(modifier = Modifier.height(4.dp))

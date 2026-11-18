@@ -118,6 +118,7 @@ fun DeviceUsageCard(usage: DeviceUsageSnapshot) {
                     text = stringResource(R.string.usage_reboot_detected),
                     fontSize = DesignTokens.Font2xs,
                     fontFamily = FontFamily.Monospace,
+                    lineHeight = DesignTokens.Line2xs,
                     color = DesignTokens.TextAmberStrong
                 )
             }
@@ -127,6 +128,7 @@ fun DeviceUsageCard(usage: DeviceUsageSnapshot) {
                 text = stringResource(R.string.usage_caveat),
                 fontSize = DesignTokens.Font2xs,
                 fontFamily = FontFamily.Monospace,
+                lineHeight = DesignTokens.Line2xs,
                 color = DesignTokens.TextTertiary
             )
     }

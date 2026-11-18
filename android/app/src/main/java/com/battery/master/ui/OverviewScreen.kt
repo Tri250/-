@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.battery.master.R
@@ -174,7 +175,8 @@ private fun MintMetricRow(metric: MetricRowData) {
                     fontSize = DesignTokens.Font2xs,
                     fontFamily = FontFamily.Monospace,
                     color = DesignTokens.TextTertiary,
-                    maxLines = 1
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }

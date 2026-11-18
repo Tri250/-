@@ -252,6 +252,13 @@ object DesignTokens {
     val Font2xl = 24.sp
     val FontHero = 68.sp
 
+    // 行高常量（1.4~1.45 行高比）：所有多行正文 Text 必须配套 lineHeight，
+    // 防止默认行距 (1.0) 导致密排、大字号下文字粘连 (v2.2.0 UX 审计)
+    val Line2xs = 14.sp
+    val LineXs = 17.sp
+    val LineSm = 20.sp
+    val LineBase = 23.sp
+
     // ---- 圆角 ----
     val RadiusChip = 8.dp
     val RadiusCard = 16.dp

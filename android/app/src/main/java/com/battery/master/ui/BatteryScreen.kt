@@ -187,7 +187,8 @@ fun BatteryScreen(
                                 fontSize = DesignTokens.Font2xs,
                                 fontWeight = FontWeight.Bold,
                                 color = DesignTokens.TextSecondary,
-                                maxLines = 1
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
@@ -918,6 +919,7 @@ fun FullChargeConditionCard(
                     text = stringResource(R.string.full_charge_unsupported_note),
                     fontSize = DesignTokens.Font2xs,
                     fontFamily = FontFamily.Monospace,
+                    lineHeight = DesignTokens.Line2xs,
                     color = DesignTokens.TextTertiary
                 )
             }
@@ -1043,7 +1045,8 @@ fun CyberMetricCardItem(
                 fontSize = DesignTokens.Font2xs,
                 fontFamily = FontFamily.Monospace,
                 color = DesignTokens.TextTertiary,
-                maxLines = 1
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }
@@ -1089,6 +1092,7 @@ fun TelemetryAnalysisScreen(
                 fontSize = DesignTokens.Font2xs,
                 color = DesignTokens.TextTertiary,
                 fontFamily = FontFamily.Monospace,
+                lineHeight = DesignTokens.Line2xs,
                 modifier = Modifier.padding(top = 2.dp)
             )
 
@@ -1310,7 +1314,7 @@ fun SessionHistoryCard(
                     text = stringResource(R.string.clear_history_dialog_body),
                     fontSize = DesignTokens.Font2xs,
                     color = DesignTokens.TextSecondary,
-                    lineHeight = DesignTokens.FontXs
+                    lineHeight = DesignTokens.Line2xs
                 )
             },
             confirmButton = {
@@ -1480,20 +1484,24 @@ fun TelemetrySourceCard(state: BatteryState) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     text = label,
                     fontSize = DesignTokens.Font2xs,
                     color = DesignTokens.TextTertiary,
-                    fontFamily = FontFamily.Monospace
+                    fontFamily = FontFamily.Monospace,
+                    modifier = Modifier.weight(1f, fill = false)
                 )
+                Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = value,
                     fontSize = DesignTokens.Font2xs,
                     color = DesignTokens.TextPrimary,
                     fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }
@@ -1573,6 +1581,7 @@ fun HealthProfileScreen(
                         fontSize = DesignTokens.Font2xs,
                         color = DesignTokens.TextTertiary,
                         fontFamily = FontFamily.Monospace,
+                        lineHeight = DesignTokens.Line2xs,
                         modifier = Modifier.padding(top = 4.dp)
                     )
                 }
@@ -1645,7 +1654,7 @@ fun HealthProfileScreen(
                     fontSize = DesignTokens.Font2xs,
                     color = DesignTokens.TextSecondary,
                     fontFamily = FontFamily.Monospace,
-                    lineHeight = 18.sp
+                    lineHeight = DesignTokens.Line2xs
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
@@ -1653,7 +1662,7 @@ fun HealthProfileScreen(
                     fontSize = DesignTokens.Font2xs,
                     color = DesignTokens.TextSecondary,
                     fontFamily = FontFamily.Monospace,
-                    lineHeight = 18.sp
+                    lineHeight = DesignTokens.Line2xs
                 )
             }
         }
@@ -1719,7 +1728,7 @@ fun HealthAdviceCard(state: BatteryState) {
                 color = DesignTokens.TextPrimary,
                 fontWeight = FontWeight.Bold,
                 fontFamily = FontFamily.Monospace,
-                lineHeight = 18.sp,
+                lineHeight = DesignTokens.LineXs,
                 modifier = Modifier.padding(top = 2.dp)
             )
         }
