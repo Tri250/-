@@ -1431,10 +1431,16 @@ fun TelemetryChartPanel(history: List<BatteryState>) {
                 }
                 drawPath(path, color, style = Stroke(width = 4f))
             }
-            // 电压 (3000~5000 mV 典型电芯窗口)、电流 (-6000~6000 mA)、温度 (0~60°C)
-            drawSeries({ it.voltageMv.toFloat() }, 3000f, 5000f, seriesVoltage)
-            drawSeries({ (it.currentNowMa ?: 0).toFloat() }, -6000f, 6000f, seriesCurrent)
-            drawSeries({ it.temperatureCelsius }, 0f, 60f, seriesTemp)
+            // v2.2.0 真实性审计修复：曲线窗口由真实样本动态推导——旧固定窗口
+            // (电压 3000~5000 mV / 电流 ±6000 mA / 温度 0~60°C) 会把窗口外的真实读数
+            // 削顶失真 (双电芯整包 8800 mV、120W 快充 ±8000 mA、实验室滑杆 12000 mV、
+            // 高温 >60°C)，曲线与实际读数不一致。空历史/平坦序列回落典型窗口
+            val (vLo, vHi) = telemetrySeriesBounds(history, { it.voltageMv.toFloat() }, 3000f, 5000f)
+            val (iLo, iHi) = telemetrySeriesBounds(history, { (it.currentNowMa ?: 0).toFloat() }, -6000f, 6000f)
+            val (tLo, tHi) = telemetrySeriesBounds(history, { it.temperatureCelsius }, 0f, 60f)
+            drawSeries({ it.voltageMv.toFloat() }, vLo, vHi, seriesVoltage)
+            drawSeries({ (it.currentNowMa ?: 0).toFloat() }, iLo, iHi, seriesCurrent)
+            drawSeries({ it.temperatureCelsius }, tLo, tHi, seriesTemp)
         }
         Spacer(modifier = Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -1756,4 +1762,37 @@ fun HealthAdviceCard(state: BatteryState) {
             )
         }
     }
+}
+
+/**
+ * v2.2.0 真实性审计：遥测曲线窗口由真实样本动态推导 (纯函数，可单测)。
+ *
+ * 旧固定窗口 (电压 3000~5000 mV / 电流 ±6000 mA / 温度 0~60°C) 会把窗口外的
+ * 真实读数削顶失真 (双电芯整包 8800 mV、120W 快充 ±8000 mA、实验室滑杆 12000 mV、
+ * 高温 >60°C)，曲线与实际读数不一致。规则：
+ * - 空历史 → 回落调用方典型窗口；
+ * - 平坦序列 (跨度 < 1e-3)：以真实读数为中心取 5% 小窗 (下限 1 单位)，
+ *   避免整条线贴边与除零退化；
+ * - 正常序列：min/max 上下各留 8% 余量，保证所有真实样本完整落在窗口内。
+ */
+internal fun telemetrySeriesBounds(
+    history: List<BatteryState>,
+    pick: (BatteryState) -> Float,
+    fallbackLo: Float,
+    fallbackHi: Float
+): Pair<Float, Float> {
+    var lo = Float.MAX_VALUE
+    var hi = -Float.MAX_VALUE
+    history.forEach { s ->
+        val v = pick(s)
+        if (v < lo) lo = v
+        if (v > hi) hi = v
+    }
+    if (lo > hi) return fallbackLo to fallbackHi // 空历史
+    if (hi - lo < 1e-3f) {
+        val pad = maxOf(1f, abs(hi) * 0.05f)
+        return (hi - pad) to (hi + pad)
+    }
+    val pad = (hi - lo) * 0.08f
+    return (lo - pad) to (hi + pad)
 }
