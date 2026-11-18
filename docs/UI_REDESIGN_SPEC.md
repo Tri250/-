@@ -1,9 +1,10 @@
-# 电池大师 Web 演示端 ·「薄荷能量」视觉重构实施方案
+# 电池大师 Android 端 ·「薄荷能量」UI 重构实施方案（v2 · 零商业化）
 
-- 版本：v1.0（可交付评审稿）
-- 适用范围：`/workspace/src` Web 演示端（React 19 + Vite 8 + Tailwind CSS 4）
-- 设计输入：5 张参考图（电池健康 / 续航分析 / 充电功率 / 电池江湖 / 设置）
-- 约束：只重构表现层；`useBatteryMonitor`、12 项指标口径、充满判定、温度阈值、设备预设与 Android 原生工程数据全部保持不变。
+- 版本：v2.0（可交付评审稿，替代 v1 Web 版）
+- 适用范围：`/workspace/android` Android 原生工程（Kotlin 2.0 + Jetpack Compose + Material 3，minSdk 26 / targetSdk 36）
+- 设计输入：5 张参考图（电池健康 / 续航分析 / 充电功率 / 社区 / 设置）
+- 核心原则：**只借视觉语言，不借假数据，不做商业化**；全部读数来自现有真实数据链（`BatteryViewModel` → `BatteryHardwareReader` / `BatteryReceiver` / `BatteryHealthEngine` / `BatteryHistoryStore` / `DeviceUsageTracker`），单测 141 用例口径不回归。
+- 本轮交付以 Android 端为准；Web 端 `src/index.css` 令牌同步列为后续可选批次。
 
 ---
 
@@ -11,11 +12,11 @@
 
 | 决策 | 结论 |
 | :--- | :--- |
-| 视觉方向 | **薄荷能量（Energy Mint）**：近白薄荷底 + 高饱和果绿 + 白色玻璃卡 + 柔绿投影 + 少量 3D 贴纸 |
-| 信息架构 | 底部 5 Tab：**总览 / 续航 / 充电 / 健康 / 实验室**；设置、机型、音效、原生工程收进右上角「我的」抽屉 |
-| 数据原则 | **只借视觉，不借假数据**：图片中的社区、应用卡顿排行、iCloud 同步不进入产品；对应位置替换为实验室场景、实时负载、本地数据说明 |
-| 主题策略 | 默认浅色（图片同款）；保留深色切换，深色改为「夜航森林绿」，不再使用当前赛博 HUD 蓝青体系 |
-| 交付形态 | 设计令牌 + 页面规格 + 组件规格 + 文件级改造清单 + 验收清单，可直接进入编码 |
+| 视觉方向 | **薄荷能量（Energy Mint）**：近白薄荷底 + 果绿主色 + 白玻璃卡 + 柔绿投影；深色模式改为「夜航森林绿」（保留 AMOLED 兼容），替换现有赛博 HUD 蓝青体系 |
+| 信息架构 | 顶部 `TabRow` 4 Tab → **底部 `NavigationBar` 5 Tab**：总览 / 续航 / 充电 / 健康 / 实验室；顶栏新增设备胶囊 + 「我的」入口（关于 / 更新 / 提示音 / 校准 / 清除记录） |
+| 商业化 | **零商业化**：无赞助、打赏、会员、广告、付费功能、云端榜单营销、社交平台引流；应用内更新（GitHub Releases）保留但收进「我的」，退居维护通道 |
+| 实现方式 | 改造 `ui/theme/DesignTokens.kt` + `GlassKit.kt`（浅色化），重排 `BatteryScreen.kt` 为 5 Tab，新增 `ui/` 下若干 Screen 文件；**service / viewmodel / receiver 数据层零改动** |
+| 诚实性 | 保留并强化 `[实测] / [估算] / [模拟] / [不可测算]` 来源标注、温度 38/45℃ 单源阈值、充满判定 100% + 充电态 + 0~25 mA、功率带符号方向 |
 
 ---
 
@@ -23,801 +24,550 @@
 
 ### 1.1 设计目标
 
-1. **第一眼品质对齐参考图**：浅色、通透、圆润、果绿高光，卡片有真实玻璃层次，而不是深色 HUD 换皮。
-2. **信息密度对齐参考图**：首屏能看到「设备 + 主读数 + 关键结论 + 趋势」，第二屏进入 12 项指标明细。
-3. **品牌一致性**：Web 端与 Android 端的温度阈值（38/45 ℃）、充满判定（100% + 充电态 + |I| ≤ 25 mA）、功率正负号、容量合理区间保持同源。
-4. **可维护**：所有颜色、字号、圆角、阴影、动效收敛到 `src/index.css` 设计令牌；组件内不再出现散落的 `slate-9xx / emerald-5xx` 深色硬编码。
+1. **第一眼品质对齐参考图**：浅色通透、圆润白玻璃卡、果绿高光；替换当前深色 HUD 的「工程师玩具」气质为「系统级工具」气质。
+2. **信息密度对齐参考图**：首屏 3 秒内回答「剩多少电、健康不健康、在充还是在放」；12 项指标降密度为分组列表。
+3. **Android 原生一致性**：Material 3 组件规范、动态字体缩放不裁切（沿用现有处理）、边缘到边缘（edge-to-edge，targetSdk 36 已适配）、深浅色双主题全量覆盖。
+4. **零回归**：12 项指标字段、充满判定状态机、实验室模拟覆盖层（`labOverride`）、跨 Tab 遥测历史等既有行为全部保持。
 
-### 1.2 明确不做
+### 1.2 零商业化原则（硬性红线）
 
-| 参考图中的元素 | 处理方式 | 原因 |
-| :--- | :--- | :--- |
-| 「电池江湖」社区、门派人数、经验值 | 不做 | 仓库无账号、社区、服务端能力 |
-| 「18 个应用卡顿」应用级排行 | 不做，改为「实时负载分布」 | 仓库只有整机电流/电压/温度，不伪造应用级数据 |
-| iCloud 同步 / 立即备份 | 不做，改为「本地演示数据」说明卡 | Web 端无持久化后端 |
-| 「超越 38% 的设备」榜单 | 不做排名，改为「相对 80% 维护线 +12.4pt」 | 排行榜需要云端样本，仓库为本地单机演示 |
-| 付费/赞助入口 | 不做 | 与产品定位无关 |
+参考图中及任何后续迭代中，以下元素**一律不进入产品**：
 
-> 设计评审重点：参考图的「高级感」来自材质、留白、圆角、色彩与排版，不来自虚构功能。我们保留前者，剔除后者。
-
----
-
-## 2. 参考图视觉基因提取
-
-### 2.1 色彩
-
-| 角色 | 色值 | 使用位置 |
-| :--- | :--- | :--- |
-| 页面底色 | `#F3FAF0` | App 背景 |
-| 背景深薄荷 | `#E6F5DE` | 页面底部、桌面端光晕 |
-| 品牌主绿 | `#2FCB5B` | 环形进度、图表主线、图标 |
-| 品牌深绿 | `#128A39` | 绿色文字、主按钮底色（保证白字对比度） |
-| 品牌亮绿 | `#63E084` | 渐变高光、能量光晕 |
-| 品牌浅绿 | `#DDF8E3` / `#F0FBF2` | 胶囊底、信息卡底 |
-| 标题黑 | `#0B1A10` | 大标题、核心数字 |
-| 正文灰 | `#5A6B60` | 说明文字 |
-| 分割线 | `#E4EEE3` | 卡片内分隔 |
-| 警示橙 | `#FF9F0A` / 底 `#FFF4E2` | 偏热、待校准 |
-| 危险红 | `#FF453A` / 底 `#FFECEA` | 过热、损坏、低电量 |
-| 信息蓝 | `#0A84FF` / 底 `#EAF3FF` | 放电、链接、次级数据 |
-| 实验紫 | `#7C5CFF` / 底 `#F1EDFF` | 实验室模拟态 |
-| 青绿 | `#14B8A6` | 已充满、校准成功 |
-
-渐变规范：
-
-```css
-/* 品牌主渐变：用于主 CTA、Hero 圆环、选中态 */
-linear-gradient(135deg, #7BEE8E 0%, #2FCB5B 55%, #12A844 100%)
-
-/* 标题渐变：仅用于页面级点缀标题，禁止正文使用 */
-linear-gradient(180deg, #A9F7A6 0%, #5BDD77 45%, #1FAE4B 100%)
-
-/* 背景光晕：桌面端与首屏顶部 */
-radial-gradient(60% 55% at 50% 0%, rgba(110, 235, 130, 0.30), transparent 72%)
-
-/* 卡片表面：白玻璃 */
-linear-gradient(180deg, rgba(255,255,255,0.94), rgba(255,255,255,0.76))
-```
-
-### 2.2 字体与排版
-
-| 层级 | 规格 | 用途 |
-| :--- | :--- | :--- |
-| Display | 34px / 40px，900，`-0.03em` | 页面主标题（如「续航分析」） |
-| H1 | 28px / 34px，800 | Hero 区域标题 |
-| H2 | 22px / 28px，800 | 卡片组标题 |
-| H3 | 17px / 24px，700 | 卡片标题 |
-| Body | 15px / 22px，500 | 正文 |
-| Caption | 13px / 18px，500 | 辅助说明 |
-| Micro | 11px / 14px，600 | 角标、来源标签 |
-| Num-Hero | 44px / 46px，800，tabular | 电量百分比 / 充电功率 |
-| Num-XL | 28px / 32px，800，tabular | 容量、电流、温度 |
-
-字体栈：
-
-- 中文：`MiSans` → `HarmonyOS Sans SC` → `PingFang SC` → `Noto Sans SC`
-- 拉丁/数字：`Plus Jakarta Sans`（保留现有字体，数字启用 `tabular-nums`）
-- 工程值 / 代码 / 内核路径：`JetBrains Mono`
-
-> 与当前实现的关键差异：当前 App 内大量使用等宽字体展示读数；新方案读数改用 Plus Jakarta Sans 800 + tabular，仅代码/路径保留 JetBrains Mono。更接近参考图的圆润数字质感。
-
-### 2.3 形状、阴影、材质
-
-| 令牌 | 值 |
+| 排除项 | 说明 |
 | :--- | :--- |
-| 圆角 | 10 / 14 / 18 / 22 / 28 / 34 / pill |
-| 卡片内边距 | 16 / 20 / 24px |
-| 卡片描边 | `1px solid rgba(255,255,255,0.9)` + 外圈 `1px rgba(15,60,30,0.05)` |
-| 卡片阴影 | `0 8px 24px -12px rgba(20,80,40,0.18), 0 2px 6px rgba(20,80,40,0.05)` |
-| 浮层阴影 | `0 20px 50px -20px rgba(18,120,55,0.35)` |
-| 品牌辉光 | `0 8px 24px -8px rgba(47,204,91,0.45)` |
-| 玻璃 | `backdrop-filter: blur(20px) saturate(1.35)`，仅用于 Hero、底部导航、抽屉三层 |
+| 赞助 / 打赏 / 爱发电入口 | 参考图第一张左上角「赞助」按钮，不实现 |
+| 会员 / VIP / Pro 解锁 | 无任何付费功能分层，全部功能免费 |
+| 广告位 / 开屏广告 | 不接入任何广告 SDK |
+| 「超越 38.0% 的设备」榜单 | 云端样本排行属营销数据，无数据支撑且不可信；改为本地诚实口径「相对 80% 维护线 +N pt」 |
+| 小红书 / 抖音评论区引流 | 参考图「去小红书评论」及 README 中平台引流位，不实现跳转入口 |
+| 好评引导弹窗 | 不做应用商店评分诱导 |
+| 数据变现 | 现状保持：除更新检查（可开关）外零网络请求，零上传 |
 
-### 2.4 3D 贴纸系统
+保留的非商业功能：
 
-参考图的记忆点来自电池、闪电、星星、爱心、笑脸、盾牌、时钟、齿轮等 3D 小物件。
+- **应用内更新**（`AppUpdateCard` / `AppUpdateChecker`，GitHub Releases 直查）：开源项目正常维护通道，非商业化；入口从总览页移至「我的」，首屏不再占据卡片位；`autoUpdateCheckEnabled` 开关保留。
+- **关于页开发者署名**：纯文字署名保留，不嵌平台跳转链接。
+- **开源与隐私声明**：保留（PRIVACY.md 口径）。
 
-使用规则：
+### 1.3 参考图元素 → Android 真实能力映射
 
-1. **桌面端**：手机框外最多 6 个，左右各 3 个，尺寸 56–96px，避让手机框 24px 以上。
-2. **App 内**：仅出现在空状态、设置页头部、实验室模拟态，最多 2 个；数据页禁止装饰。
-3. **动效**：入场 600ms 淡入 + 上浮 8px；鼠标移动视差最大 ±6px；`prefers-reduced-motion` 下静态。
-4. **资源**：透明 PNG/WebP，@1x/@2x/@3x；单张 ≤ 60KB。生成提示词见 §12.2。
-
----
-
-## 3. 设计令牌（可直接落地到 `src/index.css`）
-
-```css
-@import "tailwindcss";
-@custom-variant dark (&:where(.dark, .dark *));
-
-@theme {
-  /* 字体 */
-  --font-sans: 'Plus Jakarta Sans', 'MiSans', 'HarmonyOS Sans SC', 'PingFang SC',
-    'Microsoft YaHei', 'Noto Sans SC', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', 'MiSans', 'PingFang SC', ui-monospace, monospace;
-
-  /* 画布与墨色 */
-  --color-canvas: #f3faf0;
-  --color-canvas-deep: #e6f5de;
-  --color-surface: #ffffff;
-  --color-surface-muted: #f7fbf5;
-  --color-ink-900: #0b1a10;
-  --color-ink-700: #22352a;
-  --color-ink-500: #5a6b60;
-  --color-ink-300: #96a69b;
-  --color-line: #e4eee3;
-
-  /* 品牌绿 */
-  --color-brand-700: #128a39;
-  --color-brand-600: #1aae4a;
-  --color-brand-500: #2fcb5b;
-  --color-brand-400: #63e084;
-  --color-brand-300: #a7f2b8;
-  --color-brand-100: #ddf8e3;
-  --color-brand-50: #f0fbf2;
-
-  /* 语义色 */
-  --color-warn: #ff9f0a;
-  --color-warn-soft: #fff4e2;
-  --color-danger: #ff453a;
-  --color-danger-soft: #ffecea;
-  --color-info: #0a84ff;
-  --color-info-soft: #eaf3ff;
-  --color-violet: #7c5cff;
-  --color-violet-soft: #f1edff;
-  --color-teal: #14b8a6;
-
-  /* 字号阶梯 */
-  --text-display: 2.125rem; /* 34 */
-  --text-display--line-height: 2.5rem;
-  --text-h1: 1.75rem;       /* 28 */
-  --text-h1--line-height: 2.125rem;
-  --text-h2: 1.375rem;      /* 22 */
-  --text-h2--line-height: 1.75rem;
-  --text-h3: 1.0625rem;     /* 17 */
-  --text-h3--line-height: 1.5rem;
-  --text-body: 0.9375rem;   /* 15 */
-  --text-body--line-height: 1.375rem;
-  --text-caption: 0.8125rem;/* 13 */
-  --text-caption--line-height: 1.125rem;
-  --text-micro: 0.6875rem;  /* 11 */
-  --text-micro--line-height: 0.875rem;
-
-  /* 圆角 */
-  --radius-chip: 0.625rem;
-  --radius-card: 1.125rem;
-  --radius-panel: 1.375rem;
-  --radius-hero: 1.75rem;
-  --radius-device: 2.125rem;
-
-  /* 动效 */
-  --duration-micro: 120ms;
-  --duration-fast: 200ms;
-  --duration-smooth: 260ms;
-  --duration-slow: 340ms;
-  --duration-hero: 700ms;
-  --ease-mint: cubic-bezier(0.22, 1, 0.36, 1);
-  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-@layer base {
-  body {
-    background:
-      radial-gradient(60% 55% at 50% 0%, rgba(110, 235, 130, 0.30), transparent 72%),
-      linear-gradient(180deg, #f8fcf5 0%, #f3faf0 42%, #eaf7e3 100%);
-    color: var(--color-ink-900);
-    font-family: var(--font-sans);
-    -webkit-font-smoothing: antialiased;
-    text-rendering: optimizeLegibility;
-  }
-
-  .dark body {
-    background:
-      radial-gradient(60% 55% at 50% 0%, rgba(47, 203, 91, 0.16), transparent 70%),
-      linear-gradient(180deg, #08120b 0%, #0b1a10 55%, #07130b 100%);
-  }
-
-  :focus-visible {
-    outline: 2px solid var(--color-brand-600);
-    outline-offset: 2px;
-    border-radius: 6px;
-  }
-
-  .font-mono,
-  .tabular {
-    font-variant-numeric: tabular-nums;
-  }
-}
-
-/* 白色玻璃卡：所有一级卡片 */
-@utility surface-card {
-  background: linear-gradient(180deg, rgba(255,255,255,0.94), rgba(255,255,255,0.78));
-  border: 1px solid rgba(255,255,255,0.9);
-  box-shadow:
-    0 8px 24px -12px rgba(20, 80, 40, 0.18),
-    0 2px 6px rgba(20, 80, 40, 0.05),
-    inset 0 1px 0 rgba(255,255,255,0.9);
-  backdrop-filter: blur(20px) saturate(1.35);
-  -webkit-backdrop-filter: blur(20px) saturate(1.35);
-}
-
-/* Hero 浮层：主环形、充电功率、底部导航 */
-@utility surface-float {
-  background: rgba(255,255,255,0.82);
-  border: 1px solid rgba(255,255,255,0.95);
-  box-shadow:
-    0 20px 50px -20px rgba(18, 120, 55, 0.35),
-    inset 0 1px 0 rgba(255,255,255,0.95);
-  backdrop-filter: blur(24px) saturate(1.4);
-  -webkit-backdrop-filter: blur(24px) saturate(1.4);
-}
-
-@utility brand-text {
-  background: linear-gradient(180deg, #7bdc63 0%, #2fcb5b 55%, #128a39 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-
-@utility brand-cta {
-  background: linear-gradient(135deg, #1aae4a 0%, #128a39 100%);
-  color: #fff;
-  box-shadow: 0 8px 20px -8px rgba(18, 138, 57, 0.55);
-}
-```
-
-> 说明：`brand-500` 只用于图形与大面积色块；正文绿色文字统一 `brand-700`，保证白底对比度 ≥ 4.5:1。
-
----
-
-## 4. 信息架构重构
-
-### 4.1 参考图 → 仓库能力映射
-
-| 参考图页面 | 图片中的能力 | 仓库真实能力 | 新页面落点 |
+| 参考图页面 | 图片中的元素 | Android 端真实数据源 | 新页面落点 |
 | :--- | :--- | :--- | :--- |
-| 电池健康 · 超级详细 | 健康度、容量、趋势、设备对比 | 12 项指标、健康度、容量、循环、硬件档案 | 总览 + 健康 |
-| 续航分析 · 卡顿记录 | 亮屏时长、充电时长、评分、应用卡顿 | 实时电流/电压/温度、剩余容量、续航估算 | 续航 |
-| 充电功率 · 尽在掌控 | 实时功率、功率曲线、校准 | 瞬时功率、充电曲线、满充判定、校准 | 充电 |
-| 加入门派 · 分享经验 | 社区、选项列表 | 4 个实验室场景、6 组滑杆 | 实验室 |
-| 功能齐全 · 体验完善 | 同步、设置、清理 | 主题、音效、遥测开关、机型、清空锁定、关于、原生工程 | 我的（设置抽屉）+ 工程 |
+| 电池健康 · 超级详细 | 健康度 / 容量 / 趋势 / 设备对比 | `BatteryInfo` 12 项指标 + `BatteryHealthEngine` 内阻/置信度 | 总览 + 健康 |
+| 续航分析 · 卡顿记录 | 亮屏时长 / 评分 / 应用卡顿 | `DeviceUsageTracker`（真实开机使用时长）+ `BatteryHistoryStore` 会话历史 + 实时电流/温度 | 续航 |
+| 充电功率 · 尽在掌控 | 实时功率 / 分段功率柱状图 | `powerWatts`（带符号）+ `telemetryHistory` 120 点真实曲线 | 充电 |
+| 加入门派 · 电池江湖 | 社区 / 门派 / 选项列表 | 无此能力 → 不做；场景列表视觉语言用于实验室 4 场景 | 实验室 |
+| 功能齐全 · 体验完善 | iCloud 同步 / 设置 / 清理 | 本地无云同步 → 不做；真实设置项：提示音 / 主题 / 更新 / 容量校准 / 清除记录 | 我的 |
 
-### 4.2 新导航
+「18 个应用卡顿」：Android 端无应用级功耗归因 API（公开通道），**不做**；对应位置放 `SessionHistoryCard`（真实充放电会话：起止时间 / 时长 / 电量区间）。
 
-底部 5 Tab：
+---
 
-| Tab | id | 主图标 | 说明 |
+## 2. DesignTokens.kt 2.0（完整落地代码）
+
+替换 `ui/theme/DesignTokens.kt`。对外 API 保持兼容：`statusColor / healthQualityColor / temperatureColor` 签名不变，既有调用点零改动。
+
+```kotlin
+package com.battery.master.ui.theme
+
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+
+/**
+ * Android Battery Master · 设计令牌 2.0「薄荷能量」
+ * 浅色为默认主题；深色为「夜航森林绿」。
+ * 与 Web 端 src/index.css @theme 对应（后续批次同步）。
+ * 全站 UI 只允许引用本对象，禁止 Composable 内散落硬编码色值。
+ */
+object DesignTokens {
+
+    // ---------------------------------------------------------------
+    // 浅色主题 · 薄荷能量（默认）
+    // ---------------------------------------------------------------
+    val LightCanvas = Color(0xFFF3FAF0)       // 页面底
+    val LightCanvasDeep = Color(0xFFE6F5DE)   // 底部深薄荷
+    val LightSurface = Color(0xFFFFFFFF)      // 卡片白
+    val LightSurfaceMuted = Color(0xFFF7FBF5) // 内嵌槽
+    val LightLine = Color(0xFFE4EEE3)         // 分割线
+    val LightBorder = Color(0xFFDDEBDA)
+
+    val Ink900 = Color(0xFF0B1A10)            // 标题 / 核心数字
+    val Ink700 = Color(0xFF22352A)            // 正文
+    val Ink500 = Color(0xFF5A6B60)            // 次级说明
+    val Ink300 = Color(0xFF96A69B)            // 弱化 / 脚注
+
+    // 品牌绿
+    val Brand700 = Color(0xFF128A39)          // 绿色正文（对比度达标）
+    val Brand600 = Color(0xFF1AAE4A)          // 主按钮 / 焦点环
+    val Brand500 = Color(0xFF2FCB5B)          // 图形 / 大色块
+    val Brand400 = Color(0xFF63E084)          // 渐变高光
+    val Brand100 = Color(0xFFDDF8E3)          // 胶囊底
+    val Brand50  = Color(0xFFF0FBF2)
+
+    // 语义色（与温度阈值 / 充满判定口径绑定）
+    val Warn = Color(0xFFFF9F0A);  val WarnSoft = Color(0xFFFFF4E2)
+    val Danger = Color(0xFFFF453A); val DangerSoft = Color(0xFFFFECEA)
+    val Info = Color(0xFF0A84FF);  val InfoSoft = Color(0xFFEAF3FF)
+    val Violet = Color(0xFF7C5CFF); val VioletSoft = Color(0xFFF1EDFF)  // 实验室模拟态
+    val FullTeal = Color(0xFF14B8A6)          // 已充满 / 校准成功
+
+    // ---------------------------------------------------------------
+    // 深色主题 · 夜航森林绿（AMOLED 兼容）
+    // ---------------------------------------------------------------
+    val DarkCanvas = Color(0xFF08120B)
+    val DarkSurface = Color(0xFF0F1D13)
+    val DarkSurfaceElevated = Color(0xFF16281A)
+    val DarkLine = Color(0xFF223A28)
+    val DarkInk = Color(0xFFE4F2E6)
+    val DarkInkSecondary = Color(0xFF9FB8A6)
+    val DarkBrand = Color(0xFF4ADE80)
+    val DarkBrandDim = Color(0xFF2FCB5B)
+
+    // ---------------------------------------------------------------
+    // 兼容别名（既有 BatteryScreen / HardwareLabScreen 调用点平滑迁移）
+    // 迁移完成后可删除
+    // ---------------------------------------------------------------
+    val BgDeep get() = LightCanvas
+    val BgSurface get() = LightSurface
+    val BgElevated get() = LightSurfaceMuted
+    val BgInset get() = LightSurfaceMuted
+    val Border get() = LightBorder
+    val BorderStrong get() = LightBorder
+    val TextPrimary get() = Ink900
+    val TextSecondary get() = Ink500
+    val TextTertiary get() = Ink300
+    val BrandPrimary get() = Brand600
+    val InfoSky get() = Info
+    val WarningAmber get() = Warn
+    val DangerRose get() = Danger
+
+    // ---------------------------------------------------------------
+    // 字号阶梯（7 级；新增 Display/Hero 档）
+    // ---------------------------------------------------------------
+    val FontMicro = 11.sp
+    val Font2xs = 10.sp
+    val FontXs = 12.sp
+    val FontSm = 14.sp
+    val FontBase = 16.sp
+    val FontXl = 20.sp
+    val Font2xl = 24.sp
+    val FontNumXl = 28.sp    // 容量 / 电流 / 温度大读数
+    val FontNumHero = 44.sp  // 电量 / 功率 Hero
+    val FontHero = 68.sp     // 保留：环形中心百分比
+
+    // ---------------------------------------------------------------
+    // 圆角（Android 端 8pt 网格取整）
+    // ---------------------------------------------------------------
+    val RadiusChip = 10.dp
+    val RadiusCard = 18.dp
+    val RadiusPanel = 22.dp
+    val RadiusHero = 28.dp
+    val RadiusPill = 999.dp
+
+    // ---------------------------------------------------------------
+    // 动效时长（GlassKit / 转场共用）
+    // ---------------------------------------------------------------
+    const val DurationMicro = 120
+    const val DurationFast = 200
+    const val DurationSmooth = 260
+    const val DurationSlow = 340
+    const val DurationHero = 700
+
+    // ---------------------------------------------------------------
+    // 语义状态色快捷映射（签名不变，既有调用点零改动）
+    // ---------------------------------------------------------------
+    fun statusColor(status: String): Color = when (status) {
+        "charging" -> Brand600
+        "discharging" -> Info
+        "full" -> FullTeal
+        else -> Ink500
+    }
+
+    fun healthQualityColor(quality: String): Color = when (quality) {
+        "good" -> Brand700
+        "overheat" -> Warn
+        "dead" -> Danger
+        "over_voltage" -> Warn
+        else -> Ink500
+    }
+
+    /** 温度分段色（阈值单源：38℃ 温控 / 45℃ 急停，与 BatteryTelemetryParser 一致） */
+    fun temperatureColor(temp: Float): Color = when {
+        temp > 45f -> Danger
+        temp >= 38f -> Warn
+        temp <= 0f -> Info
+        else -> Brand600
+    }
+}
+```
+
+### 2.1 Material 3 主题接入
+
+新增 `ui/theme/MintTheme.kt`（MainActivity 现有主题入口替换为它）：
+
+```kotlin
+private val LightColors = lightColorScheme(
+    primary = DesignTokens.Brand600,
+    onPrimary = Color.White,
+    primaryContainer = DesignTokens.Brand100,
+    onPrimaryContainer = DesignTokens.Brand700,
+    secondary = DesignTokens.Info,
+    secondaryContainer = DesignTokens.InfoSoft,
+    error = DesignTokens.Danger,
+    errorContainer = DesignTokens.DangerSoft,
+    surface = DesignTokens.LightSurface,
+    surfaceVariant = DesignTokens.LightSurfaceMuted,
+    background = DesignTokens.LightCanvas,
+    onBackground = DesignTokens.Ink900,
+    onSurface = DesignTokens.Ink900,
+    onSurfaceVariant = DesignTokens.Ink500,
+    outline = DesignTokens.LightBorder,
+    outlineVariant = DesignTokens.LightLine,
+)
+
+private val DarkColors = darkColorScheme(
+    primary = DesignTokens.DarkBrand,
+    onPrimary = Color(0xFF05230F),
+    primaryContainer = Color(0xFF1B4D2B),
+    onPrimaryContainer = Color(0xFFB9F6CA),
+    surface = DesignTokens.DarkSurface,
+    background = DesignTokens.DarkCanvas,
+    onBackground = DesignTokens.DarkInk,
+    onSurface = DesignTokens.DarkInk,
+    onSurfaceVariant = DesignTokens.DarkInkSecondary,
+    outline = DesignTokens.DarkLine,
+)
+```
+
+- 主题切换入口在「我的」页：浅色 / 深色 / 跟随系统（`rememberSaveable` + `isSystemInDarkTheme()` 回退）。
+- 不启用 Material You `dynamicColor`（默认关）：品牌一致性优先，避免绿色语义被用户壁纸冲掉。
+
+### 2.2 GlassKit 浅色化
+
+`GlassTokens` 参数按主题切换（结构不动，`glassSurface / pressGlassScale / entranceReveal` 三个 Modifier API 不变）：
+
+| 参数 | 浅色（默认） | 深色（现有值） |
+| :--- | :--- | :--- |
+| Highlight | `White 0.95` | `White 0.085` |
+| HighlightMid | `White 0.80` | `White 0.038` |
+| ShadeBase | `Green-black 0.05` | `Black 0.20` |
+| EdgeLight | `White 1.0` | `White 0.26` |
+| 描边 | `LightBorder` + 顶部 1px 高光切线 | 现状 |
+
+浅色「玻璃」本质 = 白渐变卡 + 柔绿投影 + 顶部高光线；投影改由 `shadowElevation`（`Modifier.shadow(elevation, shape, ambientColor, spotColor)`，ambient/spot 用 `Brand700.copy(alpha=0.18f)`）实现，替代深色阴影。
+
+---
+
+## 3. 信息架构
+
+### 3.1 导航改造
+
+`BatteryScreen.kt` 现为 `Scaffold + 顶部 TabRow(4)`。改为：
+
+```
+Scaffold(
+  topBar = MintTopAppBar(            // 浅色顶栏
+    title = "电池大师",
+    trailing = {
+      DeviceChip(机型名)             // 点击 → 设计容量校准对话框（现有）
+      IconButton(我的)               // → 我的页
+    }
+  ),
+  bottomBar = MintNavigationBar(     // NavigationBar，浅色玻璃
+    总览 / 续航 / 充电 / 健康 / 实验室
+  )
+)
+```
+
+| Tab | id | 图标 | 承载内容（全部真实数据） |
 | :--- | :--- | :--- | :--- |
-| 总览 | `overview` | `LayoutDashboard` | Hero 电量环、核心结论、12 项指标 |
-| 续航 | `runtime` | `Activity` | 续航估算、实时曲线、负载分布 |
-| 充电 | `charging` | `Zap` | 充电功率、功率曲线、满充校准 |
-| 健康 | `health` | `HeartPulse` | 健康档案、容量对比、维护建议 |
-| 实验室 | `lab` | `FlaskConical` | 场景模拟、滑杆、状态枚举 |
+| 总览 | overview | `Dashboard`（或 `BatteryStd`） | Hero 环 + 健康结论 + 12 项指标分组列表 + 硬件摘要 |
+| 续航 | runtime | `Speed` | 预计可用时长 + `DeviceUsageCard` + 会话历史 + 负载分布 |
+| 充电 | charging | `Bolt` | 充电功率大数字 + 功率曲线 + `FullChargeConditionCard` |
+| 健康 | health | `Favorite` | 健康档案（现有 `HealthProfileScreen`）+ 容量对比 + 维护建议 |
+| 实验室 | lab | `Science` | 现有 `HardwareLabScreen`（场景 / 滑杆 / 枚举 / 提示音） |
 
-顶部右侧：
+- Tab 状态沿用 `rememberSaveable { mutableStateOf(0) }`，配置变更不丢（现有行为保持）。
+- Tab 切换转场保留方向感知 slide + fade（现有实现），时长换用 `DurationSmooth`。
+- 遥测分析 Tab（现有 TELEMETRY 视图）拆分并入「续航」（曲线 + 会话 + 使用时长）与「充电」（功率 + 数据源标注卡）。
 
-- 设备胶囊：`iPhone 17 Pro Max` 样式 → 点击打开机型预设抽屉
-- 「我的」圆形按钮 → 设置抽屉
-- 设置抽屉内含：主题、音效、实时遥测、完全充满记录清理、关于、原生工程 / 源码入口
+### 3.2 「我的」页（非 Tab，顶栏进入）
 
-> `native`、`hub` 不再占用底部 Tab，移入设置抽屉，保留 `NavTabId` 兼容。
+新文件 `ui/SettingsScreen.kt`，全浅色列表，分组：
 
-### 4.3 页面骨架
-
-```
-┌──────────────────────────────┐
-│ 09:41        ●        5G ▮ 78%│  状态栏（浅色）
-├──────────────────────────────┤
-│ 电池健康        [设备胶囊] [我]│  页面标题区
-│ 超级详细 · 实时遥测            │
-│                              │
-│  ┌────────────────────────┐  │
-│  │      环形电量 Hero      │  │  总览
-│  │   78%  充电中 66W       │  │
-│  │   3,850 / 4,620 mAh    │  │
-│  │   [断开充电]            │  │
-│  └────────────────────────┘  │
-│  [温度 33.6℃][循环 128][健康] │
-│  ┌ 健康结论卡 ─────────────┐  │
-│  ┌ 12 项指标 · 分组列表 ───┐  │
-│  ┌ 硬件档案（可折叠）─────┐  │
-│                              │
-├──────────────────────────────┤
-│ 总览   续航   充电   健康  实验室│  底部玻璃导航
-└──────────────────────────────┘
-```
-
----
-
-## 5. 页面级详细方案
-
-### 5.1 总览 `overview`
-
-**目标**：3 秒内回答「还剩多少电、健康不健康、现在在充还是在放」。
-
-结构：
-
-1. **状态栏**：时间、5G、Wi-Fi、电量图标；浅色墨字；高温时右上角出现橙色警示胶囊。
-2. **页面标题区**
-   - 主标题：`电池健康`（28/800）
-   - 副标题：`超级详细 · 本地实时遥测`（13/500，`ink-500`）
-   - 右侧：设备胶囊（图标 + 机型名 + `Android 15`）+ 「我的」圆形按钮
-3. **环形电量 Hero**（`surface-float`，圆角 28）
-   - 外圈：2px 浅绿轨道 + 12px 品牌渐变进度弧 + 末端发光点
-   - 中心：状态胶囊（充电中 / 放电中 / 已充满）、78%（44/800）、`3,850 / 4,620 mAh`
-   - 下方三枚数据胶囊：`+9.8 W`、`33.6 ℃`、`92.4% 健康`
-   - 主 CTA：`断开充电` / `接入闪充`（`brand-cta`）；次按钮：`一键充满校准`（浅绿描边）
-4. **健康结论卡**（`surface-card`，绿色渐变底）
-   - 左：健康分 92.4 + 环形小进度
-   - 中：`高于 80% 维护线 +12.4pt`（替代图片的「超越 38% 设备」）
-   - 右：`查看诊断 >` → 健康 Tab
-   - 底部：`容量来源：sysfs 实测` 来源标签
-5. **12 项指标**（分组列表，替代当前 2 列 12 张大卡）
-   - 组 1「容量与健康」：01 健康度 / 02 剩余电量 / 03 当前容量 / 04 设计容量
-   - 组 2「实时状态」：05 电量百分比 / 06 电池状态 / 07 温度 / 08 健康状况
-   - 组 3「电学与寿命」：09 电压 / 10 循环计数 / 11 瞬时电流 / 12 完全充满容量
-   - 每行 64px：左侧 36px 色块图标，中部标题 + 来源/副标题，右侧数值 + 单位 + 状态胶囊，末尾 chevron
-   - 行点击 → 底部详情抽屉（说明口径、原始字段、更新时间）
-6. **硬件档案卡**（默认折叠 2 行，展开后 6 + 3 栅格）
-   - SoC / PMIC / 快充协议 / 电芯体系 / 内阻 / 封装 / 制程 / CPU / GPU
-   - 保留 `[DT 实测] / [实测] / [品牌档案] / [工程估算]` 来源标签
-7. **满充容量卡**：仅当已有锁定值或满足判定时显示，样式轻量，不抢 Hero。
-
-状态覆盖：
-
-- 低电量（≤15%）：Hero 渐变转 `danger`，底部出现「低电量保护」提示条。
-- 高温（≥45℃）：Hero 描边转橙，状态栏与温度行同步警示。
-- 容量不可测算：健康度显示 `—` + `无法测算`，不显示 0%。
-
-### 5.2 续航 `runtime`
-
-**目标**：对齐参考图「续航分析」的信息节奏，但只使用真实遥测。
-
-结构：
-
-```
-续航分析                         [4月22日 ▾]
-按当前负载估算 · 实时刷新
-
-┌ 预计可用 ────────────────────┐
-│ 8 小时 28 分钟                │
-│ 4,620 mAh · 当前负载 -420 mA  │
-└──────────────────────────────┘
-
-[当前电流] [放电功率] [电池温度]
-[ 电流 | 电压 | 温度 ] 分段控件
-┌ 实时曲线卡（SVG 面积图）─────┐
-│ 最新 / 最小 / 最大            │
-└──────────────────────────────┘
-
-┌ 续航评分 94 · 优秀 ──────────┐
-│ 健康 92.4 / 温度 33.6 / 负载  │
-│ 评分模型说明（可展开）         │
-└──────────────────────────────┘
-
-┌ 近 30 秒负载分布 ────────────┐
-│ 轻载 12 · 中载 9 · 重载 4     │
-└──────────────────────────────┘
-```
-
-关键规则：
-
-- 续航时长 = `remainingCapacity / (放电时 |current|，否则 450mA)`，界面标注「按当前负载估算」或「按 450mA 典型负载估算」。
-- 续航评分是**本地模型**，必须标注「模型评分」，不冒充系统数据。建议公式：
-  `score = round(60*health/100 + 20*tempScore + 20*loadScore)`，其中温度按 38/45℃ 分段，负载按电流区间分段。
-- 负载分布取 `telemetryHistory` 最近 25 个采样点，按 `|current|` 分三档，不出现应用名。
-- 图表：浅色坐标网格、绿色渐变面积、末端脉冲点；分段控件选中态为白底绿字胶囊。
-
-### 5.3 充电 `charging`
-
-**目标**：对齐参考图「充电功率 · 尽在掌控」的大数字与柱状图。
-
-结构：
-
-```
-充电功率                     [分享/导出]
-[UI 电量 78%]   [系统电量 78%]
-
-┌ 9.8 W ──────────────────────┐
-│ 当前充电功率 · 66W 协议协商   │
-│ 预计 0:42 充满 · 按当前功率   │
-└──────────────────────────────┘
-
-本次充电功率曲线
-┌ 柱状图（近 25 个采样）───────┐
-│ █ █ █ █ ▆ ▆ ▅ ▄ ▄ ▃ ▂ ▁     │
-└──────────────────────────────┘
-10% 20% 30% ... 当前
-
-┌ 完全充满校准卡（Feature 12）┐
-│ 01 电量 100%     [未达成]    │
-│ 02 |I| ≤ 25 mA   [已达成]    │
-│ 锁定容量 / 上次记录           │
-│ [一键进入充满状态]            │
-└──────────────────────────────┘
-
-数据由本机实时遥测生成 · 本地计算零上传
-```
-
-关键规则：
-
-- 功率保留正负号：充电 `+W`，放电 `−W`；大数字默认只显示绝对值 + 方向胶囊。
-- 柱状图使用 `telemetryHistory` 的功率序列，不虚构「10% 档位功率」。
-- 满充卡继续严格执行三态：`percentage === 100 && isChargingStatus(status) && |current| <= 25`。
-- 「分享/导出」不做真实分享，改为「复制当前读数」或移除；建议首版不做，避免空功能。
-
-### 5.4 健康 `health`
-
-**目标**：对齐参考图第一张的「健康度 / 容量 / 详细分析」，并强化可解释性。
-
-结构：
-
-1. **健康 Hero**：92.4% 大数字 + 环形 + 评级「优异」+「容量来源：实测」。
-2. **容量对比卡**：当前容量 4,620 mAh / 设计容量 5,000 mAh；损耗 380 mAh；横向双色条。
-3. **寿命卡**：循环 128 次、健康衰减率 7.6%、温度压力「正常」；若仓库无循环寿命预测，不展示「还可循环 N 次」的伪精确值。
-4. **维护建议**：沿用现有三条（浅充浅放、避免高温边充边玩、满电校准）。
-5. **满充校准卡**：与充电页共用组件，健康页展示记录详情。
-6. **口径说明卡**：健康度 = 当前容量 / 设计容量；不可测算时显示 `—`。
-
-### 5.5 实验室 `lab`
-
-**目标**：借用参考图第四张的「场景列表 + 选择态」，承载真实模拟能力。
-
-结构：
-
-```
-电池实验室                      [模拟中]
-仅在演示层生效，退出即恢复真实遥测
-
-┌ 一键场景 ────────────────────┐
-│ [图标] 充满校准   100% / 16mA  ✓│
-│ [图标] 极速闪充   45% / +4800mA │
-│ [图标] 游戏放电   -1150mA / 39.8℃│
-│ [图标] 过热警报   49.2℃ / 异常  │
-└──────────────────────────────┘
-
-┌ 参数微调 ────────────────────┐
-│ 电量 78%        [——●———]     │
-│ 电流 +2350mA    [———●——]     │
-│ 当前容量 4620   [————●—]     │
-│ 设计容量 5000   [—————●]     │
-│ 循环 128 次     [——●———]     │
-│ 电压 4180mV     [———●——]     │
-│ 温度 33.6℃      [——●———]     │
-└──────────────────────────────┘
-
-[电池状态] 充电中 / 放电中 / 已充满 / 未充电
-[健康状况] 良好 / 过热 / 损坏 / 超压 / 未知
-[重置实验室参数]
-```
-
-交互：
-
-- 场景卡选中态：浅绿底 + 2px 品牌描边 + 右侧对勾；同时顶部出现「模拟中」紫色胶囊。
-- 滑杆：6px 轨道，白色 20px 拇指 + 品牌描边 + 柔绿光环；拖动时右侧数值实时变化。
-- 所有模拟态在 Hero、指标行、状态栏统一显示 `[模拟]` 角标，避免与实测混淆。
-
-### 5.6 我的 / 设置抽屉 `settings`
-
-从底部升起，最大高度 86vh，圆角 28，顶部拖拽条。
-
-内容：
-
-| 分组 | 项目 | 行为 |
+| 分组 | 条目 | 数据源 / 行为 |
 | :--- | :--- | :--- |
-| 设备 | 当前机型 / 设计容量 / 切换机型 | 打开机型预设面板 |
-| 外观 | 浅色 / 深色 / 跟随系统 | 现有主题开关升级为三态 |
-| 声音 | 插拔音 / 充满提示音 / 警告音 | 复用 `soundEnabled` |
-| 采集 | 实时遥测 运行 / 暂停 | 复用 `isLiveTelemetryRunning` |
-| 数据 | 清除完全充满锁定记录 | 复用 `clearFullChargeLock` |
-| 关于 | 版本、隐私、零上传说明 | 静态信息 |
-| 工程 | Android 原生工程 / 源码 | 进入现有 `hub` / `native` 视图 |
+| 通用 | 主题（浅/深/跟随系统）、语言（跟随系统 / English，跳转系统语言设置）、提示音开关 | 现有 soundPreferences 通道 |
+| 采集 | 实时遥测运行状态展示（只读说明，Android 端无暂停开关则不放假开关） | 如实展示 |
+| 数据 | 设计容量校准（复用现有对话框）、清除完全充满记录（二次确认）、清除本地历史 | 现有 ViewModel 动作 |
+| 应用 | 检查更新（`AppUpdateCard` 内容收编于此，下载进度沿用）、关于（版本 `BuildConfig.VERSION_NAME`、署名、隐私说明、零上传声明、源码仓库） | 现有 `appUpdateState` / `downloadProgress` / `autoUpdateCheckEnabled` |
 
-> 不出现 iCloud、备份、语言切换等无实现能力的入口。
-
-### 5.7 原生工程视图 `hub` / `native`
-
-- 仅替换外层：浅色页面、绿色 Hero 横幅、白色文件导航、浅灰代码卡。
-- 代码区域保留深色 `#0B1A10`，与浅色外壳形成「工程控制台」对比，不牺牲可读性。
-- 复制按钮、路径、构建指南保留现有逻辑。
+> 首屏不再出现更新卡片；更新检查默认按现有 `autoUpdateCheckEnabled` 策略执行。
 
 ---
 
-## 6. 组件规格
+## 4. 页面级方案
 
-| 组件 | 规格 | 状态 |
-| :--- | :--- | :--- |
-| `BatteryRing` | 280px，轨道 12px，渐变弧 + 端点辉光，中心 44/800 | 充电/放电/充满/低电/高温 |
-| `StatTile` | 高 88px，圆角 18，图标 32 + 标签 13 + 数值 24/800 | 默认/警示/不可测算 |
-| `MetricRow` | 高 64px，图标 36，文本区两行，右值 24/800 | 默认/模拟/缺失 |
-| `Chip` | 高 26–30px，圆角 999，11–13px/600 | 成功/警示/危险/信息/中性/模拟 |
-| `PrimaryButton` | 高 48px，圆角 16，`brand-cta`，白字 15/700 | 默认/按下/禁用 |
-| `SecondaryButton` | 高 44px，白底，1px `line`，`ink-700` | 默认/按下 |
-| `SegmentedControl` | 高 40px，外底 `brand-50`，选中白底绿字 + 阴影 | 3 段 / 4 段 |
-| `TrendChart` | 高 180px，SVG 面积 + 3px 线 + 末端点 | 电流/电压/温度 |
-| `BarChart` | 高 160px，圆角 6 柱，最新柱品牌渐变 | 充电功率 |
-| `BottomNav` | 高 64 + 安全区，白玻璃，选中绿色胶囊底 | 5 Tab |
-| `StatusBar` | 高 36，浅墨字，右侧电池图标 | 正常/低电/高温 |
-| `Sheet` | 圆角 28，白底，拖拽条，最大 86vh | 机型/设置/指标详情 |
-| `SourceTag` | 10–11px，灰绿底，圆角 6 | 实测/估算/模拟/不可测算 |
-| `Sticker` | 56–96px，透明底，轻投影 | 桌面端/空状态 |
+### 4.1 总览
 
-### 6.1 指标卡片的信息优先级
-
-1. 数值（最大）
-2. 单位 + 状态胶囊
-3. 标题
-4. 来源标签
-5. 口径说明（详情抽屉内）
-
-当前实现中「编号 + 英文 hint + 多层边框」信息过载，新方案删除卡片内编号徽章底板，改为细小的灰度编号；hint 移入详情抽屉。
-
-### 6.2 图标语义
-
-| 指标 | 图标 | 色 |
-| :--- | :--- | :--- |
-| 健康度 | `HeartPulse` | brand |
-| 剩余电量 | `BatteryMedium` | brand |
-| 当前容量 | `Database` | teal |
-| 设计容量 | `Factory` | ink-500 |
-| 电量百分比 | `Gauge` | brand |
-| 电池状态 | `PlugZap` | info/warn |
-| 温度 | `Thermometer` | warn |
-| 健康状况 | `ShieldCheck` | teal |
-| 电压 | `Bolt` | info |
-| 循环 | `RefreshCw` | violet |
-| 电流 | `Activity` | brand |
-| 满充容量 | `BatteryFull` | brand-700 |
-
----
-
-## 7. 动效与交互
-
-| 场景 | 动效 | 时长/曲线 |
-| :--- | :--- | :--- |
-| Tab 切换 | 淡入 + 上移 8px | 260ms `ease-mint` |
-| 卡片入场 | 上移 12px + 淡入，按 40ms 阶梯 | 340ms |
-| 环形进度 | `strokeDashoffset` 过渡 | 700ms |
-| 大数字变化 | 数字滚动/淡入，禁止布局跳动 | 500ms |
-| 柱状图 | 高度从 0 生长，60ms 阶梯 | 500ms spring |
-| 按钮按下 | `scale(0.97)` | 120ms |
-| 抽屉 | 上滑 + 背景遮罩淡入 | 300ms |
-| 模拟态 | 顶部 `[模拟]` 胶囊呼吸 | 2s 循环，低幅度 |
-| 贴纸 | 入场淡入 + 鼠标视差 | 600ms / ±6px |
-
-无障碍降级：`prefers-reduced-motion: reduce` 下全部动画 0.01ms，仅保留状态变化。
-
----
-
-## 8. 响应式与桌面
-
-| 断点 | 布局 |
-| :--- | :--- |
-| ≤ 480px | 全宽 App；左右 20px 安全边距；底部导航固定 + `env(safe-area-inset-bottom)` |
-| 481–1023px | 居中手机框（430 × 92vh，最大 900），白色 6px 边框 + 大阴影；背景光晕 |
-| ≥ 1024px 宽屏 | 最大 1180px 仪表盘：左列 Hero + 结论 + 快捷操作，右列指标 + 硬件 + 满充；保留「真机模拟 / 宽屏」切换 |
-
-桌面端装饰层：
-
-- 手机框左右各 3 个 3D 贴纸，`pointer-events: none`，避免遮挡。
-- 背景两团 400px 模糊绿光，`opacity: 0.35`。
-- 禁用贴纸时（性能模式）仅保留光晕。
-
----
-
-## 9. 数据诚实性与口径标注（必须保留）
-
-这是本方案与参考图最大的差异，也是产品可信度的核心。
-
-| 场景 | UI 表现 |
-| :--- | :--- |
-| 容量实测 | 绿色实心点 + `实测` |
-| 容量估算 | 空心琥珀点 + `估算` |
-| 完全不可测算 | 数值 `—` + `无法测算`，不显示 0% |
-| 实验室模拟 | 紫色 `模拟` 胶囊 + 页面顶部常驻提示条 |
-| 充满锁定 | `已锁定` 绿色胶囊 + 判定三条件逐条展示 |
-| 功率方向 | 正数 `+` 绿色，负数 `−` 蓝色；禁止 `abs()` 展示 |
-| 温度 | `<38℃` 正常，`38–45℃` 橙色「偏热」，`≥45℃` 红色「过热」，`≤0℃` 蓝色「过冷」 |
-| 续航估算 | 明确标注「按当前负载估算」或「按 450mA 典型负载估算」 |
-| 健康度比较 | 不显示设备排名，显示「相对 80% 维护线 +12.4pt」 |
-
-验收时逐项检查：任何数字都必须能追溯到 `useBatteryMonitor` 的字段或明确的本地公式。
-
----
-
-## 10. 无障碍与性能
-
-### 10.1 无障碍
-
-- 正文对比度 ≥ 4.5:1；绿色正文使用 `brand-700`，不使用 `brand-500`。
-- 所有可点击元素 ≥ 44 × 44px。
-- 状态不能只靠颜色：胶囊同时有文字/图标。
-- 图表提供 `aria-label` 与「最新/最小/最大」文本摘要。
-- 状态变化使用 `aria-live="polite"`（充电状态、充满锁定）。
-- 键盘可达：Tab、Enter/Space、Esc 关闭抽屉；焦点环 2px `brand-600`。
-
-### 10.2 性能
-
-- `backdrop-filter` 只用于 3 层：Hero、底部导航、抽屉；列表卡使用渐变 + 阴影模拟玻璃。
-- 图表继续使用 SVG，不引入图表库。
-- 重组件继续 `React.lazy`（实验室、源码、工程 Hub）。
-- 贴纸图片设置明确宽高，`loading="lazy"`，总资产 ≤ 500KB。
-- 不新增运行时依赖；图标继续使用 `lucide-react`。
-
----
-
-## 11. 文件级改造清单
-
-### 11.1 设计系统
-
-| 文件 | 改造 |
-| :--- | :--- |
-| `src/index.css` | 替换为 §3 令牌；新增 `surface-card` / `surface-float` / `brand-cta` / `brand-text`；浅色滚动条、浅色滑杆、浅色 focus ring；深色改为森林绿 |
-| `index.html` | `theme-color: #F3FAF0`；补充 `Noto Sans SC` 900 字重；保留现有字体预连接 |
-
-### 11.2 壳层
-
-| 文件 | 改造 |
-| :--- | :--- |
-| `src/App.tsx` | 浅色默认；顶部设备胶囊 + 我的按钮；5 Tab；设置抽屉；桌面贴纸背景；移除深色 HUD 头部 |
-| `src/components/AndroidStatusBar.tsx` | 浅色墨字、绿色电池填充、高温/低电状态 |
-| `src/components/AndroidNavBar.tsx` | 5 Tab、白色玻璃、选中绿色胶囊、安全区 |
-| 新增 `src/components/SettingsSheet.tsx` | 设置抽屉（主题/音效/遥测/清理/关于/工程入口） |
-| 新增 `src/components/StickerBackdrop.tsx` | 桌面贴纸与光晕 |
-
-### 11.3 业务组件
-
-| 文件 | 改造 |
-| :--- | :--- |
-| `PrimaryBatteryRing.tsx` | 圆环视觉重构；保留全部 props 与逻辑 |
-| `MetricCard.tsx` | 新增 `StatTile` / `MetricRow` 两种变体；移除深色玻璃；hint 移入详情 |
-| `HardwareSummaryBar.tsx` | 浅色卡 + 折叠；来源标签保留；6 + 3 栅格 |
-| `DevicePresetSelector.tsx` | 机型预设改为 Sheet 列表；自定义容量校验逻辑不变 |
-| `BatteryHealthAdvice.tsx` | 浅色健康卡；保留三条建议与分级 |
-| `FullChargeCalibrationCard.tsx` | 浅色版本；判定三条件、锁定值、上次记录逻辑不变 |
-| `LiveTelemetryChart.tsx` | 浅色图表；分段控件；保留 SVG 与统计 |
-| `HardwareSimulationLab.tsx` | 场景卡列表 + 浅色滑杆；逻辑不变 |
-| `NativeAndroidProjectHub.tsx` | 浅色外壳 + 深色代码区 |
-| `NativeCodeViewer.tsx` | 仅外壳与导航改用新令牌；`NATIVE_CODE_FILES` 与代码内容不动 |
-| 新增 `ChargingPowerHero.tsx` | 充电大数字 + 功率曲线 |
-| 新增 `RuntimeOverview.tsx` | 续航 Hero + 评分 + 负载分布 |
-| 新增 `HealthOverview.tsx` | 健康 Hero + 容量对比 + 寿命 |
-| 新增 `ui/Sheet.tsx` / `ui/Chip.tsx` / `ui/Segmented.tsx` | 基础交互原语 |
-
-### 11.4 禁止改动
-
-- `src/hooks/useBatteryMonitor.ts`
-- `src/lib/batteryConstants.ts`
-- `src/types/battery.ts`
-- `src/data/devicePresets.ts`
-- `src/utils/soundEffects.ts`
-
-> 若必须新增派生值（续航评分、负载分档），在展示层 `src/lib/derivedMetrics.ts` 新增纯函数，并写单元测试；不得修改原始遥测语义。
-
----
-
-## 12. 资产与文案
-
-### 12.1 资产清单
-
-| 资产 | 数量 | 用途 |
-| :--- | :--- | :--- |
-| 3D 电池（满电） | 1 | 桌面左侧 |
-| 3D 闪电 | 2（绿/黄） | 桌面两侧 |
-| 3D 星星 | 2 | 桌面角落 |
-| 3D 笑脸 | 2 | 桌面两侧 |
-| 3D 爱心 | 1 | 健康空状态 |
-| 3D 盾牌 | 1 | 校准成功 |
-| 3D 时钟 | 1 | 续航空状态 |
-| 3D 齿轮 | 1 | 设置页 |
-
-### 12.2 生成提示词（用于图像生成工具）
-
-```text
-glossy 3D green battery with lightning symbol, soft studio lighting,
-white background, transparent PNG, high detail, app icon style, 512x512
+```
+┌ 顶栏：电池大师        [Pixel 8 Pro ▾] [我的] ┐
+│ Hero 环（surface-float）                     │
+│   状态胶囊「充电中」  78%（44sp/800）          │
+│   3,850 / 4,620 mAh                          │
+│   [+9.8 W] [33.6 ℃] [92.4% 健康] 三胶囊       │
+│   [断开充电]  [一键充满校准]                   │
+│ LabSimulationBanner（模拟态时置顶，保留现有）  │
+│ 健康结论卡：92.4 · 高于 80% 维护线 +12.4pt     │
+│   「查看诊断 >」→ 健康 Tab · 容量来源标签      │
+│ 12 项指标 · 分组列表（3 组，MetricRow × 12）   │
+│ 硬件摘要卡（HardwareSummaryCard 浅色化，折叠） │
+└ 底部导航 ────────────────────────────────────┘
 ```
 
-```text
-glossy 3D lightning bolt, emerald green chrome material, soft shadow,
-transparent background, minimal, centered, 512x512
+- **MetricRow**（替代 `CyberMetricCardItem` 双列网格）：高 64dp，行式布局——36dp 圆角图标块 + 标题/来源标注（两行）+ 右侧读数（`Font2xl`/800，tabular）+ 状态胶囊 + chevron。点击展开口径详情（`AnimatedVisibility`），原文案（hint / 口径说明）收进行内展开区。
+- 编号（01–12）保留为灰度 micro 标签，去掉现有编号底板徽章。
+- `AboutAppCard` 移出总览 → 「我的」页。
+- `AppUpdateCard` 移出总览 → 「我的」页。
+
+### 4.2 续航
+
+```
+续航分析            按当前负载估算（诚实标注）
+┌ 预计可用 ──────────────────┐
+│ 8 小时 28 分钟（28sp）      │
+│ 剩余 3,850 mAh · 负载 -420mA│
+└────────────────────────────┘
+[DeviceUsageCard 浅色化：真实开机使用时长]
+[Segmented: 电流 | 电压 | 温度]
+[TelemetryChartPanel 浅色化：120 点真实曲线]
+[续航评分卡 94 · 优秀 [模型评分]]
+  健康 92.4 / 温度 33.6 / 负载 三因子展开说明
+[SessionHistoryCard：真实充放电会话列表]
 ```
 
-```text
-cute 3D emoji smiley face, soft clay material, green accent,
-transparent background, bright studio light, 512x512
+- 续航估算公式沿用现有展示层口径（剩余容量 ÷ 当前放电电流，非放电态按典型负载，界面标注口径）。
+- 续航评分为**新增本地纯函数**（`ui/derived/RuntimeScore.kt`）：`score = 60×健康分 + 20×温度分段 + 20×负载分段`，明确标注「模型评分」；不冒充系统数据；配套纯 JVM 单测。
+- 负载分布取真实遥测滑窗按 |电流| 三档计数，不出现应用名 / 卡顿排行。
+
+### 4.3 充电
+
+```
+充电功率                        [+ 充电 | − 放电 胶囊]
+┌ 9.8 W（44sp/800，品牌渐变数字）──────────┐
+│ 66W 协议协商 · 预计充满 0:42（按当前功率）│
+└──────────────────────────────────────────┘
+[功率柱状图：telemetryHistory 真实功率序列]
+[FullChargeConditionCard 浅色化（现有逻辑零改动）]
+  条件 1 电量 100% / 条件 2 充电态 / 条件 3 |I|≤25mA
+  锁定容量 · 上次记录 · [一键模拟充满]
+数据由本机实时遥测生成 · 本地计算 · 零上传
 ```
 
-### 12.3 核心文案
+- 大数字只显示绝对值，方向由胶囊表达（`+` 绿 / `−` 蓝）；禁止 `abs()` 吞方向（现有口径保持）。
+- 柱状图用真实功率序列（复用 `TelemetryChartPanel` 的 Canvas 绘制改柱状），不伪造「10% 档位功率表」。
 
-| 位置 | 文案 |
-| :--- | :--- |
-| 总览标题 | `电池健康` / `超级详细 · 本地实时遥测` |
-| 总览 CTA | `接入闪充` / `断开充电` |
-| 健康结论 | `高于 80% 维护线 +12.4pt` |
-| 续航标题 | `续航分析` / `按当前负载估算` |
-| 充电标题 | `充电功率` / `尽在掌控` |
-| 满充卡 | `完全充满判定` / `100% + 充电态 + |I| ≤ 25 mA` |
-| 实验室提示 | `模拟数据仅作用于展示层，退出实验室即恢复真实遥测` |
-| 数据来源 | `数据由本机实时遥测生成 · 本地计算 · 零上传` |
+### 4.4 健康
+
+现有 `HealthProfileScreen` 浅色化 + 重排：
+
+```
+健康 Hero：92.4% 环形 + 评级 + [实测/估算] 来源标签
+容量对比卡：当前 4,620 / 设计 5,000 mAh · 损耗 380 mAh（双色横条）
+寿命卡：循环 N 次 + 内阻 [运行时测算·高置信 n=48]（BatteryHealthEngine 现有置信度口径）
+HealthAdviceCard（现有三条建议，浅色化）
+校准规范说明（现有文案保留）
+```
+
+- 不可测算时显示 `—` + 「无法测算」，不显示 0%（v2.0.0-alpha.1 口径保持）。
+- 不输出「还可循环 N 次」伪精确预测（诚实前提不满足则不展示，沿用引擎口径）。
+
+### 4.5 实验室
+
+`HardwareLabScreen` 结构保留（4 场景 / 滑杆 / 枚举 / 提示音 / 恢复真实遥测），视觉重排：
+
+- 场景卡：白卡 + 图标 + 标题 + 参数行；选中态浅绿底 + 2dp `Brand600` 描边 + 对勾（参考图「选择加入门派」的选择态语言）。
+- 模拟激活时：页面顶部 `LabSimulationBanner`（现有，紫色化 `VioletSoft` 底）跨 Tab 常驻（现有行为）。
+- 所有模拟读数带 `[模拟]` 标签（现有 labOverride 机制）。
+
+### 4.6 装饰策略（Android 差异）
+
+- **无 3D 贴纸背景层**：手机端首屏 overdraw 敏感，参考图的贴纸阵仅转化为：空状态插画（健康 `—` 态 / 历史为空态）、关于页头部一枚电池插画（vector 绘制，不走位图资源）。
+- 启动页 / 图标不改动（`ic_launcher` 保持现状，可另立批次升级为绿色电池风格 adaptive icon）。
 
 ---
 
-## 13. 实施顺序（无时间估算）
+## 5. 组件清单与现有代码映射
+
+| 新组件 / 改造 | 现有代码 | 改造内容 |
+| :--- | :--- | :--- |
+| `MintHeroBatteryCard` | `CyberHeroBatteryCard` | 渐变弧浅色化、中心 44sp 读数、三数据胶囊；判定/动画逻辑保留 |
+| `MetricRow` | `CyberMetricCardItem` | 网格双列 → 分组单列行式；口径说明进展开区 |
+| `StatTile` | （新增） | 88dp 高小块：Hero 下三胶囊 / 续航评分因子 |
+| `MintTopAppBar` | 顶栏 Row | 浅色、设备胶囊、我的入口 |
+| `MintNavigationBar` | （新增） | `NavigationBar` + 浅色玻璃 surface |
+| `Chip` | 散落胶囊写法 | 统一 6 变体：good/warn/danger/info/neutral/[模拟] |
+| `SourceTag` | 散落来源标注 | 统一：实测/估算/工程估算/运行时测算/模拟/不可测算 |
+| `SettingsScreen` | `AboutAppCard` + `AppUpdateCard` + 散落开关 | 收编为分组列表 |
+| `RuntimeScore.kt` | （新增纯函数） | 续航模型评分 + 单测 |
+| `GlassKit.kt` | 保留三 Modifier | `GlassTokens` 双主题参数化 |
+| `MintTheme.kt` | MainActivity 主题 | light/dark ColorScheme + 主题状态 |
+
+**禁止改动**：`service/*`（解析/采集/引擎）、`viewmodel/*` 状态机、`receiver/*`、`data/BatteryState.kt` 口径字段、`BatteryTelemetryParser` 阈值常量。UI 只消费，不重算。
+
+---
+
+## 6. 动效（复用 GlassKit，无新增依赖）
+
+| 场景 | 实现 |
+| :--- | :--- |
+| 卡片错峰入场 | 现有 `entranceReveal(index)` 原样保留（55ms 阶梯） |
+| 按压手感 | 现有 `pressGlassScale` 原样保留 |
+| Tab 转场 | 现有方向感知 slide+fade，时长换 `DurationSmooth` |
+| 环形进度 | 现有 `animateIntAsState` / 弧动画保留，`DurationHero` |
+| 柱状图生长 | Canvas 高度按 60ms 阶梯动画 |
+| 模拟态呼吸 | `LabSimulationBanner` 低幅度 `infiniteRepeatable`（现有模式） |
+| 系统动画关闭 | 沿用 `ANIMATOR_DURATION_SCALE == 0` 直现逻辑（现有实现已覆盖） |
+
+---
+
+## 7. 数据诚实性红线（逐项验收）
+
+| 项 | 要求 |
+| :--- | :--- |
+| 来源标注 | 12 项指标每项可见 `[实测]/[估算]/[工程估算]/[运行时测算]/[模拟]/[不可测算]` 之一 |
+| 温度 | 38/45℃ 单源 `BatteryTelemetryParser.TEMP_*`，UI 不再本地定义 |
+| 充满判定 | `100% + 充电态 + |I|≤25 mA` 三态逐条展示，拔线不锁定 |
+| 功率 | 带符号：充电 `+W` 绿 / 放电 `−W` 蓝；Hero 大数字绝对值 + 方向胶囊 |
+| 健康度 | 容量不可测算 → `— 无法测算`，绝不显示 0% |
+| 模拟态 | `LabSimulationBanner` 跨 Tab 常驻 + 读数带 `[模拟]` |
+| 续航/评分 | 明确「按当前负载估算」「模型评分」 |
+| 零商业化 | 无赞助/会员/广告/榜单/引流；更新入口在「我的」；除更新检查外零网络 |
+| 排名类 | 只允许「相对 80% 维护线 ±N pt」（本地计算） |
+
+---
+
+## 8. strings.xml 新增 key（中英双语）
+
+```xml
+<!-- 新页面 -->
+<string name="tab_runtime">续航</string>
+<string name="tab_charging">充电</string>
+<string name="nav_more">我的</string>
+<string name="runtime_title">续航分析</string>
+<string name="runtime_estimate_note">按当前负载估算</string>
+<string name="runtime_score_label">续航评分（模型评分，非系统数据）</string>
+<string name="charging_title">充电功率</string>
+<string name="charging_power_negotiated">%1$s 协议协商</string>
+<string name="settings_title">我的</string>
+<string name="settings_theme">主题</string>
+<string name="settings_sound">提示音</string>
+<string name="settings_clear_full_charge">清除完全充满记录</string>
+<string name="settings_update">检查更新</string>
+<string name="settings_about_privacy">数据仅本机计算，不上传（更新检查除外，可关闭）</string>
+<!-- 诚实性 -->
+<string name="source_measured">实测</string>
+<string name="source_estimated">估算</string>
+<string name="source_simulated">模拟</string>
+<string name="source_unavailable">无法测算</string>
+<string name="health_vs_maintenance_line">相对 80%% 维护线 %1$s</string>
+```
+
+（`values-en` 同步补齐；既有 key 不改语义。）
+
+---
+
+## 9. 无障碍与性能
+
+- **字体缩放**：`FontNumHero = 44sp` 用 `maxFontScale` 钳制或 `heightIn(min)` 保证 200% 缩放不裁切（沿用 Tab 文本现有处理模式推广到 Hero 读数）。
+- **TalkBack**：MetricRow `contentDescription` = 「标题 当前值 单位 状态」；胶囊不只靠颜色（全部带文字/图标）；状态变更 `LiveRegion.Polite`。
+- **触达**：底部导航、按钮 ≥ 48dp；行式列表整行可点。
+- **对比度**：绿色正文一律 `Brand700`（浅色）/ `DarkBrand`（深色）；`Brand500` 仅图形。
+- **性能**：`LazyColumn` 分组列表替代 12 卡网格（减少组合数）；Canvas 图表沿用现有 drawSeries 模式；不引入 Coil/图表库等新依赖；深浅色切换用 `CompositionLocal` 主题，不重建 Activity。
+- **edge-to-edge**：底部导航加 `WindowInsets.navigationBars` padding（targetSdk 36 已适配，保持）。
+
+---
+
+## 10. 文件级改造清单
+
+| 文件 | 动作 |
+| :--- | :--- |
+| `ui/theme/DesignTokens.kt` | 重写为 2.0（§2），保留兼容别名 |
+| `ui/theme/GlassKit.kt` | `GlassTokens` 双主题化，三 Modifier API 不变 |
+| `ui/theme/MintTheme.kt` | 新增：ColorScheme + 主题状态 |
+| `ui/BatteryScreen.kt` | 顶部 TabRow → 底部 5 Tab；顶栏改造；指标网格 → 分组列表；`AboutAppCard` / `AppUpdateCard` 迁出；Hero/满充卡浅色化 |
+| `ui/HardwareLabScreen.kt` | 场景卡选择态重排、滑杆浅色化；逻辑零改动 |
+| `ui/DeviceUsageCard.kt` | 浅色化，迁入续航页 |
+| `ui/AppUpdateCard.kt` | 浅色化，迁入我的页 |
+| `ui/SettingsScreen.kt` | 新增 |
+| `ui/components/MintNav.kt` `MintChips.kt` `MetricRow.kt` | 新增原语 |
+| `ui/derived/RuntimeScore.kt` | 新增纯函数 + 单测 |
+| `MainActivity.kt` | 挂 `MintTheme`；edge-to-edge 核对 |
+| `res/values/strings.xml` + `values-en` | §8 新 key |
+| `res/values/colors.xml` / `themes.xml` | 状态栏/导航栏浅色对齐 |
+
+**不改动**：`service/*`、`viewmodel/*`、`receiver/*`、`data/*`、CI 工作流（`build-apk.yml` 不动，产物照常）。
+
+---
+
+## 11. 实施顺序
 
 | 阶段 | 内容 | 完成标志 |
 | :--- | :--- | :--- |
-| S0 设计冻结 | 令牌、资产、页面规格、文案 | 本文档评审通过 |
-| S1 壳层 | `index.css`、`App.tsx`、状态栏、底部导航、设置抽屉、桌面背景 | 5 Tab 可切换，浅/深色正常，无深色残留 |
-| S2 总览 | Hero 环、健康结论、12 项指标行、硬件卡 | 首屏信息完整，12 项可点开详情 |
-| S3 健康 + 充电 | 健康 Hero、容量对比、满充卡、充电大数字 | 充满判定、锁定记录、功率正负号正确 |
-| S4 续航 + 实验室 | 续航评分、曲线、负载分布、场景卡、滑杆 | 遥测图表实时刷新，模拟态标注正确 |
-| S5 工程 + 桌面 | Hub / 源码浅色外壳、宽屏双列、贴纸 | 1440px 无空白/溢出，代码可读 |
-| S6 QA | 视觉走查、口径走查、构建、无障碍 | §14 全部通过 |
+| S0 | 本方案冻结 | 评审通过 |
+| S1 | 令牌 + 主题 + GlassKit 浅色化 | 全应用浅色可跑，深色切换正常，旧别名兼容零编译错 |
+| S2 | 导航改造（底部 5 Tab + 顶栏 + 我的骨架） | 5 Tab 切换 / 状态保持 / 我的可进 |
+| S3 | 总览页（Hero / 结论 / MetricRow / 硬件卡） | 12 项指标齐全，口径标注完整 |
+| S4 | 健康 + 充电页 | 满充三态、功率方向、容量对比正确 |
+| S5 | 续航 + 实验室 + 设置收编 | 曲线/会话/使用时长/评分真实；更新入口入「我的」 |
+| S6 | QA + 双语文案 + 无障碍 + 构建 | §12 全通过，CI APK 绿 |
 
 ---
 
-## 14. 验收清单
+## 12. 验收清单
 
-### 14.1 视觉
+**视觉**
+- [ ] 360 / 411 / 768dp 宽度无溢出；深浅色全 Tab 走查。
+- [ ] 白玻璃卡：白渐变 + 1dp 高光线 + 柔绿投影；无深色 HUD 残留（grep `0xFF030712` 等旧色为零）。
+- [ ] Hero 数字 tabular，刷新不抖动。
 
-- [ ] 390 × 844、430 × 932、1440 × 900 三种尺寸无横向滚动、无遮挡。
-- [ ] 一级卡片圆角 ≥ 22px，内边距 ≥ 16px，8pt 网格。
-- [ ] 品牌绿只用于强调；正文绿色为 `brand-700`。
-- [ ] 白色玻璃卡有 1px 高光边 + 柔绿阴影，不是纯白平卡。
-- [ ] 大数字使用 tabular，数据刷新不抖动。
-- [ ] 桌面端贴纸不遮挡内容，减少动态效果时隐藏。
+**功能（零回归）**
+- [ ] 12 项指标与 ViewModel 数值一致；充满判定三态与拔线不锁定回归用例通过。
+- [ ] 实验室 4 场景 / 滑杆 / 枚举 / 恢复真实遥测 / `labOverride` 跨 Tab 横幅正常。
+- [ ] 设计容量校准、清除充满记录、会话历史、使用时长累计正常。
+- [ ] 141 既有单测全绿 + 新增 `RuntimeScore` 单测。
 
-### 14.2 功能
+**零商业化审查**
+- [ ] 全仓 grep：`赞助/sponsor/donate/广告/ad-/vip/member/premium` 零命中。
+- [ ] 总览页无更新卡、无榜单卡、无引流入口；更新仅在「我的」。
 
-- [ ] 12 项指标全部展示，数值与 `useBatteryMonitor` 一致。
-- [ ] 充电/放电切换、暂停遥测、音效开关、机型切换、自定义容量校验正常。
-- [ ] 4 个实验室场景、6 组滑杆、状态/健康枚举、重置正常。
-- [ ] 充满判定严格为 100% + 充电态 + |I| ≤ 25 mA，拔线不锁定。
-- [ ] 清除锁定记录后不复活。
-- [ ] 原生工程 Hub / 源码查看 / 复制正常。
-
-### 14.3 数据诚实性
-
-- [ ] 每个指标都有来源标签（实测/估算/模拟/不可测算）。
-- [ ] 模拟态在页面顶部与指标行同时标注 `[模拟]`。
-- [ ] 不出现社区、应用卡顿排行、云同步等虚构能力。
-- [ ] 续航、评分标注「估算/模型评分」。
-
-### 14.4 工程质量
-
-- [ ] `npm run lint` 通过。
-- [ ] `npm run build` 通过。
-- [ ] 无控制台错误；无新增运行时依赖。
-- [ ] `prefers-reduced-motion` 生效。
-- [ ] 键盘可完成 Tab 切换、抽屉开关、按钮操作。
+**工程质量**
+- [ ] `./gradlew :app:assembleDebug` + `testDebugUnitTest` 本地通过；CI 产物照常（aapt2 badging / versionCode 递增 / 签名校验）。
+- [ ] 字体 200% 缩放无裁切；TalkBack 走查核心流程；`ANIMATOR_DURATION_SCALE=0` 直现。
 
 ---
 
-## 15. 风险与规避
+## 13. 风险与规避
 
-| 风险 | 影响 | 规避 |
-| :--- | :--- | :--- |
-| 浅色玻璃过多导致卡顿 | 中低端机掉帧 | 限制 `backdrop-filter` 层数；列表用渐变模拟 |
-| 旧组件深色类大量残留 | 视觉割裂 | 全仓 grep `slate-9` / `slate-8` / `emerald-9`，逐文件清理 |
-| 绿色文字对比度不足 | 可读性/无障碍 | 正文统一 `brand-700`；亮绿只做图形 |
-| 为追参考图而虚构数据 | 破坏产品可信度 | 以 §9 为红线，评审逐项核对 |
-| 原生源码组件过大 | 改动风险 | 只改外壳，不碰 `NATIVE_CODE_FILES` 内容 |
-| 字体加载失败 | 中文回退宋体 | 完整中文回退栈；首屏不依赖字体加载完成 |
-
----
-
-## 16. 交付物
-
-1. 本实施方案（设计令牌 / IA / 页面 / 组件 / 验收）。
-2. 设计资产包：8 个 3D 贴纸（@1x/@2x/@3x）。
-3. 重构后的 Web 演示端源码。
-4. 视觉走查截图：390 / 430 / 1440 三档 × 5 Tab。
-5. `CHANGELOG.md` 新增「v2.1.0 UI：薄荷能量视觉重构」条目。
-6. 可选：Android 端 `DesignTokens.kt` 同步新色板，保证双端一致。
+| 风险 | 规避 |
+| :--- | :--- |
+| 旧深色色值残留（DesignTokens 别名兜底掩盖） | S1 起每文件 grep `BgDeep/TextPrimary/0xFF03/0xFF0F172A` 逐一替换，别名仅作过渡 |
+| 底部导航挤压内容区（原 4 Tab 页面加长） | 全部页迁移 `LazyColumn`；Tab 内容按 §4 拆分不堆叠 |
+| 浅色下玻璃对比不足 | GlassTokens 浅色参数 + `shadowElevation` 绿投影双保险 |
+| 续航评分被误读为系统数据 | 命名与文案强制「模型评分」，来源标签不可省略 |
+| 单测/CI 回归 | 数据层零改动 + 阶段性 `testDebugUnitTest` 门禁 |
 
 ---
 
-> 评审通过后，从 S1 壳层开始实施；S1 完成即可看到与参考图同色系、同材质的整体气质，再逐页替换内容。
+## 14. 交付物
+
+1. 本方案（Android 端 v2）。
+2. 重构后 APK（GitHub Actions 产物，versionName 递增）。
+3. `CHANGELOG.md` 新增「v2.2.0 UI：薄荷能量重构 + 零商业化治理」条目。
+4. 三档宽度 × 深浅色 × 5 Tab 走查截图。
+5. （后续可选批次）Web 端 `src/index.css` 令牌同步，恢复双端对应关系。
+
+---
+
+> 评审通过后从 S1 开始：S1 完成即整体呈现参考图同款「薄荷能量」气质；S2 起逐页替换，每阶段独立可构建、可回归。
