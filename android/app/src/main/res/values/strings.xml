@@ -6,9 +6,14 @@
 
     <!-- 顶层 Tab -->
     <string name="tab_overview">状态总览</string>
+    <string name="tab_runtime">续航分析</string>
+    <string name="tab_charging">充电管理</string>
     <string name="tab_telemetry">遥测分析</string>
     <string name="tab_health">健康档案</string>
     <string name="tab_lab">硬件实验室</string>
+
+    <!-- 「我的」入口 (顶栏独立页面) -->
+    <string name="nav_more">我的</string>
 
     <!-- 总览：12 项指标区块 -->
     <string name="metrics_section_title">12 项充放电核心指标详情</string>
@@ -22,6 +27,10 @@
     <string name="metric_sub_remaining_unmeasurable">无法测算 [容量未实测]</string>
     <string name="metric_title_current_capacity">电池当前容量</string>
     <string name="metric_sub_current_capacity">衰减后最大可用 [%1$s]</string>
+    <string name="metric_sub_current_capacity_unmeasured">电量计节点未上报，不虚构数值</string>
+    <string name="metric_sub_power_underivable">功率不可推导 [电压未实测]</string>
+    <string name="metric_sub_health_condition">BATTERY_HEALTH 广播字段</string>
+    <string name="status_channel_broadcast">ACTION_BATTERY_CHANGED 电源广播</string>
     <string name="metric_title_design_capacity">电池设计容量</string>
     <string name="metric_sub_design_capacity">出厂铭牌标称 [%1$s]</string>
     <string name="metric_title_percentage">电量百分比</string>
@@ -110,7 +119,6 @@
     <string name="about_crash_count">本地记录 %1$d 份崩溃堆栈</string>
     <string name="about_crash_none">暂无本地崩溃记录</string>
     <string name="about_developer">开发者：某厂大牛马【带娃的小陈工】</string>
-    <string name="about_platforms">抖音 / 小红书 平台</string>
 
     <!-- 遥测分析 Tab -->
     <string name="telemetry_title">高频硬件遥测分析</string>
@@ -228,4 +236,56 @@
     <string name="update_download_completed">下载完成，可以安装</string>
     <string name="update_install_guide">打开通知栏点击安装包即可安装（首次需授权“安装未知应用”）</string>
     <string name="update_auto_check_switch">每 24 小时自动检查更新</string>
+
+    <!-- ============ 「薄荷能量」v2.2.0：总览补充 ============ -->
+    <string name="overview_conclusion_title">健康结论</string>
+    <string name="overview_conclusion_measured">实测当前容量 %1$d mAh · 设计 %2$d mAh</string>
+    <string name="overview_conclusion_unmeasured">容量链路不可读 · 健康度无法测算</string>
+    <string name="overview_conclusion_forecast_hint">循环寿命预测与诊断建议见「健康档案」</string>
+    <string name="overview_privacy_trust">权限声明：零权限安装即用 · 电池数据全部本地处理，不上传</string>
+
+    <!-- ============ 「薄荷能量」v2.2.0：续航分析 Tab ============ -->
+    <string name="runtime_estimate_title">预计可用时长</string>
+    <string name="runtime_estimate_discharge">按当前耗电速度约可用</string>
+    <string name="runtime_estimate_charge">按当前充电速度距充满约</string>
+    <string name="runtime_estimate_unreadable">电流不可读，无法测算可用时长</string>
+    <string name="runtime_estimate_idle">浮充/待机态，暂无有效充放电速度</string>
+    <string name="runtime_estimate_basis">测算依据：%1$s</string>
+    <string name="runtime_basis_coulomb">库仑计实测剩余电荷</string>
+    <string name="runtime_basis_estimated">百分比 × 当前容量估算</string>
+    <string name="runtime_estimate_note">口径：以当前瞬时电流线性外推，负载变化后自动刷新</string>
+
+    <!-- ============ 「薄荷能量」v2.2.0：充电管理 Tab ============ -->
+    <string name="charging_power_title">实时充放电功率</string>
+    <string name="charging_power_charging">充电输入</string>
+    <string name="charging_power_discharging">放电输出</string>
+    <string name="charging_power_unreadable">电流不可读 · 功率不可推导</string>
+    <string name="charging_progress_title">充满进度</string>
+    <string name="charging_progress_to_full">距 100%% 还差 %1$d%%</string>
+    <string name="charging_progress_full">已达 100%%</string>
+    <string name="charging_history_title">近期功率走势 (最近 %1$d 个采样点)</string>
+    <string name="charging_history_empty">采样积累中，稍后呈现功率曲线</string>
+    <string name="charging_tips_title">充电建议</string>
+    <string name="charging_tip_normal">当前充电速度正常，建议使用原装充电器</string>
+    <string name="charging_tip_slow">充电功率较低，可能处于涓流补齐或非快充协议</string>
+    <string name="charging_tip_fast">大功率快充进行中，注意控制机身温度</string>
+    <string name="charging_tip_discharge">正在放电，接入充电器后可查看充电态读数</string>
+
+    <!-- ============ 「薄荷能量」v2.2.0：「我的」页 ============ -->
+    <string name="settings_title">我的</string>
+    <string name="settings_group_personalize">个性化</string>
+    <string name="settings_theme">主题模式</string>
+    <string name="settings_theme_system">跟随系统</string>
+    <string name="settings_theme_light">薄荷能量 (浅色)</string>
+    <string name="settings_theme_dark">夜航森林 (深色)</string>
+    <string name="settings_lab_sound">实验室提示音</string>
+    <string name="settings_lab_sound_desc">模拟场景切换时播放反馈音</string>
+    <string name="settings_group_data">数据与校准</string>
+    <string name="settings_design_capacity">设计容量校准</string>
+    <string name="settings_design_capacity_value">当前 %1$d mAh · %2$s</string>
+    <string name="settings_clear_full_charge">清除充满锁定记录</string>
+    <string name="settings_clear_full_charge_desc">删除真实锁定值与模拟演示值</string>
+    <string name="settings_clear_telemetry">清空遥测历史与会话</string>
+    <string name="settings_group_about">关于</string>
+    <string name="settings_back">返回</string>
 </resources>

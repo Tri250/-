@@ -87,6 +87,25 @@ android {
     }
 }
 
+// 测试 JVM 代理透传：Robolectric 首次运行需从 Maven 中央仓库拉取 android-all
+// 依赖，分叉的测试 JVM 不继承 Gradle 守护进程代理配置——按环境变量显式下发，
+// 无代理环境下保持零影响
+tasks.withType<Test>().configureEach {
+    val httpProxy = System.getenv("HTTP_PROXY") ?: System.getenv("http_proxy")
+    if (!httpProxy.isNullOrBlank()) {
+        // 形如 http://host:port —— 手工解析，避免脚本作用域 java.net 解析歧义
+        val hostPort = httpProxy.substringAfter("://").substringBefore("/")
+        val proxyHost = hostPort.substringBefore(":")
+        val proxyPort = hostPort.substringAfter(":", "8080")
+        listOf("http", "https").forEach { proto ->
+            systemProperty("$proto.proxyHost", proxyHost)
+            systemProperty("$proto.proxyPort", proxyPort)
+        }
+        systemProperty("http.nonProxyHosts", "localhost|127.0.0.1")
+        systemProperty("https.nonProxyHosts", "localhost|127.0.0.1")
+    }
+}
+
 dependencies {
     implementation(platform("androidx.compose:compose-bom:2024.10.01"))
     implementation("androidx.activity:activity-compose:1.9.3")

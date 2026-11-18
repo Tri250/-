@@ -167,7 +167,7 @@ class AppUpdateCheckerTest {
 
     // ---------- v2.1.0-beta.3 自动检查：24h 节流 + 开关 ----------
 
-    private const val HOUR_MS = 3600_000L
+    private val hourMs = 3600_000L
 
     @Test
     fun autoCheckDueWhenNeverChecked() {
@@ -179,9 +179,9 @@ class AppUpdateCheckerTest {
     @Test
     fun autoCheckThrottledWithinInterval() {
         checker.markAutoCheckDone(nowMs = 10_000L)
-        assertFalse(checker.autoCheckDue(nowMs = 10_000L + HOUR_MS))
-        assertFalse(checker.autoCheckDue(nowMs = 10_000L + 23 * HOUR_MS))
-        assertTrue(checker.autoCheckDue(nowMs = 10_000L + 24 * HOUR_MS))
+        assertFalse(checker.autoCheckDue(nowMs = 10_000L + hourMs))
+        assertFalse(checker.autoCheckDue(nowMs = 10_000L + 23 * hourMs))
+        assertTrue(checker.autoCheckDue(nowMs = 10_000L + 24 * hourMs))
     }
 
     @Test
@@ -190,9 +190,9 @@ class AppUpdateCheckerTest {
         checker.setAutoCheckEnabled(false)
         assertFalse(checker.isAutoCheckEnabled())
         // 关闭后即使超时也不触发
-        assertFalse(checker.autoCheckDue(nowMs = 10_000L + 48 * HOUR_MS))
+        assertFalse(checker.autoCheckDue(nowMs = 10_000L + 48 * hourMs))
         checker.setAutoCheckEnabled(true)
         assertTrue(checker.isAutoCheckEnabled())
-        assertTrue(checker.autoCheckDue(nowMs = 10_000L + 48 * HOUR_MS))
+        assertTrue(checker.autoCheckDue(nowMs = 10_000L + 48 * hourMs))
     }
 }

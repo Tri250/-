@@ -22,6 +22,10 @@
     <string name="metric_sub_remaining_unmeasurable">Unmeasurable [capacity unmeasured]</string>
     <string name="metric_title_current_capacity">Current Capacity</string>
     <string name="metric_sub_current_capacity">Max usable after aging [%1$s]</string>
+    <string name="metric_sub_current_capacity_unmeasured">Gauge node not reported; no fabricated value</string>
+    <string name="metric_sub_power_underivable">Power underivable [voltage not measured]</string>
+    <string name="metric_sub_health_condition">BATTERY_HEALTH broadcast field</string>
+    <string name="status_channel_broadcast">ACTION_BATTERY_CHANGED broadcast</string>
     <string name="metric_title_design_capacity">Design Capacity</string>
     <string name="metric_sub_design_capacity">Factory nameplate [%1$s]</string>
     <string name="metric_title_percentage">Percentage</string>
@@ -110,7 +114,6 @@
     <string name="about_crash_count">%1$d crash stacks stored locally</string>
     <string name="about_crash_none">No local crash records</string>
     <string name="about_developer">Developer: 某厂大牛马【带娃的小陈工】</string>
-    <string name="about_platforms">Douyin / Xiaohongshu</string>
 
     <!-- Telemetry tab -->
     <string name="telemetry_title">High-Frequency Hardware Telemetry</string>
@@ -228,4 +231,56 @@
     <string name="update_download_completed">Download complete — ready to install</string>
     <string name="update_install_guide">Tap the package in the notification shade to install (grant \"Install unknown apps\" once)</string>
     <string name="update_auto_check_switch">Auto-check updates every 24 h</string>
+
+    <!-- ============ "Mint Energy" v2.2.0: overview additions ============ -->
+    <string name="overview_conclusion_title">Health Conclusion</string>
+    <string name="overview_conclusion_measured">Measured capacity %1$d mAh · design %2$d mAh</string>
+    <string name="overview_conclusion_unmeasured">Capacity link unreadable · health unmeasurable</string>
+    <string name="overview_conclusion_forecast_hint">See the Health tab for lifespan forecast and advice</string>
+    <string name="overview_privacy_trust">Permissions: zero runtime permissions · all battery data stays on device</string>
+
+    <!-- ============ "Mint Energy" v2.2.0: runtime tab ============ -->
+    <string name="runtime_estimate_title">Estimated Runtime</string>
+    <string name="runtime_estimate_discharge">At the current drain rate, about</string>
+    <string name="runtime_estimate_charge">At the current charge rate, full in about</string>
+    <string name="runtime_estimate_unreadable">Current unreadable · runtime cannot be estimated</string>
+    <string name="runtime_estimate_idle">Float/idle state · no effective charge or discharge rate</string>
+    <string name="runtime_estimate_basis">Basis: %1$s</string>
+    <string name="runtime_basis_coulomb">Coulomb-counter charge reading</string>
+    <string name="runtime_basis_estimated">Percentage × current capacity estimate</string>
+    <string name="runtime_estimate_note">Linear extrapolation of the instantaneous current; refreshes as load changes</string>
+
+    <!-- ============ "Mint Energy" v2.2.0: charging tab ============ -->
+    <string name="charging_power_title">Real-time Power</string>
+    <string name="charging_power_charging">Charging input</string>
+    <string name="charging_power_discharging">Discharge output</string>
+    <string name="charging_power_unreadable">Current unreadable · power cannot be derived</string>
+    <string name="charging_progress_title">Charge Progress</string>
+    <string name="charging_progress_to_full">%1$d%% to full</string>
+    <string name="charging_progress_full">Fully charged</string>
+    <string name="charging_history_title">Recent power trend (last %1$d samples)</string>
+    <string name="charging_history_empty">Collecting samples; the power curve appears shortly</string>
+    <string name="charging_tips_title">Charging Tips</string>
+    <string name="charging_tip_normal">Charging speed is normal; use the original charger</string>
+    <string name="charging_tip_slow">Low charge power; possibly trickle top-up or a non-fast-charge protocol</string>
+    <string name="charging_tip_fast">High-power fast charging in progress; watch device temperature</string>
+    <string name="charging_tip_discharge">Discharging; plug in a charger to see charging readings</string>
+
+    <!-- ============ "Mint Energy" v2.2.0: "My" page ============ -->
+    <string name="settings_title">My</string>
+    <string name="settings_group_personalize">Personalize</string>
+    <string name="settings_theme">Theme</string>
+    <string name="settings_theme_system">Follow system</string>
+    <string name="settings_theme_light">Mint Energy (Light)</string>
+    <string name="settings_theme_dark">Night Forest (Dark)</string>
+    <string name="settings_lab_sound">Lab feedback sound</string>
+    <string name="settings_lab_sound_desc">Play a tone when lab scenarios switch</string>
+    <string name="settings_group_data">Data &amp; Calibration</string>
+    <string name="settings_design_capacity">Design capacity calibration</string>
+    <string name="settings_design_capacity_value">Current %1$d mAh · %2$s</string>
+    <string name="settings_clear_full_charge">Clear full-charge lock records</string>
+    <string name="settings_clear_full_charge_desc">Delete real locks and simulated demo values</string>
+    <string name="settings_clear_telemetry">Clear telemetry history and sessions</string>
+    <string name="settings_group_about">About</string>
+    <string name="settings_back">Back</string>
 </resources>

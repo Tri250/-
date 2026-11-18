@@ -24,11 +24,11 @@ import org.robolectric.Shadows
 import org.robolectric.annotation.Config
 
 /**
- * v2.0.0-alpha.1 自检：遥测分析 / 健康档案双 Tab 审计回归测试
+ * v2.2.0 自检：续航分析 (遥测) / 健康档案 Tab 审计回归测试
  *
  * 覆盖新增修改的预期范围一致性：
- * 1. 四 Tab 信息架构导航完整 (状态总览 / 遥测分析 / 健康档案 / 硬件实验室)；
- * 2. 遥测分析 Tab：曲线面板标题 + 图例 + 采集链路状态卡 (Android 真机独有透视)；
+ * 1. 五 Tab 信息架构导航完整 (状态总览 / 续航分析 / 充电管理 / 健康档案 / 硬件实验室)；
+ * 2. 续航分析 Tab：曲线面板标题 + 图例 + 采集链路状态卡 (Android 真机独有透视)；
  * 3. 健康档案 Tab：实测口径大数字——电量计节点不可读时显式"无法测算"空态
  *    (是多少就是多少，不再按出厂保持率虚构 92%)；
  * 4. 内阻诚实口径：无引擎测算时不展示臆造工程估算值，显示"—"；
@@ -59,13 +59,13 @@ class TelemetryAndHealthTabAuditTest {
     fun fourTabs_navigationComplete() {
         mount()
 
-        for (title in listOf("状态总览", "遥测分析", "健康档案", "硬件实验室")) {
+        for (title in listOf("状态总览", "续航分析", "充电管理", "健康档案", "硬件实验室")) {
             composeRule.onNodeWithText(title).assertExists()
         }
 
         // 默认总览在场；切遥测分析后实验室内容退场 (Tab 互斥)
         composeRule.onNodeWithText("12 项充放电核心指标详情").assertExists()
-        composeRule.onNodeWithText("遥测分析").performClick()
+        composeRule.onNodeWithText("续航分析").performClick()
         composeRule.onNodeWithText("高频硬件遥测分析").assertExists()
 
         // 切健康档案：遥测内容退场
@@ -83,7 +83,7 @@ class TelemetryAndHealthTabAuditTest {
     fun telemetryTab_chartAndSourceCardPresent() {
         mount()
 
-        composeRule.onNodeWithText("遥测分析").performClick()
+        composeRule.onNodeWithText("续航分析").performClick()
 
         // 曲线面板标题 + 三通道图例
         composeRule.onNodeWithText("高频硬件遥测分析").assertExists()
@@ -230,7 +230,7 @@ class TelemetryAndHealthTabAuditTest {
 
         // 切到硬件实验室再切回遥测分析：历史由 VM 持有，不随 Tab 重建丢失
         composeRule.onNodeWithText("硬件实验室").performClick()
-        composeRule.onNodeWithText("遥测分析").performClick()
+        composeRule.onNodeWithText("续航分析").performClick()
 
         composeRule.onNodeWithText("高频硬件遥测分析").assertExists()
         assertEquals(snapshotAtEntry, viewModel.telemetryHistory.value.toList())

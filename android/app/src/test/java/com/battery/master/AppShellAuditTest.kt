@@ -120,6 +120,11 @@ class AppShellAuditTest {
     fun aboutCard_versionBadgeInjectedFromBuildConfig() {
         mountShell()
 
+        // v2.2.0：「关于 APP」收编至「我的」页 (顶栏入口)，版本徽章随之迁移
+        composeRule.onNodeWithText("我的").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("关于 APP").assertExists()
+
         // 徽章文案与构建配置严格一致 (单源注入；版本号语义校验避免每次 bump 逐字失效)
         composeRule.onNodeWithText("v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})").assertExists()
         assertTrue(

@@ -41,6 +41,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import kotlin.coroutines.coroutineContext
 
 /**
  * 硬件实验室一键模拟场景 (与 Web 端 HardwareSimulationLab 对齐)

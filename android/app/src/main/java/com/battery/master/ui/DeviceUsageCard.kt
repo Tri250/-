@@ -48,14 +48,14 @@ fun DeviceUsageCard(usage: DeviceUsageSnapshot) {
                     text = stringResource(R.string.usage_card_title),
                     fontWeight = FontWeight.Bold,
                     fontSize = DesignTokens.FontXs,
-                    color = Color.White
+                    color = DesignTokens.TextPrimary
                 )
                 Text(
                     text = stringResource(R.string.usage_source_label),
                     fontSize = DesignTokens.Font2xs,
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace,
-                    color = DesignTokens.BrandPrimaryLight
+                    color = DesignTokens.BrandPrimary
                 )
             }
 
@@ -67,7 +67,7 @@ fun DeviceUsageCard(usage: DeviceUsageSnapshot) {
                 fontSize = DesignTokens.Font2xl,
                 fontWeight = FontWeight.Black,
                 fontFamily = FontFamily.Monospace,
-                color = DesignTokens.BrandPrimaryLight
+                color = DesignTokens.BrandPrimary
             )
             Text(
                 text = stringResource(R.string.usage_total_label),
@@ -93,7 +93,7 @@ fun DeviceUsageCard(usage: DeviceUsageSnapshot) {
                         fontSize = DesignTokens.FontXs,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace,
-                        color = Color.White
+                        color = DesignTokens.TextPrimary
                     )
                 }
                 Column(horizontalAlignment = Alignment.End) {
@@ -107,7 +107,7 @@ fun DeviceUsageCard(usage: DeviceUsageSnapshot) {
                         fontSize = DesignTokens.FontXs,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace,
-                        color = Color.White
+                        color = DesignTokens.TextPrimary
                     )
                 }
             }

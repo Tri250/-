@@ -85,7 +85,7 @@ fun HardwareLabScreen(viewModel: BatteryViewModel, state: BatteryState) {
                                 text = stringResource(R.string.lab_screen_title),
                                 fontSize = DesignTokens.FontXs,
                                 fontWeight = FontWeight.Bold,
-                                color = Color.White,
+                                color = DesignTokens.TextPrimary,
                                 fontFamily = FontFamily.Monospace
                             )
                             Text(
@@ -401,6 +401,11 @@ private fun LabScenarioButton(
 /** 实验室区块容器：玻璃拟态（半透明渐变底 + 顶部切面高光线） */
 @Composable
 private fun LabCard(content: @Composable ColumnScope.() -> Unit) {
+    // v2.2.0：DesignTokens 颜色为 @Composable getter——先在组合作用域捕获主题色，
+    // 再传入 drawBehind 的绘制作用域 (drawBehind 非组合上下文，不可直接调用)
+    val glassTop = DesignTokens.BgGlass
+    val glassBottom = DesignTokens.BgSurface.copy(alpha = 0.96f)
+    val cardBorder = DesignTokens.Border
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -408,13 +413,13 @@ private fun LabCard(content: @Composable ColumnScope.() -> Unit) {
                 drawRect(
                     brush = Brush.verticalGradient(
                         colors = listOf(
-                            DesignTokens.BgGlass,
-                            DesignTokens.BgSurface.copy(alpha = 0.96f)
+                            glassTop,
+                            glassBottom
                         )
                     )
                 )
             }
-            .border(1.dp, DesignTokens.Border, RoundedCornerShape(DesignTokens.RadiusCard)),
+            .border(1.dp, cardBorder, RoundedCornerShape(DesignTokens.RadiusCard)),
         shape = RoundedCornerShape(DesignTokens.RadiusCard),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent)
     ) {
@@ -443,7 +448,7 @@ private fun LabSlider(
                 fontSize = DesignTokens.Font2xs,
                 fontWeight = FontWeight.Bold,
                 fontFamily = FontFamily.Monospace,
-                color = Color.White
+                color = DesignTokens.TextPrimary
             )
         }
         Slider(

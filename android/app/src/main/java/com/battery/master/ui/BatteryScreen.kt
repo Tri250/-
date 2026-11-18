@@ -47,8 +47,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.content.Intent
-import com.battery.master.BuildConfig
-import com.battery.master.CrashLogHandler
+import androidx.annotation.StringRes
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.ui.graphics.vector.ImageVector
 import com.battery.master.R
 import com.battery.master.data.AppUpdateState
 import com.battery.master.data.BatteryHealthQuality
@@ -60,12 +61,19 @@ import com.battery.master.data.FullChargeSource
 import com.battery.master.data.FullChargeVerdict
 import com.battery.master.model.BatteryInfo
 import com.battery.master.service.BatteryTelemetryParser
+import com.battery.master.ui.theme.MintIcons
 import com.battery.master.viewmodel.BatteryViewModel
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlin.math.abs
+
+/** 底部导航项 (薄荷能量 5 Tab) */
+private data class NavItem(@StringRes val labelRes: Int, val icon: ImageVector)
+
+/** 「我的」为顶栏入口的独立页面，用哨兵 Tab 索引与 0..4 五 Tab 区分 */
+private const val SETTINGS_TAB = -1
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -94,57 +102,162 @@ fun BatteryScreen(
     val downloadProgress by viewModel.downloadProgress.collectAsState()
     val autoUpdateCheckEnabled by viewModel.autoUpdateCheckEnabled.collectAsState()
 
-    // 顶层双 Tab：状态总览 / 硬件实验室 (对齐 Web 端 AndroidNavBar 信息架构)。
+    // 「薄荷能量」5 Tab 信息架构：总览 / 续航 / 充电 / 健康 / 实验室。
     // 外壳层审计修复：rememberSaveable 保证配置变更重建后停留在当前 Tab，
     // 用户在硬件实验室的调试上下文不丢失
     var selectedTab by rememberSaveable { mutableStateOf(0) }
-    // v2.0.0-alpha.1：对齐 Web 端 4 Tab 信息架构——总览 / 遥测分析 / 健康档案 / 硬件实验室
-    // (Web 端的"原生源码/工程总览"属 Web 演示页说明性内容，不适用于 Android 端，不搬移)
-    val tabTitles = listOf(
-        stringResource(R.string.tab_overview),
-        stringResource(R.string.tab_telemetry),
-        stringResource(R.string.tab_health),
-        stringResource(R.string.tab_lab)
+    // 「我的」为顶栏入口的独立页面 (非 Tab)：设置收编 / 应用更新 / 关于 / 隐私
+    var showSettings by rememberSaveable { mutableStateOf(false) }
+    val navItems = listOf(
+        NavItem(R.string.tab_overview, MintIcons.Dashboard),
+        NavItem(R.string.tab_runtime, MintIcons.Timer),
+        NavItem(R.string.tab_charging, MintIcons.Bolt),
+        NavItem(R.string.tab_health, MintIcons.Heart),
+        NavItem(R.string.tab_lab, MintIcons.Flask)
     )
 
     Scaffold(
-        containerColor = DesignTokens.BgDeep, // Deep Cyber AMOLED Black
+        containerColor = DesignTokens.BgDeep, // 薄荷能量画布 #F3FAF0
         topBar = {
             TopAppBar(
                 title = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        // 品牌磁贴：果绿渐变 + 闪电标
                         Box(
                             modifier = Modifier
-                                .size(10.dp)
-                                .background(DesignTokens.BrandPrimary, RoundedCornerShape(DesignTokens.RadiusChip))
-                        )
+                                .size(30.dp)
+                                .background(
+                                    brush = Brush.linearGradient(
+                                        colors = listOf(
+                                            DesignTokens.BrandPrimary,
+                                            DesignTokens.BrandPrimaryLight
+                                        )
+                                    ),
+                                    shape = RoundedCornerShape(9.dp)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = MintIcons.Bolt,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(9.dp))
                         Column {
                             Text(
                                 text = stringResource(R.string.app_name),
-                                fontSize = DesignTokens.FontXl,
+                                fontSize = DesignTokens.FontBase,
                                 fontWeight = FontWeight.Black,
-                                letterSpacing = 2.sp,
-                                color = Color.White,
-                                fontFamily = FontFamily.Monospace
+                                letterSpacing = 1.sp,
+                                color = DesignTokens.TextPrimary
                             )
                             Text(
                                 // 外壳层审计修复：副标题按真实运行 API 动态渲染。
                                 // 旧实现硬编码 "Android 15"，在 minSdk 26~34 设备上宣称失实
                                 text = stringResource(R.string.topbar_subtitle, android.os.Build.VERSION.SDK_INT),
                                 fontSize = DesignTokens.Font2xs,
-                                color = DesignTokens.AccentCyanDark,
-                                fontFamily = FontFamily.Monospace
+                                color = DesignTokens.TextTertiary
                             )
                         }
                     }
                 },
+                actions = {
+                    // 设备胶囊：显示机型，点击进入设计容量校准
+                    Surface(
+                        onClick = { showDesignCapacityDialog = true },
+                        shape = RoundedCornerShape(DesignTokens.RadiusPill),
+                        color = DesignTokens.BgSurface,
+                        border = BorderStroke(1.dp, DesignTokens.Border)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = MintIcons.Device,
+                                contentDescription = null,
+                                tint = DesignTokens.TextSecondary,
+                                modifier = Modifier.size(11.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = android.os.Build.MODEL,
+                                fontSize = DesignTokens.Font2xs,
+                                fontWeight = FontWeight.Bold,
+                                color = DesignTokens.TextSecondary,
+                                maxLines = 1
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(6.dp))
+                    // 「我的」入口：设置 / 更新 / 关于 / 隐私
+                    Surface(
+                        onClick = { showSettings = true },
+                        shape = RoundedCornerShape(DesignTokens.RadiusPill),
+                        color = DesignTokens.BrandPrimary
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = MintIcons.Person,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(11.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = stringResource(R.string.nav_more),
+                                fontSize = DesignTokens.Font2xs,
+                                fontWeight = FontWeight.Bold,
+                                color = DesignTokens.TextPrimary
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = DesignTokens.BgSurface
+                    containerColor = Color.Transparent
                 )
             )
+        },
+        bottomBar = {
+            // 底部 5 Tab 玻璃导航 (替代旧顶部 TabRow，符合 Android 原生导航规范)
+            NavigationBar(
+                containerColor = DesignTokens.BgGlass,
+                tonalElevation = 0.dp
+            ) {
+                navItems.forEachIndexed { index, item ->
+                    NavigationBarItem(
+                        selected = selectedTab == index,
+                        onClick = { selectedTab = index },
+                        icon = {
+                            Icon(
+                                imageVector = item.icon,
+                                contentDescription = null,
+                                modifier = Modifier.size(19.dp)
+                            )
+                        },
+                        label = {
+                            Text(
+                                text = stringResource(item.labelRes),
+                                fontSize = DesignTokens.Font2xs,
+                                fontWeight = FontWeight.Bold
+                            )
+                        },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = DesignTokens.BrandPrimaryLight,
+                            selectedTextColor = DesignTokens.BrandPrimaryLight,
+                            unselectedIconColor = DesignTokens.TextTertiary,
+                            unselectedTextColor = DesignTokens.TextTertiary,
+                            indicatorColor = DesignTokens.BrandChip
+                        )
+                    )
+                }
+            }
         }
     ) { innerPadding ->
         Column(
@@ -152,35 +265,15 @@ fun BatteryScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            // 顶部 Tab 导航条
-            TabRow(
-                selectedTabIndex = selectedTab,
-                containerColor = DesignTokens.BgSurface,
-                contentColor = DesignTokens.BrandPrimary,
-                divider = {}
-            ) {
-                tabTitles.forEachIndexed { index, title ->
-                    Tab(
-                        selected = selectedTab == index,
-                        onClick = { selectedTab = index },
-                        // 外壳层审计修复：heightIn(min) 替代固定 height，
-                        // 系统字体缩放至最大档时 Tab 文本不再被裁剪 (无障碍)
-                        modifier = Modifier.heightIn(min = 44.dp)
-                    ) {
-                        Text(
-                            text = title,
-                            fontSize = DesignTokens.FontXs,
-                            fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal,
-                            fontFamily = FontFamily.Monospace,
-                            color = if (selectedTab == index) DesignTokens.BrandPrimary else DesignTokens.TextTertiary
-                        )
-                    }
-                }
-            }
+            // 实验室模拟数据由 publishLab 合成进 batteryState 单源发布，
+            // 此处直接消费 state 即为真实/模拟合并展示态 (横幅另在总览页常驻提示)
+            val displayState = state
 
-            // Tab 切换转场动画 (v2.1.0-beta.2)：方向感知 slide + fade (iOS 页面推入手感)
             AnimatedContent(
-                targetState = selectedTab,
+                targetState = if (showSettings) SETTINGS_TAB else selectedTab,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
                 transitionSpec = {
                     val direction = if (targetState > initialState) 1 else -1
                     (slideInHorizontally(
@@ -188,353 +281,48 @@ fun BatteryScreen(
                     ) { it / 6 * direction } + fadeIn(
                         tween(durationMillis = DesignTokens.DurationSlow)
                     )) togetherWith (slideOutHorizontally(
-                        animationSpec = tween(durationMillis = DesignTokens.DurationMicro)
+                        animationSpec = tween(durationMillis = DesignTokens.DurationSlow)
                     ) { -it / 6 * direction } + fadeOut(
                         tween(durationMillis = DesignTokens.DurationMicro)
                     ))
                 },
                 label = "tab-animated-content"
-            ) { tab ->
-            if (tab == 0) {
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            // 1. 顶部华丽核心环形仪表盘 (5. 电量百分比, 6. 电池状态, 2. 剩余电量, 11. 瞬时电流)
-            item {
-                Box(modifier = Modifier.entranceReveal(1)) {
-                    CyberHeroBatteryCard(state)
+            ) { target ->
+                when (target) {
+                    // 「我的」：设置收编 / 应用更新 / 关于 / 隐私 (非商业化)
+                    SETTINGS_TAB -> SettingsScreen(
+                        viewModel = viewModel,
+                        state = displayState,
+                        onBack = { showSettings = false },
+                        onCalibrateDesignCapacity = { showDesignCapacityDialog = true }
+                    )
+                    // 0 总览：Hero 环 + 健康结论 + 12 项指标分组 + 满充判定 + 硬件档案
+                    0 -> OverviewScreen(
+                        state = displayState,
+                        viewModel = viewModel,
+                        simulationRemainingSec = simulationRemainingSec,
+                        onCalibrateDesignCapacity = { showDesignCapacityDialog = true }
+                    )
+                    // 1 续航：预计可用时长 + 设备使用时长 + 遥测曲线 + 会话历史
+                    1 -> RuntimeScreen(
+                        state = displayState,
+                        viewModel = viewModel
+                    )
+                    // 2 充电：实时功率 + 功率曲线 + 满充判定条件
+                    2 -> ChargingScreen(
+                        state = displayState,
+                        viewModel = viewModel
+                    )
+                    // 3 健康：健康档案 + 容量对比 + 寿命 + 建议
+                    3 -> HealthProfileScreen(
+                        state = displayState,
+                        simulationRemainingSec = simulationRemainingSec,
+                        onTriggerTest = viewModel::triggerFullChargeSimulation,
+                        onClearRecords = viewModel::clearFullChargeRecords
+                    )
+                    // 4 实验室：场景模拟 / 滑杆 / 枚举 / 提示音
+                    else -> HardwareLabScreen(viewModel = viewModel, state = displayState)
                 }
-            }
-
-            // 1. 硬件实验室模拟态警示横幅 (P1 审计修复：跨 Tab 泄漏可视化)
-            if (labOverride != null) {
-                item {
-                    LabSimulationBanner(onExit = { viewModel.exitLabMode() })
-                }
-            }
-
-            // 2. 硬件信息汇总栏 (Hardware Information Summary Bar)
-            item {
-                HardwareSummaryCard(state, onCalibrateDesignCapacity = { showDesignCapacityDialog = true })
-            }
-
-            // 3. 特性 12 充满判定卡片 (100% 且充电态 |电流| ≤ 25 mA)
-            item {
-                FullChargeConditionCard(
-                    state,
-                    simulationRemainingSec = simulationRemainingSec,
-                    onTriggerTest = { viewModel.triggerFullChargeSimulation() },
-                    onClearRecords = { viewModel.clearFullChargeRecords() }
-                )
-            }
-
-            // 4. 设备使用时长 (v2.1.0-beta.3 调整为第 5 张卡：真实开机天数/小时，
-            //    elapsedRealtime + 跨重启累计 + BOOT_COUNT；玻璃切面 + 错峰入场)
-            item {
-                DeviceUsageCard(deviceUsage)
-            }
-
-            // 5. 12 项充放电指标卡片网格列表
-            item {
-                Text(
-                    text = stringResource(R.string.metrics_section_title),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = DesignTokens.FontXs,
-                    letterSpacing = 1.sp,
-                    color = DesignTokens.TextSecondary,
-                    fontFamily = FontFamily.Monospace,
-                    modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
-                )
-            }
-
-            item {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    CyberMetricCardItem(
-                        modifier = Modifier.weight(1f),
-                        number = "01",
-                        title = stringResource(R.string.metric_title_health),
-                        // v2.0.0-alpha.1 用户口径修正：健康度是多少就是多少——
-                        // 电量计节点不可读时显示"无法测算"，不再按 0.92 出厂保持率虚构
-                        value = if (state.hasMeasuredCapacity)
-                            "${String.format(Locale.US, "%.1f", state.healthPercentage)}%" else "—",
-                        // 标注容量来源——"sysfs 实测"为真实硬件状态，
-                        // "不可测算"为无电量计节点时的诚实空态，不得虚构。
-                        // v2.0.0-alpha.6：回归采样中 (n>0 未收敛) 显示采样进度
-                        // 而非死空态——用户可预期健康度将在覆盖 ≥30% 后真实显示
-                        sub = when {
-                            state.hasMeasuredCapacity -> stringResource(R.string.metric_sub_health_measured, state.currentCapacitySource.label)
-                            state.capacityRegressionInfo.isNotEmpty() ->
-                                stringResource(R.string.metric_sub_health_regression, state.capacityRegressionInfo)
-                            else -> stringResource(R.string.metric_sub_health_unmeasurable, state.currentCapacitySource.label)
-                        },
-                        accentColor = if (state.hasMeasuredCapacity) DesignTokens.BrandPrimary else DesignTokens.TextTertiary
-                    )
-                    CyberMetricCardItem(
-                        modifier = Modifier.weight(1f),
-                        number = "02",
-                        title = stringResource(R.string.metric_title_remaining),
-                        // v2.0.0-alpha.5 自检修复：库仑计实测读数不再被容量空态隐藏——
-                        // 容量不可测但 CHARGE_COUNTER 可读时，剩余电荷仍是系统库仑计
-                        // 真实测量，旧实现统一显示 "—" 丢弃实测值，且 Hero 行同口径矛盾
-                        value = if (state.hasMeasuredCapacity ||
-                            state.remainingCapacitySource == CapacitySource.COULOMB_COUNTER)
-                            "${state.remainingCapacityMah}" else "—",
-                        unit = if (state.hasMeasuredCapacity ||
-                            state.remainingCapacitySource == CapacitySource.COULOMB_COUNTER) "mAh" else "",
-                        // v1.2.4 P2 审计修复：双口径来源显式标注——"库仑计实测"
-                        // (CHARGE_COUNTER) 与"百分比×容量估算"量纲基准不同，
-                        // 机型间不可比、运行中切换会跳变，旧实现无任何口径标注
-                        sub = when {
-                            state.hasMeasuredCapacity ->
-                                stringResource(R.string.metric_sub_remaining_measured, state.remainingCapacitySource.label)
-                            state.remainingCapacitySource == CapacitySource.COULOMB_COUNTER ->
-                                stringResource(R.string.metric_sub_remaining_coulomb)
-                            else -> stringResource(R.string.metric_sub_remaining_unmeasurable)
-                        },
-                        accentColor = if (state.hasMeasuredCapacity ||
-                            state.remainingCapacitySource == CapacitySource.COULOMB_COUNTER)
-                            DesignTokens.AccentCyanDark else DesignTokens.TextTertiary
-                    )
-                }
-            }
-
-            item {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    CyberMetricCardItem(
-                        modifier = Modifier.weight(1f),
-                        number = "03",
-                        title = stringResource(R.string.metric_title_current_capacity),
-                        // v2.0.0-alpha.1：容量不可测显示 "—" (0 为非法哨兵，不再虚构估算值)
-                        value = if (state.hasMeasuredCapacity) "${state.currentCapacityMah}" else "—",
-                        unit = if (state.hasMeasuredCapacity) "mAh" else "",
-                        sub = if (state.hasMeasuredCapacity) stringResource(R.string.metric_sub_current_capacity, state.currentCapacitySource.label)
-                              else stringResource(R.string.metric_sub_health_unmeasurable, state.currentCapacitySource.label),
-                        accentColor = if (state.hasMeasuredCapacity) DesignTokens.FeaturePurple else DesignTokens.TextTertiary
-                    )
-                    CyberMetricCardItem(
-                        modifier = Modifier.weight(1f),
-                        number = "04",
-                        title = stringResource(R.string.metric_title_design_capacity),
-                        value = "${state.designCapacityMah}",
-                        unit = "mAh",
-                        sub = stringResource(R.string.metric_sub_design_capacity, state.designCapacitySource.label),
-                        accentColor = DesignTokens.InfoSky
-                    )
-                }
-            }
-
-            item {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    CyberMetricCardItem(
-                        modifier = Modifier.weight(1f),
-                        number = "05",
-                        title = stringResource(R.string.metric_title_percentage),
-                        value = "${state.percentage}",
-                        unit = "%",
-                        sub = stringResource(R.string.metric_sub_percentage),
-                        accentColor = DesignTokens.BrandPrimary
-                    )
-                    CyberMetricCardItem(
-                        modifier = Modifier.weight(1f),
-                        number = "06",
-                        title = stringResource(R.string.metric_title_status),
-                        value = state.status.label,
-                        sub = "Battery Status",
-                        accentColor = DesignTokens.InfoSky
-                    )
-                }
-            }
-
-            item {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    CyberMetricCardItem(
-                        modifier = Modifier.weight(1f),
-                        number = "07",
-                        title = stringResource(R.string.metric_title_temperature),
-                        // v1.2.3 审计修复：温度主值经 Locale.US 锚定——德语等逗号
-                        // 小数点 Locale 下 Float.toString 渲染 "32,6°C"，与全屏
-                        // 数值口径割裂；精度 0.1°C 与解析器一致
-                        value = String.format(Locale.US, "%.1f", state.temperatureCelsius),
-                        unit = "°C",
-                        // v1.2.4 P2 审计修复：温度分级阈值与温控节流态单源 (解析器常量)，
-                        // 旧实现 >45/≥38 与节流态 ≥44/≥38.5 打架 (44~45℃ 标签"过热急停"
-                        // 而卡片仅"偏热预警"、38~38.5℃ 反之，同屏自相矛盾)
-                        sub = when {
-                            state.temperatureCelsius >= BatteryTelemetryParser.TEMP_OVERHEAT_THRESHOLD_C ->
-                                stringResource(R.string.temp_state_overheat, BatteryTelemetryParser.TEMP_OVERHEAT_THRESHOLD_C.toInt())
-                            state.temperatureCelsius >= BatteryTelemetryParser.TEMP_WARM_THRESHOLD_C ->
-                                stringResource(
-                                    R.string.temp_state_warm,
-                                    BatteryTelemetryParser.TEMP_WARM_THRESHOLD_C.toInt(),
-                                    BatteryTelemetryParser.TEMP_OVERHEAT_THRESHOLD_C.toInt()
-                                )
-                            state.temperatureCelsius <= 0 -> stringResource(R.string.temp_state_cold)
-                            else -> stringResource(R.string.temp_state_normal)
-                        },
-                        accentColor = when {
-                            state.temperatureCelsius >= BatteryTelemetryParser.TEMP_OVERHEAT_THRESHOLD_C ||
-                                state.temperatureCelsius <= 0 -> DesignTokens.DangerRose
-                            state.temperatureCelsius >= BatteryTelemetryParser.TEMP_WARM_THRESHOLD_C ->
-                                DesignTokens.WarningAmber
-                            else -> DesignTokens.BrandPrimary
-                        }
-                    )
-                    CyberMetricCardItem(
-                        modifier = Modifier.weight(1f),
-                        number = "08",
-                        title = stringResource(R.string.metric_title_health_condition),
-                        value = state.healthQuality.label,
-                        sub = "Android BatteryManager",
-                        accentColor = DesignTokens.BrandPrimary
-                    )
-                }
-            }
-
-            item {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    CyberMetricCardItem(
-                        modifier = Modifier.weight(1f),
-                        number = "09",
-                        title = stringResource(R.string.metric_title_voltage),
-                        // v2.0.0-alpha.7 指标 09 诚实口径：双通道均不可得时显示 "—"
-                        // 而非伪装成读数的中性默认 4000 mV
-                        value = if (state.voltageMeasured) "${state.voltageMv}" else "—",
-                        unit = if (state.voltageMeasured) "mV" else "",
-                        sub = if (state.voltageMeasured)
-                            stringResource(
-                                R.string.voltage_sub_measured,
-                                String.format(Locale.US, "%.2f", state.voltageMv / 1000f),
-                                BatteryTelemetryParser.voltageStateLabel(state.voltageMv, state.voltageMeasured)
-                            )
-                        else
-                            stringResource(R.string.voltage_sub_unmeasured),
-                        accentColor = DesignTokens.InfoSky
-                    )
-                    CyberMetricCardItem(
-                        modifier = Modifier.weight(1f),
-                        number = "10",
-                        title = stringResource(R.string.metric_title_cycles),
-                        value = if (state.cycleCount > 0) "${state.cycleCount}" else "—",
-                        unit = if (state.cycleCount > 0) stringResource(R.string.unit_times) else "",
-                        // v2.0.0-alpha 批次B：健康度实测时展示循环寿命预测 (模型外推)，
-                        // 估算健康度不预测——保持 "Cycle Count" 原口径
-                        sub = state.healthForecastText
-                            ?: if (state.cycleCount > 0) "Cycle Count" else stringResource(R.string.cycles_sub_no_data),
-                        accentColor = DesignTokens.AccentTeal
-                    )
-                }
-            }
-
-            item {
-                // 局部变量：currentNowMa 为自定义 getter 属性不可智能转换，
-                // 绑定局部值后 when 分支可安全比较与空安全分支
-                val currentNow = state.currentNowMa
-                val powerW = state.powerWatts
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    CyberMetricCardItem(
-                        modifier = Modifier.weight(1f),
-                        number = "11",
-                        title = stringResource(R.string.metric_title_current),
-                        // 指标 11：经 BatteryState.currentNowMa 别名读取 (激活别名，与 currentMa 同源)
-                        // v1.2.3 P0 审计修复：currentMa 可空——设备不支持 CURRENT_NOW
-                        // 时显示 "—"，旧实现归一化为 0 会虚构 "0 mA / 0.00 W" 读数
-                        value = currentNow?.let { if (it > 0) "+$it" else "$it" } ?: "—",
-                        unit = if (currentNow != null) "mA" else "",
-                        // v1.2.4 P2 审计修复：功率随符号携带方向 (充电 +W / 放电 −W)，
-                        // 旧实现解析层 abs 后充放同显正功率，方向丢失
-                        sub = stringResource(R.string.metric_power_prefix, when {
-                            currentNow == null -> "— W"
-                            currentNow > 0 -> "+${String.format(Locale.US, "%.2f", powerW)} W"
-                            currentNow < 0 -> "-${String.format(Locale.US, "%.2f", abs(powerW))} W"
-                            else -> String.format(Locale.US, "%.2f", powerW) + " W"
-                        }),
-                        accentColor = if ((currentNow ?: 0) > 0) DesignTokens.BrandPrimary else DesignTokens.AccentCyanDark
-                    )
-                    CyberMetricCardItem(
-                        modifier = Modifier.weight(1f),
-                        number = "12",
-                        title = stringResource(R.string.metric_title_full_charge_capacity),
-                        value = if (state.fullChargeCapacityMah != null) "${state.fullChargeCapacityMah}" else "—",
-                        unit = if (state.fullChargeCapacityMah != null) "mAh" else "",
-                        sub = if (state.isFullChargeConditionMet) stringResource(R.string.full_charge_sub_met)
-                        else stringResource(R.string.full_charge_sub_unmet),
-                        accentColor = DesignTokens.BrandPrimaryLight
-                    )
-                }
-            }
-
-            // 7. 应用更新 (v2.1.0-beta.2 热更新：GitHub Releases 直查 + 系统下载器安装)
-            item {
-                AppUpdateCard(
-                    state = appUpdateState,
-                    downloadProgress = downloadProgress,
-                    autoCheckEnabled = autoUpdateCheckEnabled,
-                    onCheckUpdate = { viewModel.checkForAppUpdate() },
-                    onDownload = { info -> viewModel.downloadUpdateApk(info) },
-                    onToggleAutoCheck = { viewModel.setAutoUpdateCheckEnabled(it) }
-                )
-            }
-
-            // 8. 关于 APP 功能说明 (版本号经 BuildConfig 单源注入)
-            item {
-                Box(modifier = Modifier.entranceReveal(6)) {
-                    AboutAppCard()
-                }
-            }
-
-            item {
-                Spacer(modifier = Modifier.height(28.dp))
-            }
-        }
-            } else if (tab == 1) {
-                // v2.0.0-alpha.1：遥测分析 Tab (对齐 Web 端 TELEMETRY 视图)——
-                // 实时硬件遥测曲线 + 功率/温度评估 + 采集链路状态
-                // v2.0.0-alpha.3：历史经 StateFlow collect (VM 发布源头积累)
-                // v2.0.0-beta.1 P0 GA 修复：+ 充放电会话统计 / 历史清空 / CSV 导出
-                val telemetryHistory by viewModel.telemetryHistory.collectAsState()
-                val chargeSessions by viewModel.chargeSessions.collectAsState()
-                val context = LocalContext.current
-                val shareScope = rememberCoroutineScope()
-                TelemetryAnalysisScreen(
-                    state,
-                    telemetryHistory,
-                    sessions = chargeSessions,
-                    onExportSamples = {
-                        shareScope.launch {
-                            viewModel.exportSamplesCsv()?.let { intent ->
-                                runCatching {
-                                    context.startActivity(Intent.createChooser(intent, null))
-                                }
-                            }
-                        }
-                    },
-                    onExportSessions = {
-                        shareScope.launch {
-                            viewModel.exportSessionsCsv()?.let { intent ->
-                                runCatching {
-                                    context.startActivity(Intent.createChooser(intent, null))
-                                }
-                            }
-                        }
-                    },
-                    onClearHistory = { viewModel.clearTelemetryHistory() }
-                )
-            } else if (tab == 2) {
-                // v2.0.0-alpha.1：健康档案 Tab (对齐 Web 端 HEALTH 视图)——
-                // 健康度实测大数字 + 内阻/寿命预测 + 诊断建议 + 充满判定卡
-                HealthProfileScreen(
-                    state = state,
-                    simulationRemainingSec = simulationRemainingSec,
-                    onTriggerTest = { viewModel.triggerFullChargeSimulation() },
-                    onClearRecords = { viewModel.clearFullChargeRecords() }
-                )
-            } else {
-                // 硬件实验室 Tab：场景模拟 / 滑杆调参 / 健康枚举 / 提示音
-                HardwareLabScreen(viewModel = viewModel, state = state)
-            }
             }
         }
 
@@ -592,7 +380,7 @@ fun BatteryScreen(
                         ),
                         keyboardActions = KeyboardActions(onDone = { submitCalibration() }),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
+                            focusedTextColor = DesignTokens.TextPrimary,
                             unfocusedTextColor = DesignTokens.TextPrimary,
                             focusedBorderColor = DesignTokens.AccentCyanDark,
                             unfocusedBorderColor = DesignTokens.BorderStrong,
@@ -624,7 +412,7 @@ fun BatteryScreen(
                     }
                 },
                 containerColor = DesignTokens.BgElevated,
-                titleContentColor = Color.White
+                titleContentColor = DesignTokens.TextPrimary
             )
         }
     }
@@ -657,6 +445,12 @@ fun CyberHeroBatteryCard(state: BatteryState) {
         label = "hero-percentage"
     )
 
+    // v2.2.0：DesignTokens 颜色为 @Composable getter——先在组合作用域捕获主题色，
+    // 再传入 drawBehind 的绘制作用域 (drawBehind 非组合上下文，不可直接调用)
+    val heroGlassTop = DesignTokens.BgGlass
+    val heroGlassBottom = DesignTokens.BgElevated.copy(alpha = 0.94f)
+    val heroBorderStrong = DesignTokens.BorderStrong
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -665,13 +459,13 @@ fun CyberHeroBatteryCard(state: BatteryState) {
                 drawRect(
                     brush = Brush.verticalGradient(
                         colors = listOf(
-                            DesignTokens.BgGlass,
-                            DesignTokens.BgElevated.copy(alpha = 0.94f)
+                            heroGlassTop,
+                            heroGlassBottom
                         )
                     )
                 )
             }
-            .border(1.dp, DesignTokens.BorderStrong, RoundedCornerShape(DesignTokens.RadiusHero)),
+            .border(1.dp, heroBorderStrong, RoundedCornerShape(DesignTokens.RadiusHero)),
         shape = RoundedCornerShape(DesignTokens.RadiusHero),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent)
     ) {
@@ -745,7 +539,7 @@ fun CyberHeroBatteryCard(state: BatteryState) {
                     fontSize = DesignTokens.FontHero,
                     fontWeight = FontWeight.Black,
                     fontFamily = FontFamily.Monospace,
-                    color = Color.White
+                    color = DesignTokens.TextPrimary
                 )
 
             // 2. 剩余电量 (mAh)
@@ -827,7 +621,7 @@ fun HardwareSummaryCard(state: BatteryState, onCalibrateDesignCapacity: () -> Un
                     text = stringResource(R.string.hardware_summary_title),
                     fontSize = DesignTokens.FontXs,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White,
+                    color = DesignTokens.TextPrimary,
                     fontFamily = FontFamily.Monospace
                 )
                 Surface(
@@ -960,7 +754,7 @@ fun HardwareItem(modifier: Modifier = Modifier, label: String, value: String, ma
  * 本横幅在模拟生效期间常驻总览页顶部，明示数据性质并提供一键恢复出口。
  */
 @Composable
-private fun LabSimulationBanner(onExit: () -> Unit) {
+internal fun LabSimulationBanner(onExit: () -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(DesignTokens.RadiusChip),
@@ -1046,7 +840,7 @@ fun FullChargeConditionCard(
                     text = stringResource(R.string.full_charge_card_title),
                     fontWeight = FontWeight.Bold,
                     fontSize = DesignTokens.FontXs,
-                    color = Color.White
+                    color = DesignTokens.TextPrimary
                 )
                 Text(
                     text = when (verdict) {
@@ -1228,7 +1022,7 @@ fun CyberMetricCardItem(
                     fontSize = DesignTokens.FontXl,
                     fontWeight = FontWeight.Black,
                     fontFamily = FontFamily.Monospace,
-                    color = Color.White
+                    color = DesignTokens.TextPrimary
                 )
                 if (unit.isNotEmpty()) {
                     Spacer(modifier = Modifier.width(3.dp))
@@ -1250,170 +1044,6 @@ fun CyberMetricCardItem(
                 fontFamily = FontFamily.Monospace,
                 color = DesignTokens.TextTertiary,
                 maxLines = 1
-            )
-        }
-    }
-}
-
-// ============================================================
-// 关于 APP 功能说明卡片
-// 版本信息经 BuildConfig 单源注入 (build.gradle.kts defaultConfig)
-// ============================================================
-@Composable
-fun AboutAppCard() {
-    val featureLines = listOf(
-        stringResource(R.string.about_feature_1),
-        stringResource(R.string.about_feature_2),
-        stringResource(R.string.about_feature_3),
-        stringResource(R.string.about_feature_4),
-        stringResource(R.string.about_feature_5),
-        stringResource(R.string.about_feature_6)
-    )
-
-    // v2.0.0-beta.1 P2 GA 修复：崩溃记录导出 (轻量本地捕获，零三方 SDK)
-    val crashContext = LocalContext.current
-    val crashScope = rememberCoroutineScope()
-    var crashCount by remember { mutableIntStateOf(-1) } // -1 = 未初始化，首帧后统计
-    LaunchedEffect(Unit) {
-        crashCount = CrashLogHandler.crashCount(crashContext)
-    }
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .glassSurface(),
-        shape = RoundedCornerShape(DesignTokens.RadiusPanel),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = stringResource(R.string.about_title),
-                    fontSize = DesignTokens.FontXs,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    fontFamily = FontFamily.Monospace
-                )
-                Surface(
-                    shape = RoundedCornerShape(DesignTokens.RadiusChip),
-                    color = DesignTokens.BgElevated,
-                    border = androidx.compose.foundation.BorderStroke(1.dp, DesignTokens.BrandPrimary)
-                ) {
-                    Text(
-                        text = "v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
-                        fontSize = DesignTokens.Font2xs,
-                        color = DesignTokens.BrandPrimary,
-                        fontFamily = FontFamily.Monospace,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            Text(
-                text = stringResource(R.string.about_tagline),
-                fontSize = DesignTokens.Font2xs,
-                color = DesignTokens.TextSecondary,
-                fontFamily = FontFamily.Monospace
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            featureLines.forEach { line ->
-                Row(modifier = Modifier.padding(vertical = 3.dp)) {
-                    Text(
-                        text = "• ",
-                        fontSize = DesignTokens.Font2xs,
-                        color = DesignTokens.BrandPrimary,
-                        fontFamily = FontFamily.Monospace
-                    )
-                    Text(
-                        text = line,
-                        fontSize = DesignTokens.Font2xs,
-                        color = DesignTokens.TextTertiary,
-                        fontFamily = FontFamily.Monospace,
-                        lineHeight = DesignTokens.FontXs
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            HorizontalDivider(color = DesignTokens.Border, thickness = 1.dp)
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // v2.0.0-beta.1 P1 GA 修复：应用内隐私卡 (商店合规要求 + 用户透明度)。
-            // 完整政策见仓库 PRIVACY.md，此处为安装即可见的摘要版
-            Text(
-                text = stringResource(R.string.about_privacy_title),
-                fontSize = DesignTokens.FontXs,
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
-                fontFamily = FontFamily.Monospace
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = stringResource(R.string.about_privacy_body),
-                fontSize = DesignTokens.Font2xs,
-                color = DesignTokens.TextTertiary,
-                fontFamily = FontFamily.Monospace,
-                lineHeight = DesignTokens.FontXs
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                OutlinedButton(
-                    onClick = {
-                        crashScope.launch {
-                            CrashLogHandler.buildShareIntent(crashContext)?.let { intent ->
-                                runCatching {
-                                    crashContext.startActivity(Intent.createChooser(intent, null))
-                                }
-                            }
-                        }
-                    },
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = DesignTokens.TextSecondary)
-                ) {
-                    Text(
-                        text = stringResource(R.string.about_export_crash_log),
-                        fontSize = DesignTokens.Font2xs,
-                        fontFamily = FontFamily.Monospace
-                    )
-                }
-                Text(
-                    text = if (crashCount > 0) stringResource(R.string.about_crash_count, crashCount)
-                    else stringResource(R.string.about_crash_none),
-                    fontSize = DesignTokens.Font2xs,
-                    color = DesignTokens.TextTertiary,
-                    fontFamily = FontFamily.Monospace
-                )
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            HorizontalDivider(color = DesignTokens.Border, thickness = 1.dp)
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            Text(
-                text = stringResource(R.string.about_developer),
-                fontSize = DesignTokens.Font2xs,
-                fontWeight = FontWeight.Bold,
-                color = DesignTokens.TextSecondary,
-                fontFamily = FontFamily.Monospace
-            )
-            Text(
-                text = stringResource(R.string.about_platforms),
-                fontSize = DesignTokens.Font2xs,
-                color = DesignTokens.TextTertiary,
-                fontFamily = FontFamily.Monospace
             )
         }
     }
@@ -1568,7 +1198,7 @@ fun SessionHistoryCard(
         Text(
             text = stringResource(R.string.session_card_title),
             fontSize = DesignTokens.FontXs,
-            color = Color.White,
+            color = DesignTokens.TextPrimary,
             fontWeight = FontWeight.Bold,
             fontFamily = FontFamily.Monospace
         )
@@ -1681,7 +1311,7 @@ fun SessionHistoryCard(
                 Text(
                     text = stringResource(R.string.clear_history_dialog_title),
                     fontSize = DesignTokens.FontSm,
-                    color = Color.White,
+                    color = DesignTokens.TextPrimary,
                     fontWeight = FontWeight.Bold
                 )
             },
@@ -1753,6 +1383,11 @@ fun TelemetryChartPanel(history: List<BatteryState>) {
             fontWeight = FontWeight.Bold
         )
         Spacer(modifier = Modifier.height(8.dp))
+        // v2.2.0：Canvas 绘制作用域非组合上下文——先在组合作用域捕获主题色
+        val gridColor = DesignTokens.Border
+        val seriesVoltage = DesignTokens.InfoSky
+        val seriesCurrent = DesignTokens.BrandPrimary
+        val seriesTemp = DesignTokens.WarningAmber
         Canvas(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1760,7 +1395,6 @@ fun TelemetryChartPanel(history: List<BatteryState>) {
         ) {
             if (history.size < 2) return@Canvas
             // 背景网格 (4 条水平参考线)
-            val gridColor = DesignTokens.Border
             for (i in 1..3) {
                 val y = size.height * i / 4f
                 drawLine(gridColor, Offset(0f, y), Offset(size.width, y), strokeWidth = 1f)
@@ -1781,9 +1415,9 @@ fun TelemetryChartPanel(history: List<BatteryState>) {
                 drawPath(path, color, style = Stroke(width = 4f))
             }
             // 电压 (3000~5000 mV 典型电芯窗口)、电流 (-6000~6000 mA)、温度 (0~60°C)
-            drawSeries({ it.voltageMv.toFloat() }, 3000f, 5000f, DesignTokens.InfoSky)
-            drawSeries({ (it.currentNowMa ?: 0).toFloat() }, -6000f, 6000f, DesignTokens.BrandPrimary)
-            drawSeries({ it.temperatureCelsius }, 0f, 60f, DesignTokens.WarningAmber)
+            drawSeries({ it.voltageMv.toFloat() }, 3000f, 5000f, seriesVoltage)
+            drawSeries({ (it.currentNowMa ?: 0).toFloat() }, -6000f, 6000f, seriesCurrent)
+            drawSeries({ it.temperatureCelsius }, 0f, 60f, seriesTemp)
         }
         Spacer(modifier = Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -1828,7 +1462,7 @@ fun TelemetrySourceCard(state: BatteryState) {
         Text(
             text = stringResource(R.string.source_card_title),
             fontSize = DesignTokens.FontXs,
-            color = Color.White,
+            color = DesignTokens.TextPrimary,
             fontWeight = FontWeight.Bold,
             fontFamily = FontFamily.Monospace
         )
@@ -2011,7 +1645,7 @@ fun HealthProfileScreen(
                 Text(
                     text = stringResource(R.string.health_calibration_title),
                     fontSize = DesignTokens.FontXs,
-                    color = Color.White,
+                    color = DesignTokens.TextPrimary,
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace
                 )

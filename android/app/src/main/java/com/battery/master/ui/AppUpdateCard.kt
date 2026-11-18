@@ -73,7 +73,7 @@ fun AppUpdateCard(
                 text = stringResource(R.string.update_card_title),
                 fontWeight = FontWeight.Bold,
                 fontSize = DesignTokens.FontXs,
-                color = Color.White
+                color = DesignTokens.TextPrimary
             )
             Text(
                 text = stringResource(R.string.update_source_label),
@@ -278,7 +278,7 @@ fun AppUpdateCard(
             } else {
                 stringResource(R.string.update_check_button)
             },
-            accent = Color.White,
+            accent = DesignTokens.BrandPrimary,
             enabled = state !is AppUpdateState.Checking,
             onClick = onCheckUpdate
         )

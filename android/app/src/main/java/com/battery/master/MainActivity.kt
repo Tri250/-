@@ -6,13 +6,10 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Typography
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
 import com.battery.master.ui.BatteryScreen
-import com.battery.master.ui.theme.DesignTokens
+import com.battery.master.ui.theme.MintTheme
+import com.battery.master.ui.theme.MintThemeMode
+import com.battery.master.ui.theme.MintThemeStore
 import com.battery.master.viewmodel.BatteryViewModel
 
 class MainActivity : ComponentActivity() {
@@ -21,44 +18,24 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // 外壳层审计修复：应用全局强制暗色 HUD (windowBackground #030712 恒暗)，
-        // 系统栏图标对比度必须锚定应用自身暗底，而非跟随系统浅色/深色设置。
-        // enableEdgeToEdge 默认 SystemBarStyle.auto 按系统模式切换图标明暗，
-        // 系统浅色模式下深色图标画在暗色窗口背景上不可见 → 显式强制亮图标
+        // 「薄荷能量」v2.2.0：浅色默认 + 深色夜航森林可选。
+        // 系统栏图标明暗由 MintTheme 按当前主题模式 SideEffect 动态切换，
+        // 这里以透明样式铺底 (边缘到edge布局)，图标对比度不再恒定假设暗底
         enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
-            navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
+            statusBarStyle = SystemBarStyle.auto(
+                android.graphics.Color.TRANSPARENT,
+                android.graphics.Color.TRANSPARENT
+            ),
+            navigationBarStyle = SystemBarStyle.auto(
+                android.graphics.Color.TRANSPARENT,
+                android.graphics.Color.TRANSPARENT
+            )
         )
 
         setContent {
-            // 统一品牌主题：Material3 色彩/字体体系映射到 DesignTokens 令牌，
-            // 消除默认 Material 配色与 HUD 风格组件的割裂感
-            MaterialTheme(
-                colorScheme = darkColorScheme(
-                    primary = DesignTokens.BrandPrimary,
-                    onPrimary = Color.White,
-                    primaryContainer = DesignTokens.BgElevated,
-                    onPrimaryContainer = DesignTokens.BrandPrimaryLight,
-                    secondary = DesignTokens.InfoSky,
-                    onSecondary = Color.White,
-                    tertiary = DesignTokens.AccentCyan,
-                    background = DesignTokens.BgDeep,
-                    onBackground = DesignTokens.TextPrimary,
-                    surface = DesignTokens.BgSurface,
-                    onSurface = DesignTokens.TextPrimary,
-                    surfaceVariant = DesignTokens.BgElevated,
-                    onSurfaceVariant = DesignTokens.TextSecondary,
-                    outline = DesignTokens.BorderStrong,
-                    error = DesignTokens.DangerRose,
-                    onError = Color.White
-                ),
-                typography = Typography(
-                    // 全站数字/技术标签统一等宽字体，与 Web font-mono 令牌一致
-                    bodyLarge = Typography().bodyLarge.copy(fontFamily = FontFamily.Monospace),
-                    bodyMedium = Typography().bodyMedium.copy(fontFamily = FontFamily.Monospace),
-                    labelLarge = Typography().labelLarge.copy(fontFamily = FontFamily.Monospace)
-                )
-            ) {
+            // 主题模式持久化加载 (SharedPreferences "mint_theme_prefs")，
+            // 之后由「我的」页改写 MintThemeHolder (唯一事实来源)
+            MintTheme(mode = MintThemeStore.load(this)) {
                 BatteryScreen(viewModel = batteryViewModel)
             }
         }

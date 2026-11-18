@@ -72,9 +72,13 @@ class OverviewTabAuditTest {
             composeRule.onNodeWithText(title).assertExists()
         }
 
-        // 关于 APP 卡与权限声明在场 (B6 功能说明链路完整)
-        composeRule.onNodeWithText("关于 APP").assertExists()
+        // 关于 APP 卡收编至「我的」页 (v2.2.0 零商业化 IA)；总览保留隐私信任行
         composeRule.onNodeWithText("权限声明", substring = true).assertExists()
+        composeRule.onNodeWithText("我的").performClick()
+        advanceCompose()
+        composeRule.onNodeWithText("关于 APP").assertExists()
+        composeRule.onNodeWithText("本地处理", substring = true).assertExists()
+        composeRule.onNodeWithText("开源许可", substring = true).assertExists()
     }
 
     // ===== 2. 硬件信息汇总栏字段全量在场 =====
