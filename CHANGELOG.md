@@ -43,6 +43,11 @@
   - 机型数据维度审计结论：无缺陷——`DeviceHardwareProfile` PMIC/快充/电芯/化学三级回退链（DT 实测→品牌档案→工程估算）来源标注齐全，`SoCHardwareProfile` 五字段检测链与营销名别名顺序正确（8 Elite Gen 5 先于 8 Elite 匹配），`BatterySysfs` 16 品牌电量计预设 + 特征评分链兜底闭环，`BatteryCapacityRegressor` 库仑计先验无硬编码冒充实测
   - 脚本引擎维度判定：**N/A 不存在**——全仓 grep 验证无 WebView/JS/Lua/ScriptEngine/Room/SQLite（`evaluateFullCharge` 含 "lua" 子串、"room temperature" 室温均为误报），最接近的"引擎"类组件为 LabScenario 场景模拟引擎（纯函数驱动，无脚本解释器）
   - 新增 3 审计断言用例：轮转 tmp 无残留 + 崩溃遗留 tmp 不污染恢复/再轮转、进程被杀半行截断静默跳过且不阻塞后续写入、prefs 类型污染构造不闪退且采集链路正常
+- **三维度第二轮全量精读（补全首轮未覆盖文件，100% 覆盖收口）**：精读 CrashLogHandler、BatteryHardwareReader 全文、BatteryHealthEngine、HardwareInfoResolver、BatteryTelemetryParser、BatteryViewModel 场景覆盖层与存储接线——均无新缺陷：
+  - 数据库维度存储域全部收口：JSONL 遥测（首轮已修）+ 4 个 SharedPreferences 域（battery_master_prefs/battery_capacity_regression/app_update_prefs/mint_theme_prefs）+ 本地崩溃日志落盘（滑窗 CRASH_KEEP_MAX=10、前缀过滤、全链路 Throwable 兜底、空导出诚实返回 null）
+  - 机型数据维度：Reader 设计容量四级回退链（用户校准区间校验→PowerProfile 反射→sysfs 双单位归一→5000mAh 兜底）、Parser 全部区间常量单源（容量/温度/电压/电流/循环）、HealthEngine 双通道同拍去重与越界清窗、Resolver 三级回退——全部审计通过
+  - 脚本引擎维度二次确认：LabScenario 为纯 enum 数据覆盖层（base.copy 数据注入，滑杆区间与 Parser 常量同源），无任何脚本解释器/动态求值组件
+  - 新增 3 审计断言用例：崩溃日志前缀过滤+时间升序+空导出 null（2 条）、会话文件尾行自愈对称治理（半行遗留后新会话不被粘连吞掉）
 - 测试 JVM 代理透传：Robolectric 首次运行需从 Maven 中央仓库拉取 android-all 依赖，分叉测试 JVM 不继承守护进程代理——`build.gradle.kts` 按环境变量显式下发 `http(s).proxyHost/Port`
 - 指标 01 健康度值改为单一 Text（"92.3%"），恢复审计断言兼容
 

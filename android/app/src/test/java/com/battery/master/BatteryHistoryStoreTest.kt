@@ -411,4 +411,28 @@ class BatteryHistoryStoreTest {
         restarted.appendSample(sample(ts = 7_000L, pct = 70))
         assertEquals(6, restarted.loadRecentSamples(Int.MAX_VALUE).size)
     }
+
+    @Test
+    fun truncatedSessionsTailSelfHealsOnAppend() {
+        // v2.2.0 数据库维度审计：会话文件与样本文件同款尾行自愈对称治理——
+        // 无换行半行遗留后，直接追加会把新会话粘连到损坏行上 (decode 整行失败 =
+        // 新会话永久丢失)；写入前补换行使损坏半行成为独立行由 decode 静默跳过
+        store.appendSample(sample(ts = 1_000L, pct = 20, status = BatteryStatus.DISCHARGING, cur = -500))
+        store.appendSample(sample(ts = 2_000L, pct = 10, status = BatteryStatus.CHARGING, cur = 1500))
+        store.flush() // 闭合 2 个会话落盘
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val telemetryDir = java.io.File(context.filesDir, "telemetry")
+        java.io.File(telemetryDir, "sessions.jsonl")
+            .appendText("{\"type\":\"CHA")   // 半行截断 (无换行结尾)
+        val restarted = BatteryHistoryStore(context, directExecutor)
+        restarted.appendSample(sample(ts = 3_000L, pct = 40, status = BatteryStatus.DISCHARGING, cur = -700))
+        restarted.flush()
+        val sessions = restarted.loadSessions(Int.MAX_VALUE)
+        assertEquals("半行损坏跳过 + 新会话正常落盘 (粘连会导致新会话丢失)", 3, sessions.size)
+        // 时间线：ts=2000 族切换闭合 D(end 2000) → flush 闭合 C(end 2000) →
+        // 新实例 ts=3000 开新 D 会话，flush 闭合 D(end 3000)
+        assertEquals(2_000L, sessions[0].endTimestampMs)
+        assertEquals(2_000L, sessions[1].endTimestampMs)
+        assertEquals(3_000L, sessions[2].endTimestampMs)
+    }
 }
