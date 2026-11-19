@@ -272,6 +272,19 @@
     <string name="charging_tip_fast">大功率快充进行中，注意控制机身温度</string>
     <string name="charging_tip_discharge">正在放电，接入充电器后可查看充电态读数</string>
 
+    <!-- ============ v2.2.1 电压应力磨损模型 (Choi 2002 方法学) ============ -->
+    <string name="wear_model_title">电压应力磨损模型 (Choi 2002)</string>
+    <string name="wear_model_rate_label">当前电压磨损速率 (4.2V=×1.00)</string>
+    <string name="wear_model_accumulated">累计等效磨损循环</string>
+    <string name="wear_model_high_stress">&gt;3.92V 高压暴露</string>
+    <string name="wear_model_samples">积分样本间隔</string>
+    <string name="wear_model_no_data">暂无充电积分数据</string>
+    <string name="wear_model_voltage_unreadable">— 双通道不可读</string>
+    <string name="wear_model_note1">充电电压 &gt;3.92V 后每 +0.1V 循环寿命约减半 (Choi 2002 · Asakura 2003)</string>
+    <string name="wear_model_note2">1 磨损循环 ≡ 4.2V 恒压暴露 2.5h (Choi 2002 实验条件映射)</string>
+    <string name="wear_model_note3">3.95V 以下机制效应未量化，速率按 3.95V 钳制 (AccuBattery 公开方法学)</string>
+    <string name="wear_model_note4">满充 CV 段为主要伤害源——限充至约 80% 可显著降低高压暴露</string>
+
     <!-- ============ 「薄荷能量」v2.2.0：「我的」页 ============ -->
     <string name="settings_title">我的</string>
     <string name="settings_group_personalize">个性化</string>

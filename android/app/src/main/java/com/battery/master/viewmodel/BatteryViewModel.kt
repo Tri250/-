@@ -29,7 +29,9 @@ import com.battery.master.service.AppUpdateChecker
 import com.battery.master.service.BatteryHardwareReader
 import com.battery.master.service.BatteryHistoryStore
 import com.battery.master.service.BatteryTelemetryParser
+import com.battery.master.service.BatteryWearTracker
 import com.battery.master.service.DeviceUsageTracker
+import com.battery.master.service.WearSnapshot
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -75,6 +77,17 @@ class BatteryViewModel(application: Application, historyStore: BatteryHistorySto
      * 默认构造走生产存储 (单线程 daemon IO)；测试可注入同步执行器存储获得确定性。
      */
     internal val historyStore: BatteryHistoryStore = historyStore
+
+    /**
+     * v2.2.1 电压应力磨损积分器 (Choi 2002 方法学全量实施)：充电/满充保持期
+     * 实测电压时间积分，独立 prefs 持久化；发布源头喂样，与历史入档同语义
+     * (模拟冻结不影响积分，真实硬件行为如实累积)
+     */
+    private val wearTracker = BatteryWearTracker(application)
+
+    /** 电压应力磨损快照 (UI 单源，ChargingScreen 模型卡展示)：全部 [模型预测] 输出 */
+    private val _wearSnapshot = MutableStateFlow(WearSnapshot())
+    val wearSnapshot: StateFlow<WearSnapshot> = _wearSnapshot.asStateFlow()
 
     /** 兼容默认工厂 (AndroidViewModelFactory 反射要求 (Application) 构造器) */
     constructor(application: Application) : this(application, BatteryHistoryStore(application))
@@ -393,6 +406,11 @@ class BatteryViewModel(application: Application, historyStore: BatteryHistorySto
             usageTracker.flush()
         } catch (e: Throwable) {
         }
+        // v2.2.1 电压应力磨损积分退出前落盘，防止最后一段充电暴露丢失
+        try {
+            wearTracker.flush()
+        } catch (e: Throwable) {
+        }
         if (isReceiverRegistered) {
             try {
                 getApplication<Application>().unregisterReceiver(batteryReceiver)
@@ -438,6 +456,16 @@ class BatteryViewModel(application: Application, historyStore: BatteryHistorySto
                 _telemetryHistory.value =
                     if (next.size > TELEMETRY_HISTORY_MAX) next.takeLast(TELEMETRY_HISTORY_MAX) else next
                 historyStore.appendSample(stamped)
+                // v2.2.1 电压应力磨损积分：充电/满充保持期实测电压 × 时长累积
+                // (发布源头真实硬件帧，冻结判定之前——与历史入档同语义)。
+                // lastRate=null (电压不可测) 同样刷新快照，UI 诚实显示 "—"
+                wearTracker.observe(stamped)
+                _wearSnapshot.value = WearSnapshot(
+                    accumulatedWearCycles = wearTracker.accumulatedWearCycles,
+                    highStressMs = wearTracker.highStressMs,
+                    sampleCount = wearTracker.sampleCount,
+                    lastRate = wearTracker.lastRate
+                )
             }
             if (System.currentTimeMillis() < simulationHoldUntilMs) return
             // 硬件实验室模拟中：冻结真实遥测覆盖，保持滑杆/场景设定值稳定展示

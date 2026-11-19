@@ -36,6 +36,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.battery.master.R
 import com.battery.master.data.BatteryState
+import com.battery.master.service.VoltageStressWearModel
+import com.battery.master.service.WearSnapshot
 import com.battery.master.ui.theme.DesignTokens
 import com.battery.master.ui.theme.MintIcons
 import com.battery.master.ui.theme.entranceReveal
@@ -61,6 +63,8 @@ fun ChargingScreen(
     // 链路审计修复 (v2.2.0)：满充卡倒计时从 VM 单源收集——旧实现硬编码 0L，
     // 一键模拟完全充满后 15s 保持期倒计时不显示、按钮不进入禁用态 (可重复触发)
     val simulationRemainingSec by viewModel.simulationRemainingSec.collectAsState()
+    // v2.2.1 电压应力磨损模型 (Choi 2002)：积分快照 UI 单源
+    val wearSnapshot by viewModel.wearSnapshot.collectAsState()
 
     LazyColumn(
         modifier = Modifier
@@ -78,6 +82,7 @@ fun ChargingScreen(
                 onClearRecords = viewModel::clearFullChargeRecords
             )
         }
+        item { VoltageStressCard(state = state, wear = wearSnapshot) }
         item { ChargingTipsCard(state = state) }
         item { Spacer(modifier = Modifier.height(28.dp)) }
     }
@@ -347,6 +352,123 @@ private fun ChargingTipsCard(state: BatteryState) {
             fontSize = DesignTokens.Font2xs,
             lineHeight = DesignTokens.Line2xs,
             color = DesignTokens.TextSecondary
+        )
+    }
+}
+
+/**
+ * 电压应力磨损模型卡 (v2.2.1，Choi 2002 + Asakura 2003 方法学全量实施)：
+ * 当前电压相对磨损速率 + 充电时间积分的累计磨损 + 高压暴露统计。
+ * 全部输出为 [模型预测]，非实测值——每项均带来源标注；
+ * 电压不可测 / 无积分数据时诚实降级，不虚构数值
+ */
+@Composable
+private fun VoltageStressCard(state: BatteryState, wear: WearSnapshot) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .glassSurface()
+            .entranceReveal(4)
+            .padding(16.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = MintIcons.Flask,
+                contentDescription = null,
+                tint = DesignTokens.AccentCyan,
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = stringResource(R.string.wear_model_title),
+                fontSize = DesignTokens.FontXs,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 1.sp,
+                color = DesignTokens.TextPrimary
+            )
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+        // 当前电压相对磨损速率 (4.2V=×1.00 基准)：电压不可测显示 "—"
+        val currentRate = wear.lastRate
+        WearMetricRow(
+            label = stringResource(R.string.wear_model_rate_label),
+            value = if (state.voltageMeasured && currentRate != null) {
+                VoltageStressWearModel.rateLabel(currentRate)
+            } else {
+                stringResource(R.string.wear_model_voltage_unreadable)
+            }
+        )
+        // 累计等效磨损循环：无积分数据诚实标注
+        WearMetricRow(
+            label = stringResource(R.string.wear_model_accumulated),
+            value = if (wear.sampleCount > 0) {
+                String.format(java.util.Locale.US, "%.2f", wear.accumulatedWearCycles)
+            } else {
+                stringResource(R.string.wear_model_no_data)
+            }
+        )
+        // 高压暴露 (>3.92V 拐点以上累计时长)
+        WearMetricRow(
+            label = stringResource(R.string.wear_model_high_stress),
+            value = if (wear.sampleCount > 0) {
+                val minutes = wear.highStressMs / 60_000.0
+                if (minutes >= 1.0) {
+                    String.format(java.util.Locale.US, "%.1f min", minutes)
+                } else {
+                    String.format(java.util.Locale.US, "%d s", wear.highStressMs / 1000)
+                }
+            } else {
+                stringResource(R.string.wear_model_no_data)
+            }
+        )
+        // 积分样本间隔数 (透明度：用户可知模型吃了多少数据)
+        WearMetricRow(
+            label = stringResource(R.string.wear_model_samples),
+            value = wear.sampleCount.toString()
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        // 方法学说明 (全部可溯源，UI 明示模型口径)
+        val notes = listOf(
+            stringResource(R.string.wear_model_note1),
+            stringResource(R.string.wear_model_note2),
+            stringResource(R.string.wear_model_note3),
+            stringResource(R.string.wear_model_note4)
+        )
+        notes.forEachIndexed { index, note ->
+            Text(
+                text = note,
+                fontSize = DesignTokens.Font2xs,
+                lineHeight = DesignTokens.Line2xs,
+                color = DesignTokens.TextTertiary,
+                modifier = Modifier.padding(bottom = 3.dp)
+            )
+            if (index == 0) {
+                Spacer(modifier = Modifier.height(2.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun WearMetricRow(label: String, value: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 3.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            fontSize = DesignTokens.Font2xs,
+            color = DesignTokens.TextSecondary
+        )
+        Text(
+            text = value,
+            fontSize = DesignTokens.Font2xs,
+            fontWeight = FontWeight.Bold,
+            fontFamily = FontFamily.Monospace,
+            color = DesignTokens.TextPrimary
         )
     }
 }
