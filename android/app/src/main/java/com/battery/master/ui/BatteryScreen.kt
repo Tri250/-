@@ -648,15 +648,26 @@ fun HardwareSummaryCard(state: BatteryState, onCalibrateDesignCapacity: () -> Un
                     color = DesignTokens.TextPrimary,
                     fontFamily = FontFamily.Monospace
                 )
+                // v2.2.2 审计优化：温控状态 chip 颜色随严重度分级——旧实现固定青色，
+                // "过热急停"也显示中性青色，用户扫读总览页无法第一时间感知热风险；
+                // 阈值单源 BatteryTelemetryParser (与温度指标卡/HardwareInfoResolver 一致)，
+                // 三态配色：过热=红 / 温控限流=琥珀 / 正常=青
+                val thermalAccent = when {
+                    state.temperatureCelsius >= BatteryTelemetryParser.TEMP_OVERHEAT_THRESHOLD_C ->
+                        DesignTokens.DangerRose
+                    state.temperatureCelsius >= BatteryTelemetryParser.TEMP_WARM_THRESHOLD_C ->
+                        DesignTokens.TextAmberStrong
+                    else -> DesignTokens.AccentCyanDark
+                }
                 Surface(
                     shape = RoundedCornerShape(DesignTokens.RadiusChip),
                     color = DesignTokens.BgElevated,
-                    border = androidx.compose.foundation.BorderStroke(1.dp, DesignTokens.AccentCyanDark)
+                    border = androidx.compose.foundation.BorderStroke(1.dp, thermalAccent)
                 ) {
                     Text(
                         text = state.thermalThrottlingState,
                         fontSize = DesignTokens.Font2xs,
-                        color = DesignTokens.AccentCyanDark,
+                        color = thermalAccent,
                         fontFamily = FontFamily.Monospace,
                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                     )
@@ -667,7 +678,14 @@ fun HardwareSummaryCard(state: BatteryState, onCalibrateDesignCapacity: () -> Un
 
             // ===== SoC 主控架构区块 (型号/厂商/制程/CPU/GPU 五字段，检测链见 SoCHardwareProfile) =====
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                HardwareItem(modifier = Modifier.weight(1f), label = stringResource(R.string.hw_label_soc), value = state.socModel)
+                // SoC 营销名常带中文别名 (如 "Snapdragon 8 Gen 3 (第三代骁龙 8)")，
+                // 半宽 chip 单行必截断，允许两行完整展示 (与 CPU/快充行同策略)
+                HardwareItem(
+                    modifier = Modifier.weight(1f),
+                    label = stringResource(R.string.hw_label_soc),
+                    value = state.socModel,
+                    maxLines = 2
+                )
                 HardwareItem(modifier = Modifier.weight(1f), label = stringResource(R.string.hw_label_soc_vendor), value = state.socVendor)
             }
 
@@ -715,13 +733,26 @@ fun HardwareSummaryCard(state: BatteryState, onCalibrateDesignCapacity: () -> Un
                     value = "${String.format(Locale.US, "%.1f", state.internalResistanceMohm)} mΩ ${state.internalResistanceLabel}",
                     maxLines = 2
                 )
-                HardwareItem(modifier = Modifier.weight(1f), label = stringResource(R.string.hw_label_chemistry), value = state.batteryChemistry)
+                // 化学体系实测值含恒压门限 (如 "高压硅碳/锂离子电芯 (恒压 4450mV) [实测]")，
+                // 半宽 chip 单行必截断，允许两行完整展示
+                HardwareItem(
+                    modifier = Modifier.weight(1f),
+                    label = stringResource(R.string.hw_label_chemistry),
+                    value = state.batteryChemistry,
+                    maxLines = 2
+                )
             }
 
             Spacer(modifier = Modifier.height(8.dp))
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                HardwareItem(modifier = Modifier.weight(1f), label = stringResource(R.string.hw_label_cell_structure), value = state.cellStructure)
+                // 电芯结构实测值含路径语义 (如 "串联双电芯分压快充 [实测]")，允许两行完整展示
+                HardwareItem(
+                    modifier = Modifier.weight(1f),
+                    label = stringResource(R.string.hw_label_cell_structure),
+                    value = state.cellStructure,
+                    maxLines = 2
+                )
                 HardwareItem(modifier = Modifier.weight(1f), label = stringResource(R.string.hw_label_system_interface), value = state.halVersion)
             }
 

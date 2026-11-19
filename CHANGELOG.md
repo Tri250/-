@@ -2,6 +2,18 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格，版本号遵循语义化版本。
 
+## [Unreleased]
+
+「硬件/电源子系统 v2.2.2 深度审计」批次：底层硬件信息与电源子系统全量精读审计 + 12 项充放电指标链路闭环复查。
+
+### Improved 优化（用户视角视觉直观性）
+- **温控状态 chip 严重度配色**：硬件信息汇总栏右上角温控状态标签旧实现固定青色，「过热急停」也显示中性青色，扫读总览页无法第一时间感知热风险；现按温度阈值单源（`BatteryTelemetryParser`，与温度指标卡/HardwareInfoResolver 一致）三态显式配色——过热=红 / 温控限流=琥珀 / 正常=青
+- **硬件档案长值完整展示**：SoC 型号（常带中文别名，如 "Snapdragon 8 Gen 3 (第三代骁龙 8)"）、化学体系（含恒压门限，如 "高压硅碳/锂离子电芯 (恒压 4450mV) [实测]"）、电芯结构三个半宽 chip 由单行截断改为两行展示（与 CPU 架构/快充协议行同策略），来源标注不再被省略号裁切
+
+### 审计结论（发布门禁依据）
+- **电源子系统 service 层全量精读通过**（5 文件）：`BatterySysfs`（电量计目录评分 + 16 品牌预设 + 电压/电流双单位裁决）、`BatteryHardwareReader`（容量融合四级链 + 指标 12 三态判定 + REAL/SIMULATED 分 key）、`HardwareInfoResolver`（温控/内阻/快充档位三级回退 + 全 Throwable 兜底）、`SoCHardwareProfile`（五级检测链 + 20+ 平台档案）、`DeviceHardwareProfile`（PMIC device-tree 实测 + 快充协议 sysfs 实测 10s TTL + 电芯/化学恒压门限归档）——来源标注（[实测]/[品牌档案]/[工程估算]/[DT 实测]）齐全，无伪数据路径，无功能缺陷
+- **12 项指标链路闭环复查通过**：v2.2.2 磨损模型（`BatteryWearTracker`）为纯只读喂样 + 独立 `StateFlow<WearSnapshot>`，不触碰 12 项指标采集/解析/展示路径；UI 消费点（总览页 12 指标行 + Hero + 充满判定卡）降级态显 "—"、来源副文案齐全，实验室模拟态跨 Tab 常驻警示横幅未回退
+
 ## [2.2.2] - 2026-11-19
 
 「磨损模型验收闭环」版本：对 [Unreleased] 段 Choi 2002 电压-寿命应力磨损模型实施进行验收修复，补齐用户操作闭环与集成链路验收后正式发布。
