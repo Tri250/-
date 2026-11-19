@@ -29,8 +29,9 @@ import kotlin.math.abs
  * 用户可见的唯一写操作 (清除) 与唯一读路径 (wearSnapshot) 端到端一致。
  *
  * 时序说明：Robolectric PAUSED looper 下 sticky 广播挂起，须显式 idle 交付；
- * VM 发布链路带 400ms 节流门 (HISTORY_MIN_INTERVAL_MS)，前两帧分别被门消化/
- * 建立积分基线，第三帧才产生 dt>0 的积分——测试按真实时序推进虚拟时钟
+ * VM 发布链路带 400ms 节流门且 poll 循环 (1Hz) 与广播帧存在交错——测试统一
+ * 采用"等距推进多帧"模式 (每帧前 500ms 虚拟时钟 + idle)，保证无论 poll 抢占
+ * 节流门还是 dt=0 同拍去重，必有一次 dt>0 的积分发生 (见 sendChargingFrames)
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
@@ -57,6 +58,22 @@ class BatteryWearIntegrationTest {
         Shadows.shadowOf(Looper.getMainLooper()).idle()
     }
 
+    /**
+     * 等距推进多帧充电广播 (每帧前推进 500ms 虚拟时钟并 idle)。
+     *
+     * 时序鲁棒性说明：VM 发布链路带 400ms 节流门，poll 循环 (1Hz) 与广播帧
+     * 存在交错——单帧序列可能被 poll 发布抢占节流门或 dt=0 被同拍去重门跳过
+     * (Robolectric 虚拟时钟下 stamped 与 elapsed 同步推进，本地/CI 表现不一致)。
+     * 等距多帧保证：每一帧要么自身通过节流门并产生 dt>0 积分，要么抢占方
+     * (poll 发布) 代为积分——sampleCount>0 不依赖具体交错时序
+     */
+    private fun sendChargingFrames(count: Int, startLevel: Int = 50) {
+        repeat(count) { i ->
+            advanceAndIdle(500)
+            sendChargingFrame(startLevel + i)
+        }
+    }
+
     /** 一帧充电态广播 (4.2V 满压 CV 段附近，rate=×1.00) */
     private fun sendChargingFrame(level: Int) {
         app.sendStickyBroadcast(
@@ -78,13 +95,7 @@ class BatteryWearIntegrationTest {
     @Test
     fun chargingFrames_accumulateWearSnapshotEndToEnd() {
         val vm = BatteryViewModel(app)
-        sendChargingFrame(50)
-        advanceAndIdle(500)
-        sendChargingFrame(51) // 过 400ms 节流门：建立积分基线 (速率可算，尚无 dt)
-        advanceAndIdle(500)
-        // stamped 用真实墙钟：sleep 保证基线帧与积分帧不同毫秒 (dt>0，否则同拍去重门跳过)
-        Thread.sleep(5)
-        sendChargingFrame(52) // dt>0：产生一次积分
+        sendChargingFrames(4)
 
         val snap = vm.wearSnapshot.value
         assertTrue("充电帧必须经发布链路积分", snap.sampleCount > 0)
@@ -96,12 +107,7 @@ class BatteryWearIntegrationTest {
     @Test
     fun clearWearData_closesUserOperationLoop() {
         val vm = BatteryViewModel(app)
-        sendChargingFrame(50)
-        advanceAndIdle(500)
-        sendChargingFrame(51)
-        advanceAndIdle(500)
-        Thread.sleep(5)
-        sendChargingFrame(52)
+        sendChargingFrames(4)
         assertTrue("前置条件：已有积分数据", vm.wearSnapshot.value.sampleCount > 0)
 
         vm.clearWearData()
@@ -117,13 +123,41 @@ class BatteryWearIntegrationTest {
         assertEquals(0.0, restarted.wearSnapshot.value.accumulatedWearCycles, 0.0)
 
         // 清除不破坏采集链路：后续充电帧重新积分
-        sendChargingFrame(50)
-        advanceAndIdle(500)
-        sendChargingFrame(51)
-        advanceAndIdle(500)
-        Thread.sleep(5)
-        sendChargingFrame(52)
+        sendChargingFrames(4)
         assertTrue("恢复后新帧重新积分", restarted.wearSnapshot.value.sampleCount > 0)
+    }
+
+    /** 等距推进多帧放电广播 */
+    private fun sendDischargingFrames(count: Int) {
+        repeat(count) { i ->
+            advanceAndIdle(500)
+            app.sendStickyBroadcast(
+                batteryIntent {
+                    putExtra(BatteryManager.EXTRA_LEVEL, 80 - i)
+                    putExtra(BatteryManager.EXTRA_SCALE, 100)
+                    putExtra(BatteryManager.EXTRA_STATUS, BatteryManager.BATTERY_STATUS_DISCHARGING)
+                    putExtra(BatteryManager.EXTRA_VOLTAGE, 4_200_000)
+                }
+            )
+            Shadows.shadowOf(Looper.getMainLooper()).idle()
+        }
+    }
+
+    /** 等距推进多帧"双通道电压不可读"充电广播 */
+    private fun sendUnmeasuredVoltageFrames(count: Int) {
+        repeat(count) {
+            advanceAndIdle(500)
+            app.sendStickyBroadcast(
+                batteryIntent {
+                    putExtra(BatteryManager.EXTRA_LEVEL, 50)
+                    putExtra(BatteryManager.EXTRA_SCALE, 100)
+                    putExtra(BatteryManager.EXTRA_STATUS, BatteryManager.BATTERY_STATUS_CHARGING)
+                    putExtra(BatteryManager.EXTRA_PLUGGED, BatteryManager.BATTERY_PLUGGED_USB)
+                    // 不设 EXTRA_VOLTAGE + sysfs 空探测 → 双通道不可读
+                }
+            )
+            Shadows.shadowOf(Looper.getMainLooper()).idle()
+        }
     }
 
     /**
@@ -134,35 +168,7 @@ class BatteryWearIntegrationTest {
     fun dischargingFrames_doNotAccumulate() {
         val vm = BatteryViewModel(app)
         vm.clearWearData() // 隔离前置用例残留 (prefs 跨实例共享)
-        app.sendStickyBroadcast(
-            batteryIntent {
-                putExtra(BatteryManager.EXTRA_LEVEL, 80)
-                putExtra(BatteryManager.EXTRA_SCALE, 100)
-                putExtra(BatteryManager.EXTRA_STATUS, BatteryManager.BATTERY_STATUS_DISCHARGING)
-                putExtra(BatteryManager.EXTRA_VOLTAGE, 4_200_000)
-            }
-        )
-        Shadows.shadowOf(Looper.getMainLooper()).idle()
-        advanceAndIdle(500)
-        app.sendStickyBroadcast(
-            batteryIntent {
-                putExtra(BatteryManager.EXTRA_LEVEL, 79)
-                putExtra(BatteryManager.EXTRA_SCALE, 100)
-                putExtra(BatteryManager.EXTRA_STATUS, BatteryManager.BATTERY_STATUS_DISCHARGING)
-                putExtra(BatteryManager.EXTRA_VOLTAGE, 4_200_000)
-            }
-        )
-        Shadows.shadowOf(Looper.getMainLooper()).idle()
-        advanceAndIdle(500)
-        app.sendStickyBroadcast(
-            batteryIntent {
-                putExtra(BatteryManager.EXTRA_LEVEL, 78)
-                putExtra(BatteryManager.EXTRA_SCALE, 100)
-                putExtra(BatteryManager.EXTRA_STATUS, BatteryManager.BATTERY_STATUS_DISCHARGING)
-                putExtra(BatteryManager.EXTRA_VOLTAGE, 4_200_000)
-            }
-        )
-        Shadows.shadowOf(Looper.getMainLooper()).idle()
+        sendDischargingFrames(4)
 
         val snap = vm.wearSnapshot.value
         assertEquals("放电帧不计积分", 0L, snap.sampleCount)
@@ -175,15 +181,8 @@ class BatteryWearIntegrationTest {
     fun unmeasuredVoltageFrames_returnNullRate() {
         val vm = BatteryViewModel(app)
         vm.clearWearData()
-        app.sendStickyBroadcast(
-            batteryIntent {
-                putExtra(BatteryManager.EXTRA_LEVEL, 50)
-                putExtra(BatteryManager.EXTRA_SCALE, 100)
-                putExtra(BatteryManager.EXTRA_STATUS, BatteryManager.BATTERY_STATUS_CHARGING)
-                // 不设 EXTRA_VOLTAGE + sysfs 空探测 → 双通道不可读
-            }
-        )
-        Shadows.shadowOf(Looper.getMainLooper()).idle()
+        sendUnmeasuredVoltageFrames(4)
+
         val snap = vm.wearSnapshot.value
         assertNull("双通道不可读必须诚实返回 null", snap.lastRate)
         assertEquals(0L, snap.sampleCount)
