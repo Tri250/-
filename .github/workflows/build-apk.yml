@@ -112,11 +112,23 @@ jobs:
           url="https://repo1.maven.org/maven2/org/robolectric/android-all-instrumented/$ver"
           mkdir -p "$dir"
           # jar/pom 必须成功 (--fail)；校验文件远端可能缺失 (404)，缺失时本地生成
+          # v2.2.2 修复：瞬时故障 (429 限流/网络) 不再阻断整个发布流水线——
+          # 本步仅为缓存预热优化，Robolectric 测试任务会自行下载该 jar；
+          # 失败时清理半成品 (防 HTML 错误页污染 .m2 致 Robolectric 拒载) 并放行
+          prefetch_ok=1
           for ext in jar pom; do
-            curl --retry 6 --retry-all-errors --retry-delay 5 --connect-timeout 30 \
-              --fail --silent --show-error --location \
-              -o "$dir/$base.$ext" "$url/$base.$ext"
+            if ! curl --retry 6 --retry-all-errors --retry-delay 5 --connect-timeout 30 \
+                --fail --silent --show-error --location \
+                -o "$dir/$base.$ext" "$url/$base.$ext"; then
+              prefetch_ok=0
+              break
+            fi
           done
+          if [ "$prefetch_ok" -ne 1 ]; then
+            rm -f "$dir/$base.jar" "$dir/$base.pom" "$dir/$base.jar.sha1" "$dir/$base.pom.sha1"
+            echo "::warning::Robolectric jar 预取失败 (限流或网络故障)，测试任务将自行下载"
+            exit 0
+          fi
           for ext in jar.sha1 pom.sha1; do
             if ! curl --retry 3 --fail --silent --location \
                 -o "$dir/$base.$ext" "$url/$base.$ext"; then
