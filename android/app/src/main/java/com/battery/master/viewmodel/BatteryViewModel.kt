@@ -699,6 +699,16 @@ class BatteryViewModel(application: Application, historyStore: BatteryHistorySto
         publish(reader.readBatteryTelemetry())
     }
 
+    /**
+     * v2.2.2 磨损模型用户操作闭环：清除电压应力磨损累计数据
+     * (累计等效磨损循环 + 高压暴露 + 样本数)，恢复"未使用过"零态。
+     * 与 clearFullChargeRecords 同模式：持久化与内存态同步清除，快照立即归零
+     */
+    fun clearWearData() {
+        wearTracker.reset()
+        _wearSnapshot.value = WearSnapshot()
+    }
+
     // ============================================================
     // v2.0.0-beta.1 P0 GA 修复：历史持久化用户操作 (清空 / CSV 导出)
     // ============================================================

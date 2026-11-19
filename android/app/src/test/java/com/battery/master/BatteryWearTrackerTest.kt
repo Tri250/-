@@ -186,4 +186,33 @@ class BatteryWearTrackerTest {
         polluted.observe(sample(ts = 61_000L))
         assertEquals(60_000.0 / VoltageStressWearModel.CYCLE_EQUIVALENT_MS, polluted.accumulatedWearCycles, 1e-12)
     }
+
+    /**
+     * v2.2.2 用户操作闭环：reset 后内存态/prefs/恢复实例三处一致归零，
+     * 且采集链路恢复 (无"清了但还在涨"或"清了再也采不到"的坏链路)
+     */
+    @Test
+    fun resetClearsMemoryPersistenceAndKeepsCollection() {
+        tracker.observe(sample(ts = 1_000L))
+        tracker.observe(sample(ts = 61_000L))
+        assertTrue("前置条件：已有积分", tracker.accumulatedWearCycles > 0.0)
+
+        tracker.reset()
+        assertEquals("内存累计归零", 0.0, tracker.accumulatedWearCycles, 0.0)
+        assertEquals("内存高压暴露归零", 0L, tracker.highStressMs)
+        assertEquals("内存样本数归零", 0L, tracker.sampleCount)
+        assertNull("内存速率归零", tracker.lastRate)
+
+        // 持久化同步：恢复实例零态
+        val restarted = BatteryWearTracker(app)
+        assertEquals(0.0, restarted.accumulatedWearCycles, 0.0)
+        assertEquals(0L, restarted.highStressMs)
+        assertEquals(0L, restarted.sampleCount)
+
+        // 采集链路恢复：reset 后续帧正常积分 (首帧建基线，第二帧计 60s)
+        restarted.observe(sample(ts = 2_000L))
+        restarted.observe(sample(ts = 62_000L))
+        assertEquals(60_000.0 / VoltageStressWearModel.CYCLE_EQUIVALENT_MS, restarted.accumulatedWearCycles, 1e-12)
+        assertEquals(1L, restarted.sampleCount)
+    }
 }

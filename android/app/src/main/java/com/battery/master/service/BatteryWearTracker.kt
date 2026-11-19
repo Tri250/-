@@ -129,6 +129,25 @@ internal class BatteryWearTracker(context: Context) {
         }
     }
 
+    /**
+     * 清除全部磨损积分数据 (用户操作闭环入口：设置页/磨损卡"清除磨损数据")。
+     * 内存态归零 + prefs 整文件清除 + 积分基线断开——恢复实例按零重新积分，
+     * 与"未使用过"状态完全一致 (无残留半值)。
+     */
+    fun reset() {
+        try {
+            accumulatedWearCycles = 0.0
+            highStressMs = 0L
+            sampleCount = 0L
+            lastRate = null
+            lastChargingSampleMs = -1L
+            lastPersistMs = 0L
+            prefs?.edit()?.clear()?.apply()
+        } catch (e: Throwable) {
+            // 清除失败不影响调用方 (UI 快照由 VM 独立归零)；最坏残留旧值由下拍覆盖
+        }
+    }
+
     private fun persistThrottled(nowMs: Long) {
         if (nowMs - lastPersistMs >= PERSIST_EVERY_MS) persistNow()
     }

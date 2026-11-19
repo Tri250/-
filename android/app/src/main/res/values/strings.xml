@@ -280,6 +280,7 @@
     <string name="wear_model_samples">积分样本间隔</string>
     <string name="wear_model_no_data">暂无充电积分数据</string>
     <string name="wear_model_voltage_unreadable">— 双通道不可读</string>
+    <string name="wear_model_clear">清除磨损数据</string>
     <string name="wear_model_note1">充电电压 &gt;3.92V 后每 +0.1V 循环寿命约减半 (Choi 2002 · Asakura 2003)</string>
     <string name="wear_model_note2">1 磨损循环 ≡ 4.2V 恒压暴露 2.5h (Choi 2002 实验条件映射)</string>
     <string name="wear_model_note3">3.95V 以下机制效应未量化，速率按 3.95V 钳制 (AccuBattery 公开方法学)</string>
@@ -299,6 +300,8 @@
     <string name="settings_design_capacity_value">当前 %1$d mAh · %2$s</string>
     <string name="settings_clear_full_charge">清除充满锁定记录</string>
     <string name="settings_clear_full_charge_desc">删除真实锁定值与模拟演示值</string>
+    <string name="settings_clear_wear">清除磨损数据</string>
+    <string name="settings_clear_wear_desc">清除累计等效磨损循环与高压暴露记录，重新开始积分</string>
     <string name="settings_clear_telemetry">清空遥测历史与会话</string>
     <string name="settings_group_about">关于</string>
     <string name="settings_back">返回</string>

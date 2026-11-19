@@ -280,6 +280,7 @@
     <string name="wear_model_samples">Integrated sample intervals</string>
     <string name="wear_model_no_data">No charging integration data yet</string>
     <string name="wear_model_voltage_unreadable">— Both channels unreadable</string>
+    <string name="wear_model_clear">Clear wear data</string>
     <string name="wear_model_note1">Above 3.92V, every +0.1V of charging voltage roughly halves cycle life (Choi 2002 · Asakura 2003)</string>
     <string name="wear_model_note2">1 wear cycle ≡ 2.5h of 4.2V constant-voltage exposure (Choi 2002 test condition)</string>
     <string name="wear_model_note3">Below 3.95V the mechanism is unquantified; rate is clamped at 3.95V (AccuBattery public methodology)</string>

@@ -112,9 +112,9 @@
 
 - **R8 ViewModel 反射构造器加固**：`ViewModel` 经 `SavedStateViewModelFactory`/`NewInstanceFactory` 反射实例化，显式 `-keepclassmembers` 保留构造器成员（类名仍全量混淆），消除 v1.2.4 全量混淆后反射调用点无法回溯导致启动即崩溃的最坏情形。
 - **倒计时协程空转治理**：模拟保持期倒计时在无模拟时段由固定 4Hz（250ms）唤醒降为 500ms 低频轮询（触发后 0.5s 内进入高频），消除全生命周期无意义主线程唤醒。
-- **安装属性自检**：versionCode 单调递增（当前 26）支持覆盖安装，tag↔versionName 一致性校验、aapt2 badging 校验、SHA256 校验和与无条件 `apksigner verify` 均已在 CI 门禁持续生效。
+- **安装属性自检**：versionCode 单调递增（当前 27）支持覆盖安装，tag↔versionName 一致性校验、aapt2 badging 校验、SHA256 校验和与无条件 `apksigner verify` 均已在 CI 门禁持续生效。
 - **权限口径**：应用声明零运行时/危险权限与"关于 APP"卡片权限声明一致（合并清单含 1 个 AndroidX 框架自动注入的签名级内部权限，v1.2.6 起如实披露）；备份规则（`full-backup-content` / `data-extraction-rules`）全量排除应用数据，卸载即彻底清除。
-- **版本升级**：versionName 2.2.1 / versionCode 26。
+- **版本升级**：versionName 2.2.2 / versionCode 27。
 
 ---
 

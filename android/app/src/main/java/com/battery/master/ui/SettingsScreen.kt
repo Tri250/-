@@ -169,6 +169,13 @@ fun SettingsScreen(
                     subtitle = stringResource(R.string.settings_clear_full_charge_desc),
                     onClick = { viewModel.clearFullChargeRecords() }
                 )
+                // v2.2.2 磨损模型用户操作闭环：清除累计磨损积分数据
+                SettingsNavRow(
+                    icon = MintIcons.Flask,
+                    title = stringResource(R.string.settings_clear_wear),
+                    subtitle = stringResource(R.string.settings_clear_wear_desc),
+                    onClick = { viewModel.clearWearData() }
+                )
                 SettingsNavRow(
                     icon = MintIcons.Chart,
                     title = stringResource(R.string.settings_clear_telemetry),

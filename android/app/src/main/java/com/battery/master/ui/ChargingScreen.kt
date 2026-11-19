@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -82,7 +83,13 @@ fun ChargingScreen(
                 onClearRecords = viewModel::clearFullChargeRecords
             )
         }
-        item { VoltageStressCard(state = state, wear = wearSnapshot) }
+        item {
+            VoltageStressCard(
+                state = state,
+                wear = wearSnapshot,
+                onClearWear = viewModel::clearWearData
+            )
+        }
         item { ChargingTipsCard(state = state) }
         item { Spacer(modifier = Modifier.height(28.dp)) }
     }
@@ -360,10 +367,17 @@ private fun ChargingTipsCard(state: BatteryState) {
  * 电压应力磨损模型卡 (v2.2.1，Choi 2002 + Asakura 2003 方法学全量实施)：
  * 当前电压相对磨损速率 + 充电时间积分的累计磨损 + 高压暴露统计。
  * 全部输出为 [模型预测]，非实测值——每项均带来源标注；
- * 电压不可测 / 无积分数据时诚实降级，不虚构数值
+ * 电压不可测 / 无积分数据时诚实降级，不虚构数值。
+ *
+ * v2.2.2 用户操作闭环：有积分数据时提供"清除磨损数据"入口
+ * (与满充卡清除锁定记录同模式)，零态不显示 (无可清除内容)
  */
 @Composable
-private fun VoltageStressCard(state: BatteryState, wear: WearSnapshot) {
+private fun VoltageStressCard(
+    state: BatteryState,
+    wear: WearSnapshot,
+    onClearWear: () -> Unit
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -426,6 +440,21 @@ private fun VoltageStressCard(state: BatteryState, wear: WearSnapshot) {
             label = stringResource(R.string.wear_model_samples),
             value = wear.sampleCount.toString()
         )
+        // v2.2.2 用户操作闭环：有积分数据时提供清除入口 (零态无可清除内容不显示)
+        if (wear.sampleCount > 0) {
+            Spacer(modifier = Modifier.height(6.dp))
+            TextButton(
+                onClick = onClearWear,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = stringResource(R.string.wear_model_clear),
+                    fontSize = DesignTokens.Font2xs,
+                    fontFamily = FontFamily.Monospace,
+                    color = DesignTokens.TextSecondary
+                )
+            }
+        }
         Spacer(modifier = Modifier.height(10.dp))
         // 方法学说明 (全部可溯源，UI 明示模型口径)
         val notes = listOf(
