@@ -2,6 +2,26 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格，版本号遵循语义化版本。
 
+## [2.2.1] - 2026-11-19
+
+「三维度全量自检 + 五维度发布审计」版本：数据库 / 机型数据 / 脚本引擎三维度 100% 覆盖审计修复，稳定性 / 性能 / 兼容性 / 权限管理 / 安装卸载五维度发布前全面自检通过。详细条目见上文 [2.2.0] 段「三维度全量自检（数据库 / 机型数据 / 脚本引擎）」与「三维度第二轮全量精读」部分（实际随本版本首次发布）。
+
+### Fixed 修复
+- **P1 `BatteryHistoryStore` JSONL 轮转非原子**：`writeText` 截断重写改为 tmp+rename 原子替换（POSIX `rename(2)` 同目录原子覆盖）——轮转瞬间进程被杀不再丢失最多 3000 行样本/500 行会话历史
+- **P1 `BatteryHistoryStore` 崩溃遗留半行粘连丢样本**：写入前尾行自愈（RandomAccessFile peek 文件尾，非 `\n` 先补换行）——进程被杀留下的无换行半行不再把新样本/新会话粘连吞掉（样本与会话双文件同款治理）
+- **P2 `BatteryCapacityRegressor` 启动闪退缺口**：prefs 获取 / 统计量恢复 / persist 全链路异常兜底——类型污染按空统计量重新积累，与全项目启动闪退治理口径对齐
+- **P1 遥测曲线固定窗口削顶**：`telemetrySeriesBounds` 动态窗口（详见 [2.2.0] 段）
+
+### Added 新增（审计断言测试，230 用例全绿）
+- 轮转 tmp 无残留 + 崩溃遗留 tmp 不污染恢复/再轮转、进程被杀半行截断静默跳过且不阻塞后续写入、prefs 类型污染构造不闪退且采集链路正常、崩溃日志前缀过滤/时间升序/空导出 null、会话文件尾行自愈对称治理、遥测动态窗口 6 用例
+
+### 自检结论（发布门禁依据）
+- **稳定性**：全链路 Throwable 兜底（Application 崩溃捕获 / Receiver / JSONL / prefs）、R8 精准 keep + DEX 反射构造器冒烟 CI 门禁
+- **性能**：1Hz 单数据源、双通道共享 Reader、协议探测 10s TTL、轮转原子化无主线程 IO
+- **兼容性**：minSdk 26 / targetSdk 36、`RECEIVER_NOT_EXPORTED` 动态注册、API 31+/34+ 分级适配
+- **权限管理**：唯一 `INTERNET` 普通权限（0 运行时权限）、FileProvider exported=false + 白名单最小暴露
+- **安装卸载**：备份/换机全数据排除、versionCode 单调递增（26）、aapt2 badging + tag↔versionName 一致性 CI 校验
+
 ## [2.2.0] - 2026-11-18
 
 「薄荷能量」UI 2.0 正式版：Android 端全面重构为浅色薄荷绿设计语言，双主题（浅色/深色「夜航森林绿」），5 Tab 信息架构，零商业化。
