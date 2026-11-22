@@ -27,15 +27,20 @@ object DesignCapacityResolver {
     @Volatile
     private var cached: Pair<Float, String>? = null
 
+    /** 机型库查不到也要记下来：采样流每秒都会来要，不记就会每次都重读 assets 解析一遍 */
+    @Volatile
+    private var missCached = false
+
     @Volatile
     private var identifiersCache: List<String>? = null
 
     @Synchronized
     fun resolve(context: Context, allowRemote: Boolean): Pair<Float, String>? {
         cached?.let { return it }
+        if (missCached) return null
         val identifiers = identifiersCache ?: deviceIdentifiers().also { identifiersCache = it }
         val result = fromModelDb(context, allowRemote, identifiers)
-        if (result != null) cached = result
+        if (result != null) cached = result else missCached = true
         return result
     }
 

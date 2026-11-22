@@ -1189,10 +1189,13 @@ private fun RecordCard(
                     StatBlock(
                         label = "健康度",
                         value = record.healthPercent?.let { "${formatOne(it)}%" } ?: "—",
-                        note = healthDelta?.let { delta ->
-                            // 一次充电只能测一次容量，所以变化是跟上一条有数据的记录比的
-                            "较上次 ${if (delta < -HEALTH_DELTA_EPSILON) "−" else "+"}${formatTwo(abs(delta))}%"
-                        },
+                        note = healthDelta
+                            // 变化小于测量误差就不显示，免得每条记录都挂着"较上次 +0.01%"
+                            ?.takeIf { abs(it) > HEALTH_DELTA_EPSILON }
+                            ?.let { delta ->
+                                // 一次充电只能测一次容量，所以变化是跟上一条有数据的记录比的
+                                "较上次 ${if (delta < -HEALTH_DELTA_EPSILON) "−" else "+"}${formatTwo(abs(delta))}%"
+                            },
                         modifier = Modifier.weight(1f),
                     )
                 }
