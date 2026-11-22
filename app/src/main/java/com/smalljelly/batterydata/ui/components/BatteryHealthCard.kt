@@ -102,7 +102,8 @@ fun BatteryHealthCard(
         Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.fillMaxWidth()) {
             if (percent != null) {
                 NexioText(
-                    text = percent.toInt().toString(),
+                    // 四舍五入而不是截断：89.9% 显示成 89% 会让健康度看起来低了一档
+                    text = percent.roundToInt().toString(),
                     fontSize = 52.sp,
                     lineHeight = 54.sp,
                     fontWeight = FontWeight.Bold,

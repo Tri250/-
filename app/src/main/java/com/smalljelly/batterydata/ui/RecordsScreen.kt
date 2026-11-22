@@ -197,6 +197,11 @@ fun RecordsScreen(
     var openAboutAfterMenu by remember { mutableStateOf(false) }
     var openCapacityAfterMenu by remember { mutableStateOf(false) }
     var showManualCapacityDialog by remember { mutableStateOf(false) }
+    // Pager 两页始终同时组合：上面的快照停在首次组合那一刻。对话框打开时重取一次，
+    // 否则在首页改过手动容量后，弹窗里的“当前容量”还是启动时的旧值
+    LaunchedEffect(showManualCapacityDialog) {
+        if (showManualCapacityDialog) designSample = repository.snapshot()
+    }
 
     // 菜单条目：点击先收菜单，等收起动画播完再切页 / 弹对话框
     val currentOnMenuOpenChange by rememberUpdatedState(onMenuOpenChange)
