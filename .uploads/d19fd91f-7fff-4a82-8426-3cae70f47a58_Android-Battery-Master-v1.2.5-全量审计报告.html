@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Android Battery Master v1.2.5 全量审计报告</title>
+<style>
+:root{
+  --bg:#f7f8fa; --card:#ffffff; --ink:#111827; --ink2:#374151; --ink3:#6b7280;
+  --line:#e5e7eb; --line2:#d1d5db; --brand:#0f766e; --brand-bg:#ecfdf5;
+  --p1:#b91c1c; --p1bg:#fef2f2; --p2:#b45309; --p2bg:#fffbeb; --p3:#1d4ed8; --p3bg:#eff6ff;
+  --ok:#15803d; --okbg:#f0fdf4; --code:#f3f4f6;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  font-size:15px;line-height:1.75;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1080px;margin:0 auto;padding:0 24px 80px}
+header.top{background:linear-gradient(135deg,#0b1220 0%,#132a3a 60%,#0f766e 160%);color:#fff;padding:48px 0 40px;margin-bottom:28px}
+header.top .wrap{padding-bottom:0}
+.kicker{font-size:12px;letter-spacing:2px;color:#7dd3fc;text-transform:uppercase;font-weight:700}
+h1{font-size:30px;line-height:1.35;margin:12px 0 8px;font-weight:800;letter-spacing:-.5px}
+.sub{color:#cbd5e1;font-size:14px;margin:0}
+.meta{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px}
+.meta span{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);border-radius:6px;padding:5px 11px;font-size:12px;color:#e2e8f0}
+.verdict{margin-top:24px;background:rgba(255,255,255,.07);border-left:4px solid #fbbf24;border-radius:0 8px 8px 0;padding:16px 20px}
+.verdict strong{color:#fde68a}
+h2{font-size:21px;margin:44px 0 14px;padding-bottom:10px;border-bottom:2px solid var(--line2);font-weight:800;letter-spacing:-.3px}
+h3{font-size:17px;margin:28px 0 10px;font-weight:700}
+h4{font-size:15px;margin:18px 0 8px;font-weight:700;color:var(--ink2)}
+p{margin:10px 0}
+a{color:var(--brand);text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:var(--code);border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:12.5px;
+  font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#be123c;word-break:break-word}
+pre{background:#0f172a;color:#e2e8f0;border-radius:8px;padding:14px 16px;overflow-x:auto;font-size:12.5px;line-height:1.65;
+  font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+pre code{background:none;border:none;color:inherit;padding:0;font-size:inherit}
+table{width:100%;border-collapse:collapse;margin:14px 0;background:var(--card);font-size:13.5px;
+  border:1px solid var(--line);border-radius:8px;overflow:hidden}
+th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+th{background:#f3f4f6;font-weight:700;color:var(--ink2);white-space:nowrap}
+tr:last-child td{border-bottom:none}
+.toc{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px 22px;columns:2;column-gap:36px}
+.toc a{display:block;padding:3px 0;font-size:13.5px;color:var(--ink2)}
+.toc a:hover{color:var(--brand)}
+.stat{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:18px 0}
+.stat div{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;text-align:center}
+.stat b{display:block;font-size:26px;line-height:1.2;font-weight:800}
+.stat small{color:var(--ink3);font-size:12px}
+.c1 b{color:var(--p1)} .c2 b{color:var(--p2)} .c3 b{color:var(--p3)} .c4 b{color:var(--ok)}
+.issue{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px 20px;margin:16px 0;
+  box-shadow:0 1px 2px rgba(0,0,0,.03)}
+.issue.p1{border-left:5px solid var(--p1)}
+.issue.p2{border-left:5px solid var(--p2)}
+.issue.p3{border-left:5px solid var(--p3)}
+.issue h3{margin:0 0 10px;font-size:16.5px;display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap}
+.tag{font-size:11px;font-weight:800;padding:2px 9px;border-radius:20px;letter-spacing:.5px;white-space:nowrap;line-height:1.7}
+.tag.p1{background:var(--p1bg);color:var(--p1)} .tag.p2{background:var(--p2bg);color:var(--p2)}
+.tag.p3{background:var(--p3bg);color:var(--p3)} .tag.ok{background:var(--okbg);color:var(--ok)}
+.tag.gray{background:#f3f4f6;color:var(--ink3)}
+.lbl{font-size:12px;font-weight:800;color:var(--ink3);letter-spacing:.5px;margin:12px 0 3px;text-transform:uppercase}
+.issue ul{margin:6px 0;padding-left:20px}
+.issue li{margin:4px 0}
+.okbox{background:var(--okbg);border:1px solid #bbf7d0;border-radius:10px;padding:16px 20px;margin:14px 0}
+.warnbox{background:var(--p2bg);border:1px solid #fde68a;border-radius:10px;padding:16px 20px;margin:14px 0}
+.note{color:var(--ink3);font-size:13px}
+.pill{display:inline-block;background:var(--brand-bg);color:var(--brand);border:1px solid #a7f3d0;
+  border-radius:5px;padding:1px 7px;font-size:12px;font-weight:700;margin-right:6px}
+footer{margin-top:56px;padding-top:20px;border-top:1px solid var(--line);color:var(--ink3);font-size:12.5px}
+@media(max-width:720px){.toc{columns:1}.stat{grid-template-columns:repeat(2,1fr)}h1{font-size:24px}.wrap{padding:0 16px 60px}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="kicker">Full Audit Report / Release Verification</div>
+    <h1>Android Battery Master v1.2.5<br>全量代码与发布产物审计报告</h1>
+    <p class="sub">对 <a href="https://github.com/Tri250/-/releases/tag/v1.2.5" style="color:#7dd3fc">github.com/Tri250/-/releases/tag/v1.2.5</a> 进行独立全量审计，确认是否仍存在缺陷</p>
+    <div class="meta">
+      <span>审计对象：tag v1.2.5 · commit ba14506</span>
+      <span>源码：86 文件 / 约 15,536 行</span>
+      <span>发布资产：3 项</span>
+      <span>审计日期：2026-11-13</span>
+    </div>
+    <div class="verdict">
+      <strong>结论：仍存在缺陷，不建议判定为「无 bug」。</strong>
+      本次共识别 <strong>17 项</strong> 问题（P1 高 3 项、P2 中 6 项、P3 低 8 项）。
+      好消息是：<strong>v1.2.5 的核心修复确实生效</strong>——实测发布 APK 中被 R8 混淆后的 ViewModel 子类仍保留反射构造器，不会重演 v1.2.4 的启动即崩溃；发布签名、版本号、SHA256、16KB 页对齐等硬性门禁全部通过。
+      但 <strong>Web 产物按发布说明直接双击打开必然白屏</strong>、<strong>CI 回归门禁无法覆盖本次修复的缺陷（假绿灯）</strong>、<strong>Web 与 Android 双端判定口径全面脱节</strong>，构成必须修复的遗留缺陷。
+      补充：Android 端 <strong>11 个测试类 / 79 个用例已本地实跑全绿</strong>、编译链通过；但测试全绿<strong>恰恰印证了「假绿灯」</strong>——这 79 个用例无一覆盖 R8 混淆后的 release 产物。
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+<div class="stat">
+  <div class="c1"><b>3</b><small>P1 高优先级</small></div>
+  <div class="c2"><b>6</b><small>P2 中优先级</small></div>
+  <div class="c3"><b>8</b><small>P3 低 / 工程化</small></div>
+  <div class="c4"><b>12</b><small>独立验证通过项</small></div>
+</div>
+
+<h2 id="toc">目录</h2>
+<div class="toc">
+  <a href="#s1">1. 审计范围、方法与环境</a>
+  <a href="#s2">2. 发布产物完整性核验（通过项）</a>
+  <a href="#s3">3. P1 高优先级缺陷</a>
+  <a href="#s4">4. P2 中优先级缺陷</a>
+  <a href="#s5">5. P3 低优先级与工程化问题</a>
+  <a href="#s6">6. 发布说明 / README 失实对照</a>
+  <a href="#s7">7. CI/CD 门禁专项</a>
+  <a href="#s8">8. Android 15-16 兼容性专项</a>
+  <a href="#s9">9. 修复优先级路线图</a>
+  <a href="#s10">10. 附录：证据、命令与限制</a>
+</div>
+
+<h2 id="s1">1. 审计范围、方法与环境</h2>
+
+<table>
+<tr><th>维度</th><th>内容</th></tr>
+<tr><td>源码范围</td><td><code>git clone --branch v1.2.5 --depth 1</code> 全量 86 文件；Android 端 15 个 Kotlin 源文件 + 12 个测试类（1,980 行测试）；Web 端 14 个 TSX/TS 源文件（7,139 行）</td></tr>
+<tr><td>变更比对</td><td>GitHub Compare API 拉取 <code>v1.2.4...v1.2.5</code> 完整 diff：1 个提交、5 个文件（README、build.gradle.kts、proguard-rules.pro、BatteryViewModel.kt、AppShellAuditTest.kt）</td></tr>
+<tr><td>发布产物</td><td>下载 3 项 Release 资产并逐字节校验 SHA256；解析 APK 的 Manifest、签名块、classes.dex、resources、ELF 段对齐</td></tr>
+<tr><td>实际构建</td><td>Web 端执行 <code>npm ci</code> + <code>npx tsc --noEmit</code> + <code>npm run build</code>，并与 Release 产物 hash 逐项比对</td></tr>
+<tr><td>运行时实测</td><td>无头 Chromium 以 <code>file://</code> 协议打开解压后的 <code>web-demo-dist.zip/index.html</code>，检查 DOM 渲染结果</td></tr>
+<tr><td>API 语义核验</td><td>下载 <code>androidx.activity:1.9.3</code> 官方 sources.jar，核对 <code>SystemBarStyle.dark/light</code> 与 <code>isAppearanceLightStatusBars</code> 映射，避免误判</td></tr>
+<tr><td>工具链</td><td>Ubuntu 22.04 / JDK 20 / Node 22.13.1 / Gradle 9.3 / androguard / Chromium / readelf / openssl / keytool</td></tr>
+</table>
+
+<div class="warnbox">
+<strong>审计边界（如实说明）：</strong>本环境无 Android 真机与模拟器，无法执行 instrumentation 测试与真机启动冒烟。Android 单元测试已<strong>实际跑通</strong>（安装 Android SDK 35 + Build-Tools 34 后执行 <code>./gradlew testDebugUnitTest</code>，BUILD SUCCESSFUL，11 个测试类 / 79 个用例全绿），但它是 debug 未混淆变体，结论见 <a href="#s10">第 10 节</a>。所有关于 Android 运行期的结论均基于<strong>源码静态分析 + 已发布 release APK 的二进制实证 + debug 单元测试</strong>，不含真机动态验证。
+</div>
+
+<h2 id="s2">2. 发布产物完整性核验（通过项）</h2>
+<p>以下 12 项经独立验证<strong>属实</strong>，是本次发布中确实做对的部分：</p>
+
+<table>
+<tr><th style="width:20%">核验项</th><th style="width:32%">发布说明宣称</th><th style="width:36%">独立实测结果</th><th style="width:12%">结论</th></tr>
+<tr><td>SHA256 校验和</td><td>提供全部资产校验和</td><td>APK <code>a257d2c7…d455d7</code>、ZIP <code>4f9b4bb3…921</code>，与 SHA256SUMS.txt 逐字节一致</td><td><span class="tag ok">通过</span></td></tr>
+<tr><td>正式 Release 签名</td><td>正式 Release 签名（非 debug 兜底）</td><td>从 APK Signing Block v2 提取证书：<code>C=CN, O=Tri250, CN=Android Battery Master</code>，自签名，有效期 2026-11-10 ~ 2056-11-02，SHA256 指纹 <code>0C:6E:76:68…</code>。<strong>确非 Android Debug 证书</strong></td><td><span class="tag ok">通过</span></td></tr>
+<tr><td>版本一致性</td><td>versionCode=10，tag 与 versionName 一致</td><td>APK Manifest：<code>versionCode="10" versionName="1.2.5"</code>、<code>package="com.battery.master"</code>，与 <code>build.gradle.kts</code> 及 tag <code>v1.2.5</code> 一致</td><td><span class="tag ok">通过</span></td></tr>
+<tr><td>SDK 分级</td><td>minSdk 26 / targetSdk 35</td><td>APK：<code>minSdkVersion="26" targetSdkVersion="35"</code>，compileSdk 35</td><td><span class="tag ok">通过</span></td></tr>
+<tr><td>R8 全量混淆</td><td>R8 混淆 + 资源收缩</td><td>classes.dex 中 <code>com.battery.master</code> 包<strong>仅剩</strong> <code>MainActivity</code>（Manifest 引用需保留类名），其余业务类全部混淆（如 <code>Lq1/f;</code>）；<code>META-INF/services/</code> 亦被改写为 <code>N1.u</code>/<code>O1.a</code>。宣称属实</td><td><span class="tag ok">通过</span></td></tr>
+<tr><td><strong>v1.2.5 核心修复</strong></td><td>保留 ViewModel 反射构造器，消除启动即崩溃</td><td><strong>实测生效</strong>：混淆后的 ViewModel 子类 <code>Lq1/f;</code>（继承链 <code>q1/f → androidx/lifecycle/a → …</code>）保留 <code>&lt;init&gt;(Landroid/app/Application;)V</code>。<code>SavedStateViewModelFactory</code> 可正常反射实例化，<strong>不会因构造器被移除而启动崩溃</strong></td><td><span class="tag ok">通过</span></td></tr>
+<tr><td>备份规则</td><td>全量排除应用数据，卸载无残留</td><td>最终 Manifest 同时含 <code>fullBackupContent</code> 与 <code>dataExtractionRules</code>；两个 XML 对 root/file/database/sharedpref/external 五域全部 <code>&lt;exclude path="."/&gt;</code></td><td><span class="tag ok">通过</span></td></tr>
+<tr><td>备份 / 换机规则</td><td>cloud-backup 与 device-transfer 均排除</td><td><code>data_extraction_rules.xml</code> 两节均五域全排除，与宣称一致</td><td><span class="tag ok">通过</span></td></tr>
+<tr><td>Web 构建可复现</td><td>提供静态产物</td><td><code>npm ci</code> / <code>tsc --noEmit</code> / <code>vite build</code> 全部退出码 0；本地产物 <code>index-CCA33FBM.js</code>、<code>index-DHICUq_7.css</code> 与 Release ZIP 内文件<strong>文件名（内容 hash）完全一致</strong>，源码与产物可复现对应</td><td><span class="tag ok">通过</span></td></tr>
+<tr><td>Web 产物安全性</td><td>不上传任何数据</td><td>打包产物中<strong>无</strong> <code>GEMINI_API_KEY</code>、<code>AIza…</code> 等密钥，<strong>无</strong> <code>@google/genai</code> 运行时代码（tree-shaking 生效）</td><td><span class="tag ok">通过</span></td></tr>
+<tr><td>16KB 页对齐</td><td>未明确宣称（Android 15+ 隐性要求）</td><td>4 个 ABI 的 <code>libandroidx.graphics.path.so</code> 全部 LOAD 段 <code>Align 0x4000</code>（16384），满足 Android 15/16 的 16KB page size 要求</td><td><span class="tag ok">通过</span></td></tr>
+<tr><td>状态栏图标对比度</td><td>暗色 HUD 强制亮图标</td><td><strong>经官方源码核验无误判</strong>：<code>SystemBarStyle.dark()</code> → <code>detectDarkMode { true }</code> → <code>isAppearanceLightStatusBars = !true = false</code> → 浅色（白）图标，与 <code>#030712</code> 暗底匹配。<code>themes.xml</code> 的 <code>windowLightStatusBar=false</code> 与之同向</td><td><span class="tag ok">通过</span></td></tr>
+<tr><td>Android 编译与单元测试</td><td>启动闪退回归测试守护发布</td><td>本地安装 Android SDK 35 + Build-Tools 34 后执行 <code>./gradlew testDebugUnitTest</code>：<strong>BUILD SUCCESSFUL</strong>，AGP 8.7.2 / Kotlin 2.0.21 / Gradle 8.9 编译链通过；<strong>11 个测试类、79 个用例，failures=0 / errors=0 / skipped=0</strong>。<span class="note">注意：全绿的是 debug 未混淆变体，不能证明 release 包可启动，见 P1-2</span></td><td><span class="tag ok">通过</span></td></tr>
+</table>
+
+<div class="okbox">
+<strong>关于 v1.2.4 事故的追认：</strong>v1.2.5 的提交信息明确写「消除 v1.2.4 全量混淆后启动即崩溃的最坏情形」，即 <strong>v1.2.4 已发布过一个会启动崩溃的 APK</strong>。本次实测确认 v1.2.5 已修复该问题。但修复只落在 keep 规则上，回归防线并未建立（见 <a href="#i02">P1-2</a>）。
+</div>
+
+<h2 id="s3">3. P1 高优先级缺陷</h2>
+
+<div class="issue p1" id="i01">
+<h3><span class="tag p1">P1-1</span> Web 产物按发布说明直接打开必然白屏，子路径部署同样失败</h3>
+<div class="lbl">位置</div>
+<p><code>vite.config.ts</code>（缺少 <code>base</code> 配置） → <code>web-demo-dist.zip/index.html</code></p>
+<div class="lbl">实测证据</div>
+<pre><code>&lt;!-- web-demo-dist.zip 解压后的 index.html --&gt;
+&lt;script type="module" crossorigin src="/assets/index-CCA33FBM.js"&gt;&lt;/script&gt;
+&lt;link rel="stylesheet" crossorigin href="/assets/index-DHICUq_7.css"&gt;</code></pre>
+<p>用无头 Chromium 以 <code>file:///tmp/filedemo/index.html</code> 打开（<code>--virtual-time-budget=4000 --dump-dom</code>）：</p>
+<pre><code>root 片段: id="root"&gt;&lt;/div&gt;      ← React 未挂载，容器为空
+DOM 总长: 1120                      ← 仅为原始 HTML 骨架</code></pre>
+<div class="lbl">根因与影响</div>
+<ul>
+<li>Vite 默认 <code>base: '/'</code>，产出<strong>绝对路径</strong>资源引用。<code>file://</code> 下 <code>/assets/…</code> 解析为文件系统根目录 <code>file:///assets/…</code>，必定 404。</li>
+<li>Release 页面与发布说明明确写着「解压后任意静态服务器托管，<strong>或直接用浏览器打开 index.html</strong>」——按说明操作的 100% 用户遇到白屏。</li>
+<li>「任意静态服务器托管」也不成立：部署到子路径（如 <code>https://example.com/battery/</code>）时 <code>/assets/</code> 指向域名根，同样 404。</li>
+<li>CI 的「Verify Web Dist Output」只检查 <code>index.html</code> 非空与 <code>assets/</code> 下文件数 ≥ 2，<strong>完全不校验资源路径可达性</strong>，因此该缺陷被门禁放行。</li>
+</ul>
+<div class="lbl">修复建议</div>
+<pre><code>// vite.config.ts
+export default defineConfig(() =&gt; ({
+  base: './',          // 关键：改为相对路径
+  plugins: [react(), tailwindcss()],
+  ...
+}));</code></pre>
+<p>另外在 CI 增加一步真实加载校验（无头浏览器打开 <code>file://dist/index.html</code> 并断言 <code>#root</code> 有子节点 / 关键文案出现），重新构建并替换 Release 资产与 SHA256SUMS.txt。</p>
+</div>
+
+<div class="issue p1" id="i02">
+<h3><span class="tag p1">P1-2</span> CI 回归门禁存在「假绿灯」：无法覆盖本次修复的缺陷类型</h3>
+<div class="lbl">位置</div>
+<p><code>.github/workflows/build-apk.yml:90-93</code></p>
+<pre><code>- name: Run Startup Crash Regression Tests (Robolectric)
+  run: |
+    cd android
+    ./gradlew testDebugUnitTest --no-daemon --stacktrace || gradle testDebugUnitTest ...</code></pre>
+<div class="lbl">根因与影响</div>
+<ul>
+<li>v1.2.4 的启动崩溃根因是 <strong>release 变体启用 R8 全量混淆</strong>后，ViewModel 反射所需构造器被移除；而 <code>testDebugUnitTest</code> 跑的是 <strong>debug 变体，<code>isMinifyEnabled=false</code></strong>，代码<strong>完全未混淆</strong>。</li>
+<li>因此 <code>StartupCrashRegressionTest</code>（及全部 11 个测试类、1,980 行测试）在结构上<strong>永远不可能复现</strong>该类缺陷，测试全绿与「release 包能否启动」无关。</li>
+<li><strong>实证补强</strong>：对 12 个测试文件执行 <code>grep -rniE 'minif|proguard|R8|release|mapping|obfuscat'</code> <strong>返回空</strong>；全仓共 <strong>79 个 <code>@Test</code></strong>，<strong>无一</strong>涉及混淆、minify 或 release 变体。即测试套件在编写时就没有把「R8 之后能否启动」列为验证目标。本次本地实跑这 79 个用例 <strong>failures=0 / errors=0 全部通过</strong>——「测试全绿」与「release 包能否启动」无关这一点得到实证。</li>
+<li>CI 后续虽然执行 <code>assembleRelease</code>，但只有 <code>aapt2 badging</code>（包名/版本/图标/标签）与 <code>apksigner verify</code>（签名完整性），<strong>没有任何针对 minified release 产物的启动/反射冒烟</strong>。</li>
+<li>后果：v1.2.5 的修复本次确实生效，但任何后续改动只要再次破坏 keep 规则、或引入新的反射依赖，CI 依旧全绿并照样发布崩溃包——<strong>导致 v1.2.4 事故可以原样重演</strong>。</li>
+</ul>
+<div class="lbl">修复建议</div>
+<ul>
+<li>在 <code>assembleRelease</code> 之后增加 release 产物静态冒烟：解析 release APK 的 dex，断言 ViewModel 子类存在 <code>&lt;init&gt;(Landroid/app/Application;)V</code>（本次审计已用 androguard 验证此法可行）。</li>
+<li>或增加 <code>testReleaseUnitTest</code> / minified 变体的单元测试；更彻底的是引入 instrumentation 或 <code>adb shell am start</code> 启动冒烟。</li>
+<li>把 R8 <code>mapping.txt</code> 上传为 CI artifact，便于事后追溯混淆结果。</li>
+</ul>
+</div>
+
+<div class="issue p1" id="i03">
+<h3><span class="tag p1">P1-3</span> Web 与 Android 双端判定口径全面脱节（4 个子项）</h3>
+<p>Release 摘要与 README 多处宣称「与 Web 端对齐 / 口径一致 / 双通道语义零漂移」，但 Web 端仍停留在 v1.2.2 之前的旧实现，Android 端 v1.2.3~v1.2.4 的修复<strong>一项都未同步到 Web</strong>。</p>
+
+<table>
+<tr><th style="width:16%">子项</th><th style="width:42%">Android 端（已修复）</th><th style="width:42%">Web 端（未同步）</th></tr>
+<tr>
+<td><strong>① 充满判定</strong></td>
+<td><code>BatteryTelemetryParser.evaluateFullCharge</code>：<code>percentage==100 &amp;&amp; isCharging &amp;&amp; abs(I)≤25</code>，<strong>三态</strong>（FULLY_CHARGED / NOT_YET / CURRENT_UNAVAILABLE）、<strong>符号无关</strong>、<strong>校验充电态</strong></td>
+<td><code>useBatteryMonitor.ts:96</code>、<code>App.tsx:229/460/466/470</code>、<code>FullChargeCalibrationCard.tsx:31</code>：<code>percentage===100 &amp;&amp; current&gt;=0 &amp;&amp; current&lt;=25</code>。要求电流为正 → <strong>充电上报负电流的高通/三星机型永远无法触发充满</strong>；无充电态校验 → 拔线后 100% 且电流恰在 0~25 即误判；无「电流不可读」三态</td>
+</tr>
+<tr>
+<td><strong>② 功率方向</strong></td>
+<td>v1.2.4 P2 已移除 <code>abs()</code>：<code>powerWatts = V × I / 1e6</code>，充电 +W / 放电 −W</td>
+<td><code>useBatteryMonitor.ts:207</code>、<code>App.tsx:259/444/537/540</code> 全部 <code>Math.abs(V*I)</code>，充放电同显正功率，方向信息丢失</td>
+</tr>
+<tr>
+<td><strong>③ 温度阈值</strong></td>
+<td>v1.2.4 P2 统一单源：<code>TEMP_WARM=38</code> / <code>TEMP_OVERHEAT=45</code>，温度卡与节流标签共用</td>
+<td><strong>Web 内部自相矛盾</strong>：<code>useBatteryMonitor.ts:64</code> 用 <code>≥44 / ≥38.5</code>，<code>App.tsx:100-101</code> 用 <code>&gt;45 / ≥38</code>。→ 44~45℃ 节流标签「重度节流」而温度卡「偏热预警」；38~38.5℃ 反之。<strong>正是 Android 端已修复的同屏矛盾 bug，在 Web 端完整复现</strong></td>
+</tr>
+<tr>
+<td><strong>④ 容量区间</strong></td>
+<td>v1.2.3 扩为 <code>500~25000 mAh</code>（注释明确记载「移除 1000~15000 二次钳制，避免真实设备被静默改写」）</td>
+<td><code>useBatteryMonitor.ts:281</code>、<code>DevicePresetSelector.tsx:39/150-151</code>、<code>HardwareSimulationLab.tsx:324-325/338-340</code> 仍是 <code>1000~15000 mAh</code></td>
+</tr>
+</table>
+<div class="lbl">影响</div>
+<p>作为「同源双端」产品，用户在 Web 演示端看到的判定结果与 Android 真机不一致；发布说明「双端口径一致」的宣称失实。Web 演示本身是完整交付资产（<code>web-demo-dist.zip</code>），不是可忽略的内部工具。</p>
+<div class="lbl">修复建议</div>
+<p>把判定谓词、阈值常量、容量区间抽成两端共享的规范（或至少在 Web 端建立 <code>src/constants/telemetry.ts</code> 与 Android <code>BatteryTelemetryParser</code> 常量表逐项对齐，并加一条双端口径一致性测试）。</p>
+</div>
+
+<h2 id="s4">4. P2 中优先级缺陷</h2>
+
+<div class="issue p2" id="i04">
+<h3><span class="tag p2">P2-1</span> <code>EXTRA_PLUGGED</code> 默认值 -1 被当作「已充电」，引发符号翻转与双通道判定漂移</h3>
+<div class="lbl">位置</div>
+<p><code>android/app/src/main/java/com/battery/master/service/BatteryTelemetryParser.kt:261-263</code></p>
+<pre><code>val isCharging = status == BatteryStatus.CHARGING || status == BatteryStatus.FULL ||
+    ((intent?.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1) ?: -1) != 0)
+val currentMa = BatterySysfs.normalizeCurrentToMilliAmps(rawCurrentProp, isCharging)</code></pre>
+<div class="lbl">根因</div>
+<ul>
+<li>当 <code>intent == null</code>（<code>registerReceiver(null, filter)</code> 在异常 ROM 上失败）或该 extra 缺失时，<code>getIntExtra</code> 返回 <code>-1</code>，而 <code>-1 != 0</code> 为 <code>true</code> → <strong>恒判「充电中」</strong>。</li>
+<li>后果一：<code>normalizeCurrentToMilliAmps</code> 依 <code>isCharging</code> 校准符号，放电负电流被翻转为正值，指标 11 方向显示错误。</li>
+<li>后果二（更关键）：<code>evaluateFullCharge(percentage, currentMa, isCharging)</code> 因 <code>isCharging=true</code> 可能在 100% 拔线放电时误判 <code>FULLY_CHARGED</code> —— <strong>与 v1.2.3 P0 声称修复的「防拔线误判」直接冲突</strong>。</li>
+</ul>
+<div class="lbl">双通道漂移（结构性）</div>
+<p>Parser 的 <code>isCharging</code> 含 <code>EXTRA_PLUGGED</code> 兜底，而 <code>BatteryReceiver.kt:55-57</code> 与 <code>BatteryHardwareReader.kt:124</code> 的 <code>isCharging</code> <strong>只看 <code>status==CHARGING||FULL</code></strong>。于是可能出现：Parser 算出 <code>FULLY_CHARGED</code> 并把 UI 状态强制为 <code>FULL</code>、显示「已达充满判定」，但 <code>lockFullChargeIfCriteriaMet</code> 因 <code>isCharging=false</code> 不写盘 → <code>isFullChargeConditionMet=true</code> 却 <code>fullChargeSource=NONE</code>、指标 12 无容量。README 第 60 行「双通道语义完全一致」的宣称在此被打破。</p>
+<div class="lbl">修复建议</div>
+<pre><code>val plugged = intent?.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) ?: 0
+val isCharging = status == BatteryStatus.CHARGING || status == BatteryStatus.FULL || plugged &gt; 0</code></pre>
+<p>并把该 <code>isCharging</code> 随 <code>RawBatteryTelemetry</code> 透传，让广播/轮询锁定逻辑消费同一判定，消除两套口径。</p>
+<div class="lbl">为何 79 个测试没发现它</div>
+<p><code>CoreDefectAuditTest.kt:52</code> 与 <code>:102</code> 构造 Intent 时<strong>都显式执行了</strong> <code>putExtra(EXTRA_PLUGGED, BATTERY_PLUGGED_AC)</code>，恰好绕开「extra 缺失 → 默认值 -1」这条路径；<code>:77</code> 则直接调用 <code>evaluateFullCharge(100, 16, isCharging = false)</code>，绕过 Parser 内部计算 <code>isCharging</code> 的逻辑。缺陷因此被测试用例本身屏蔽。建议补一条「无 EXTRA_PLUGGED + DISCHARGING」的用例。</p>
+</div>
+
+<div class="issue p2" id="i05">
+<h3><span class="tag p2">P2-2</span> 发布说明「声明权限数：0」与最终 APK 不符</h3>
+<div class="lbl">实测证据</div>
+<p>源码 <code>AndroidManifest.xml</code> 确为 0 权限，但<strong>最终发布 APK</strong> 经 manifest merger 合并出：</p>
+<pre><code>&lt;permission android:name="com.battery.master.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+            android:protectionLevel="0x00000002"/&gt;   &lt;!-- signature --&gt;
+&lt;uses-permission android:name="com.battery.master.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"/&gt;</code></pre>
+<p>来源是 <code>BatteryViewModel.kt:90-95</code> 使用 <code>ContextCompat.registerReceiver(..., RECEIVER_NOT_EXPORTED)</code>，AndroidX Core 为兼容旧平台自动注入该签名级权限。</p>
+<div class="lbl">影响</div>
+<p>该权限本身<strong>无害、非敏感、非运行时权限</strong>（protectionLevel=signature），不影响「零敏感权限」的产品定位；但 Release 页「声明权限数：<strong>0</strong>」与 README 第 75 行「Manifest 零权限声明」按字面<strong>与扫描结果不符</strong>，应用商店合规问卷 / 隐私清单按 0 填写会被自动化扫描打回。</p>
+<div class="lbl">修复建议</div>
+<p>说明改为「0 个运行时/危险权限；1 个 AndroidX 自动注入的签名级内部权限（<code>DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION</code>）」；或评估在 Manifest 用 <code>tools:node="remove"</code> 移除并确认 API 33+ 行为不受影响。</p>
+</div>
+
+<div class="issue p2" id="i06">
+<h3><span class="tag p2">P2-3</span> <code>apksigner verify | head -n 10</code> 使签名校验退出码语义不可靠</h3>
+<div class="lbl">位置</div>
+<p><code>.github/workflows/build-apk.yml:166</code></p>
+<pre><code>"$APKSIGNER" verify --verbose "$APK_PATH" | head -n 10 || { echo "::error::APK signature verification failed"; exit 1; }</code></pre>
+<div class="lbl">根因</div>
+<p>管道 + <code>head</code> 会提前截断 stdout。若未启用 <code>pipefail</code>，<code>apksigner</code> 校验失败（退出非 0）但 <code>head</code> 成功返回 0，<code>||</code> 分支<strong>不会触发</strong>——无效签名可被发布；若启用 <code>pipefail</code>，<code>--verbose</code> 输出超 10 行时 <code>apksigner</code> 收到 SIGPIPE 非 0，反而<strong>误报失败</strong>。两种情形都不可靠。发布说明把「无条件 apksigner verify」列为 v1.2.4 的门禁修复，实际校验强度不足。</p>
+<div class="lbl">修复建议</div>
+<pre><code>"$APKSIGNER" verify --verbose "$APK_PATH" &gt; verify.txt 2&gt;&amp;1 || { cat verify.txt; exit 1; }
+head -n 10 verify.txt</code></pre>
+</div>
+
+<div class="issue p2" id="i07">
+<h3><span class="tag p2">P2-4</span> CI 注入的 <code>KEY_ALIAS</code> Secret 从未被 Gradle 读取，<code>keyAlias</code> 硬编码</h3>
+<div class="lbl">位置</div>
+<p><code>build.gradle.kts:29-37</code> 与 <code>build-apk.yml:63-80</code></p>
+<pre><code>// build.gradle.kts
+keyAlias = "battery-master"          // 硬编码
+val hasReleaseSigning = releaseKeystoreFile != null &amp;&amp;
+    releaseKeystorePass != null &amp;&amp; releaseKeyPass != null   // 不校验 alias
+
+// workflow
+echo "KEY_ALIAS=$KEY_ALIAS" &gt;&gt; "$GITHUB_ENV"   // 注入了，但没人读</code></pre>
+<p>本次能成功发布只是因为 Secret 中的别名<strong>恰好</strong>等于 <code>battery-master</code>。一旦密钥库轮换或别名变更，<code>assembleRelease</code> 直接签名失败，且错误信息不会提示是 alias 不匹配。</p>
+<div class="lbl">修复建议</div>
+<pre><code>keyAlias = System.getenv("KEY_ALIAS") ?: "battery-master"
+val hasReleaseSigning = listOf(releaseKeystoreFile, releaseKeystorePass,
+                               releaseKeyPass, System.getenv("KEY_ALIAS")).all { !it.isNullOrBlank() }</code></pre>
+</div>
+
+<div class="issue p2" id="i08">
+<h3><span class="tag p2">P2-5</span> v1.2.5 倒计时降频引入 0~500ms 竞态窗口，并吞掉取消异常</h3>
+<div class="lbl">位置</div>
+<p><code>BatteryViewModel.kt:114-132</code>（本次唯一的行为改动）</p>
+<pre><code>if (remainingMs &lt;= 0L) {
+    _simulationRemainingSec.value = 0L
+    delay(500)          // 位于 try 内，CancellationException 会被下方 catch 吞掉
+    continue
+}
+...
+} catch (e: Throwable) { /* 吞掉包括 CancellationException 在内的所有异常 */ }
+delay(250)</code></pre>
+<div class="lbl">影响</div>
+<ul>
+<li><code>triggerFullChargeSimulation()</code> 立即写入 <code>simulationHoldUntilMs</code>，但 <code>_simulationRemainingSec</code> 最多 <strong>500ms 后</strong>才变为 &gt;0。而 <code>FullChargeConditionCard</code> 的按钮 <code>enabled = !isSimulating</code>（<code>simulationRemainingSec &gt; 0</code>）——这 500ms 内按钮<strong>仍可重复点击</strong>，导致反复写 SharedPreferences、反复重置 15 秒保持期。</li>
+<li><code>catch (e: Throwable)</code> 覆盖 <code>delay(500)</code>，会吞掉协程的 <code>CancellationException</code>。虽因随后的 <code>delay(250)</code> 在 try 外仍会完成取消，但属于典型的协程反模式，在后续重构中极易演变成无法取消的僵尸协程。</li>
+<li>方法注释仍写「每 250ms 刷新剩余秒数」，与新的 500ms 低频逻辑不符。</li>
+</ul>
+<div class="lbl">修复建议</div>
+<p>在 <code>triggerFullChargeSimulation()</code> 中同步 <code>_simulationRemainingSec.value = SIMULATION_HOLD_MS / 1000</code>；<code>catch</code> 改为 <code>catch (e: Exception)</code> 并显式 <code>if (e is CancellationException) throw e</code>（或改用 <code>ensureActive()</code>）；同步更新注释。</p>
+</div>
+
+<div class="issue p2" id="i09">
+<h3><span class="tag p2">P2-6</span> 清除充满记录后，采集异常降级会让已删除的锁定值「复活」</h3>
+<div class="lbl">位置</div>
+<p><code>BatteryHardwareReader.kt:93, 98-104</code> 与 <code>BatteryViewModel.kt:375-386</code></p>
+<pre><code>fun readBatteryTelemetry(): BatteryState = try {
+    readBatteryTelemetryInternal().also { lastKnownState = it }
+} catch (e: Throwable) {
+    lastKnownState ?: buildSafeDefaultState()   // 返回旧快照
+}</code></pre>
+<p><code>clearFullChargeRecords()</code> 清除了内存字段与 SharedPreferences，并通过 VM 更新了 <code>_batteryState</code>，但<strong>未清除 <code>reader.lastKnownState</code> 快照</strong>。若此后某一拍 <code>readBatteryTelemetryInternal()</code> 抛异常（ROM 服务异常、sysfs 拒绝等，代码本身已为此设计了兜底），将返回<strong>清除前</strong>的旧快照，指标 12 的「已清除」锁定容量重新出现。</p>
+<div class="lbl">修复建议</div>
+<p><code>clearFullChargeRecords()</code> 中同步 <code>lastKnownState = null</code>，或把快照的 fullCharge 字段一并清空。</p>
+</div>
+
+<h2 id="s5">5. P3 低优先级与工程化问题</h2>
+
+<div class="issue p3">
+<h3><span class="tag p3">P3-1</span> README 多处与当前代码失实</h3>
+<table>
+<tr><th>位置</th><th>README 表述</th><th>实际</th></tr>
+<tr><td>第 76 行</td><td>「<code>versionCode</code> 单调递增（<strong>7</strong>）」</td><td>当前 <code>versionCode = 10</code></td></tr>
+<tr><td>第 84 行</td><td>副标题为「Android 15 电池 AIDL 硬件抽象层 · 原生硬件遥测」</td><td>代码已改为 <code>API ${Build.VERSION.SDK_INT} 电池硬件抽象层</code> 动态渲染（这正是 README 自己宣称的修复）</td></tr>
+<tr><td>第 103 行</td><td>「业务侧<strong>无反射依赖</strong>，全量混淆安全」</td><td>被 v1.2.5 提交信息直接推翻：ViewModel 经 <code>SavedStateViewModelFactory</code> 反射实例化，需专门加 keep 规则</td></tr>
+<tr><td>第 60 行</td><td>「双通道 12 项指标语义完全一致」</td><td>见 <a href="#i04">P2-1</a> 的 <code>isCharging</code> 口径漂移</td></tr>
+<tr><td>第 75 行</td><td>「Manifest 零权限声明」</td><td>最终 APK 有 1 个自动注入权限（见 <a href="#i05">P2-2</a>）</td></tr>
+</table>
+<p class="note">README 保留了 v1.2.2~v1.2.4 各版本「审计修复」的历史段落，导致同一文档内新旧结论并存、互相矛盾。建议把历史修复说明收敛到 CHANGELOG，README 只保留当前版本事实。</p>
+</div>
+
+<div class="issue p3">
+<h3><span class="tag p3">P3-2</span> Web 端「原生源码查看器」内嵌的 Kotlin 代码严重过时</h3>
+<p><code>src/components/NativeCodeViewer.tsx</code>（4,030 行）以字符串形式展示了 Android 源码镜像，但内容停留在旧实现：</p>
+<ul>
+<li>第 517 行 <code>currentCapacityMah = sysfsMaxCapacityUah / 1000</code>、第 526 行 <code>(chargeCounterUah / 1000).coerceAtMost(...)</code> —— 实际 <code>BatteryTelemetryParser</code> 已改为 <code>BatterySysfs.parseCapacityMah</code> 双单位归一化 + <code>Math.round</code>；</li>
+<li>第 537 / 609 行仍是「<code>percentage == 100 &amp;&amp; currentNow ∈ [0, 25]</code>」单态判定 —— 实际已改为符号无关 + 充电态 + 三态；</li>
+<li>第 754 行硬编码 <code>text = "Android 15 Battery AIDL HAL · 原生硬件遥测"</code> —— 实际已改为动态 API。</li>
+</ul>
+<p>用户点击「查看原生源码」看到的是<strong>与仓库真实 Kotlin 文件不一致的伪代码</strong>，作为交付资产会误导技术读者。建议改为从 <code>android/</code> 目录构建时抽取真实源码，或明确标注「历史版本快照」。</p>
+</div>
+
+<div class="issue p3">
+<h3><span class="tag p3">P3-3</span> Vite 配置使用 <code>__dirname</code>，已被 Vite 8 明确警告未来不兼容</h3>
+<p>本次实际构建输出：</p>
+<pre><code>(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`,
+    which is planned to become the default in a future major version of Vite:
+  - `__dirname` (vite.config.ts:11:27). Use `import.meta.dirname` instead</code></pre>
+<p>建议改为 <code>path.resolve(import.meta.dirname, '.')</code>，避免后续 Vite 主版本升级直接构建失败。</p>
+</div>
+
+<div class="issue p3">
+<h3><span class="tag p3">P3-4</span> 前端单 chunk 519 KB，未做代码分割</h3>
+<p><code>dist/assets/index-CCA33FBM.js</code> 519.16 KB（gzip 143.48 KB），触发 Vite &gt;500 KB 警告。4,030 行的 <code>NativeCodeViewer</code> 源码字符串被全量打进首屏 bundle。建议对 <code>native</code>/<code>hub</code> Tab 使用 <code>React.lazy</code> + 动态 import。</p>
+</div>
+
+<div class="issue p3">
+<h3><span class="tag p3">P3-5</span> <code>targetSdk/compileSdk = 35</code>，未覆盖 Android 16（API 36）</h3>
+<p>与项目「必须兼容 Android 15-16 且无崩溃」的目标存在差距。已验证的正面证据：4 个 ABI 的 .so 均 16KB 对齐、动态广播已用 <code>RECEIVER_NOT_EXPORTED</code>、<code>Build.SOC_MODEL</code>(31+) / <code>EXTRA_CYCLE_COUNT</code>(34+) 均有 SDK_INT 守卫、R8 反射构造器保留——因此 <strong>Android 16 真机上预计不会因此崩溃</strong>。但：Play 商店在 2026 年已要求 targetSdk 36；targetSdk 35 无法验证 API 36 的行为变更（edge-to-edge 强制策略、Intent 处理收紧等）。建议升 compileSdk/targetSdk 36 并做 Android 16 真机回归。</p>
+</div>
+
+<div class="issue p3">
+<h3><span class="tag p3">P3-6</span> APK 仅 v2 签名，缺少 v3 / v3.1</h3>
+<p>实测 <code>is_signed_v1=false, v2=true, v3=false, v3.1=false</code>；<code>jarsigner</code> 显示「jar is unsigned」（无 v1 JAR 签名）。minSdk 26 下 v2（API 24+）完全够用、可正常安装，<strong>不是安装缺陷</strong>；但缺少 APK 密钥轮换能力（Android 13+ 的 v3.1），未来更换签名证书需用户卸载重装。</p>
+</div>
+
+<div class="issue p3">
+<h3><span class="tag p3">P3-7</span> 发布产物缺 VCS 溯源信息</h3>
+<p>APK 内 <code>META-INF/version-control-info.textproto</code> 内容为 <code>generate_error_reason: NO_SUPPORTED_VCS_FOUND</code>，说明 CI checkout 未携带 git 历史，产物无法反查构建 commit。建议 <code>actions/checkout@v4</code> 设置 <code>fetch-depth: 0</code>。</p>
+</div>
+
+<div class="issue p3">
+<h3><span class="tag p3">P3-8</span> 模板残留依赖与环境变量</h3>
+<p><code>package.json</code> 依赖 <code>@google/genai</code>、<code>.env.example</code> 声明 <code>GEMINI_API_KEY</code> / <code>APP_URL</code>，但 <code>src/</code> 中<strong>无任何调用</strong>，打包产物中也无相关代码与密钥（已验证）。属 AI Studio 模板残留，可清理以降低依赖面与供应链风险。</p>
+</div>
+
+<h2 id="s6">6. 发布说明 / README 失实对照</h2>
+<table>
+<tr><th style="width:30%">宣称</th><th style="width:36%">实际情况</th><th style="width:12%">性质</th><th style="width:22%">对应缺陷</th></tr>
+<tr><td>「解压后…或直接用浏览器打开 <code>index.html</code>」</td><td>实测白屏，JS/CSS 因绝对路径 404</td><td><span class="tag p1">功能失效</span></td><td>P1-1</td></tr>
+<tr><td>「Web 遥测定时器 ref 化消除每拍重建」等性能宣称</td><td>该优化属实；但双端口径未同步</td><td><span class="tag p2">部分失实</span></td><td>P1-3</td></tr>
+<tr><td>「声明权限数：<strong>0</strong>」「Manifest 零权限声明」</td><td>最终 APK 含 1 个签名级自动注入权限</td><td><span class="tag p2">字面失实</span></td><td>P2-2</td></tr>
+<tr><td>「双通道 12 项指标语义完全一致」</td><td><code>isCharging</code> 两套口径，可致 UI 与锁定不一致</td><td><span class="tag p2">失实</span></td><td>P2-1</td></tr>
+<tr><td>「无条件 <code>apksigner verify</code> 门禁持续生效」</td><td>管道截断使退出码不可靠</td><td><span class="tag p2">强度不足</span></td><td>P2-3</td></tr>
+<tr><td>「广播注册/注销全容错、空安全与除零防护」</td><td>基本属实，Throwable 兜底覆盖完整；但存在竞态与快照复活</td><td><span class="tag p3">局部</span></td><td>P2-5 / P2-6</td></tr>
+<tr><td>「正式 Release 签名」「R8 混淆」「versionCode 10」「SHA256 校验和」</td><td>全部实测属实</td><td><span class="tag ok">属实</span></td><td>通过项</td></tr>
+<tr><td>「业务侧无反射依赖，全量混淆安全」(README v1.2.4 段)</td><td>被 v1.2.5 自身推翻</td><td><span class="tag p3">文档过期</span></td><td>P3-1</td></tr>
+</table>
+
+<h2 id="s7">7. CI/CD 门禁专项</h2>
+<p><code>.github/workflows/build-apk.yml</code> 整体设计良好：串行并发控制、tag↔versionName 一致性校验、aapt2 badging、签名兜底显性化、SHA256SUMS、产物非空校验，均值得肯定。本次审计发现的门禁缺口：</p>
+<table>
+<tr><th>环节</th><th>现有校验</th><th>缺口</th></tr>
+<tr><td>Android 测试</td><td><code>testDebugUnitTest</code>（11 类 / 1,980 行）</td><td>只覆盖未混淆 debug 变体，无法发现 R8 反射缺陷；无 release 冒烟 → <a href="#i02">P1-2</a></td></tr>
+<tr><td>Release 产物</td><td><code>aapt2 badging</code>（包名/版本/图标/标签/启动 Activity）</td><td>不检查 dex 内反射构造器、不检查权限合并结果 → <a href="#i05">P2-2</a></td></tr>
+<tr><td>签名校验</td><td><code>apksigner verify --verbose | head -n 10</code></td><td>管道退出码语义不可靠 → <a href="#i06">P2-3</a></td></tr>
+<tr><td>签名配置</td><td>Secrets 注入 4 个变量</td><td><code>KEY_ALIAS</code> 注入但硬编码覆盖 → <a href="#i07">P2-4</a></td></tr>
+<tr><td>Web 产物</td><td><code>index.html</code> 非空 + <code>assets/</code> 文件数 ≥ 2</td><td>不校验资源路径可达性 / 真实加载 → <a href="#i01">P1-1</a></td></tr>
+<tr><td>构建兜底</td><td><code>./gradlew … || gradle …</code></td><td>系统 Gradle 为 9.3，与 AGP 8.7.2（要求 Gradle 8.9）不兼容，兜底路径实际不可用</td></tr>
+</table>
+
+<h2 id="s8">8. Android 15-16 兼容性专项</h2>
+<table>
+<tr><th style="width:26%">风险点</th><th style="width:14%">结论</th><th>依据</th></tr>
+<tr><td>16KB page size（Android 15+ / Play 强制）</td><td><span class="tag ok">通过</span></td><td>arm64-v8a / armeabi-v7a / x86 / x86_64 四份 <code>libandroidx.graphics.path.so</code>，<code>readelf -lW</code> 显示所有 LOAD 段 <code>Align 0x4000</code></td></tr>
+<tr><td>动态广播导出标志（API 33+）</td><td><span class="tag ok">通过</span></td><td><code>ContextCompat.registerReceiver(..., RECEIVER_NOT_EXPORTED)</code> 并 try/catch Throwable 兜底</td></tr>
+<tr><td>隐藏 API / 反射</td><td><span class="tag ok">通过</span></td><td><code>PowerProfile</code> 反射整体 <code>catch (Throwable)</code> 降级；ViewModel 反射构造器已保留（dex 实证）</td></tr>
+<tr><td>API 分级守卫</td><td><span class="tag ok">通过</span></td><td><code>Build.SOC_MODEL</code> 31+、<code>EXTRA_CYCLE_COUNT</code> 34+ 均带 <code>SDK_INT</code> 判断</td></tr>
+<tr><td>targetSdk 36 适配</td><td><span class="tag p3">待办</span></td><td>当前 targetSdk 35，未验证 API 36 行为变更；Play 合规存在风险 → P3-5</td></tr>
+<tr><td>真机无崩溃</td><td><span class="tag gray">未验证</span></td><td>本环境无真机/模拟器；结论来自静态分析 + release APK 二进制实证，建议补一轮 Android 15/16 真机启动回归</td></tr>
+</table>
+
+<h2 id="s9">9. 修复优先级路线图</h2>
+<table>
+<tr><th style="width:12%">批次</th><th style="width:38%">动作</th><th style="width:26%">验收标准</th><th style="width:24%">涉及文件</th></tr>
+<tr><td><span class="tag p1">第 1 批</span></td><td>Web 产物改相对路径并重发资产；CI 增加 release 产物 dex 冒烟；Web 端同步双端口径（判定/功率/阈值/容量）</td><td><code>file://</code> 打开能渲染出「12 项电池充放电指标详情」；release dex 中 ViewModel 构造器存在被 CI 断言；双端口径一致性测试通过</td><td><code>vite.config.ts</code>、<code>build-apk.yml</code>、<code>src/hooks/useBatteryMonitor.ts</code>、<code>src/App.tsx</code>、<code>src/components/FullChargeCalibrationCard.tsx</code>、<code>DevicePresetSelector.tsx</code>、<code>HardwareSimulationLab.tsx</code></td></tr>
+<tr><td><span class="tag p2">第 2 批</span></td><td>修 <code>EXTRA_PLUGGED</code> 默认值并统一 <code>isCharging</code> 透传；修 apksigner 管道；读 <code>KEY_ALIAS</code>；修倒计时竞态与取消异常；清 <code>lastKnownState</code>；更正权限说明</td><td>补充对应单元测试（异常 Intent、拔线 100%、协程取消、清除后降级）；CI 签名断言在故意破坏签名时能失败</td><td><code>BatteryTelemetryParser.kt</code>、<code>BatteryReceiver.kt</code>、<code>BatteryHardwareReader.kt</code>、<code>BatteryViewModel.kt</code>、<code>build.gradle.kts</code>、<code>build-apk.yml</code>、Release 说明</td></tr>
+<tr><td><span class="tag p3">第 3 批</span></td><td>README/CHANGELOG 拆分与事实校正；NativeCodeViewer 源码同步或标注快照；<code>import.meta.dirname</code>；代码分割；升 compileSdk/targetSdk 36；v3.1 签名；<code>fetch-depth: 0</code>；清理模板依赖</td><td>文档与代码逐条一致；Android 16 真机启动回归通过；bundle 首屏 &lt; 300 KB</td><td>全仓</td></tr>
+</table>
+
+<h2 id="s10">10. 附录：证据、命令与限制</h2>
+<h4>关键验证命令</h4>
+<pre><code># 源码与变更
+git clone --branch v1.2.5 --depth 1 https://github.com/Tri250/-.git
+curl -s "https://api.github.com/repos/Tri250/-/compare/v1.2.4...v1.2.5"
+
+# 资产完整性
+sha256sum Android-Battery-Master-v1.2.5-release.apk web-demo-dist.zip
+
+# APK 二进制解析（androguard）
+APK(...).get_androidversion_code() / get_permissions() / is_signed_v2()
+DEX(apk.get_file('classes.dex')).get_classes()   # 检查混淆与构造器
+openssl x509 -inform DER -in cert.der -noout -subject -dates   # v2 证书
+
+# ELF 16KB 对齐
+readelf -lW lib/*/libandroidx.graphics.path.so | grep LOAD
+
+# Web 构建与实测
+npm ci &amp;&amp; npx tsc --noEmit &amp;&amp; npm run build
+chromium --headless --no-sandbox --virtual-time-budget=4000 --dump-dom "file:///.../index.html"
+
+# Android 编译与单元测试（需 Android SDK 35 + Build-Tools 34）
+cd android &amp;&amp; ./gradlew testDebugUnitTest --no-daemon --console=plain
+# → BUILD SUCCESSFUL，11 类 / 79 用例 / failures=0 errors=0</code></pre>
+
+<h4>已生成的证据文件（临时工作区）</h4>
+<p class="note"><code>/root/.codebuddy/artifact/2f8a7d30-…/audit/</code> 下：<code>repo/</code>（v1.2.5 源码）、<code>assets/</code>（3 项发布资产 + 解压的 webdist + APK 解包）、<code>release.json</code>。</p>
+
+<h4>限制与未验证项</h4>
+<ul>
+<li>无 Android 真机 / 模拟器，未做 instrumentation 测试与真机启动冒烟；本报告所有运行期结论来自静态分析 + release APK 二进制实证 + debug 单元测试。</li>
+<li><strong>Android 单元测试已实跑通过</strong>：安装 Android SDK 35 / Build-Tools 34 后 <code>./gradlew testDebugUnitTest</code> → BUILD SUCCESSFUL，11 类 79 用例全绿，编译链（AGP 8.7.2 / Kotlin 2.0.21 / Gradle 8.9 / JDK 20）验证通过。首次尝试失败的原因是<strong>沙箱预置的 <code>/root/.gradle/init.gradle</code> 自身有语法错误</strong>（<code>url</code> 缺引号、<code>mavelCentral()</code> 拼写错误），备份移除后即通过，<strong>与本项目代码无关</strong>，请勿据此判定项目构建失败。</li>
+<li>未对 <code>web-demo-dist.zip</code> 做多浏览器（Firefox/Safari）与多子路径部署矩阵测试；<code>file://</code> 白屏已在 Chromium 实测，绝对路径导致子路径失败为确定性推论。</li>
+<li>未获取 Release 签名私钥，仅验证证书主体与 v2 签名块完整性；未验证 v2 摘要与实际文件字节的密码学一致性（<code>apksigner</code> 不在环境中），该项由 CI 的 <code>apksigner verify</code> 覆盖，但其管道写法存在 <a href="#i06">P2-3</a> 缺陷。</li>
+</ul>
+
+<footer>
+本报告基于 <code>Tri250/-</code> 仓库 tag <code>v1.2.5</code>（commit <code>ba145064abd3926221e16e6c5080f69a50f923cd</code>）及同版本 3 项 Release 资产独立生成。
+审计日期 2026-11-13。所有缺陷均标注具体文件、行号与可复现证据；标注「待验证」的条目未计入确认缺陷数。
+</footer>
+
+</div>
+</body>
+</html>
