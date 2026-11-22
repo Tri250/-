@@ -165,11 +165,11 @@ object ChargeRecorder {
 
     // ---------------------------------------------------------------- 采样驱动
 
-    /** 每次采样（10 秒）喂进来，内部做状态机推进 */
+    /** 每次采样喂进来（前台页面 1 秒 / 记录服务 10 秒，MIN_SAMPLE_GAP 去重），内部做状态机推进 */
     @Synchronized
     fun onSample(sample: BatterySample) {
         val now = System.currentTimeMillis()
-        // 超级岛：与记录状态机无关，只要采样就驱动——充电中更新岛，非充电收起。
+        // 超级岛 / 流体云：与记录状态机无关，只要采样就驱动——充电中更新岛或胶囊，非充电收起。
         // 前台页面与前台服务都会喂采样，故 App 打开或记录中时岛持续刷新。
         appContext?.let { ctx ->
             com.smalljelly.batterydata.island.BatteryIslandHelper.onSample(

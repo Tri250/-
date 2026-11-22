@@ -7,9 +7,11 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.graphics.drawable.Icon
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.graphics.drawable.IconCompat
 import com.smalljelly.batterydata.MainActivity
 import com.smalljelly.batterydata.R
 import com.smalljelly.batterydata.data.BatterySample
@@ -26,11 +28,16 @@ import kotlinx.coroutines.sync.withLock
 import org.json.JSONObject
 
 /**
- * 小米超级岛（HyperOS 焦点通知）适配，移植自 NexioSchedule 的 IslandNotificationHelper，
- * 把课程倒计时换成电池充电状态：充电中在屏幕顶部岛里显示电量 / 功率，展开看温度与预计充满时间。
+ * 充电岛适配调度器：
+ * - 小米超级岛（HyperOS 焦点通知），移植自 NexioSchedule 的 IslandNotificationHelper，
+ *   把课程倒计时换成电池充电状态：充电中在屏幕顶部岛里显示电量 / 功率，展开看温度与预计充满时间。
+ *   岛通知走 XMSF 通道，系统默认掐其网络 → 借 Shizuku 临时放行（见 [ShizukuManager]）。
+ *   不支持岛的设备（persist.sys.feature.island=false）不走这条。
+ * - OPPO 流体云（ColorOS 16+ Live Alerts）：见 [FluidCloudHelper]，按标准
+ *   Android 16 实时更新通知渲染成胶囊，无需 Shizuku。
+ * - 都不可用时回退谷歌原生实况通知（Live Update）。
  *
- * 岛通知走 XMSF 通道，系统默认掐其网络 → 借 Shizuku 临时放行（见 [ShizukuManager]）。
- * 不支持岛的设备（persist.sys.feature.island=false）所有调用直接 no-op。
+ * 每次电池采样由 [ChargeRecorder.onSample] 驱动进入 [onSample]，按机型能力择路。
  */
 object BatteryIslandHelper {
     private const val TAG = "BatteryIslandHelper"
@@ -49,12 +56,12 @@ object BatteryIslandHelper {
     // 与 NexioSchedule 一致——否则每次采样都弹大岛会很吵。
     private var islandShowing = false
     // 普通通知去重 + 节流：内容没变不重发；电量变化立即更新，功率抖动限频 20s，
-    // 避免每 10 秒采样都 notify() 导致通知不断刷新。
+    // 避免每次采样（前台页面 1 秒 / 记录服务 10 秒）都 notify() 导致通知不断刷新。
     private var lastFallbackKey: String? = null
     private var lastFallbackAt = 0L
     private var lastFallbackLevel = -1
     // 岛更新节流：首次必发；之后内容没变不重发，电量没变则限频 30s——
-    // 避免每 10s 都重发岛通知并反复 toggle XMSF 网络。
+    // 避免高频采样时反复重发岛通知并 toggle XMSF 网络。
     private var lastIslandKey: String? = null
     private var lastIslandAt = 0L
     private var lastIslandLevel = -1
@@ -99,23 +106,27 @@ object BatteryIslandHelper {
 
     /**
      * 充电状态通知由采样链每次采样驱动：
-     * - 充电中：支持超级岛且开启 → 发岛；否则回退谷歌原生实况通知（Live Update）。
-     * - 非充电：收起岛与兜底通知。
+     * - 充电中：小米岛支持且开启 → 发岛；OPPO 流体云支持且开启 → 发流体云胶囊；
+     *   都不可用且不在记录中 → 回退谷歌原生实况通知（Live Update）。
+     * - 非充电：收起岛、流体云与兜底通知。
      * 记录中（[RecorderState.Recording]）已有 ChargeRecordService 的实况通知(1001)，
-     * 兜底不重复发；岛则与记录通知并存（岛看电量/功率，记录通知带「结束并保存」）。
+     * 兜底不重复发；岛 / 流体云则与记录通知并存（岛看电量/功率，记录通知带「结束并保存」）。
      */
     fun onSample(context: Context, sample: BatterySample, enabled: Boolean) {
         if (!sample.isCharging) {
             cancel(context)
             return
         }
-        val supported = isIslandSupported(context)
         val recording = ChargeRecorder.state.value is RecorderState.Recording
-        if (supported && enabled) {
-            sendOrUpdate(context, sample)
-        } else if (!recording) {
-            Log.d(TAG, "island unavailable (supported=$supported enabled=$enabled) → Google live fallback")
-            sendGoogleLiveFallback(context, sample)
+        when {
+            isIslandSupported(context) && enabled -> sendOrUpdate(context, sample)
+
+            FluidCloudHelper.isSupported() && enabled -> FluidCloudHelper.onSample(context, sample)
+
+            !recording -> {
+                Log.d(TAG, "island/fluid unavailable → Google live fallback")
+                sendGoogleLiveFallback(context, sample)
+            }
         }
     }
 
@@ -175,6 +186,8 @@ object BatteryIslandHelper {
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.cancel(ISLAND_NOTIFICATION_ID)
         manager.cancel(LIVE_NOTIFICATION_ID)
+        // 流体云与岛互斥，取消时一并收掉
+        FluidCloudHelper.cancel(context)
         islandShowing = false
         lastFallbackKey = null
         lastFallbackLevel = -1
@@ -221,7 +234,27 @@ object BatteryIslandHelper {
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
 
-        // 普通通知不挂进度条：纯文本（标题电量 + 正文功率），安静常驻
+        // Android 16+（含 ColorOS 16 流体云）：与 ChargeRecordService 同一套实时更新
+        // 管线 —— ProgressStyle 进度 + setRequestPromotedOngoing，兜底也能成为真·实况
+        // 通知 / 流体云胶囊。老系统退回普通进度条。
+        if (Build.VERSION.SDK_INT >= 36) {
+            builder
+                .setStyle(
+                    NotificationCompat.ProgressStyle()
+                        .setProgress(level)
+                        .setProgressSegments(listOf(NotificationCompat.ProgressStyle.Segment(100)))
+                        .setProgressTrackerIcon(
+                            IconCompat.createWithResource(context, R.drawable.ic_stat_charge),
+                        )
+                        .setStyledByProgress(true),
+                )
+                .setShortCriticalText(powerText)
+            val canPromote = runCatching { manager.canPostPromotedNotifications() }.getOrDefault(true)
+            if (canPromote) builder.setRequestPromotedOngoing(true)
+        } else {
+            // 老系统没有实时更新：挂一条普通进度条
+            builder.setProgress(100, level, false)
+        }
         manager.notify(LIVE_NOTIFICATION_ID, builder.build())
     }
 

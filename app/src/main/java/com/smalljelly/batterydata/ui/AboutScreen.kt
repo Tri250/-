@@ -62,6 +62,7 @@ import androidx.compose.ui.unit.sp
 import com.smalljelly.batterydata.R
 import com.smalljelly.batterydata.data.ApkUpdater
 import com.smalljelly.batterydata.island.BatteryIslandHelper
+import com.smalljelly.batterydata.island.FluidCloudHelper
 import com.smalljelly.batterydata.shizuku.ShizukuManager
 import com.smalljelly.batterydata.data.BatterySettings
 import com.smalljelly.batterydata.data.UpdateChecker
@@ -190,10 +191,13 @@ fun AboutScreen(onBack: () -> Unit, onOpenLogs: () -> Unit = {}) {
     LaunchedEffect(showSourceMenu) { if (showSourceMenu) sourceFullyDismissed = false }
     LaunchedEffect(showMaterialMenu) { if (showMaterialMenu) materialFullyDismissed = false }
 
-    // Shizuku / 小米超级岛：授权状态 + 岛开关
+    // Shizuku / 超级岛 / 流体云：授权状态 + 岛开关
     val shizukuRunning = remember { mutableStateOf(ShizukuManager.isShizukuRunning()) }
     val shizukuAuthorized = remember { mutableStateOf(ShizukuManager.checkSelfPermission()) }
-    val islandSupported = remember { BatteryIslandHelper.isIslandSupported(context) }
+    // 小米超级岛仅 HyperOS 设备支持；OPPO 流体云仅 OPPO 家机型 + ColorOS 16 支持
+    val xiaomiIsland = remember { BatteryIslandHelper.isIslandSupported(context) }
+    val fluidCloud = remember { FluidCloudHelper.isSupported() }
+    val islandSupported = remember(xiaomiIsland, fluidCloud) { xiaomiIsland || fluidCloud }
     var islandEnabled by remember { mutableStateOf(settings.islandEnabled()) }
 
     // 下拉面板的玻璃素材：本页内容层（自带不透明底）
@@ -621,59 +625,62 @@ fun AboutScreen(onBack: () -> Unit, onOpenLogs: () -> Unit = {}) {
                 cornerRadius = 20.dp,
                 insideMargin = PaddingValues(horizontal = 18.dp, vertical = 14.dp),
             ) {
-                // Shizuku 授权状态：超级岛通知借它放行 XMSF 网络
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    NexioText(
-                        text = "Shizuku",
-                        fontSize = 16.sp,
-                        color = colors.onSurfaceContainer,
-                    )
-                    NexioText(
-                        text = when {
-                            !shizukuRunning.value -> "未运行"
-                            !shizukuAuthorized.value -> "未授权"
-                            else -> "已就绪"
-                        },
-                        fontSize = 14.sp,
-                        color = when {
-                            !shizukuRunning.value -> Color(0xFFFF6B6B)
-                            !shizukuAuthorized.value -> Color(0xFFFFB347)
-                            else -> Color(0xFF4CAF50)
-                        },
-                    )
-                }
-                if (!shizukuRunning.value) {
-                    Spacer(Modifier.height(8.dp))
-                    NexioText(
-                        text = "超级岛需要 Shizuku 放行 XMSF 网络，请先安装并启动 Shizuku。",
-                        fontSize = 12.sp,
-                        lineHeight = 17.sp,
-                        color = colors.onSurfaceVariantSummary,
-                    )
-                } else if (!shizukuAuthorized.value) {
-                    Spacer(Modifier.height(10.dp))
-                    FlatTextButton(
-                        text = "授权 Shizuku",
+                // Shizuku 授权状态：小米超级岛通知借它放行 XMSF 网络。
+                // 流体云走标准 Android 16 实时更新通知，不经过 XMSF，无需 Shizuku。
+                if (xiaomiIsland) {
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
-                        onClick = {
-                            BatteryIslandHelper.requestShizukuPermission { granted ->
-                                shizukuAuthorized.value = granted
-                                shizukuRunning.value = ShizukuManager.isShizukuRunning()
-                                Toast.makeText(
-                                    context,
-                                    if (granted) "Shizuku 已授权" else "Shizuku 授权失败",
-                                    Toast.LENGTH_SHORT,
-                                ).show()
-                            }
-                        },
-                    )
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        NexioText(
+                            text = "Shizuku",
+                            fontSize = 16.sp,
+                            color = colors.onSurfaceContainer,
+                        )
+                        NexioText(
+                            text = when {
+                                !shizukuRunning.value -> "未运行"
+                                !shizukuAuthorized.value -> "未授权"
+                                else -> "已就绪"
+                            },
+                            fontSize = 14.sp,
+                            color = when {
+                                !shizukuRunning.value -> Color(0xFFFF6B6B)
+                                !shizukuAuthorized.value -> Color(0xFFFFB347)
+                                else -> Color(0xFF4CAF50)
+                            },
+                        )
+                    }
+                    if (!shizukuRunning.value) {
+                        Spacer(Modifier.height(8.dp))
+                        NexioText(
+                            text = "超级岛需要 Shizuku 放行 XMSF 网络，请先安装并启动 Shizuku。",
+                            fontSize = 12.sp,
+                            lineHeight = 17.sp,
+                            color = colors.onSurfaceVariantSummary,
+                        )
+                    } else if (!shizukuAuthorized.value) {
+                        Spacer(Modifier.height(10.dp))
+                        FlatTextButton(
+                            text = "授权 Shizuku",
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = {
+                                BatteryIslandHelper.requestShizukuPermission { granted ->
+                                    shizukuAuthorized.value = granted
+                                    shizukuRunning.value = ShizukuManager.isShizukuRunning()
+                                    Toast.makeText(
+                                        context,
+                                        if (granted) "Shizuku 已授权" else "Shizuku 授权失败",
+                                        Toast.LENGTH_SHORT,
+                                    ).show()
+                                }
+                            },
+                        )
+                    }
+                    Spacer(Modifier.height(14.dp))
                 }
-                Spacer(Modifier.height(14.dp))
-                // 超级岛开关
+                // 超级岛 / 流体云开关
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -681,12 +688,21 @@ fun AboutScreen(onBack: () -> Unit, onOpenLogs: () -> Unit = {}) {
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         NexioText(
-                            text = "小米超级岛",
+                            text = when {
+                                xiaomiIsland -> "小米超级岛"
+                                fluidCloud -> "OPPO 流体云"
+                                else -> "超级岛 / 流体云"
+                            },
                             fontSize = 16.sp,
                             color = colors.onSurfaceContainer,
                         )
                         NexioText(
-                            text = if (islandSupported) "充电时在顶部岛显示电量 / 功率" else "当前设备不支持超级岛",
+                            text = when {
+                                xiaomiIsland -> "充电时在顶部岛显示电量 / 功率"
+                                fluidCloud -> "充电时以流体云胶囊显示电量 / 功率"
+                                FluidCloudHelper.isOppoFamily() -> "需 ColorOS 16（Android 16）以流体云胶囊显示"
+                                else -> "当前设备不支持超级岛 / 流体云"
+                            },
                             fontSize = 12.sp,
                             color = colors.onSurfaceVariantSummary,
                         )

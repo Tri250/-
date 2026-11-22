@@ -141,13 +141,13 @@ import java.util.Locale
 
 private const val HISTORY_SIZE = 60
 
-/** 刷新间隔：30 秒 */
-private const val REFRESH_INTERVAL_MS = 10_000L
+/** 刷新间隔：1 秒（README「1 秒级刷新」承诺；充电记录服务仍按 10 秒采样，见 ChargeRecordService） */
+private const val REFRESH_INTERVAL_MS = 1_000L
 
 /** 没有历史电流数据时，估算亮屏时长采用的典型亮屏电流（mA） */
 private const val TYPICAL_SCREEN_ON_CURRENT_MA = 450f
 
-/** 亮屏电流样本的滑动窗口：30 分钟（10 秒一采） */
+/** 亮屏电流样本的滑动窗口：3 分钟（1 秒一采，180 个样本） */
 private const val SCREEN_ON_WINDOW = 180
 
 /** 少于这个数量就不信样本，退回典型值 */
@@ -604,7 +604,7 @@ private fun HomeScreen(
             InfoCard(sample)
             Spacer(Modifier.height(18.dp))
             NexioText(
-                text = "数据每 10 秒从系统 BatteryManager 与 power_supply 节点读取\n个别机型不开放电流、容量数据时会显示“未公开”",
+                text = "数据每秒从系统 BatteryManager 与 power_supply 节点读取\n个别机型不开放电流、容量数据时会显示“未公开”",
                 fontSize = 11.sp,
                 lineHeight = 16.sp,
                 color = colors.onSurfaceVariantSummary,
@@ -782,7 +782,7 @@ private fun InfoCard(sample: BatterySample) {
             value = "${sample.level}%",
         )
         InnerDivider()
-        InfoRow("采样间隔", "10 秒")
+        InfoRow("采样间隔", "1 秒")
     }
 }
 

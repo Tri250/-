@@ -46,7 +46,7 @@ class BatterySettings(context: Context) {
         prefs.edit().putString(KEY_MATERIAL_LEVEL, value).apply()
     }
 
-    /** 小米超级岛：充电时在顶部岛显示电量/功率，默认开启（不支持的设备自动 no-op） */
+    /** 超级岛 / 流体云：充电时在顶部岛（小米 HyperOS）或流体云胶囊（OPPO ColorOS 16+）显示电量/功率，默认开启（不支持的设备自动 no-op） */
     fun islandEnabled(): Boolean = prefs.getBoolean(KEY_ISLAND_ENABLED, true)
 
     fun setIslandEnabled(enabled: Boolean) {

@@ -48,7 +48,7 @@ fun RealtimeStatsCard(
                 style = NexioTheme.textStyles.title3,
                 color = colors.onSurfaceContainer,
             )
-            LiveBadge(text = "每 10 秒刷新")
+            LiveBadge(text = "每秒刷新")
         }
 
         Spacer(Modifier.height(16.dp))
