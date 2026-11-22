@@ -54,4 +54,16 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    override fun onDestroy() {
+        // 岛 / 流体云 / 兜底通知都由前台采样驱动：App 退出（非旋转重建）后就没人再收了。
+        // 不在记录中（没有前台服务兜着）时主动收掉，避免充电中退出 App 后通知一直挂在
+        // 通知栏；记录中由前台服务继续采样，拔电自会收。
+        if (isFinishing &&
+            ChargeRecorder.state.value is com.smalljelly.batterydata.data.RecorderState.Idle
+        ) {
+            com.smalljelly.batterydata.island.BatteryIslandHelper.cancel(this)
+        }
+        super.onDestroy()
+    }
 }

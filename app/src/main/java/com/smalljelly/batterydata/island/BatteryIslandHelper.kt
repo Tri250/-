@@ -106,6 +106,7 @@ object BatteryIslandHelper {
 
     /**
      * 充电状态通知由采样链每次采样驱动：
+     * - 开关关闭（enabled=false）：整条通知链停用，顺手清掉残留通知。
      * - 充电中：小米岛支持且开启 → 发岛；OPPO 流体云支持且开启 → 发流体云胶囊；
      *   都不可用且不在记录中 → 回退谷歌原生实况通知（Live Update）。
      * - 非充电：收起岛、流体云与兜底通知。
@@ -113,15 +114,21 @@ object BatteryIslandHelper {
      * 兜底不重复发；岛 / 流体云则与记录通知并存（岛看电量/功率，记录通知带「结束并保存」）。
      */
     fun onSample(context: Context, sample: BatterySample, enabled: Boolean) {
+        // 开关关掉 = 岛 / 流体云 / 兜底都停用：否则关掉开关后下一次采样还会
+        // 落进「都不可用」分支继续发兜底实况通知，开关形同虚设。
+        if (!enabled) {
+            cancel(context)
+            return
+        }
         if (!sample.isCharging) {
             cancel(context)
             return
         }
         val recording = ChargeRecorder.state.value is RecorderState.Recording
         when {
-            isIslandSupported(context) && enabled -> sendOrUpdate(context, sample)
+            isIslandSupported(context) -> sendOrUpdate(context, sample)
 
-            FluidCloudHelper.isSupported() && enabled -> FluidCloudHelper.onSample(context, sample)
+            FluidCloudHelper.isSupported() -> FluidCloudHelper.onSample(context, sample)
 
             !recording -> {
                 Log.d(TAG, "island/fluid unavailable → Google live fallback")
@@ -277,13 +284,15 @@ object BatteryIslandHelper {
             return
         }
         bypassMutex.withLock {
-            val disabled = try {
-                ShizukuManager.setXmsfNetworkingEnabled(context, false)
+            // 先放行 XMSF 网络：岛渲染需要 XMSF 在线（见类注释），放行失败就按
+            // 「不掐网机型」的路径直接发。
+            val allowed = try {
+                ShizukuManager.setXmsfNetworkingEnabled(context, true)
             } catch (e: Exception) {
-                Log.e(TAG, "disable XMSF networking failed", e)
+                Log.e(TAG, "allow XMSF networking failed", e)
                 false
             }
-            if (!disabled) {
+            if (!allowed) {
                 manager.notify(ISLAND_NOTIFICATION_ID, notification)
                 return@withLock
             }
@@ -291,8 +300,9 @@ object BatteryIslandHelper {
                 manager.notify(ISLAND_NOTIFICATION_ID, notification)
                 delay(100)
             } finally {
+                // 恢复系统默认状态：OEM 链上继续掐 XMSF 网络
                 try {
-                    ShizukuManager.setXmsfNetworkingEnabled(context, true)
+                    ShizukuManager.setXmsfNetworkingEnabled(context, false)
                 } catch (e: Exception) {
                     Log.e(TAG, "CRITICAL: restore XMSF networking failed", e)
                 }

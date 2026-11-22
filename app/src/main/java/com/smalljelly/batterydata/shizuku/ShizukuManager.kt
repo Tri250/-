@@ -14,7 +14,7 @@ import rikka.shizuku.Shizuku
  * Shizuku 管理器（移植自 NexioSchedule）。
  *
  * 小米超级岛通知走 XMSF（com.xiaomi.xmsf）通道，系统默认用 OEM 防火墙链(chain 9)掐其网络，
- * 岛就渲染不出来。这里借 Shizuku 临时放行/恢复 XMSF 网络：发岛前 disable → notify → enable。
+ * 岛就渲染不出来。这里借 Shizuku 临时放行/恢复 XMSF 网络：发岛前放行 → notify → 恢复默认掐网。
  *
  * ⚠ 关键：`setFirewallChainEnabled / setUidFirewallRule` 是 @hide 受限 API，在 App 进程反射
  * 会被 hiddenapi 拒绝（NoSuchMethodException）。必须放进 [PrivilegedServiceImpl]——由

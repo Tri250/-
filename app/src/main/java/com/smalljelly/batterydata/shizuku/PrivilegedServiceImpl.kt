@@ -42,7 +42,9 @@ class PrivilegedServiceImpl : IPrivilegedService.Stub() {
                     )
                     setFirewallChainEnabled.invoke(iConnectivityManager, FIREWALL_CHAIN_OEM_DENY, true)
 
-                    val rule = if (enabled) 0 else 2 // 0 = ALLOW, 2 = DENY
+                    // OEM_DENY 是 deny 型链：放行必须用 FIREWALL_RULE_ALLOW(1) 白名单该 uid，
+                    // 0(DEFAULT) 在链启用时仍随链默认被拒，等于没放行；2 = FIREWALL_RULE_DENY
+                    val rule = if (enabled) 1 else 2
                     val setUidFirewallRule = iConnectivityManager.javaClass.getMethod(
                         "setUidFirewallRule",
                         Int::class.javaPrimitiveType,
