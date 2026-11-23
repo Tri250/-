@@ -120,7 +120,8 @@ jobs:
           fi
 
       # 把更新清单推回 main：App 内的 CDN 源读 jsDelivr 提供的这份 JSON，
-      # 国内用户不连 api.github.com 也能完成「检查更新」
+      # 国内用户不连 api.github.com 也能完成「检查更新」。
+      # 基于 origin/main 干净提交（tag checkout 是 detached HEAD，直接 push 会 non-fast-forward）
       - name: 生成更新清单 update/latest.json（仅 tag 触发）
         if: startsWith(github.ref, 'refs/tags/v')
         env:
@@ -130,10 +131,9 @@ jobs:
           VERSION="${TAG#v}"
           APK_NAME="BatteryData-${VERSION}.apk"
           DIRECT="https://github.com/Tri250/-/releases/download/${TAG}/${APK_NAME}"
-          # 上一步的 shell 变量不跨步骤，这里显式声明（上一步把说明写到了 /tmp/notes.txt）
-          NOTES_FILE=/tmp/notes.txt
-          mkdir -p update
-          python3 - "$TAG" "$VERSION" "$APK_NAME" "$DIRECT" "$NOTES_FILE" <<'PYEOF'
+          # release 正文（published/draft 都能读）：不依赖上游步骤的临时文件
+          gh release view "$TAG" --json body -q .body > /tmp/notes.txt 2>/dev/null || echo "" > /tmp/notes.txt
+          cat > /tmp/gen_latest.py <<'PYEOF'
           import json, re, sys
           tag, version, apk_name, direct, notes_path = sys.argv[1:6]
           notes = ""
@@ -168,16 +168,23 @@ jobs:
           }
           with open("update/latest.json", "w", encoding="utf-8") as f:
               json.dump(payload, f, ensure_ascii=False, indent=2)
-          print(open("update/latest.json", encoding="utf-8").read())
           PYEOF
+          mkdir -p update
+          python3 /tmp/gen_latest.py "$TAG" "$VERSION" "$APK_NAME" "$DIRECT" /tmp/notes.txt
+          echo "==> 生成的更新清单："
+          cat update/latest.json
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          # 切到远端 main 的最新状态再提交：远程可能有上一次构建的清单提交
+          git fetch origin main
+          git checkout -B ship origin/main
+          python3 /tmp/gen_latest.py "$TAG" "$VERSION" "$APK_NAME" "$DIRECT" /tmp/notes.txt
           git add update/latest.json
           if git diff --cached --quiet; then
             echo "==> 更新清单无变化"
           else
             git commit -m "chore: 更新清单 ${TAG}"
-            git push origin HEAD:main
+            git push origin ship:main
             echo "==> update/latest.json 已推回 main，强刷 jsDelivr 缓存："
             curl -s "https://purge.jsdelivr.net/gh/Tri250/-@main/update/latest.json" >/dev/null 2>&1 || true
           fi
