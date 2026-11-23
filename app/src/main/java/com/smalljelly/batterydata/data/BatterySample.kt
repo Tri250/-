@@ -3,6 +3,7 @@ package com.smalljelly.batterydata.data
 import android.os.BatteryManager
 import kotlin.math.abs
 import kotlin.math.min
+import kotlin.roundToInt
 
 /**
  * 一次电池采样。所有电流单位为 mA，充电为正、放电为负。
