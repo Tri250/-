@@ -1,6 +1,7 @@
 package com.smalljelly.batterydata.data
 
 import java.io.File
+import kotlin.math.abs
 
 /**
  * 读取 /sys/class/power_supply 里的原始节点，拿到设计容量、满电容量、循环次数等
@@ -25,6 +26,34 @@ internal class SysfsBatteryReader {
         lastReadAt = now
         cache = runCatching { readNow() }.getOrDefault(Raw())
         return cache
+    }
+
+    /**
+     * 即时读电流/电压（电池目录由 [batteryDirOrNull] 定位）。
+     * 这两个是每秒变化的快变量，不能走 15 秒缓存；厂商节点不统一，按常见度逐个尝试。
+     * 返回 (电流 mA, 电压 mV)，读不到的项为 null。
+     */
+    fun readInstant(): Pair<Float?, Float?> = runCatching {
+        val root = File("/sys/class/power_supply")
+        val dir = batteryDirOrNull(root.listFiles()?.filter { it.isDirectory }.orEmpty())
+        if (dir == null) null to null
+        else {
+            // 节点单位基本是 µA / µV（个别老内核 mA/mV，数值 < 10000 时按原值用）
+            val currentMa = listOf("current_now", "current_avg")
+                .firstNotNullOfOrNull { readValue(File(dir, it))?.toFloatOrNull() }
+                ?.let { if (abs(it) > 10_000f) it / 1000f else it }
+            val voltageMv = listOf("voltage_now", "voltage_avg")
+                .firstNotNullOfOrNull { readValue(File(dir, it))?.toFloatOrNull() }
+                ?.let { if (it > 10_000f) it / 1000f else it }
+            currentMa to voltageMv
+        }
+    }.getOrDefault(null to null)
+
+    private fun batteryDirOrNull(dirs: List<File>): File? {
+        val battery = dirs.firstOrNull { dir ->
+            readValue(File(dir, "type"))?.contains("Battery", true) == true
+        }
+        return battery ?: dirs.firstOrNull { it.name.contains("batt", true) }
     }
 
     private fun readNow(): Raw {

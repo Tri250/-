@@ -72,8 +72,6 @@ class BatteryRepository(private val context: Context) {
             .takeIf { it != Long.MIN_VALUE && it != 0L && abs(it) < 30_000_000L }
             ?.let { it / 1000f }
 
-        val currentMa = rawCurrent?.let { normalizeCurrent(it, status) }
-
         val counterUah = batteryManager.getLongProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER)
             .takeIf { it != Long.MIN_VALUE && it > 0L }
 
@@ -92,6 +90,11 @@ class BatteryRepository(private val context: Context) {
 
         val cycleFromIntent = intent?.getIntExtra(BatteryManager.EXTRA_CYCLE_COUNT, -1)?.takeIf { it >= 0 }
         val raw = sysfs.read()
+        // BatteryManager 层拿不到电流/电压的机型（不少国产 ROM 把 CURRENT_NOW 关成 0，
+        // 部分机型 ACTION_BATTERY_CHANGED 不带电压），退到 sysfs 节点即时读
+        val instant = if (rawCurrent == null || voltageMv <= 0) sysfs.readInstant() else null to null
+        val resolvedCurrentMa = rawCurrent ?: instant.first?.let { normalizeCurrent(it, status) }
+        val resolvedVoltageMv = if (voltageMv > 0) voltageMv else instant.second?.toInt() ?: 0
 
         // 优先级：手动设置 > sysfs 节点 > 机型库
         val manualDesign = settings.manualDesignCapacityMah()
@@ -105,8 +108,8 @@ class BatteryRepository(private val context: Context) {
             level = percent,
             status = status,
             plugged = plugged,
-            voltageMv = voltageMv,
-            currentMa = currentMa,
+            voltageMv = resolvedVoltageMv,
+            currentMa = resolvedCurrentMa,
             temperatureC = temperature,
             healthCode = health,
             technology = technology,
