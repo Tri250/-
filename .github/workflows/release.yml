@@ -23,8 +23,13 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: 安装 Android SDK（compileSdk 37）
-        uses: android-actions/setup-android@v3
+      - name: 准备 Android SDK 与构建脚本
+        run: |
+          # runner 自带完整 Android SDK，无需 setup-android（其 sdkmanager 会与预装冲突）
+          # 预接受许可证，AGP 缺 platform 37 时可自动补装
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
+          # git 不保证保留执行位
+          chmod +x gradlew
 
       - name: 构建签名说明
         run: |
