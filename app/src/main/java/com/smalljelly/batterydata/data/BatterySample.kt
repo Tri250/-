@@ -2,6 +2,7 @@ package com.smalljelly.batterydata.data
 
 import android.os.BatteryManager
 import kotlin.math.abs
+import kotlin.math.min
 
 /**
  * 一次电池采样。所有电流单位为 mA，充电为正、放电为负。
@@ -128,4 +129,72 @@ fun healthRatingText(percent: Float?): String = when {
     percent >= 80f -> "良好"
     percent >= 70f -> "一般"
     else -> "偏低"
+}
+
+/** 系统健康评分的分级文字。 */
+fun systemHealthGrade(score: Int): String = when {
+    score >= 90 -> "优"
+    score >= 80 -> "良"
+    score >= 65 -> "注意"
+    else -> "差"
+}
+
+/** 温度分：锂电池最佳工作窗口 20-35℃，过热/深度低温大幅扣分。 */
+private fun temperatureScore(t: Float): Int = when {
+    t >= 45f -> 40
+    t >= 40f -> 70
+    t > 35f -> 90
+    t in 20f..35f -> 100
+    t >= 0f -> 88
+    else -> 60
+}
+
+/** 电压分：充电（含恒压段）与放电的合理区间不同，过压/过放重扣。 */
+private fun voltageScore(mv: Int, charging: Boolean): Int = when {
+    charging -> when {
+        mv > 4650 -> 40
+        mv >= 3500 -> 100
+        else -> 90
+    }
+    else -> when {
+        mv >= 3500 -> 100
+        mv >= 3300 -> 90
+        mv >= 3000 -> 70
+        else -> 40
+    }
+}
+
+/** 循环次数分：按锂电典型寿命（500 次后明显衰减、1200 次接近寿命末期）。 */
+private fun cycleScore(c: Int): Int = when {
+    c <= 300 -> 100
+    c <= 500 -> 90
+    c <= 800 -> 75
+    c <= 1200 -> 60
+    else -> 45
+}
+
+/**
+ * 系统健康状态综合评分（0-100%）：容量 40% + 温度 30% + 电压 15% + 循环 15%。
+ * 缺失的信号按剩余权重归一（没有容量数据的老机型也能算出温度/电压维度的分数）；
+ * 系统报告异常码（过热/老化失效/电压过高/异常）时硬压分到 ≤55，温度过低 ≤70，
+ * 保证警示不被其他高分项淹没。全部信号缺失返回 null（UI 显示原状态文字）。
+ */
+fun systemHealthScore(sample: BatterySample): Int? {
+    var sum = 0f
+    var weight = 0f
+    sample.healthPercent?.let { sum += 0.40f * it; weight += 0.40f }
+    sample.temperatureC?.let { sum += 0.30f * temperatureScore(it); weight += 0.30f }
+    if (sample.voltageMv > 0) {
+        sum += 0.15f * voltageScore(sample.voltageMv, sample.isCharging || sample.isFull)
+        weight += 0.15f
+    }
+    sample.cycleCount?.let { sum += 0.15f * cycleScore(it); weight += 0.15f }
+    if (weight <= 0f) return null
+    var score = sum / weight
+    score = when (sample.healthText) {
+        "温度过低" -> min(score, 70f)
+        "过热", "老化失效", "电压过高", "异常" -> min(score, 55f)
+        else -> score
+    }
+    return score.roundToInt().coerceIn(1, 100)
 }
