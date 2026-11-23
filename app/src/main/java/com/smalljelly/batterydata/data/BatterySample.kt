@@ -93,7 +93,7 @@ data class BatterySample(
             return (full / design * 100f).coerceIn(0f, 100f)
         }
 
-    /** 还剩多久 / 还有多久充满，单位分钟。 */
+    /** 还剩多久 / 还有多久充满，单位分钟。线性外推的结果钳制在 24 小时内：超过必是估算失真 */
     val etaMinutes: Int?
         get() {
             // 优先信系统预估：厂商内核知道恒压段/涓流段的降流曲线，比线性外推准得多，
@@ -104,10 +104,10 @@ data class BatterySample(
             val magnitude = abs(current)
             if (magnitude < 30f) return null
             return if (current < 0f) {
-                (counter / magnitude * 60f).toInt()
+                (counter / magnitude * 60f).toInt().coerceAtMost(1_440)
             } else {
                 val full = estimatedFullChargeMah ?: return null
-                ((full - counter).coerceAtLeast(0f) / magnitude * 60f).toInt()
+                ((full - counter).coerceAtLeast(0f) / magnitude * 60f).toInt().coerceAtMost(1_440)
             }
         }
 }

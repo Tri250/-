@@ -131,7 +131,16 @@ private const val SCREEN_ON_WINDOW = 180
 private const val SCREEN_ON_WINDOW_MS = 3 * 60 * 1000L
 
 /** 少于这个数量就不信样本，退回典型值 */
-private const val MIN_SCREEN_ON_SAMPLES = 6
+private const val MIN_SCREEN_ON_SAMPLES = 12
+
+/** 实测均值低于这个值视为电流节点垃圾读数（亮屏底耗不可能低于它），拒用退回典型值 */
+private const val MIN_SANE_SCREEN_ON_CURRENT_MA = 100f
+
+/** 从典型值渐进过渡到实测值所需的样本数（约 1 分钟），避免「粗估→实测」瞬间跳变 */
+private const val BLEND_SCREEN_ON_SAMPLES = 60
+
+/** 可用时长显示上限（分钟）：超过 24 小时的亮屏预估必是数据异常，钳制住别输出天文数字 */
+private const val MAX_ETA_MINUTES = 1440
 
 /** 记录详情展开时，下层页面最终虚化的半径 */
 private val DetailBlurRadius = 12.dp
@@ -828,17 +837,29 @@ private fun estimateScreenOnMinutes(
     // 数量截断挡不住"断续亮屏"：180 个样本可能跨越几小时，两小时前的 800mA
     // 混进现在的 300mA 里会把时长低估一半。按时间窗过滤，只用最近的样本。
     val windowStart = System.currentTimeMillis() - SCREEN_ON_WINDOW_MS
-    val averageMa = screenOnCurrents
+    val windowed = screenOnCurrents
         .asSequence()
         .filter { it.first >= windowStart }
         .map { it.second }
         .toList()
+    // 均值低于亮屏底耗 = 电流节点在吐垃圾读数，用它算出的是「可用 36 天」这种天文数字
+    val measured = windowed
         .takeIf { it.size >= MIN_SCREEN_ON_SAMPLES }
         ?.average()
         ?.toFloat()
-        ?.takeIf { it > 0f }
-        ?: TYPICAL_SCREEN_ON_CURRENT_MA
-    return (mah / averageMa * 60f).toInt().takeIf { it > 0 }
+        ?.takeIf { it >= MIN_SANE_SCREEN_ON_CURRENT_MA }
+    // 从典型值渐进过渡到实测值：前 1 分钟内线性加权，
+    // 否则满电池时 450mA 粗估（15 小时）会在 12 秒后跳到 900mA 实测（7 小时）
+    val effectiveMa = when (measured) {
+        null -> TYPICAL_SCREEN_ON_CURRENT_MA
+        else -> {
+            val w = (windowed.size / BLEND_SCREEN_ON_SAMPLES.toFloat()).coerceIn(0f, 1f)
+            TYPICAL_SCREEN_ON_CURRENT_MA * (1f - w) + measured * w
+        }
+    }
+    return (mah / effectiveMa * 60f).toInt()
+        .coerceIn(1, MAX_ETA_MINUTES)
+        .takeIf { mah > 0f }
 }
 
 private fun <T> MutableList<T>.append(value: T, cap: Int = HISTORY_SIZE) {
