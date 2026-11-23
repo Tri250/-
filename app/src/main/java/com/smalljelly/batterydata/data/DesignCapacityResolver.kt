@@ -21,7 +21,8 @@ object DesignCapacityResolver {
     private const val ASSET_FILE = "battery_models.json"
     private const val CACHE_FILE = "remote_battery_models.json"
     private const val MIN_SANE_MAH = 1500f
-    private const val MAX_SANE_MAH = 8000f
+    // 2026 年硅碳/双电芯大电池已到 8000mAh+(如 K90 Max 8550),上限随行业放宽到 12000
+    private const val MAX_SANE_MAH = 12000f
 
     /** (设计容量 mAh, 来源描述)，同一进程内只解析一次。 */
     @Volatile
