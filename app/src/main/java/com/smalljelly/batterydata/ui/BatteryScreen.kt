@@ -3,6 +3,8 @@ package com.smalljelly.batterydata.ui
 import android.content.Context
 import android.os.Build
 import android.os.PowerManager
+import android.os.SystemClock
+import android.provider.Settings
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -71,7 +73,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.zIndex
 import androidx.compose.ui.zIndex
 import com.smalljelly.batterydata.data.BatteryRepository
 import com.smalljelly.batterydata.data.ChargeRecordStore
@@ -763,6 +764,13 @@ private fun HomeScreen(
 @Composable
 private fun InfoCard(sample: BatterySample) {
     val colors = NexioTheme.colorScheme
+    val context = LocalContext.current
+    // 开机次数整个开机周期内不变，读一次就够；BOOT_COUNT 是系统自首次开机累积的真实计数
+    val bootCount = remember {
+        runCatching {
+            Settings.Global.getInt(context.contentResolver, Settings.Global.BOOT_COUNT)
+        }.getOrNull()
+    }
     Card(
         modifier = Modifier.fillMaxWidth(),
         cornerRadius = 20.dp,
@@ -785,7 +793,24 @@ private fun InfoCard(sample: BatterySample) {
             value = "${sample.level}%",
         )
         InnerDivider()
+        InfoRow("开机时长", formatUptime(SystemClock.elapsedRealtime()))
+        InnerDivider()
+        InfoRow("开机次数", bootCount?.let { "$it 次" } ?: "未公开")
+        InnerDivider()
         InfoRow("采样间隔", "1 秒")
+    }
+}
+
+/** 开机以来的时长（elapsedRealtime 含深睡）：天/小时/分钟取两级，避免一长串。 */
+private fun formatUptime(ms: Long): String {
+    val totalMinutes = ms / 60_000L
+    val days = totalMinutes / (24L * 60L)
+    val hours = totalMinutes / 60L % 24L
+    val minutes = totalMinutes % 60L
+    return when {
+        days > 0 -> "$days 天 $hours 小时"
+        hours > 0 -> "$hours 小时 $minutes 分"
+        else -> "$minutes 分钟"
     }
 }
 
