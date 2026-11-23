@@ -1,7 +1,7 @@
 {
   "tag_name": "v1.0.6",
   "version_name": "1.0.6",
-  "notes": "",
+  "notes": "检查更新新增 CDN 镜像源（jsDelivr 读仓库内更新清单），国内直连可用\nAPK 下载改为多源：国内镜像代理在前、GitHub 直链兜底，逐源自动切换\n预计可用时间：充电走系统官方预估（CHARGE_TIME_REMAINING 反射接入，全机型可编译）\n健康度：OPPO/vivo/一加/iQOO 识别链修复 + 机型库 135 条（2026 在售）\n反推满电容量用浮点电量，健康度不再随电量跨档跳动\n系统健康异常（过热/老化等）红标前置警示\n电池信息卡新增开机时长 / 开机次数\n无正式签名密钥时 APK 为 debug 签名，与已装 debug 签名版本可覆盖安装。",
   "asset_name": "BatteryData-1.0.6.apk",
   "release_page": "https://github.com/Tri250/-/releases/tag/v1.0.6",
   "apk_urls": [
