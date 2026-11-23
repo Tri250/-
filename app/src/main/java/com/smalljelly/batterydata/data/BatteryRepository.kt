@@ -22,6 +22,13 @@ class BatteryRepository(private val context: Context) {
     private val sysfs = SysfsBatteryReader()
     private val settings = BatterySettings(context)
 
+    /** BatteryManager.BATTERY_PROPERTY_CHARGE_TIME_REMAINING 的常量值，反射取；新 SDK 才公开该符号 */
+    private val chargeTimeRemainingProperty: Int? by lazy {
+        runCatching {
+            BatteryManager::class.java.getField("BATTERY_PROPERTY_CHARGE_TIME_REMAINING").getInt(null)
+        }.getOrNull()
+    }
+
     fun snapshot(): BatterySample = readSample(allowRemote = false)
 
     fun stream(intervalMs: Long = 1_000L): Flow<BatterySample> = flow {
@@ -71,9 +78,12 @@ class BatteryRepository(private val context: Context) {
             .takeIf { it != Long.MIN_VALUE && it > 0L }
 
         // 系统的充电剩余时间（秒）。只有充电中才有意义；不支持时返回 Long.MIN_VALUE，
-        // 部分厂商会给出离谱值，超过 24 小时按不可信处理，交给线性外推兜底
-        val chargeTimeRemainingSec = if (status == BatteryManager.BATTERY_STATUS_CHARGING) {
-            batteryManager.getLongProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_TIME_REMAINING)
+        // 部分厂商会给出离谱值，超过 24 小时按不可信处理，交给线性外推兜底。
+        // 常量用反射取：它是较新 SDK 才公开的符号，部分编译环境的 android.jar 里没有；
+        // 反射失败（老系统/老编译环境）时直接走线性外推，行为与不支持该属性的机型一致
+        val chargeTimeProp = chargeTimeRemainingProperty
+        val chargeTimeRemainingSec = if (status == BatteryManager.BATTERY_STATUS_CHARGING && chargeTimeProp != null) {
+            batteryManager.getLongProperty(chargeTimeProp)
                 .takeIf { it != Long.MIN_VALUE && it in 1L..86_400L }
                 ?.let { ((it + 59L) / 60L).toInt() }
         } else {
