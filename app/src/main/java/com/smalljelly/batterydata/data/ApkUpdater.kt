@@ -64,7 +64,7 @@ object ApkUpdater {
         throw lastError ?: IllegalStateException("所有下载源均失败")
     }
 
-    private fun downloadOnce(
+    private suspend fun downloadOnce(
         url: String,
         target: File,
         onProgress: (percent: Int, downloaded: Long, total: Long) -> Unit,
