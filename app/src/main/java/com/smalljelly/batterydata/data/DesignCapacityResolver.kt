@@ -45,17 +45,50 @@ object DesignCapacityResolver {
         return result
     }
 
-    private fun deviceIdentifiers(): List<String> {
-        val marketname = runCatching {
-            Runtime.getRuntime().exec(arrayOf("getprop", "ro.product.marketname"))
-                .inputStream.bufferedReader().readText().trim()
-        }.getOrNull().orEmpty()
+    /**
+     * 各家 ROM 里存“市场名”的系统属性。国内机型的 Build.MODEL 通常只是代号
+     * （OPPO 的 PJZ110、vivo 的 V2415A），机型库的键（oppo find x9 / x300 pro …）
+     * 只能靠这些属性命中，否则补了库也用不上。
+     */
+    private val marketNameProps = listOf(
+        "ro.product.marketname",       // 小米 / HyperOS，部分一加
+        "ro.vendor.oplus.market.name", // OPPO / 一加 / realme（ColorOS）
+        "ro.oppo.market.name",         // 老 ColorOS
+        "ro.vivo.market.name",         // vivo / iQOO（OriginOS）
+    )
 
-        return listOf(marketname, Build.MODEL, Build.DEVICE, Build.PRODUCT)
+    private fun deviceIdentifiers(): List<String> {
+        val props = readSystemProps()
+        val marketNames = marketNameProps.mapNotNull { props[it] }
+            .takeIf { it.isNotEmpty() }
+            // getprop 整体读取失败时退回单条查询，行为与旧版一致
+            ?: listOf(getProp("ro.product.marketname"))
+
+        return (marketNames + listOf(props["ro.product.model"], Build.MODEL, Build.DEVICE, Build.PRODUCT))
+            .filterNotNull()
             .filter { it.isNotBlank() }
             .map { it.lowercase().replace('_', ' ').trim() }
             .distinct()
     }
+
+    /** 一次性读出全部系统属性（一次进程开销），失败返回空表。 */
+    private fun readSystemProps(): Map<String, String> = runCatching {
+        val process = Runtime.getRuntime().exec(arrayOf("getprop"))
+        val text = process.inputStream.bufferedReader().use { it.readText() }
+        process.waitFor()
+        text.lineSequence().mapNotNull { line ->
+            // 输出格式： [ro.product.marketname]: [小米17 Pro Max]
+            if (!line.startsWith("[") || !line.endsWith("]")) return@mapNotNull null
+            val split = line.indexOf("]: [")
+            if (split <= 1) return@mapNotNull null
+            line.substring(1, split) to line.substring(split + 4, line.length - 1)
+        }.toMap()
+    }.getOrDefault(emptyMap())
+
+    private fun getProp(key: String): String = runCatching {
+        Runtime.getRuntime().exec(arrayOf("getprop", key))
+            .inputStream.bufferedReader().readText().trim()
+    }.getOrDefault("")
 
     /** 在机型库里按“最长命中键”匹配，保证 note 12 pro+ 不会错命中 note 12 的条目。 */
     private fun fromModelDb(
