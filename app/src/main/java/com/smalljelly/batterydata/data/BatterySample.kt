@@ -3,7 +3,6 @@ package com.smalljelly.batterydata.data
 import android.os.BatteryManager
 import kotlin.math.abs
 import kotlin.math.min
-import kotlin.roundToInt
 
 /**
  * 一次电池采样。所有电流单位为 mA，充电为正、放电为负。
@@ -197,5 +196,6 @@ fun systemHealthScore(sample: BatterySample): Int? {
         "过热", "老化失效", "电压过高", "异常" -> min(score, 55f)
         else -> score
     }
-    return score.roundToInt().coerceIn(1, 100)
+    // Math.round(Float)→Int：四舍五入语义与 UI 数字一致，不依赖 kotlin 扩展解析
+    return Math.round(score).coerceIn(1, 100)
 }
