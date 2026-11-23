@@ -96,18 +96,85 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="${GITHUB_REF_NAME}"
+          NOTES_FILE=/tmp/notes.txt
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" dist/*.apk --clobber
+            gh release view "$TAG" --json body -q .body > "$NOTES_FILE" || true
           else
-            gh release create "$TAG" dist/*.apk --title "$TAG" \
-              --notes "BatteryData ${TAG}
+            cat > "$NOTES_FILE" <<'EOF'
+          BatteryData ${TAG}
 
-          - 应用内更新源修正为当前发布仓库（旧版装的 v1.0.3 可直接检测到本次更新）
+          - 检查更新新增 CDN 镜像源（jsDelivr 读仓库内更新清单），国内直连可用
+          - APK 下载改为多源：国内镜像代理在前、GitHub 直链兜底，逐源自动切换
           - 预计可用时间：充电走系统官方预估（CHARGE_TIME_REMAINING 反射接入，全机型可编译）
           - 健康度：OPPO/vivo/一加/iQOO 识别链修复 + 机型库 135 条（2026 在售）
           - 反推满电容量用浮点电量，健康度不再随电量跨档跳动
           - 系统健康异常（过热/老化等）红标前置警示
           - 电池信息卡新增开机时长 / 开机次数
 
-          无正式签名密钥时 APK 为 debug 签名，与已装 debug 签名版本可覆盖安装。"
+          无正式签名密钥时 APK 为 debug 签名，与已装 debug 签名版本可覆盖安装。
+          EOF
+            # 让 heredoc 里的变量生效
+            sed -i "s/\${TAG}/${TAG}/" "$NOTES_FILE"
+            gh release create "$TAG" dist/*.apk --title "$TAG" --notes-file "$NOTES_FILE"
+          fi
+
+      # 把更新清单推回 main：App 内的 CDN 源读 jsDelivr 提供的这份 JSON，
+      # 国内用户不连 api.github.com 也能完成「检查更新」
+      - name: 生成更新清单 update/latest.json（仅 tag 触发）
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          APK_NAME="BatteryData-${VERSION}.apk"
+          DIRECT="https://github.com/Tri250/-/releases/download/${TAG}/${APK_NAME}"
+          mkdir -p update
+          python3 - "$TAG" "$VERSION" "$APK_NAME" "$DIRECT" "$NOTES_FILE" <<'PYEOF'
+          import json, re, sys
+          tag, version, apk_name, direct, notes_path = sys.argv[1:6]
+          notes = ""
+          try:
+              raw = open(notes_path, encoding="utf-8").read()
+              lines = []
+              for line in raw.replace("\r\n", "\n").split("\n"):
+                  t = re.sub(r"^[\s#>*+-]+", "", line).strip()
+                  if not t or t.startswith("![") or t.startswith("[![") or t.startswith("<!--"):
+                      continue
+                  if re.match(r"(?i)^(batterydata v|full changelog)", t):
+                      continue
+                  if t in ("安装", "签名", "下载", "已知问题", "注意事项"):
+                      break
+                  lines.append(t[:56].rstrip() + ("…" if len(t) > 56 else ""))
+              notes = "\n".join(lines[:8])
+          except OSError:
+              pass
+          payload = {
+              "tag_name": tag,
+              "version_name": version,
+              "notes": notes,
+              "asset_name": apk_name,
+              "release_page": f"https://github.com/Tri250/-/releases/tag/{tag}",
+              # 镜像代理在前（国内可达），GitHub 直链兜底；App 按顺序尝试
+              "apk_urls": [
+                  f"https://gh-proxy.com/{direct}",
+                  f"https://ghfast.top/{direct}",
+                  f"https://mirror.ghproxy.com/{direct}",
+                  direct,
+              ],
+          }
+          with open("update/latest.json", "w", encoding="utf-8") as f:
+              json.dump(payload, f, ensure_ascii=False, indent=2)
+          print(open("update/latest.json", encoding="utf-8").read())
+          PYEOF
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add update/latest.json
+          if git diff --cached --quiet; then
+            echo "==> 更新清单无变化"
+          else
+            git commit -m "chore: 更新清单 ${TAG}"
+            git push origin HEAD:main
+            echo "==> update/latest.json 已推回 main，jsDelivr 缓存约 12h 后刷新（可用 purge.jsdelivr.net 强刷）"
           fi

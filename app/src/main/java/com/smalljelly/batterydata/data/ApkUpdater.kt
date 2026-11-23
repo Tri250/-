@@ -35,23 +35,46 @@ object ApkUpdater {
 
     /**
      * 下载到 [apkFile]。已有同版本完整文件时直接复用。
+     * [urls] 按国内可达性排序（镜像代理在前、GitHub 直链兜底），逐源尝试：
+     * 某个源连不上/HTTP 错就清掉半截文件换下一个，全失败才抛错。
      * [onProgress] 在 IO 线程被调用（百分比与已下字节），total 未知时传 -1。
      */
     suspend fun download(
         context: Context,
-        url: String,
+        urls: List<String>,
         version: String,
         onProgress: (percent: Int, downloaded: Long, total: Long) -> Unit,
     ): File = withContext(Dispatchers.IO) {
+        val candidates = urls.filter { it.isNotBlank() }
+        if (candidates.isEmpty()) throw IllegalStateException("没有可用的下载地址")
         val target = apkFile(context, version)
         // 上次已下完的同版本包直接复用：重复点「下载」不用再等全量
         if (target.exists() && target.length() > 0L) return@withContext target
+
+        var lastError: Exception? = null
+        for (url in candidates) {
+            try {
+                return@withContext downloadOnce(url, target, onProgress)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                lastError = e
+            }
+        }
+        throw lastError ?: IllegalStateException("所有下载源均失败")
+    }
+
+    private fun downloadOnce(
+        url: String,
+        target: File,
+        onProgress: (percent: Int, downloaded: Long, total: Long) -> Unit,
+    ): File {
         val partial = File(target.path + ".part")
 
         val connection = (URL(url).openConnection() as HttpURLConnection).apply {
             connectTimeout = TIMEOUT_MS
             readTimeout = TIMEOUT_MS
-            // GitHub 的下载地址会 302 到 objects.githubusercontent.com
+            // GitHub 的下载地址会 302 到 objects.githubusercontent.com；镜像代理同样可能 302
             instanceFollowRedirects = true
             setRequestProperty("User-Agent", "BatteryData-Android")
         }
@@ -77,7 +100,7 @@ object ApkUpdater {
             }
             if (target.exists()) target.delete()
             if (!partial.renameTo(target)) throw IllegalStateException("写入安装包失败")
-            target
+            return target
         } finally {
             runCatching { connection.disconnect() }
             runCatching { if (partial.exists()) partial.delete() }

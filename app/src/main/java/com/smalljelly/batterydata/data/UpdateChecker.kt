@@ -11,27 +11,29 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 /**
- * 应用更新检查：GitHub Releases + Gitee Releases 双源。
+ * 应用更新检查：CDN 镜像 + GitHub Releases 双源。
  *
  * ```
- * https://api.github.com/repos/Tri250/-/releases/latest
- * https://gitee.com/api/v5/repos/littlejelly/BatteryData/releases/latest
+ * https://cdn.jsdelivr.net/gh/Tri250/-@main/update/latest.json   ← 国内直连
+ * https://api.github.com/repos/Tri250/-/releases/latest          ← 科学上网
  * ```
  *
- * 两家的 release JSON 结构基本一致（`tag_name` / `body` / `assets[].browser_download_url`），
- * 所以解析只有一份；Gitee 的 assets 没有 `size` 字段，取不到就按 0 处理。
+ * 国内用户连 api.github.com 基本超时，所以首选源是 jsDelivr 读仓库内的
+ * `update/latest.json`（release 工作流发布后自动生成并推回 main，见 release.yml）。
+ * jsDelivr 多域名顺序回退，其中任何一个可达就能完成检查。
  *
- * [Source.AUTO] 会**并行**查两个源，取版本号更大的那个；版本相同时优先能直接下 APK 的，
- * 都能下则优先 Gitee（国内直连，下载比 GitHub 的 objects.githubusercontent.com 稳）。
- * 用户在关于页可以手动锁定某一个源。
+ * [Source.AUTO] 会**并行**查所有源，取版本号更大的那个；版本相同时优先能直接下 APK 的，
+ * 同能下则优先 CDN 镜像（国内直连）。用户在关于页可以手动锁定某一个源。
  */
 object UpdateChecker {
 
     /** 更新源；`storageValue` 是写进 SharedPreferences 的值，别随便改（会丢用户设置） */
     enum class Source(val label: String, val storageValue: String, val description: String) {
-        AUTO("自动", "auto", "两个源都查，取版本更新的那个"),
+        AUTO("自动", "auto", "所有源都查，取版本更新的那个"),
+        // 原为 Gitee 源（仓库从未真实发布，国内用户拿到的是 404）。沿用旧
+        // storageValue "gitee"，已保存该选项的用户无缝迁移到同样国内可达的 CDN 源
+        CDN("CDN 镜像", "gitee", "jsDelivr 读仓库内更新清单，国内直连"),
         GITHUB("GitHub", "github", "api.github.com，国内可能要代理"),
-        GITEE("Gitee", "gitee", "国内直连，下载更快"),
         ;
 
         companion object {
@@ -43,27 +45,36 @@ object UpdateChecker {
     private data class Endpoint(
         val source: Source,
         val name: String,
-        val latestApi: String,
+        /** 多个地址按顺序回退：任何一个 200 且能解析即用 */
+        val latestApis: List<String>,
         val releasesPage: String,
         val accept: String? = null,
     )
 
     private const val GITHUB_RELEASES = "https://github.com/Tri250/-/releases"
 
+    private const val LATEST_JSON_PATH = "update/latest.json"
+
     private val ENDPOINTS = listOf(
+        Endpoint(
+            source = Source.CDN,
+            name = "CDN 镜像",
+            // jsDelivr 三域名按可用性排序回退；raw.githubusercontent 只是最后兜底（国内基本不可达）
+            latestApis = listOf(
+                "https://cdn.jsdelivr.net/gh/Tri250/-@main/$LATEST_JSON_PATH",
+                "https://fastly.jsdelivr.net/gh/Tri250/-@main/$LATEST_JSON_PATH",
+                "https://testingcf.jsdelivr.net/gh/Tri250/-@main/$LATEST_JSON_PATH",
+                "https://raw.githubusercontent.com/Tri250/-/main/$LATEST_JSON_PATH",
+            ),
+            releasesPage = GITHUB_RELEASES,
+        ),
         Endpoint(
             source = Source.GITHUB,
             name = "GitHub",
-            latestApi = "https://api.github.com/repos/Tri250/-/releases/latest",
+            latestApis = listOf("https://api.github.com/repos/Tri250/-/releases/latest"),
             releasesPage = GITHUB_RELEASES,
             // GitHub API 必须带 User-Agent，否则直接 403
             accept = "application/vnd.github+json",
-        ),
-        Endpoint(
-            source = Source.GITEE,
-            name = "Gitee",
-            latestApi = "https://gitee.com/api/v5/repos/littlejelly/BatteryData/releases/latest",
-            releasesPage = "https://gitee.com/littlejelly/BatteryData/releases",
         ),
     )
 
@@ -78,14 +89,19 @@ object UpdateChecker {
         val latestVersion: String? = null,
         /** release 说明（正文），已按行整理，用于对话框 */
         val notes: String? = null,
-        /** APK 直链；为空表示这次 release 没挂安装包 */
+        /** APK 主下载直链；为空表示这次 release 没挂安装包 */
         val downloadUrl: String? = null,
+        /**
+         * 全部下载地址，按国内可达性排序（镜像代理在前，GitHub 直链兜底）。
+         * 下载器按顺序尝试，镜像全挂了才落到直链。
+         */
+        val downloadUrls: List<String> = emptyList(),
         /** release 网页地址，作为兜底入口 */
         val releasePage: String = GITHUB_RELEASES,
         val assetName: String? = null,
         val assetSize: Long = 0L,
-        /** 这个结果来自哪个源（"GitHub" / "Gitee"） */
-        val source: String = "GitHub",
+        /** 这个结果来自哪个源（"CDN 镜像" / "GitHub"） */
+        val source: String = "CDN 镜像",
         val error: String? = null,
     )
 
@@ -101,7 +117,7 @@ object UpdateChecker {
         val targets = when (source) {
             Source.AUTO -> ENDPOINTS
             Source.GITHUB -> ENDPOINTS.filter { it.source == Source.GITHUB }
-            Source.GITEE -> ENDPOINTS.filter { it.source == Source.GITEE }
+            Source.CDN -> ENDPOINTS.filter { it.source == Source.CDN }
         }
 
         // 并行的意义：自动模式下两个源同时查，总耗时 = 较慢的那个，而不是相加
@@ -111,8 +127,27 @@ object UpdateChecker {
         merge(results, currentName)
     }
 
-    private fun fetch(endpoint: Endpoint, currentName: String): Result = runCatching {
-        val connection = (URL(endpoint.latestApi).openConnection() as HttpURLConnection).apply {
+    private fun fetch(endpoint: Endpoint, currentName: String): Result {
+        // 多地址顺序回退：CDN 的四个域名只要一个活着就能完成检查
+        var lastError: Throwable? = null
+        for (api in endpoint.latestApis) {
+            val attempt = fetchOnce(endpoint, api, currentName)
+            if (attempt.error == null || attempt.error?.endsWith("还没有发布版本") == true) return attempt
+            // 网络失败才换下一个地址；HTTP 4xx/5xx 属于"这个源确实不行"，同样换下一个
+            lastError = RuntimeException(attempt.error ?: "网络异常")
+        }
+        val e = lastError ?: RuntimeException("网络异常")
+        return Result(
+            hasUpdate = false,
+            currentVersion = currentName,
+            releasePage = endpoint.releasesPage,
+            source = endpoint.name,
+            error = "${endpoint.name}：${e.message ?: "网络异常"}",
+        )
+    }
+
+    private fun fetchOnce(endpoint: Endpoint, api: String, currentName: String): Result = runCatching {
+        val connection = (URL(api).openConnection() as HttpURLConnection).apply {
             connectTimeout = TIMEOUT_MS
             readTimeout = TIMEOUT_MS
             requestMethod = "GET"
@@ -180,21 +215,41 @@ object UpdateChecker {
         return best
     }
 
-    /** 同版本时的偏好：能直接下安装包 > Gitee（国内下载稳） */
+    /** 同版本时的偏好：能直接下安装包 > CDN 镜像（国内下载稳） */
     private fun rank(result: Result): Int {
         var score = 0
         if (result.downloadUrl != null) score += 2
-        if (result.source == Source.GITEE.name) score += 1
+        if (result.source.contains("CDN")) score += 1
+        if (result.downloadUrls.size > 1) score += 1
         return score
     }
+
+    /** 镜像代理前缀：拼在 GitHub 直链前面就能代理下载，国内可达；服务可能波动，所以备多个并保留直链兜底 */
+    private val DOWNLOAD_MIRRORS = listOf(
+        "https://gh-proxy.com/",
+        "https://ghfast.top/",
+        "https://mirror.ghproxy.com/",
+    )
+
+    /** GitHub 直链 → [镜像, ..., 直链] 的下载地址列表 */
+    private fun withMirrors(directUrl: String): List<String> =
+        DOWNLOAD_MIRRORS.map { it + directUrl } + directUrl
 
     private fun parse(json: JSONObject, currentName: String, endpoint: Endpoint): Result {
         val tag = json.optString("tag_name").trim()
         val latest = normalizeVersion(tag).ifBlank { tag }
-        // Gitee 的 release JSON 没有 html_url，退回仓库的 releases 页
-        val page = json.optString("html_url").takeIf { it.isNotBlank() } ?: endpoint.releasesPage
+        // latest.json（自造格式）没有 html_url；GitHub release JSON 才有
+        val page = json.optString("html_url").takeIf { it.isNotBlank() }
+            ?: json.optString("release_page").takeIf { it.isNotBlank() }
+            ?: endpoint.releasesPage
 
-        // 只认 .apk 资源；两家都叫 browser_download_url
+        // latest.json 的 apk_urls 已带镜像列表（工作流生成）；GitHub API 格式则从 assets 取直链再拼镜像
+        val urlsFromJson = json.optJSONArray("apk_urls")?.let { arr ->
+            (0 until arr.length()).mapNotNull { i ->
+                arr.optString(i).takeIf { it.isNotBlank() }
+            }
+        }.orEmpty()
+
         var apkUrl: String? = null
         var apkName: String? = null
         var apkSize = 0L
@@ -206,18 +261,30 @@ object UpdateChecker {
                 if (!name.endsWith(".apk", ignoreCase = true)) continue
                 apkUrl = asset.optString("browser_download_url").takeIf { it.isNotBlank() }
                 apkName = name
-                // Gitee 不给 size，保持 0；对话框里 0 就不显示"安装包 xx"
                 apkSize = asset.optLong("size", 0L)
                 if (apkUrl != null) break
             }
         }
 
+        val urls = when {
+            urlsFromJson.isNotEmpty() -> urlsFromJson
+            apkUrl != null -> withMirrors(apkUrl!!)
+            else -> emptyList()
+        }
+        apkName = json.optString("asset_name").takeIf { it.isNotBlank() } ?: apkName
+        apkUrl = urls.firstOrNull() ?: apkUrl
+
+        // latest.json 的说明是工作流从 release 正文提取的纯文本，不再过一遍去标记
+        val rawNotes = if (json.has("notes")) json.optString("notes") else json.optString("body")
+        val notes = if (json.has("notes")) rawNotes.takeIf { it.isNotBlank() } else releaseNotes(rawNotes)
+
         return Result(
             hasUpdate = compareVersions(latest, currentName) > 0,
             currentVersion = currentName,
             latestVersion = latest.ifBlank { null },
-            notes = releaseNotes(json.optString("body")),
+            notes = notes,
             downloadUrl = apkUrl,
+            downloadUrls = urls,
             releasePage = page,
             assetName = apkName,
             assetSize = apkSize,

@@ -159,7 +159,7 @@ fun AboutScreen(onBack: () -> Unit, onOpenLogs: () -> Unit = {}) {
     var result by remember { mutableStateOf<UpdateChecker.Result?>(null) }
     var showResultDialog by remember { mutableStateOf(false) }
 
-    // 更新源：自动（GitHub + Gitee 并行）/ 手动锁定其中一个
+    // 更新源：自动（CDN 镜像 + GitHub 并行）/ 手动锁定其中一个
     val settings = remember { BatterySettings(context.applicationContext) }
     var updateSource by remember {
         mutableStateOf(UpdateChecker.Source.fromStorage(settings.updateSource()))
@@ -760,7 +760,10 @@ private fun UpdateResultDialog(
     val scope = rememberCoroutineScope()
     val colors = NexioTheme.colorScheme
     val hasUpdate = result?.hasUpdate == true
-    val downloadUrl = result?.downloadUrl
+    // 镜像在前、直链兜底的全量地址列表；列表非空即可下载
+    val downloadUrls = result?.downloadUrls.orEmpty().ifEmpty {
+        result?.downloadUrl?.let { listOf(it) }.orEmpty()
+    }
     val checkError = result?.error
     val notes = result?.notes
 
@@ -793,7 +796,7 @@ private fun UpdateResultDialog(
     }
 
     fun startDownload() {
-        if (downloadUrl.isNullOrBlank()) return
+        if (downloadUrls.isEmpty()) return
         downloading = true
         percent = 0
         downloaded = 0L
@@ -804,7 +807,7 @@ private fun UpdateResultDialog(
             runCatching {
                 ApkUpdater.download(
                     context = context.applicationContext,
-                    url = downloadUrl,
+                    urls = downloadUrls,
                     version = version,
                     onProgress = { p, done, _ ->
                         if (p >= 0) percent = p
@@ -864,7 +867,7 @@ private fun UpdateResultDialog(
         downloading -> "下载中"
         failure != null -> "重试"
         readyApk != null -> "安装"
-        downloadUrl == null -> "前往发布页"
+        downloadUrls.isEmpty() -> "前往发布页"
         else -> "下载并安装"
     }
 
@@ -947,7 +950,7 @@ private fun UpdateResultDialog(
                             when {
                                 downloading -> Unit
                                 readyApk != null -> startInstall(readyApk!!)
-                                downloadUrl == null -> onOpenUrl(result?.releasePage ?: "")
+                                downloadUrls.isEmpty() -> onOpenUrl(result?.releasePage ?: "")
                                 else -> startDownload()
                             }
                         },
