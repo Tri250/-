@@ -17,6 +17,7 @@ import com.smalljelly.batterydata.R
 import com.smalljelly.batterydata.data.BatterySample
 import com.smalljelly.batterydata.data.ChargeRecorder
 import com.smalljelly.batterydata.data.RecorderState
+import com.smalljelly.batterydata.data.formatEta
 import com.smalljelly.batterydata.shizuku.ShizukuManager
 import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CoroutineScope
@@ -314,7 +315,9 @@ object BatteryIslandHelper {
     private fun buildIslandParams(sample: BatterySample, firstPop: Boolean): String {
         val powerText = sample.powerW?.let { "${it.toInt()}W" } ?: "充电中"
         val tempText = sample.temperatureC?.let { String.format(java.util.Locale.US, "%.1f°C", it) } ?: ""
-        val etaText = sample.etaMinutes?.let { "预计 ${it / 60} 小时 ${it % 60} 分后充满" } ?: "正在充电"
+        // 文案与首页/小部件同一套 formatEta：0 分（刚插上）时显示"正在充电"，
+        // 不会出现"预计 0 小时 0 分后充满"
+        val etaText = formatEta(sample.etaMinutes)?.let { "预计 $it 后充满" } ?: "正在充电"
 
         val paramV2 = JSONObject().apply {
             put("business", BUSINESS_TAG)

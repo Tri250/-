@@ -64,6 +64,16 @@ class BatteryRepository(private val context: Context) {
         val counterUah = batteryManager.getLongProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER)
             .takeIf { it != Long.MIN_VALUE && it > 0L }
 
+        // 系统的充电剩余时间（秒）。只有充电中才有意义；不支持时返回 Long.MIN_VALUE，
+        // 部分厂商会给出离谱值，超过 24 小时按不可信处理，交给线性外推兜底
+        val chargeTimeRemainingSec = if (status == BatteryManager.BATTERY_STATUS_CHARGING) {
+            batteryManager.getLongProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_TIME_REMAINING)
+                .takeIf { it != Long.MIN_VALUE && it in 1L..86_400L }
+                ?.let { ((it + 59L) / 60L).toInt() }
+        } else {
+            null
+        }
+
         val cycleFromIntent = intent?.getIntExtra(BatteryManager.EXTRA_CYCLE_COUNT, -1)?.takeIf { it >= 0 }
         val raw = sysfs.read()
 
@@ -89,6 +99,7 @@ class BatteryRepository(private val context: Context) {
             fullChargeMah = raw.fullChargeMah,
             designCapacityMah = resolvedDesign?.first,
             designSource = resolvedDesign?.second,
+            chargeTimeRemainingMin = chargeTimeRemainingSec,
             updatedAt = System.currentTimeMillis(),
         )
     }

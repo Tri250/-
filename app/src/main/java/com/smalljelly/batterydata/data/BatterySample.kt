@@ -20,6 +20,8 @@ data class BatterySample(
     val fullChargeMah: Float? = null,
     val designCapacityMah: Float? = null,
     val designSource: String? = null,
+    /** 系统给出的充电剩余分钟数（BATTERY_PROPERTY_CHARGE_TIME_REMAINING），不支持/不充电时为 null */
+    val chargeTimeRemainingMin: Int? = null,
     val updatedAt: Long = 0L,
 ) {
     val isCharging: Boolean get() = status == BatteryManager.BATTERY_STATUS_CHARGING
@@ -87,16 +89,18 @@ data class BatterySample(
     /** 还剩多久 / 还有多久充满，单位分钟。 */
     val etaMinutes: Int?
         get() {
+            // 优先信系统预估：厂商内核知道恒压段/涓流段的降流曲线，比线性外推准得多，
+            // 而且电流读不到时也能给出结果（线性外推必须有电流才能算）
+            if (isCharging && chargeTimeRemainingMin != null) return chargeTimeRemainingMin
             val current = currentMa ?: return null
             val counter = chargeCounterMah ?: return null
             val magnitude = abs(current)
             if (magnitude < 30f) return null
-            return when {
-                current < 0f -> (counter / magnitude * 60f).toInt()
-                else -> {
-                    val full = estimatedFullChargeMah ?: return null
-                    ((full - counter).coerceAtLeast(0f) / magnitude * 60f).toInt()
-                }
+            return if (current < 0f) {
+                (counter / magnitude * 60f).toInt()
+            } else {
+                val full = estimatedFullChargeMah ?: return null
+                ((full - counter).coerceAtLeast(0f) / magnitude * 60f).toInt()
             }
         }
 }

@@ -147,8 +147,11 @@ private const val REFRESH_INTERVAL_MS = 1_000L
 /** 没有历史电流数据时，估算亮屏时长采用的典型亮屏电流（mA） */
 private const val TYPICAL_SCREEN_ON_CURRENT_MA = 450f
 
-/** 亮屏电流样本的滑动窗口：3 分钟（1 秒一采，180 个样本） */
+/** 亮屏电流样本的滑动窗口数量上限：3 分钟（1 秒一采，180 个样本） */
 private const val SCREEN_ON_WINDOW = 180
+
+/** 亮屏样本的时间窗：断续亮屏时按数量截断的池子可能跨越几小时，只信最近 3 分钟内的样本 */
+private const val SCREEN_ON_WINDOW_MS = 3 * 60 * 1000L
 
 /** 少于这个数量就不信样本，退回典型值 */
 private const val MIN_SCREEN_ON_SAMPLES = 6
@@ -508,9 +511,9 @@ private fun HomeScreen(
     var sample by remember { mutableStateOf(repository.snapshot()) }
     val currentHistory = remember { mutableStateListOf<Float>() }
     val voltageHistory = remember { mutableStateListOf<Float>() }
-    // 亮屏状态下的放电电流样本。只这一个池子用来估「可亮屏时长」：
+    // 亮屏状态下的放电电流样本（时间戳 + mA）。只这一个池子用来估「可亮屏时长」：
     // 混进熄屏待机的电流会把时长算得离谱地长，跟系统那个混合使用的预估也完全对不上。
-    val screenOnCurrents = remember { mutableStateListOf<Float>() }
+    val screenOnCurrents = remember { mutableStateListOf<Pair<Long, Float>>() }
     val powerManager = remember(context) {
         context.getSystemService(Context.POWER_SERVICE) as PowerManager
     }
@@ -523,7 +526,7 @@ private fun HomeScreen(
             // 放电 + 屏幕亮着 才算有效样本（充电时的负电流、待机时的低电流都不能用）
             val discharge = latest.currentMa
             if (!latest.isPlugged && discharge != null && discharge < 0f && powerManager.isInteractive) {
-                screenOnCurrents.append(-discharge, SCREEN_ON_WINDOW)
+                screenOnCurrents.append(System.currentTimeMillis() to -discharge, SCREEN_ON_WINDOW)
             }
         }
     }
@@ -786,7 +789,7 @@ private fun InfoCard(sample: BatterySample) {
     }
 }
 
-private fun etaText(sample: BatterySample, screenOnCurrents: List<Float>): String {
+private fun etaText(sample: BatterySample, screenOnCurrents: List<Pair<Long, Float>>): String {
     val temperature = sample.temperatureC?.let { String.format(Locale.US, "%.1f °C", it) }
     return when {
         sample.isFull -> "已充满，建议断开充电器"
@@ -818,10 +821,17 @@ private fun remainingMah(sample: BatterySample): Float? {
  */
 private fun estimateScreenOnMinutes(
     sample: BatterySample,
-    screenOnCurrents: List<Float>,
+    screenOnCurrents: List<Pair<Long, Float>>,
 ): Int? {
     val mah = remainingMah(sample) ?: return null
+    // 数量截断挡不住"断续亮屏"：180 个样本可能跨越几小时，两小时前的 800mA
+    // 混进现在的 300mA 里会把时长低估一半。按时间窗过滤，只用最近的样本。
+    val windowStart = System.currentTimeMillis() - SCREEN_ON_WINDOW_MS
     val averageMa = screenOnCurrents
+        .asSequence()
+        .filter { it.first >= windowStart }
+        .map { it.second }
+        .toList()
         .takeIf { it.size >= MIN_SCREEN_ON_SAMPLES }
         ?.average()
         ?.toFloat()
@@ -830,7 +840,7 @@ private fun estimateScreenOnMinutes(
     return (mah / averageMa * 60f).toInt().takeIf { it > 0 }
 }
 
-private fun MutableList<Float>.append(value: Float, cap: Int = HISTORY_SIZE) {
+private fun <T> MutableList<T>.append(value: T, cap: Int = HISTORY_SIZE) {
     if (size >= cap) removeAt(0)
     add(value)
 }
