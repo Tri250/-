@@ -21,13 +21,9 @@ import com.haooz.softglass.backdrop.backdrops.layerBackdrop
 import com.haooz.softglass.backdrop.backdrops.rememberLayerBackdrop
 import com.smalljelly.batterydata.data.LogFile
 import com.smalljelly.batterydata.ui.components.NexioTopBar
-import com.smalljelly.batterydata.ui.components.TopBarActionSize
 import com.smalljelly.batterydata.ui.components.pageTopBarHeight
 import com.smalljelly.batterydata.ui.components.rememberNexioTopBarState
 import com.smalljelly.batterydata.ui.components.rememberTopBarPull
-import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Icon
-import androidx.compose.ui.draw.rotate
 import com.smalljelly.batterydata.ui.components.NexioIconButton
 import com.haooz.nexioui.icon.extended.ChevronBackward
 import com.haooz.nexioui.scaffold.Scaffold

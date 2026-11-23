@@ -82,11 +82,8 @@ import com.haooz.nexioui.text.NexioText
 import com.haooz.nexioui.button.FlatTextButton
 import com.haooz.nexioui.icon.NexioIcons
 import com.haooz.nexioui.icon.basic.ArrowRight
-import com.haooz.nexioui.icon.basic.Check
 import com.haooz.nexioui.theme.NexioTheme
 import com.haooz.nexioui.icon.basic.ArrowUpDown
-import com.haooz.nexioui.dropdown.DropdownColors
-import com.haooz.nexioui.dropdown.DropdownDefaults
 import com.haooz.nexioui.dropdown.DropdownEntry
 import com.haooz.nexioui.dropdown.DropdownItem
 import com.haooz.nexioui.dropdown.DropdownMaskMode

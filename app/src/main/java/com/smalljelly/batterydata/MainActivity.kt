@@ -9,7 +9,6 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.ui.graphics.Color as ComposeColor
-import androidx.compose.ui.unit.dp
 import com.smalljelly.batterydata.data.ChargeRecorder
 import com.smalljelly.batterydata.ui.BatteryScreen
 import com.smalljelly.batterydata.ui.theme.AppMaterial
