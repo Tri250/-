@@ -56,15 +56,17 @@ fun RealtimeStatsCard(
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             StatCell(
                 label = "电压",
-                value = sample.voltageMv.takeIf { it > 0 }
-                    ?.let { String.format(Locale.US, "%.2f", it / 1000f) } ?: "—",
+                value = String.format(Locale.US, "%.2f", sample.voltageMv / 1000f),
                 unit = "V",
+                caption = if (sample.voltageEstimated) "估算值" else null,
             )
             StatCell(
                 label = "电流",
                 value = current?.let { String.format(Locale.US, "%.2f", abs(it) / 1000f) } ?: "—",
                 unit = "A",
-                caption = current?.let { if (it > 0) "充电" else "放电" },
+                caption = current?.let {
+                    (if (it > 0) "充电" else "放电") + if (sample.currentEstimated) " · 估算" else ""
+                },
             )
         }
 

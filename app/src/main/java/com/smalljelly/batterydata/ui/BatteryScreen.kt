@@ -593,7 +593,7 @@ private fun HomeScreen(
             InfoCard(sample)
             Spacer(Modifier.height(18.dp))
             NexioText(
-                text = "数据每秒从系统 BatteryManager 与 power_supply 节点读取\n个别机型不开放电流、容量数据时会显示“未公开”",
+                text = "数据每秒从系统 BatteryManager 与 power_supply 节点读取\n节点被系统关闭的机型自动切换估算兜底（标注「估算」）",
                 fontSize = 11.sp,
                 lineHeight = 16.sp,
                 color = colors.onSurfaceVariantSummary,

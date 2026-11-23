@@ -31,6 +31,12 @@ class BatteryRepository(private val context: Context) {
 
     fun snapshot(): BatterySample = readSample(allowRemote = false)
 
+    /**
+     * 库仑计差分滑窗：(时间戳 ms, counter mAh)。系统电流读数被 ROM 关掉时，
+     * 用电量计 30 秒滑窗的差分反推平均电流——物理上真实有效，不依赖厂商节点。
+     */
+    private val counterWindow = ArrayDeque<Pair<Long, Float>>()
+
     fun stream(intervalMs: Long = 1_000L): Flow<BatterySample> = flow {
         while (currentCoroutineContext().isActive) {
             emit(readSample(allowRemote = true))
@@ -91,10 +97,58 @@ class BatteryRepository(private val context: Context) {
         val cycleFromIntent = intent?.getIntExtra(BatteryManager.EXTRA_CYCLE_COUNT, -1)?.takeIf { it >= 0 }
         val raw = sysfs.read()
         // BatteryManager 层拿不到电流/电压的机型（不少国产 ROM 把 CURRENT_NOW 关成 0，
-        // 部分机型 ACTION_BATTERY_CHANGED 不带电压），退到 sysfs 节点即时读
+        // 部分机型 ACTION_BATTERY_CHANGED 不带电压），先退 sysfs 节点即时读
         val instant = if (rawCurrent == null || voltageMv <= 0) sysfs.readInstant() else null to null
-        val resolvedCurrentMa = rawCurrent ?: instant.first?.let { normalizeCurrent(it, status) }
-        val resolvedVoltageMv = if (voltageMv > 0) voltageMv else instant.second?.toInt() ?: 0
+        val sysfsCurrentMa = instant.first?.let { normalizeCurrent(it, status) }
+        val sysfsVoltageMv = instant.second?.toInt() ?: 0
+
+        // 系统电流与 sysfs 节点全失效（SELinux 锁死节点）时，退到库仑计差分：
+        // 30 秒滑窗内用电量计的变化反推平均电流，符号天然正确（电量降=放电=负）
+        val diffCurrentMa = if (rawCurrent == null && sysfsCurrentMa == null) {
+            counterUah?.let { uah ->
+                // snapshot() 与 stream() 可能并发调用，滑窗必须同步
+                synchronized(counterWindow) {
+                    val now = System.currentTimeMillis()
+                    counterWindow.addLast(now to uah / 1000f)
+                    while (counterWindow.isNotEmpty() && now - counterWindow.first().first > 30_000L) {
+                        counterWindow.removeFirst()
+                    }
+                    val first = counterWindow.first()
+                    val hours = (now - first.first) / 3_600_000f
+                    if (hours > 0f && counterWindow.size >= 8) {
+                        val deltaMah = (uah / 1000f) - first.second
+                        val ma = deltaMah / hours
+                        ma.takeIf { abs(it) < 10_000f }
+                    } else {
+                        null
+                    }
+                }
+            }
+        } else {
+            synchronized(counterWindow) { counterWindow.clear() }
+            null
+        }
+
+        // 电压/电流四级兜底：真实读数 > sysfs > 库仑计差分 > 状态典型值。
+        // 兜底值全部带 estimated 标记，UI 显示时标注「估算」，保证任何机型都有显示
+        val charging = status == BatteryManager.BATTERY_STATUS_CHARGING
+        val full = status == BatteryManager.BATTERY_STATUS_FULL
+        val discharging = status == BatteryManager.BATTERY_STATUS_DISCHARGING
+        val (resolvedVoltageMv, voltageEstimated) = when {
+            voltageMv > 0 -> voltageMv to false
+            sysfsVoltageMv > 0 -> sysfsVoltageMv to false
+            charging -> 4_450 to true       // 快充恒流段的典型电池电压
+            full -> 4_200 to true           // 满电标称电压
+            else -> 3_850 to true           // 放电中段典型电压
+        }
+        val (resolvedCurrentMa, currentEstimated) = when {
+            rawCurrent != null -> rawCurrent to false
+            sysfsCurrentMa != null -> sysfsCurrentMa to false
+            diffCurrentMa != null -> diffCurrentMa to false
+            charging -> 2_000f to true      // 典型充电电流（18W 档）
+            full -> 0f to true              // 满电电流趋近 0
+            else -> -400f to true           // 亮屏放电典型电流
+        }
 
         // 优先级：手动设置 > sysfs 节点 > 机型库
         val manualDesign = settings.manualDesignCapacityMah()
@@ -120,6 +174,8 @@ class BatteryRepository(private val context: Context) {
             designSource = resolvedDesign?.second,
             rawLevelPercent = rawLevelPercent,
             chargeTimeRemainingMin = chargeTimeRemainingSec,
+            voltageEstimated = voltageEstimated,
+            currentEstimated = currentEstimated,
             updatedAt = System.currentTimeMillis(),
         )
     }

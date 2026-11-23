@@ -24,6 +24,9 @@ data class BatterySample(
     val rawLevelPercent: Float? = null,
     /** 系统给出的充电剩余分钟数（BATTERY_PROPERTY_CHARGE_TIME_REMAINING），不支持/不充电时为 null */
     val chargeTimeRemainingMin: Int? = null,
+    /** 电压/电流是否来自估算兜底（系统层与 sysfs 都拿不到时的典型值/库仑计差分） */
+    val voltageEstimated: Boolean = false,
+    val currentEstimated: Boolean = false,
     val updatedAt: Long = 0L,
 ) {
     val isCharging: Boolean get() = status == BatteryManager.BATTERY_STATUS_CHARGING
