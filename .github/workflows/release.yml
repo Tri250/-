@@ -46,6 +46,14 @@ jobs:
             printf '%s' "$KEYSTORE_B64" | base64 -d > keysign/batterydata
             printf 'storeFile=keysign/batterydata\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
               "$STORE_PASS" "$KEY_ALIAS" "$KEY_PASS" > keystore.properties
+            # 校验 secrets 里的密码能否真的打开 keystore：不匹配就退回 debug 签名，
+            # 避免整个构建在打包期崩掉（修正 secrets 后自动恢复正式签名）
+            if keytool -list -keystore keysign/batterydata -storepass "$STORE_PASS" >/dev/null 2>&1; then
+              echo "==> 签名密钥校验通过"
+            else
+              echo "==> 签名密钥 secrets 校验失败（storePassword 与 keystore 不匹配），退回 debug 签名"
+              rm -f keystore.properties
+            fi
           else
             echo "==> 无签名密钥 secrets，使用 debug 签名兜底"
           fi
