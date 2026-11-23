@@ -175,9 +175,10 @@ jobs:
           cat update/latest.json
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          # 切到远端 main 的最新状态再提交：远程可能有上一次构建的清单提交
+          # 切到远端 main 的最新状态再提交：-f 丢弃第一次生成在 tag HEAD 上的
+          # 未提交清单（ship 分支上会重新生成），否则 checkout 会被改动挡住
           git fetch origin main
-          git checkout -B ship origin/main
+          git checkout -f -B ship origin/main
           python3 /tmp/gen_latest.py "$TAG" "$VERSION" "$APK_NAME" "$DIRECT" /tmp/notes.txt
           git add update/latest.json
           if git diff --cached --quiet; then
