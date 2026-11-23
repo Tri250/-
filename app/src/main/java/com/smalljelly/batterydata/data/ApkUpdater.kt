@@ -44,6 +44,8 @@ object ApkUpdater {
         onProgress: (percent: Int, downloaded: Long, total: Long) -> Unit,
     ): File = withContext(Dispatchers.IO) {
         val target = apkFile(context, version)
+        // 上次已下完的同版本包直接复用：重复点「下载」不用再等全量
+        if (target.exists() && target.length() > 0L) return@withContext target
         val partial = File(target.path + ".part")
 
         val connection = (URL(url).openConnection() as HttpURLConnection).apply {
