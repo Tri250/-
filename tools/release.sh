@@ -47,4 +47,4 @@ else
   gh release create "${TAG}" "${OUT}" --title "${TAG}" --notes "${NOTES}"
 fi
 
-echo "==> 完成：https://github.com/Alittlejelly/BatteryData/releases/tag/${TAG}"
+echo "==> 完成：https://github.com/Tri250/-/releases/tag/${TAG}"

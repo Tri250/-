@@ -35,7 +35,7 @@
 「关于 → 检查更新」读取
 
 ```
-https://api.github.com/repos/Alittlejelly/BatteryData/releases/latest
+https://api.github.com/repos/Tri250/-/releases/latest
 ```
 
 - 版本比较用 `tag_name`（如 `v1.0.2`）与本地 `versionName` 逐段比对；
@@ -45,7 +45,7 @@ https://api.github.com/repos/Alittlejelly/BatteryData/releases/latest
 ### 发一个新版本
 
 ```bash
-tools/release.sh 1.0.2 102 "修复 xxx"
+tools/release.sh 1.0.4 104 "修复 xxx"
 ```
 
 脚本会改 `versionName` / `versionCode`、编译 **release** 变体、打 tag、推 main、用 `gh` 创建 Release 并上传 APK。

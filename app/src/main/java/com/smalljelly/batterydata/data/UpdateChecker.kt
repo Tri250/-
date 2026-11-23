@@ -14,7 +14,7 @@ import java.net.URL
  * 应用更新检查：GitHub Releases + Gitee Releases 双源。
  *
  * ```
- * https://api.github.com/repos/Alittlejelly/BatteryData/releases/latest
+ * https://api.github.com/repos/Tri250/-/releases/latest
  * https://gitee.com/api/v5/repos/littlejelly/BatteryData/releases/latest
  * ```
  *
@@ -48,13 +48,13 @@ object UpdateChecker {
         val accept: String? = null,
     )
 
-    private const val GITHUB_RELEASES = "https://github.com/Alittlejelly/BatteryData/releases"
+    private const val GITHUB_RELEASES = "https://github.com/Tri250/-/releases"
 
     private val ENDPOINTS = listOf(
         Endpoint(
             source = Source.GITHUB,
             name = "GitHub",
-            latestApi = "https://api.github.com/repos/Alittlejelly/BatteryData/releases/latest",
+            latestApi = "https://api.github.com/repos/Tri250/-/releases/latest",
             releasesPage = GITHUB_RELEASES,
             // GitHub API 必须带 User-Agent，否则直接 403
             accept = "application/vnd.github+json",
