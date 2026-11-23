@@ -77,13 +77,15 @@ fun BatteryHealthCard(
         percent != null -> healthRatingText(percent)
         else -> sample.healthText
     }
-    val accent = when {
-        healthAlert -> BatteryRed
+    // 容量进度条独立取色：红色在条上只表示"容量偏低"，不叠加系统警示，
+    // 否则过热 + 容量 92% 会画成一根红色 92% 的条，语义自相矛盾
+    val capacityColor = when {
         percent == null -> colors.onSurfaceVariantSummary
         percent >= 80f -> BatteryGreen
         percent >= 70f -> BatteryAmber
         else -> BatteryRed
     }
+    val accent = if (healthAlert) BatteryRed else capacityColor
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -137,7 +139,7 @@ fun BatteryHealthCard(
 
         if (percent != null) {
             Spacer(Modifier.height(10.dp))
-            HealthBar(progress = percent / 100f, color = accent)
+            HealthBar(progress = percent / 100f, color = capacityColor)
             Spacer(Modifier.height(6.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 NexioText("0%", fontSize = 11.sp, color = colors.onSurfaceVariantSummary)
