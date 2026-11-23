@@ -1,13 +1,13 @@
 {
-  "tag_name": "v1.0.8",
-  "version_name": "1.0.8",
+  "tag_name": "v1.0.9",
+  "version_name": "1.0.9",
   "notes": "检查更新新增 CDN 镜像源（jsDelivr 读仓库内更新清单），国内直连可用\nAPK 下载改为多源：国内镜像代理在前、GitHub 直链兜底，逐源自动切换\n预计可用时间：充电走系统官方预估（CHARGE_TIME_REMAINING 反射接入，全机型可编译）\n健康度：OPPO/vivo/一加/iQOO 识别链修复 + 机型库 135 条（2026 在售）\n反推满电容量用浮点电量，健康度不再随电量跨档跳动\n系统健康异常（过热/老化等）红标前置警示\n电池信息卡新增开机时长 / 开机次数\n无正式签名密钥时 APK 为 debug 签名，与已装 debug 签名版本可覆盖安装。",
-  "asset_name": "BatteryData-1.0.8.apk",
-  "release_page": "https://github.com/Tri250/-/releases/tag/v1.0.8",
+  "asset_name": "BatteryData-1.0.9.apk",
+  "release_page": "https://github.com/Tri250/-/releases/tag/v1.0.9",
   "apk_urls": [
-    "https://gh-proxy.com/https://github.com/Tri250/-/releases/download/v1.0.8/BatteryData-1.0.8.apk",
-    "https://ghfast.top/https://github.com/Tri250/-/releases/download/v1.0.8/BatteryData-1.0.8.apk",
-    "https://mirror.ghproxy.com/https://github.com/Tri250/-/releases/download/v1.0.8/BatteryData-1.0.8.apk",
-    "https://github.com/Tri250/-/releases/download/v1.0.8/BatteryData-1.0.8.apk"
+    "https://gh-proxy.com/https://github.com/Tri250/-/releases/download/v1.0.9/BatteryData-1.0.9.apk",
+    "https://ghfast.top/https://github.com/Tri250/-/releases/download/v1.0.9/BatteryData-1.0.9.apk",
+    "https://mirror.ghproxy.com/https://github.com/Tri250/-/releases/download/v1.0.9/BatteryData-1.0.9.apk",
+    "https://github.com/Tri250/-/releases/download/v1.0.9/BatteryData-1.0.9.apk"
   ]
 }
