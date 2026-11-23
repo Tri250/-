@@ -130,6 +130,8 @@ jobs:
           VERSION="${TAG#v}"
           APK_NAME="BatteryData-${VERSION}.apk"
           DIRECT="https://github.com/Tri250/-/releases/download/${TAG}/${APK_NAME}"
+          # 上一步的 shell 变量不跨步骤，这里显式声明（上一步把说明写到了 /tmp/notes.txt）
+          NOTES_FILE=/tmp/notes.txt
           mkdir -p update
           python3 - "$TAG" "$VERSION" "$APK_NAME" "$DIRECT" "$NOTES_FILE" <<'PYEOF'
           import json, re, sys
@@ -176,5 +178,6 @@ jobs:
           else
             git commit -m "chore: 更新清单 ${TAG}"
             git push origin HEAD:main
-            echo "==> update/latest.json 已推回 main，jsDelivr 缓存约 12h 后刷新（可用 purge.jsdelivr.net 强刷）"
+            echo "==> update/latest.json 已推回 main，强刷 jsDelivr 缓存："
+            curl -s "https://purge.jsdelivr.net/gh/Tri250/-@main/update/latest.json" >/dev/null 2>&1 || true
           fi
