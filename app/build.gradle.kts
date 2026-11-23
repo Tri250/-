@@ -5,7 +5,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
-// 签名信息放在根目录 keystore.properties（已在 .gitignore 里），缺失时退回 debug 签名，
+// 签名信息放在根目录 keystore.properties（已在 .gitignore 里），缺失时退回仓库内固定 debug 签名，
 // 保证没有密钥的环境（比如别人 clone 下来）也能 assembleRelease 出个能装的包。
 val keystorePropsFile = rootProject.file("keystore.properties")
 val keystoreProps = Properties().apply {
@@ -23,13 +23,22 @@ android {
         applicationId = "com.smalljelly.batterydata"
         minSdk = 26
         targetSdk = 37
-        versionCode = 109
-        versionName = "1.0.9"
+        versionCode = 110
+        versionName = "1.0.10"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     signingConfigs {
+        // 仓库内固定 debug 密钥（标准 Android debug 参数）：CI 的 runner 每次都是全新环境，
+        // AGP 自动生成的 debug keystore 每次随机——不固定的话每个版本签名都不同，
+        // 应用内更新下载的新包必然和已装版本「签名冲突」装不上
+        create("pinnedDebug") {
+            storeFile = rootProject.file("keystore/fixed-debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
         if (hasReleaseKey) {
             create("release") {
                 storeFile = rootProject.file(keystoreProps.getProperty("storeFile"))
@@ -45,12 +54,16 @@ android {
             signingConfig = if (hasReleaseKey) {
                 signingConfigs.getByName("release")
             } else {
-                signingConfigs.getByName("debug")
+                signingConfigs.getByName("pinnedDebug")
             }
             optimization {
                 enable = true
                 packageScope = setOf("androidx.**", "kotlin.**", "kotlinx.**")
             }
+        }
+        debug {
+            // 本机开发构建也固定到同一密钥：与 CI 产物签名一致，可互相覆盖安装
+            signingConfig = signingConfigs.getByName("pinnedDebug")
         }
     }
     compileOptions {
