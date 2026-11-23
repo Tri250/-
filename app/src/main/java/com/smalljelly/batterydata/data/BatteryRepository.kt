@@ -54,6 +54,8 @@ class BatteryRepository(private val context: Context) {
         val voltageMv = intent?.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 0) ?: 0
         val temperature = intent?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, Int.MIN_VALUE)
             ?.takeIf { it != Int.MIN_VALUE }
+            // 0.1°C 原始值；超出电池物理可行范围（-20..80°C）的多为 ROM 哨兵/脏数据，拒收
+            ?.takeIf { it in -200..800 }
             ?.let { it / 10f }
         val health = intent?.getIntExtra(BatteryManager.EXTRA_HEALTH, BatteryManager.BATTERY_HEALTH_UNKNOWN)
             ?: BatteryManager.BATTERY_HEALTH_UNKNOWN

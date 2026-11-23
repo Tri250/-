@@ -8,7 +8,6 @@ import androidx.compose.foundation.background
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -16,7 +15,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -70,8 +68,17 @@ fun BatteryHealthCard(
 ) {
     val colors = NexioTheme.colorScheme
     val percent = sample.healthPercent
-    val rating = if (percent == null) sample.healthText else healthRatingText(percent)
+    // 系统报告异常状态（过热 / 老化失效 / 电压过高 / 异常 / 温度过低）时优先警示：
+    // 容量健康度 92% 也可能正在过热，绿色评级会把警告淹没。与 healthText 同源判断，
+    // 非法码（0 等）落到「未知」也不触发
+    val healthAlert = sample.healthText !in setOf("良好", "未知")
+    val rating = when {
+        healthAlert -> sample.healthText
+        percent != null -> healthRatingText(percent)
+        else -> sample.healthText
+    }
     val accent = when {
+        healthAlert -> BatteryRed
         percent == null -> colors.onSurfaceVariantSummary
         percent >= 80f -> BatteryGreen
         percent >= 70f -> BatteryAmber
@@ -156,7 +163,11 @@ fun BatteryHealthCard(
         InnerDivider()
         InfoRow("循环次数", sample.cycleCount?.let { "$it 次" } ?: "未公开")
         InnerDivider()
-        InfoRow("系统健康状态", sample.healthText)
+        InfoRow(
+            label = "系统健康状态",
+            value = sample.healthText,
+            valueColor = if (healthAlert) BatteryRed else NexioTheme.colorScheme.onSurfaceVariantSummary,
+        )
     }
 }
 
