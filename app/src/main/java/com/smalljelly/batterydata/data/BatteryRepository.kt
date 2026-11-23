@@ -44,6 +44,10 @@ class BatteryRepository(private val context: Context) {
             else -> batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
         }.coerceIn(0, 100)
 
+        // 未取整的电量（78.4 而不是 78）：反推满电容量时用它，
+        // 否则整数电量每跨 1%，反推值跳 ±1.3%，健康度跟着抖
+        val rawLevelPercent = if (level >= 0 && scale > 0) (level * 100f / scale).coerceIn(0f, 100f) else null
+
         val status = intent?.getIntExtra(BatteryManager.EXTRA_STATUS, BatteryManager.BATTERY_STATUS_UNKNOWN)
             ?: BatteryManager.BATTERY_STATUS_UNKNOWN
         val plugged = intent?.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) ?: 0
@@ -99,6 +103,7 @@ class BatteryRepository(private val context: Context) {
             fullChargeMah = raw.fullChargeMah,
             designCapacityMah = resolvedDesign?.first,
             designSource = resolvedDesign?.second,
+            rawLevelPercent = rawLevelPercent,
             chargeTimeRemainingMin = chargeTimeRemainingSec,
             updatedAt = System.currentTimeMillis(),
         )

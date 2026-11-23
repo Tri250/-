@@ -20,6 +20,8 @@ data class BatterySample(
     val fullChargeMah: Float? = null,
     val designCapacityMah: Float? = null,
     val designSource: String? = null,
+    /** 未取整的电量百分比（78.4）：反推满电容量用它可消除整数电量的量化跳动 */
+    val rawLevelPercent: Float? = null,
     /** 系统给出的充电剩余分钟数（BATTERY_PROPERTY_CHARGE_TIME_REMAINING），不支持/不充电时为 null */
     val chargeTimeRemainingMin: Int? = null,
     val updatedAt: Long = 0L,
@@ -72,9 +74,14 @@ data class BatterySample(
         get() {
             fullChargeMah?.let { if (it > 100f) return it }
             val counter = chargeCounterMah ?: return null
-            if (level < 5 || level > 100) return null
+            // 反推用的电量优先取未取整值：整数 level 每跨 1% 反推结果跳 ±1.3%，
+            // 健康度会跟着抖；浮点电量与库仑计同步连续，反推值就稳了。
+            // 门槛维持 5..100：电量太低时反推误差依旧不可接受
+            val soc = rawLevelPercent?.takeIf { it in 5f..100f }
+                ?: level.takeIf { it in 5..100 }?.toFloat()
+                ?: return null
             // 模拟器 / 部分机型的 charge_counter 只是占位值，反推结果过小就视为不可用
-            return (counter / (level / 100f)).takeIf { it >= 500f }
+            return (counter / (soc / 100f)).takeIf { it >= 500f }
         }
 
     /** 电池健康度百分比，需要设计容量 + 满电容量。 */
