@@ -59,8 +59,11 @@ object UpdateChecker {
         Endpoint(
             source = Source.CDN,
             name = "CDN 镜像",
-            // jsDelivr 三域名按可用性排序回退；raw.githubusercontent 只是最后兜底（国内基本不可达）
+            // 镜像代理 raw（实时透传，清单推送后立即生效）优先；
+            // jsDelivr 对 branch 引用有最长 12h 缓存且 purge 不保证即时生效，降为稳定备份
             latestApis = listOf(
+                "https://ghfast.top/https://raw.githubusercontent.com/Tri250/-/main/$LATEST_JSON_PATH",
+                "https://gh-proxy.com/https://raw.githubusercontent.com/Tri250/-/main/$LATEST_JSON_PATH",
                 "https://cdn.jsdelivr.net/gh/Tri250/-@main/$LATEST_JSON_PATH",
                 "https://fastly.jsdelivr.net/gh/Tri250/-@main/$LATEST_JSON_PATH",
                 "https://testingcf.jsdelivr.net/gh/Tri250/-@main/$LATEST_JSON_PATH",
