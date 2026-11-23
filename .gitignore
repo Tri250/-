@@ -17,7 +17,11 @@ app/release/
 # ---- 签名与本地配置（绝不入库）----
 keysign/
 *.jks
-*.keystore
+# 仓库内固定 debug 签名密钥是公开的标准 debug 参数，必须进版本库（CI 兜底签名用）
+!keystore/fixed-debug.keystore
+# 私密签名材料仍然忽略
+keystore/*
+!keystore/fixed-debug.keystore
 keystore.properties
 *.apk
 *.aab
