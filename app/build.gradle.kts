@@ -23,8 +23,8 @@ android {
         applicationId = "com.smalljelly.batterydata"
         minSdk = 26
         targetSdk = 37
-        versionCode = 111
-        versionName = "1.0.11"
+        versionCode = 112
+        versionName = "1.0.12"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

@@ -262,6 +262,12 @@ fun AboutScreen(onBack: () -> Unit, onOpenLogs: () -> Unit = {}) {
                     fontSize = 14.sp,
                     color = colors.onSurfaceVariantSummary,
                 )
+                Spacer(Modifier.height(4.dp))
+                NexioText(
+                    text = "开发者：带娃的小陈工",
+                    fontSize = 13.sp,
+                    color = colors.onSurfaceVariantSummary,
+                )
             }
 
             Spacer(Modifier.weight(1f))
@@ -797,6 +803,12 @@ private fun UpdateResultDialog(
 
     fun startDownload() {
         if (downloadUrls.isEmpty()) return
+        // 下载前先把「安装未知应用」检查掉：没授权就先引导，省得 5MB 白下才发现装不了
+        if (!ApkUpdater.canInstall(context)) {
+            needPermission = true
+            runCatching { context.startActivity(ApkUpdater.installSettingsIntent(context)) }
+            return
+        }
         downloading = true
         percent = 0
         downloaded = 0L

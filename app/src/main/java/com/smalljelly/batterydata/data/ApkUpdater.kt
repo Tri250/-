@@ -48,8 +48,12 @@ object ApkUpdater {
         val candidates = urls.filter { it.isNotBlank() }
         if (candidates.isEmpty()) throw IllegalStateException("没有可用的下载地址")
         val target = apkFile(context, version)
-        // 上次已下完的同版本包直接复用：重复点「下载」不用再等全量
-        if (target.exists() && target.length() > 0L) return@withContext target
+        // 上次已下完的同版本包直接复用：重复点「下载」不用再等全量。
+        // 复用前先验 ZIP 结构——上次异常退出可能留下不完整的包（装了才炸「解析失败」）
+        if (target.exists() && target.length() > 0L) {
+            if (isCompleteApk(target)) return@withContext target
+            target.delete()
+        }
 
         var lastError: Exception? = null
         for (url in candidates) {
@@ -63,6 +67,35 @@ object ApkUpdater {
         }
         throw lastError ?: IllegalStateException("所有下载源均失败")
     }
+
+    /**
+     * 轻量完整性检查：APK 是 ZIP，头两个字节必须是 PK，且尾部有
+     * End-Of-Central-Directory 标记（PK\x05\x06）。能拦住被截断/写坏的半截包。
+     */
+    private fun isCompleteApk(file: File): Boolean = runCatching {
+        if (file.length() < 22L) return false // EOCD 本身至少 22 字节
+        file.inputStream().use { input ->
+            val head = ByteArray(2)
+            if (input.read(head) != 2 || head[0] != 'P'.code.toByte() || head[1] != 'K'.code.toByte()) {
+                return false
+            }
+        }
+        // EOCD 起点不定（后面跟着最长 64KB 的中央目录注释），在尾部窗口里从后往前找
+        val tailLen = minOf(file.length(), 65_557L + 22L).toInt()
+        val tail = ByteArray(tailLen)
+        java.io.RandomAccessFile(file, "r").use { raf ->
+            raf.seek(file.length() - tailLen)
+            raf.readFully(tail)
+        }
+        for (i in tailLen - 4 downTo 0) {
+            if (tail[i] == 'P'.code.toByte() && tail[i + 1] == 'K'.code.toByte() &&
+                tail[i + 2] == 0x05.toByte() && tail[i + 3] == 0x06.toByte()
+            ) {
+                return true
+            }
+        }
+        false
+    }.getOrDefault(false)
 
     private suspend fun downloadOnce(
         url: String,
@@ -98,6 +131,11 @@ object ApkUpdater {
                     output.flush()
                 }
             }
+            // 连接被网络中途切断时 read 循环会“正常”结束但数据不全，
+            // 这里按 Content-Length 把关，不完整的包当场报错换下一个源
+            if (total > 0L && downloaded != total) {
+                throw IllegalStateException("下载不完整：$downloaded / $total")
+            }
             if (target.exists()) target.delete()
             if (!partial.renameTo(target)) throw IllegalStateException("写入安装包失败")
             return target
@@ -129,11 +167,11 @@ object ApkUpdater {
             Uri.parse("package:${context.packageName}"),
         ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
-    /** 拉起系统安装器；返回 false 表示没有安装器/URI 授权失败 */
+    /** 拉起系统安装器（标准安装协议）；返回 false 表示没有安装器/URI 授权失败 */
     fun install(context: Context, apk: File): Boolean = runCatching {
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", apk)
         context.startActivity(
-            Intent(Intent.ACTION_VIEW)
+            Intent(Intent.ACTION_INSTALL_PACKAGE)
                 .setDataAndType(uri, "application/vnd.android.package-archive")
                 .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),

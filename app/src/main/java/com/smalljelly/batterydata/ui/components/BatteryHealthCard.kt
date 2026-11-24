@@ -42,8 +42,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.smalljelly.batterydata.data.BatterySample
 import com.smalljelly.batterydata.data.healthRatingText
-import com.smalljelly.batterydata.data.systemHealthGrade
-import com.smalljelly.batterydata.data.systemHealthScore
 import com.haooz.softglass.backdrop.GlassBackdrop
 import com.smalljelly.batterydata.ui.theme.AppMaterial
 import com.smalljelly.batterydata.ui.theme.BatteryAmber
@@ -167,25 +165,11 @@ fun BatteryHealthCard(
         InnerDivider()
         InfoRow("循环次数", sample.cycleCount?.let { "$it 次" } ?: "未公开")
         InnerDivider()
-        // 系统健康状态：多信号加权综合评分（容量40%+温度30%+电压15%+循环15%），
-        // 按百分比直观呈现；系统异常码硬压分保证警示不被高分项淹没
-        val sysScore = systemHealthScore(sample)
-        val sysColor = when {
-            sysScore == null -> colors.onSurfaceVariantSummary
-            healthAlert -> BatteryRed
-            sysScore >= 80 -> BatteryGreen
-            sysScore >= 65 -> BatteryAmber
-            else -> BatteryRed
-        }
         InfoRow(
             label = "系统健康状态",
-            value = sysScore?.let { "$it% · ${systemHealthGrade(it)}" } ?: sample.healthText,
-            valueColor = sysColor,
+            value = sample.healthText,
+            valueColor = if (healthAlert) BatteryRed else NexioTheme.colorScheme.onSurfaceVariantSummary,
         )
-        if (sysScore != null) {
-            Spacer(Modifier.height(8.dp))
-            HealthBar(progress = sysScore / 100f, color = sysColor)
-        }
     }
 }
 
