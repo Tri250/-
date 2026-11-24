@@ -1,13 +1,13 @@
 {
-  "tag_name": "v1.0.12",
-  "version_name": "1.0.12",
+  "tag_name": "v1.0.13",
+  "version_name": "1.0.13",
   "notes": "重要：请先卸载旧版本再安装本版，仅此一次！\n旧版每次构建由 CI 随机生成签名，导致应用内更新提示「签名冲突」\n本版起签名固定，卸载重装一次后，之后所有版本可直接覆盖安装，不再冲突\n修复卸载后重装的问题后，实时数据（电压/电流/功率）四级兜底保证有显示\n无正式签名密钥时 APK 为固定 debug 签名，此后版本间均可覆盖安装。",
-  "asset_name": "BatteryData-1.0.12.apk",
-  "release_page": "https://github.com/Tri250/-/releases/tag/v1.0.12",
+  "asset_name": "BatteryData-1.0.13.apk",
+  "release_page": "https://github.com/Tri250/-/releases/tag/v1.0.13",
   "apk_urls": [
-    "https://gh-proxy.com/https://github.com/Tri250/-/releases/download/v1.0.12/BatteryData-1.0.12.apk",
-    "https://ghfast.top/https://github.com/Tri250/-/releases/download/v1.0.12/BatteryData-1.0.12.apk",
-    "https://mirror.ghproxy.com/https://github.com/Tri250/-/releases/download/v1.0.12/BatteryData-1.0.12.apk",
-    "https://github.com/Tri250/-/releases/download/v1.0.12/BatteryData-1.0.12.apk"
+    "https://gh-proxy.com/https://github.com/Tri250/-/releases/download/v1.0.13/BatteryData-1.0.13.apk",
+    "https://ghfast.top/https://github.com/Tri250/-/releases/download/v1.0.13/BatteryData-1.0.13.apk",
+    "https://mirror.ghproxy.com/https://github.com/Tri250/-/releases/download/v1.0.13/BatteryData-1.0.13.apk",
+    "https://github.com/Tri250/-/releases/download/v1.0.13/BatteryData-1.0.13.apk"
   ]
 }
