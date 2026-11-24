@@ -129,12 +129,12 @@ object ApkUpdater {
                         onProgress(percent, downloaded, total)
                     }
                     output.flush()
+                    // 连接被网络中途切断时 read 循环会“正常”结束但数据不全，
+                    // 这里按 Content-Length 把关，不完整的包当场报错换下一个源
+                    if (total > 0L && downloaded != total) {
+                        throw IllegalStateException("下载不完整：$downloaded / $total")
+                    }
                 }
-            }
-            // 连接被网络中途切断时 read 循环会“正常”结束但数据不全，
-            // 这里按 Content-Length 把关，不完整的包当场报错换下一个源
-            if (total > 0L && downloaded != total) {
-                throw IllegalStateException("下载不完整：$downloaded / $total")
             }
             if (target.exists()) target.delete()
             if (!partial.renameTo(target)) throw IllegalStateException("写入安装包失败")
