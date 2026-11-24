@@ -19,6 +19,8 @@ internal class SysfsBatteryReader {
 
     private var cache: Raw = Raw()
     private var lastReadAt = 0L
+    /** 电池目录定位结果缓存：readInstant 每秒调用，不能再做全目录 type 探测 */
+    @Volatile private var cachedBatteryDir: File? = null
 
     fun read(force: Boolean = false): Raw {
         val now = System.currentTimeMillis()
@@ -29,25 +31,36 @@ internal class SysfsBatteryReader {
     }
 
     /**
-     * 即时读电流/电压（电池目录由 [batteryDirOrNull] 定位）。
+     * 即时读电流/电压（电池目录由 [batteryDirCached] 定位）。
      * 这两个是每秒变化的快变量，不能走 15 秒缓存；厂商节点不统一，按常见度逐个尝试。
      * 返回 (电流 mA, 电压 mV)，读不到的项为 null。
      */
     fun readInstant(): Pair<Float?, Float?> = runCatching {
-        val root = File("/sys/class/power_supply")
-        val dir = batteryDirOrNull(root.listFiles()?.filter { it.isDirectory }.orEmpty())
-        if (dir == null) null to null
-        else {
-            // 节点单位基本是 µA / µV（个别老内核 mA/mV，数值 < 10000 时按原值用）
-            val currentMa = listOf("current_now", "current_avg")
-                .firstNotNullOfOrNull { readValue(File(dir, it))?.toFloatOrNull() }
-                ?.let { if (abs(it) > 10_000f) it / 1000f else it }
-            val voltageMv = listOf("voltage_now", "voltage_avg")
-                .firstNotNullOfOrNull { readValue(File(dir, it))?.toFloatOrNull() }
-                ?.let { if (it > 10_000f) it / 1000f else it }
-            currentMa to voltageMv
-        }
+        val dir = batteryDirCached() ?: return null to null
+        // 节点单位基本是 µA / µV（个别老内核 mA/mV，数值 < 10000 时按原值用）
+        val currentMa = listOf("current_now", "current_avg")
+            .firstNotNullOfOrNull { readValue(File(dir, it))?.toFloatOrNull() }
+            ?.let { if (abs(it) > 10_000f) it / 1000f else it }
+        val voltageMv = listOf("voltage_now", "voltage_avg")
+            .firstNotNullOfOrNull { readValue(File(dir, it))?.toFloatOrNull() }
+            ?.let { if (it > 10_000f) it / 1000f else it }
+        currentMa to voltageMv
     }.getOrDefault(null to null)
+
+    /** 定位电池目录：只做一次全目录扫描，之后每秒直接复用路径（读不到 current/voltage 再重定位） */
+    private fun batteryDirCached(): File? {
+        cachedBatteryDir?.let { return it }
+        val root = File("/sys/class/power_supply")
+        val dir = batteryDirOrNull(root.listFiles()?.filter { it.isDirectory }.orEmpty()) ?: return null
+        // 校验这个目录真的挂了电流/电压节点，防止误锁定 usb/dc 节点
+        val usable = listOf("current_now", "current_avg", "voltage_now", "voltage_avg")
+            .any { File(dir, it).let { f -> f.exists() && f.canRead() } }
+        if (usable) {
+            cachedBatteryDir = dir
+            return dir
+        }
+        return null
+    }
 
     private fun batteryDirOrNull(dirs: List<File>): File? {
         val battery = dirs.firstOrNull { dir ->
