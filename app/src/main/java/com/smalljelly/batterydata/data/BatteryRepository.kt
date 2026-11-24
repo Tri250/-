@@ -33,7 +33,7 @@ class BatteryRepository(private val context: Context) {
 
     /**
      * 库仑计差分滑窗：(时间戳 ms, counter mAh)。系统电流读数被 ROM 关掉时，
-     * 用电量计 30 秒滑窗的差分反推平均电流——物理上真实有效，不依赖厂商节点。
+     * 用电量计 10 秒滑窗的差分反推平均电流——物理上真实有效，不依赖厂商节点。
      */
     private val counterWindow = ArrayDeque<Pair<Long, Float>>()
 
@@ -103,19 +103,20 @@ class BatteryRepository(private val context: Context) {
         val sysfsVoltageMv = instant.second?.toInt() ?: 0
 
         // 系统电流与 sysfs 节点全失效（SELinux 锁死节点）时，退到库仑计差分：
-        // 30 秒滑窗内用电量计的变化反推平均电流，符号天然正确（电量降=放电=负）
+        // 10 秒滑窗内用电量计的变化反推平均电流，符号天然正确（电量降=放电=负）；
+        // 窗口取 10 秒保证数字每秒都有可感知的跳变，不至于慢到像冻结
         val diffCurrentMa = if (rawCurrent == null && sysfsCurrentMa == null) {
             counterUah?.let { uah ->
                 // snapshot() 与 stream() 可能并发调用，滑窗必须同步
                 synchronized(counterWindow) {
                     val now = System.currentTimeMillis()
                     counterWindow.addLast(now to uah / 1000f)
-                    while (counterWindow.isNotEmpty() && now - counterWindow.first().first > 30_000L) {
+                    while (counterWindow.isNotEmpty() && now - counterWindow.first().first > 10_000L) {
                         counterWindow.removeFirst()
                     }
                     val first = counterWindow.first()
                     val hours = (now - first.first) / 3_600_000f
-                    if (hours > 0f && counterWindow.size >= 8) {
+                    if (hours > 0f && counterWindow.size >= 4) {
                         val deltaMah = (uah / 1000f) - first.second
                         val ma = deltaMah / hours
                         ma.takeIf { abs(it) < 10_000f }

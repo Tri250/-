@@ -56,13 +56,14 @@ fun RealtimeStatsCard(
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             StatCell(
                 label = "电压",
-                value = String.format(Locale.US, "%.2f", sample.voltageMv / 1000f),
+                // 3 位小数：mV 级变化每秒可见，2 位会掩盖 10mV 内的波动
+                value = String.format(Locale.US, "%.3f", sample.voltageMv / 1000f),
                 unit = "V",
                 caption = if (sample.voltageEstimated) "估算值" else null,
             )
             StatCell(
                 label = "电流",
-                value = current?.let { String.format(Locale.US, "%.2f", abs(it) / 1000f) } ?: "—",
+                value = current?.let { String.format(Locale.US, "%.3f", abs(it) / 1000f) } ?: "—",
                 unit = "A",
                 caption = current?.let {
                     (if (it > 0) "充电" else "放电") + if (sample.currentEstimated) " · 估算" else ""
@@ -75,7 +76,7 @@ fun RealtimeStatsCard(
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             StatCell(
                 label = "功率",
-                value = sample.powerW?.let { String.format(Locale.US, "%.2f", abs(it)) } ?: "—",
+                value = sample.powerW?.let { String.format(Locale.US, "%.3f", abs(it)) } ?: "—",
                 unit = "W",
             )
             StatCell(
